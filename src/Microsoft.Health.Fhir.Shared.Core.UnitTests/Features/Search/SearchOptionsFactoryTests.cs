@@ -5,12 +5,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Utility;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -175,6 +177,47 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     null,
                     "(Union (All) [(And (And (Param ResourceType (StringEquals TokenCode 'Observation')) code1=doo)) OR (And (And (Param ResourceType (StringEquals TokenCode 'Encounter')) code2=goo))])",
                 };
+                yield return new object[]
+                {
+                    null,
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction("Patient", DataActions.Search, "system"),
+                        new ScopeRestriction("Observation", DataActions.ReadById, "system"),
+                    },
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create("_type", "Observation"),
+                    },
+                    "(Param ResourceType (StringEquals TokenCode 'none'))",
+                };
+                yield return new object[]
+                {
+                    null,
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction(KnownResourceTypes.All, DataActions.ReadById, "system"),
+                        new ScopeRestriction("Patient", DataActions.Search, "system"),
+                    },
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create("_type", "Patient,Observation"),
+                    },
+                    "(Param ResourceType (StringEquals TokenCode 'Patient'))",
+                };
+                yield return new object[]
+                {
+                    null,
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction("Observation", DataActions.Read, "system"),
+                    },
+                    new List<Tuple<string, string>>
+                    {
+                        Tuple.Create("_type", "Observation"),
+                    },
+                    "(Param ResourceType (StringEquals TokenCode 'Observation'))",
+                };
             }
         }
 
@@ -242,6 +285,72 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.NotNull(options);
             Assert.True(options.CountOnly);
+        }
+
+        [Fact]
+        public void GivenDuplicateSearchParameterWithSameValue_WhenCreated_ThenSearchParameterIsParsedOnce()
+        {
+            const string parameterName = "_tag";
+            const string parameterValue = "system|code";
+
+            _expressionParser.Parse(
+                Arg.Is<string[]>(x => x.Length == 1 && x[0] == DefaultResourceType),
+                parameterName,
+                parameterValue)
+                .Returns(new StubExpression($"{parameterName}={parameterValue}"));
+
+            var queryParameters = new[]
+            {
+                Tuple.Create(parameterName, parameterValue),
+                Tuple.Create(parameterName, parameterValue),
+            };
+
+            SearchOptions options = CreateSearchOptions(queryParameters: queryParameters);
+
+            Assert.NotNull(options);
+            _expressionParser.Received(1).Parse(
+                Arg.Is<string[]>(x => x.Length == 1 && x[0] == DefaultResourceType),
+                parameterName,
+                parameterValue);
+        }
+
+        [Fact]
+        public void GivenDuplicateSearchParameterNameWithDifferentValues_WhenCreated_ThenBothSearchParametersAreParsed()
+        {
+            const string parameterName = "_tag";
+            const string firstParameterValue = "system|code1";
+            const string secondParameterValue = "system|code2";
+
+            _expressionParser.Parse(
+                Arg.Is<string[]>(x => x.Length == 1 && x[0] == DefaultResourceType),
+                parameterName,
+                firstParameterValue)
+                .Returns(new StubExpression($"{parameterName}={firstParameterValue}"));
+
+            _expressionParser.Parse(
+                Arg.Is<string[]>(x => x.Length == 1 && x[0] == DefaultResourceType),
+                parameterName,
+                secondParameterValue)
+                .Returns(new StubExpression($"{parameterName}={secondParameterValue}"));
+
+            var queryParameters = new[]
+            {
+                Tuple.Create(parameterName, firstParameterValue),
+                Tuple.Create(parameterName, secondParameterValue),
+            };
+
+            SearchOptions options = CreateSearchOptions(queryParameters: queryParameters);
+
+            Assert.NotNull(options);
+            _expressionParser.Received(1).Parse(
+                Arg.Is<string[]>(x => x.Length == 1 && x[0] == DefaultResourceType),
+                parameterName,
+                firstParameterValue);
+
+            _expressionParser.Received(1).Parse(
+                Arg.Is<string[]>(x => x.Length == 1 && x[0] == DefaultResourceType),
+                parameterName,
+                secondParameterValue);
         }
 
         [Theory]
@@ -453,6 +562,105 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotNull(options);
             Assert.NotNull(options.Sort);
             Assert.Equal((_lastUpdatedSearchParameterInfo, sortOrder), Assert.Single(options.Sort));
+        }
+
+        [Fact]
+        public void GivenSemanticSearchWithScoreSort_WhenCreated_ThenScoreSortIsAccepted()
+        {
+            const string semanticParameterName = "semantic-text";
+            var vectorParameter = new SearchParameterInfo(semanticParameterName, semanticParameterName, Microsoft.Health.Fhir.ValueSets.SearchParamType.Special);
+            _expressionParser.Parse(Arg.Any<string[]>(), semanticParameterName, "fracture").Returns(new VectorSearchExpression(vectorParameter, "fracture"));
+            _sortingValidator.ValidateSorting(default, out Arg.Any<IReadOnlyList<string>>()).ReturnsForAnyArgs(true);
+            var queryParameters = new[]
+            {
+                Tuple.Create(semanticParameterName, "fracture"),
+                Tuple.Create(KnownQueryParameterNames.Sort, SearchParameterNames.Score),
+            };
+
+            SearchOptions options = CreateSearchOptions(resourceType: "Patient", queryParameters: queryParameters);
+
+            Assert.Equal((SearchParameterInfo.ScoreSearchParameter, SortOrder.Ascending), Assert.Single(options.Sort));
+            Assert.DoesNotContain(_defaultFhirRequestContext.BundleIssues, issue => issue.Diagnostics.Contains(SearchParameterNames.Score, StringComparison.Ordinal));
+        }
+
+        [Theory]
+        [InlineData(false, "_score")]
+        [InlineData(true, "-_score")]
+        public void GivenUnsupportedScoreSort_WhenCreated_ThenScoreSortIsRejected(bool isSemanticSearch, string scoreSort)
+        {
+            const string semanticParameterName = "semantic-text";
+            var vectorParameter = new SearchParameterInfo(semanticParameterName, semanticParameterName, Microsoft.Health.Fhir.ValueSets.SearchParamType.Special);
+            if (isSemanticSearch)
+            {
+                _expressionParser.Parse(Arg.Any<string[]>(), semanticParameterName, "fracture").Returns(new VectorSearchExpression(vectorParameter, "fracture"));
+            }
+
+            var queryParameters = new List<Tuple<string, string>>();
+            if (isSemanticSearch)
+            {
+                queryParameters.Add(Tuple.Create(semanticParameterName, "fracture"));
+            }
+
+            queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Sort, scoreSort));
+
+            SearchOptions options = CreateSearchOptions(resourceType: "Patient", queryParameters: queryParameters);
+
+            Assert.Empty(options.Sort);
+            Assert.Contains(_defaultFhirRequestContext.BundleIssues, issue => issue.Diagnostics.Contains(SearchParameterNames.Score, StringComparison.Ordinal));
+        }
+
+        [Theory]
+        [InlineData("_score", "_lastUpdated")]
+        [InlineData("_score", "-_lastUpdated")]
+        [InlineData("_type", "_score")]
+        public void GivenSemanticSearchWithCompoundScoreSort_WhenCreated_ThenSortIsRejectedBeforeSortingValidation(string firstSort, string secondSort)
+        {
+            // _score is only valid as the sole sort key. The sorting validator cannot represent _score in a compound
+            // sort, so the factory has to reject the combination itself.
+            const string semanticParameterName = "semantic-text";
+            var vectorParameter = new SearchParameterInfo(semanticParameterName, semanticParameterName, Microsoft.Health.Fhir.ValueSets.SearchParamType.Special);
+            _expressionParser.Parse(Arg.Any<string[]>(), semanticParameterName, "fracture").Returns(new VectorSearchExpression(vectorParameter, "fracture"));
+            _sortingValidator.ValidateSorting(default, out Arg.Any<IReadOnlyList<string>>()).ReturnsForAnyArgs(true);
+            var queryParameters = new[]
+            {
+                Tuple.Create(semanticParameterName, "fracture"),
+                Tuple.Create(KnownQueryParameterNames.Sort, firstSort),
+                Tuple.Create(KnownQueryParameterNames.Sort, secondSort),
+            };
+
+            SearchOptions options = CreateSearchOptions(resourceType: "Patient", queryParameters: queryParameters);
+
+            Assert.Empty(options.Sort);
+            Assert.Contains(
+                _defaultFhirRequestContext.BundleIssues,
+                issue => issue.Diagnostics == string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchSortParameterNotSupported, SearchParameterNames.Score));
+            _sortingValidator.DidNotReceiveWithAnyArgs().ValidateSorting(default, out Arg.Any<IReadOnlyList<string>>());
+        }
+
+        [Fact]
+        public void GivenSemanticSearchWithCompoundScoreSortAndStrictHandling_WhenCreated_ThenBadRequestIsThrown()
+        {
+            const string semanticParameterName = "semantic-text";
+            var vectorParameter = new SearchParameterInfo(semanticParameterName, semanticParameterName, Microsoft.Health.Fhir.ValueSets.SearchParamType.Special);
+            _expressionParser.Parse(Arg.Any<string[]>(), semanticParameterName, "fracture").Returns(new VectorSearchExpression(vectorParameter, "fracture"));
+            _sortingValidator.ValidateSorting(default, out Arg.Any<IReadOnlyList<string>>()).ReturnsForAnyArgs(true);
+            _defaultFhirRequestContext.RequestHeaders = new Dictionary<string, StringValues>
+            {
+                { KnownHeaders.Prefer, new StringValues("handling=strict") },
+            };
+            var queryParameters = new[]
+            {
+                Tuple.Create(semanticParameterName, "fracture"),
+                Tuple.Create(KnownQueryParameterNames.Sort, SearchParameterNames.Score),
+                Tuple.Create(KnownQueryParameterNames.Sort, SearchParameterNames.LastUpdated),
+            };
+
+            BadRequestException exception = Assert.Throws<BadRequestException>(
+                () => CreateSearchOptions(resourceType: "Patient", queryParameters: queryParameters));
+
+            Assert.Equal(
+                string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchSortParameterNotSupported, SearchParameterNames.Score),
+                exception.Message);
         }
 
         [Fact]
@@ -734,6 +942,243 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Throws<BadRequestException>(() => CreateSearchOptions(isIncludesOperation: true));
         }
 
+        [Fact]
+        public void GivenSemanticSearchWithIncludesSupport_WhenCreated_ThenIncludesOperationIsNotSupported()
+        {
+            // A semantic search cannot resume an includes continuation, so overflowing includes must be truncated
+            // with a warning instead of being replayed through the $includes operation.
+            _coreFeatures.SupportsIncludes = true;
+
+            SearchOptions options = CreateSearchOptions(resourceType: "Patient", queryParameters: new[] { CreateSemanticQueryParameter() });
+
+            Assert.False(options.IncludesOperationSupported);
+        }
+
+        [Fact]
+        public void GivenNonSemanticSearchWithIncludesSupport_WhenCreated_ThenIncludesOperationIsSupported()
+        {
+            _coreFeatures.SupportsIncludes = true;
+
+            SearchOptions options = CreateSearchOptions();
+
+            Assert.True(options.IncludesOperationSupported);
+        }
+
+        [Fact]
+        public void GivenIncludesOperationOverSemanticSearch_WhenCreated_ThenBadRequestIsThrown()
+        {
+            _coreFeatures.SupportsIncludes = true;
+
+            BadRequestException exception = Assert.Throws<BadRequestException>(() => CreateSearchOptions(
+                resourceType: "Patient",
+                queryParameters: new[]
+                {
+                    CreateSemanticQueryParameter(),
+                    Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode("123")),
+                },
+                isIncludesOperation: true));
+
+            Assert.Contains("$includes", exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenQueryParameters_WhenSearchOptionsCreated_ThenNormalizedQueryContainsOnlySortedNames()
+        {
+            // Arrange
+            var queryParameters = new[]
+            {
+                Tuple.Create(KnownQueryParameterNames.Count, "25"),
+                Tuple.Create("name", "Alice"),
+                Tuple.Create("name", "Bob"),
+            };
+
+            // Act
+            SearchOptions options = CreateSearchOptions(queryParameters: queryParameters);
+
+            // Assert
+            Assert.Equal("Patient?_count&name&name", options.NormalizedQueryShape);
+        }
+
+        [Fact]
+        public void GivenCompartmentSearch_WhenSearchOptionsCreated_ThenCompartmentIdIsNotIncluded()
+        {
+            // Act
+            SearchOptions options = CreateSearchOptions(
+                resourceType: "Observation",
+                queryParameters: [],
+                compartmentType: "Patient",
+                compartmentId: "recognizable-patient-id");
+
+            // Assert
+            Assert.Equal("Patient/$compartment/Observation", options.NormalizedQueryShape);
+        }
+
+        [Fact]
+        public void GivenHistorySearch_WhenSearchOptionsCreated_ThenHistoryScopeIsIncluded()
+        {
+            // Act
+            SearchOptions options = CreateSearchOptions(
+                resourceType: "Patient",
+                queryParameters: [],
+                resourceVersionTypes: ResourceVersionType.Latest | ResourceVersionType.History | ResourceVersionType.SoftDeleted);
+
+            // Assert
+            Assert.Equal("Patient/_history", options.NormalizedQueryShape);
+        }
+
+        [Fact]
+        public void GivenUnsupportedParameterName_WhenSearchOptionsCreated_ThenRawNameIsNotIncluded()
+        {
+            // Arrange
+            const string unsupportedName = "MRN-123456789";
+            _expressionParser.Parse(Arg.Any<string[]>(), unsupportedName, Arg.Any<string>())
+                .Throws(new SearchParameterNotSupportedException(typeof(Patient), unsupportedName));
+            var queryParameters = new[]
+            {
+                Tuple.Create(unsupportedName, "ignored"),
+            };
+
+            // Act
+            SearchOptions options = CreateSearchOptions(queryParameters: queryParameters);
+
+            // Assert
+            Assert.Equal("Patient?_unsupported", options.NormalizedQueryShape);
+        }
+
+        [Theory]
+        [InlineData(DataActions.Read)]
+        [InlineData(DataActions.ReadById)]
+        public void GivenReadOrReadByIdScope_WhenCreatingReadByIdSearch_ThenScopeIsApplied(DataActions grantedAction)
+        {
+            // GetResourceHandler passes Read | ReadById because either a legacy .read scope or a SMART v2 .r scope
+            // authorizes a direct read by id. Verify each one independently satisfies the scope filter.
+            _defaultFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
+            _defaultFhirRequestContext.AccessControlContext.AllowedResourceActions.Add(
+                new ScopeRestriction(KnownResourceTypes.All, grantedAction, "system"));
+
+            SearchOptions options = _factory.Create(
+                KnownResourceTypes.Observation,
+                queryParameters: null,
+                scopeDataActions: DataActions.Read | DataActions.ReadById);
+
+            ValidateResourceTypeSearchParameterExpression(options.Expression, KnownResourceTypes.Observation);
+            Assert.Equal(DataActions.Read | DataActions.ReadById, options.ScopeDataActions);
+        }
+
+        [Fact]
+        public void GivenWildcardReadByIdAndPatientSearchScopes_WhenIncludingPractitioner_ThenIncludeIsDropped()
+        {
+            // system/*.r grants read by id for every type but search only for Patient, so
+            // Patient?_include=Patient:general-practitioner:Practitioner must not return Practitioner resources.
+            _defaultFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
+            _defaultFhirRequestContext.AccessControlContext.AllowedResourceActions.Add(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.ReadById, "system"));
+            _defaultFhirRequestContext.AccessControlContext.AllowedResourceActions.Add(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Search, "system"));
+
+            var generalPractitioner = new SearchParameterInfo(
+                "general-practitioner",
+                "general-practitioner",
+                ValueSets.SearchParamType.Reference,
+                targetResourceTypes: new[] { KnownResourceTypes.Practitioner, KnownResourceTypes.Organization, "PractitionerRole" });
+
+            const string include = "Patient:general-practitioner:Practitioner";
+            _expressionParser.ParseInclude(Arg.Any<string[]>(), include, false, false, Arg.Any<IReadOnlyCollection<string>>())
+                .Returns(x => new IncludeExpression(
+                    x.ArgAt<string[]>(0),
+                    generalPractitioner,
+                    KnownResourceTypes.Patient,
+                    KnownResourceTypes.Practitioner,
+                    referencedTypes: null,
+                    wildCard: false,
+                    reversed: false,
+                    iterate: false,
+                    x.ArgAt<IReadOnlyCollection<string>>(4)));
+
+            SearchOptions options = _factory.Create(
+                KnownResourceTypes.Patient,
+                queryParameters: new[] { Tuple.Create(SearchParameterNames.Include, include) });
+
+            // The wildcard read-by-id scope must not be offered to the include parser as an allowed type.
+            _expressionParser.Received(1).ParseInclude(
+                Arg.Any<string[]>(),
+                include,
+                false,
+                false,
+                Arg.Is<IReadOnlyCollection<string>>(resourceTypes =>
+                    resourceTypes.Count == 1 &&
+                    resourceTypes.Contains(KnownResourceTypes.Patient)));
+            Assert.DoesNotContain("Include", options.Expression.ToString(), StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData("_revinclude:iterate", false)]
+        [InlineData("_revinclude:iterate", true)]
+        [InlineData("_revinclude:recurse", false)]
+        [InlineData("_revinclude:recurse", true)]
+        public void GivenReverseIterativeIncludeWithMultipleTargets_WhenCreated_ThenExplicitTargetIsRequired(string parameter, bool explicitTarget)
+        {
+            // Arrange
+            var definitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            definitionManager.GetSearchParameter(KnownResourceTypes.Observation, "subject")
+                .Returns(new SearchParameterInfo(
+                    "subject",
+                    "subject",
+                    ValueSets.SearchParamType.Reference,
+                    targetResourceTypes: new[] { KnownResourceTypes.Patient, KnownResourceTypes.Group }));
+            var parser = new ExpressionParser(() => definitionManager, Substitute.For<ISearchParameterExpressionParser>());
+            _expressionParser.ParseInclude(Arg.Any<string[]>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<IReadOnlyCollection<string>>())
+                .Returns(call => parser.ParseInclude(
+                    call.ArgAt<string[]>(0),
+                    call.ArgAt<string>(1),
+                    call.ArgAt<bool>(2),
+                    call.ArgAt<bool>(3),
+                    call.ArgAt<IReadOnlyCollection<string>>(4)));
+            var query = new[] { Tuple.Create(parameter, explicitTarget ? "Observation:subject:Patient" : "Observation:subject") };
+
+            // Act and assert
+            if (explicitTarget)
+            {
+                var options = _factory.Create(KnownResourceTypes.Observation, query);
+                Assert.Empty(options.UnsupportedSearchParams);
+                Assert.Contains("Include", options.Expression.ToString(), StringComparison.Ordinal);
+            }
+            else
+            {
+                var exception = Assert.Throws<BadRequestException>(() => _factory.Create(KnownResourceTypes.Observation, query));
+                Assert.Equal(string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, "Observation:subject"), exception.Message);
+            }
+        }
+
+        [Fact]
+        public void GivenReadByIdScopeForRequestedIncludeType_WhenCreatingSystemSearch_ThenIncludeIsSkipped()
+        {
+            _defaultFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
+            _defaultFhirRequestContext.AccessControlContext.AllowedResourceActions.Add(
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.ReadById, "system"));
+            _defaultFhirRequestContext.AccessControlContext.AllowedResourceActions.Add(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Search, "system"));
+            _expressionParser.Parse(Arg.Any<string[]>(), Arg.Any<string>(), Arg.Any<string>())
+                .Returns(new StubExpression("query"));
+
+            const string include = "Observation:subject";
+            SearchOptions options = _factory.Create(
+                resourceType: null,
+                queryParameters: new[]
+                {
+                    Tuple.Create(KnownQueryParameterNames.Type, KnownResourceTypes.Observation),
+                    Tuple.Create(SearchParameterNames.Include, include),
+                });
+
+            _expressionParser.DidNotReceive().ParseInclude(
+                Arg.Any<string[]>(),
+                include,
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<IReadOnlyCollection<string>>());
+            Assert.Contains("'none'", options.Expression.ToString(), StringComparison.Ordinal);
+        }
+
         [Theory]
         [MemberData(nameof(GetSearchParameterTestData))]
         public void Create_AddsFineGrainedAccessControlWithSearchParametersExpressions_UsingMemberData(string resourceType, List<ScopeRestriction> scopeRestrictions, List<Tuple<string, string>> queryParameters, string expectedSubstring)
@@ -809,6 +1254,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             return _factory.Create(compartmentType, compartmentId, resourceType, queryParameters, resourceVersionTypes: resourceVersionTypes, isIncludesOperation: isIncludesOperation);
         }
 
+        private Tuple<string, string> CreateSemanticQueryParameter()
+        {
+            const string semanticParameterName = "semantic-text";
+            var vectorParameter = new SearchParameterInfo(semanticParameterName, semanticParameterName, Microsoft.Health.Fhir.ValueSets.SearchParamType.Special);
+            _expressionParser.Parse(Arg.Any<string[]>(), semanticParameterName, "fracture").Returns(new VectorSearchExpression(vectorParameter, "fracture"));
+
+            return Tuple.Create(semanticParameterName, "fracture");
+        }
+
         // A simple stub implementation for Expression used in our test.
         private class StubExpression : Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression
         {
@@ -831,7 +1285,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
             {
-                throw new NotImplementedException();
+                return this is TOutput self ? self : default;
             }
         }
 

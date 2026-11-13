@@ -14,13 +14,16 @@ using AngleSharp.Html.Dom.Events;
 using AngleSharp.Html.Parser;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 {
     public class NarrativeHtmlSanitizer : INarrativeHtmlSanitizer
     {
         private readonly ILogger _logger;
+        private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
 
         private static readonly HashSet<string> AllowedElements = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -131,12 +134,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             "xmlns",
         };
 
-        private static readonly ISet<string> Src = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        private static readonly ISet<string> AllowedSrcSchemes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "#",
             "data:",
             "http:",
             "https:",
+        };
+
+        private static readonly ISet<string> DangerousHrefSchemes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "javascript:",
+            "vbscript:",
+            "data:",
+            "livescript:",
+            "file:",
+            "blob:",
+            "ftp:",
+            "ms-its:",
+            "mhtml:",
+            "jar:",
         };
 
         // Obvious invalid structural parsing errors to report
@@ -153,11 +170,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 
         private const string HtmlTemplate = "<!DOCTYPE html><body>{0}</body>";
 
-        public NarrativeHtmlSanitizer(ILogger<NarrativeHtmlSanitizer> logger)
+        public NarrativeHtmlSanitizer(ILogger<NarrativeHtmlSanitizer> logger, IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
 
             _logger = logger;
+            _coreFeatureConfiguration = coreFeatureConfiguration.Value;
         }
 
         /// <summary>
@@ -197,8 +216,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                 // the provided html must be contained within a <div> element.
                 // Here we check the Body element has exactly 1 child that is a Div
 
-                if (htmlBodyElement?.Children?.Length != 1
-                    || !(htmlBodyElement.Children?.FirstOrDefault() is IHtmlDivElement containerDiv))
+                var bodyChildren = htmlBodyElement?.Children;
+                if (bodyChildren == null || bodyChildren.Length != 1)
+                {
+                    yield return Core.Resources.IllegalHtmlOuterDiv;
+                    yield break;
+                }
+
+                var containerDiv = bodyChildren[0] as IHtmlDivElement;
+                if (containerDiv == null)
                 {
                     yield return Core.Resources.IllegalHtmlOuterDiv;
                     yield break;
@@ -213,10 +239,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 
                 var invalidHtml = new List<string>();
 
+                Action<IElement, IAttr> dangerousHrefHandler;
+                if (_coreFeatureConfiguration.RejectDangerousNarrativeHrefs)
+                {
+                    dangerousHrefHandler = (el, attr) => invalidHtml.Add(string.Format(Core.Resources.IllegalHtmlAttribute, attr.Name, el.NodeName));
+                }
+                else
+                {
+                    dangerousHrefHandler = (el, attr) => _logger.LogWarning("Narrative HTML contains a potentially dangerous href scheme in attribute '{Attribute}' on element '{Element}'. Value: '{Value}'.", attr.Name, el.NodeName, attr.Value);
+                }
+
                 CheckHtmlElements(
                     containerDiv,
                     el => invalidHtml.Add(string.Format(Core.Resources.IllegalHtmlElement, el.NodeName)),
-                    (el, attr) => invalidHtml.Add(string.Format(Core.Resources.IllegalHtmlAttribute, attr.Name, el.NodeName)));
+                    (el, attr) => invalidHtml.Add(string.Format(Core.Resources.IllegalHtmlAttribute, attr.Name, el.NodeName)),
+                    dangerousHrefHandler);
 
                 foreach (var htmlError in invalidHtml)
                 {
@@ -249,6 +286,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                     CheckHtmlElements(
                         containerDiv,
                         el => el.Replace(el.ChildNodes.ToArray()),
+                        (el, attr) => el.RemoveAttribute(attr.Name),
                         (el, attr) => el.RemoveAttribute(attr.Name));
 
                     dom.Normalize();
@@ -261,13 +299,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
         private static void CheckHtmlElements(
             IHtmlDivElement htmlDivElement,
             Action<IElement> onInvalidElement,
-            Action<IElement, IAttr> onInvalidAttr)
+            Action<IElement, IAttr> onInvalidAttr,
+            Action<IElement, IAttr> onDangerousHref)
         {
             EnsureArg.IsNotNull(htmlDivElement, nameof(htmlDivElement));
             EnsureArg.IsNotNull(onInvalidElement, nameof(onInvalidElement));
             EnsureArg.IsNotNull(onInvalidAttr, nameof(onInvalidAttr));
+            EnsureArg.IsNotNull(onDangerousHref, nameof(onDangerousHref));
 
-            ValidateAttributes(htmlDivElement, onInvalidAttr);
+            ValidateAttributes(htmlDivElement, onInvalidAttr, onDangerousHref);
 
             // Ensure only allowed elements and attributes are used
             foreach (IElement element in htmlDivElement.QuerySelectorAll("*"))
@@ -277,11 +317,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                     onInvalidElement(element);
                 }
 
-                ValidateAttributes(element, onInvalidAttr);
+                ValidateAttributes(element, onInvalidAttr, onDangerousHref);
             }
         }
 
-        private static void ValidateAttributes(IElement element, Action<IElement, IAttr> onInvalidAttr)
+        private static void ValidateAttributes(IElement element, Action<IElement, IAttr> onInvalidAttr, Action<IElement, IAttr> onDangerousHref)
         {
             foreach (IAttr attr in element.Attributes.ToArray())
             {
@@ -292,12 +332,48 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 
                 if (string.Equals("src", attr.Name, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (!Src.Any(x => attr.Value.StartsWith(x, StringComparison.OrdinalIgnoreCase)))
+                    string normalizedSrc = NormalizeUrlSchemeValue(attr.Value);
+                    if (!AllowedSrcSchemes.Any(x => normalizedSrc.StartsWith(x, StringComparison.OrdinalIgnoreCase)))
                     {
                         onInvalidAttr(element, attr);
                     }
                 }
+
+                if (string.Equals("href", attr.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    string normalizedHref = NormalizeUrlSchemeValue(attr.Value);
+                    if (DangerousHrefSchemes.Any(x => normalizedHref.StartsWith(x, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        onDangerousHref(element, attr);
+                    }
+                }
             }
+        }
+
+        /// <summary>
+        /// Removes leading ASCII whitespace and C0 control characters (U+0000 through U+0020, inclusive)
+        /// from a URL-like attribute value before performing scheme comparisons.
+        /// Browsers strip these characters when resolving a URL's scheme (see the WHATWG URL specification's
+        /// "leading and trailing C0 control or space" trimming step), so values such as " javascript:alert(1)"
+        /// or "\tjavascript:alert(1)" would otherwise bypass a naive <see cref="string.StartsWith(string, StringComparison)"/> check.
+        /// This only affects the value used for scheme detection; the original attribute value is left untouched.
+        /// </summary>
+        /// <param name="value">The raw attribute value.</param>
+        /// <returns>The value with any leading C0 control/space characters removed.</returns>
+        private static string NormalizeUrlSchemeValue(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return value;
+            }
+
+            int start = 0;
+            while (start < value.Length && value[start] <= '\u0020')
+            {
+                start++;
+            }
+
+            return start == 0 ? value : value.Substring(start);
         }
     }
 }

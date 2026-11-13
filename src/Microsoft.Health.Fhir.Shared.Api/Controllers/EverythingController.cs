@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,12 +10,14 @@ using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Api.Features.Filters.Metrics;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.Everything;
@@ -35,6 +37,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     {
         private readonly IMediator _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
+        private readonly ILogger<EverythingController> _logger;
         private static readonly HashSet<string> _supportedParameters = new()
         {
             EverythingOperationParameterNames.Start,
@@ -46,13 +49,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         public EverythingController(
             IMediator mediator,
-            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
+            ILogger<EverythingController> logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _mediator = mediator;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
+            _logger = logger;
         }
 
         /// <summary>
@@ -67,6 +73,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.PatientEverythingById, Name = RouteNames.PatientEverythingById)]
         [AuditEventType(AuditEventSubType.Everything)]
+        [TypeFilter(typeof(SearchEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> PatientEverythingById(
             string idParameter,
             [FromQuery(Name = EverythingOperationParameterNames.Start)] PartialDateTime start,
@@ -77,9 +84,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             IReadOnlyList<Tuple<string, string>> unsupportedParameters = ReadUnsupportedParameters();
 
-            EverythingOperationResponse result = await _mediator.Send(new EverythingOperationRequest(ResourceType.Patient.ToString(), idParameter, start, end, since, type, ct, unsupportedParameters), HttpContext.RequestAborted);
+            EverythingOperationResponse result = await _mediator.SendAsync(new EverythingOperationRequest(ResourceType.Patient.ToString(), idParameter, start, end, since, type, ct, unsupportedParameters), HttpContext.RequestAborted);
 
-            return FhirResult.Create(result.Bundle);
+            return FhirResult.Create(_logger, result.Bundle);
         }
 
         private List<Tuple<string, string>> ReadUnsupportedParameters()

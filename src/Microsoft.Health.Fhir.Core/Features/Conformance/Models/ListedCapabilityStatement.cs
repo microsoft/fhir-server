@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
@@ -21,11 +22,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
             Id = new ResourceIdProvider().Create();
             Status = new DefaultOptionHashSet<string>("draft", StringComparer.Ordinal);
             Kind = new DefaultOptionHashSet<string>("capability", StringComparer.Ordinal);
-            Rest = new HashSet<ListedRestComponent>(new PropertyEqualityComparer<ListedRestComponent>(x => x.Mode));
-            Format = new HashSet<string>(StringComparer.Ordinal);
-            PatchFormat = new HashSet<string>(StringComparer.Ordinal);
-            AdditionalData = new Dictionary<string, JToken>();
-            Profile = new List<ReferenceComponent>();
+            Rest = new ThreadSafeHashSet<ListedRestComponent>(new PropertyEqualityComparer<ListedRestComponent>(x => x.Mode));
+            Format = new ThreadSafeHashSet<string>(StringComparer.Ordinal);
+            PatchFormat = new ThreadSafeHashSet<string>(StringComparer.Ordinal);
+            AdditionalData = new ConcurrentDictionary<string, JToken>();
+            Profile = new ThreadSafeList<ReferenceComponent>();
         }
 
         public string ResourceType { get; } = "CapabilityStatement";

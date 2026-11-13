@@ -11,12 +11,11 @@ using System.Numerics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using MediatR;
+using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -24,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -50,9 +50,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public class SqlServerSchemaUpgradeTests
     {
         private const string MasterDatabaseName = "master";
+        private readonly ITestOutputHelper _output;
 
-        public SqlServerSchemaUpgradeTests()
+        public SqlServerSchemaUpgradeTests(ITestOutputHelper output)
         {
+            _output = output;
         }
 
         [Fact]
@@ -67,65 +69,47 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Snapshot");
             var diffDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Diff");
 
-            SqlServerFhirStorageTestHelper testHelper1 = null;
-            SqlServerFhirStorageTestHelper testHelper2 = null;
+            SqlServerFhirStorageTestHelper snapshotHelper = null;
+            SqlServerFhirStorageTestHelper diffHelper = null;
+            SchemaUpgradeRunner diffRunner;
             try
             {
                 // Create two databases, one where we apply the the maximum supported version's snapshot SQL schema file
-                (testHelper1, _) = await SetupTestHelperAndCreateDatabase(
-                    snapshotDatabaseName,
-                    SchemaVersionConstants.Max,
-                    forceIncrementalSchemaUpgrade: false);
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                (snapshotHelper, _) = await SetupTestHelperAndCreateDatabase(snapshotDatabaseName, SchemaVersionConstants.Max);
+                _output.WriteLine($"Snapshot database setup completed in {sw.Elapsed.TotalSeconds:F2} sec");
 
-                // And one where we apply .diff.sql files to upgrade the schema version to the maximum supported version.
-                (testHelper2, _) = await SetupTestHelperAndCreateDatabase(
-                    diffDatabaseName,
-                    SchemaVersionConstants.Max,
-                    forceIncrementalSchemaUpgrade: true);
+                // And one where we apply .diff.sql files to upgrade the schema version to the maximum supported version starting from the minimum supported version for upgrade
+                sw = System.Diagnostics.Stopwatch.StartNew();
+                (diffHelper, diffRunner) = await SetupTestHelperAndCreateDatabase(diffDatabaseName, SchemaVersionConstants.MinForUpgrade);
 
+                for (var version = SchemaVersionConstants.MinForUpgrade + 1; version <= SchemaVersionConstants.Max; version++)
+                {
+                    await diffRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
+
+                    if (version == SchemaVersionConstants.Max)
+                    {
+                        // Apply the final schema second time to avoid separate test
+                        await diffRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
+                    }
+                }
+
+                _output.WriteLine($"Diff database setup completed in {sw.Elapsed.TotalSeconds:F2} sec");
+
+                sw = System.Diagnostics.Stopwatch.StartNew();
                 var diff = await CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
+                _output.WriteLine($"Schema comparison completed in {sw.Elapsed.TotalSeconds:F2} sec");
+
                 Assert.True(string.IsNullOrEmpty(diff), diff);
             }
             finally
             {
-                await (testHelper1?.DeleteDatabase(snapshotDatabaseName) ?? Task.CompletedTask);
-                await (testHelper2?.DeleteDatabase(diffDatabaseName) ?? Task.CompletedTask);
+                await (snapshotHelper?.DeleteDatabase(snapshotDatabaseName) ?? Task.CompletedTask);
+                await (diffHelper?.DeleteDatabase(diffDatabaseName) ?? Task.CompletedTask);
             }
         }
 
-        [RetryFact]
-        public void GivenASchemaVersion_WhenApplyingDiffTwice_ShouldSucceed()
-        {
-            var versions = Enum.GetValues(typeof(SchemaVersion)).OfType<object>().ToList().Select(x => Convert.ToInt32(x)).ToList();
-            Parallel.ForEach(versions, async version =>
-            {
-                // The schema upgrade scripts starting from v7 were made idempotent.
-                if (version >= 7 && version >= SchemaVersionConstants.MinForUpgrade) // no sense in checking not supported versions
-                {
-                    var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName($"Upgrade_Snapshot_Diff");
-
-                    SqlServerFhirStorageTestHelper testHelper = null;
-                    SchemaUpgradeRunner upgradeRunner;
-
-                    try
-                    {
-                        (testHelper, upgradeRunner) = await SetupTestHelperAndCreateDatabase(
-                            snapshotDatabaseName,
-                            version - 1,
-                            forceIncrementalSchemaUpgrade: false);
-
-                        await upgradeRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
-                        await upgradeRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, CancellationToken.None);
-                    }
-                    finally
-                    {
-                        await testHelper.DeleteDatabase(snapshotDatabaseName);
-                    }
-                }
-            });
-        }
-
-        private async Task<(SqlServerFhirStorageTestHelper testHelper, SchemaUpgradeRunner upgradeRunner)> SetupTestHelperAndCreateDatabase(string databaseName, int maxSchemaVersion, bool forceIncrementalSchemaUpgrade)
+        private async Task<(SqlServerFhirStorageTestHelper testHelper, SchemaUpgradeRunner upgradeRunner)> SetupTestHelperAndCreateDatabase(string databaseName, int maxSchemaVersion)
         {
             var initialConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
             var searchService = Substitute.For<ISearchService>();
@@ -139,7 +123,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchParameterComparer,
                 statusDataStore.CreateMockScopeProvider(),
                 fhirDataStore.CreateMockScopeProvider(),
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
             FilebasedSearchParameterStatusDataStore statusStore = new FilebasedSearchParameterStatusDataStore(defManager, ModelInfoProvider.Instance);
 
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.MinForUpgrade, maxSchemaVersion);
@@ -155,6 +140,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var sqlTransactionHandler = new SqlTransactionHandler();
             var defaultSqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, defaultSqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
+            var sqlRetryService = new SqlRetryService(defaultSqlConnectionBuilder, config, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()));
 
             SqlServerFhirModel sqlServerFhirModel = new SqlServerFhirModel(
                 schemaInformation,
@@ -163,6 +149,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Options.Create(securityConfiguration),
                 defaultSqlConnectionWrapperFactory.CreateMockScopeProvider(),
                 Substitute.For<IMediator>(),
+                sqlRetryService,
+                ResourceIdPolicy.Standard,
                 NullLogger<SqlServerFhirModel>.Instance);
 
             var testHelper = new SqlServerFhirStorageTestHelper(
@@ -170,7 +158,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 MasterDatabaseName,
                 sqlServerFhirModel,
                 defaultSqlConnectionBuilder,
-                null);
+                null,
+                schemaInformation);
 
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
@@ -187,28 +176,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 defaultSqlConnectionWrapperFactory,
                 schemaManagerDataStore);
 
-            Func<IServiceProvider, SchemaUpgradeRunner> schemaUpgradeRunnerFactory = p => schemaUpgradeRunner;
-            Func<IServiceProvider, IReadOnlySchemaManagerDataStore> schemaManagerDataStoreFactory = p => schemaManagerDataStore;
-            Func<IServiceProvider, SqlConnectionWrapperFactory> sqlConnectionWrapperFactoryFunc = p => defaultSqlConnectionWrapperFactory;
-
-            var collection = new ServiceCollection();
-            collection.AddScoped(sqlConnectionWrapperFactoryFunc);
-            collection.AddScoped(schemaUpgradeRunnerFactory);
-            collection.AddScoped(schemaManagerDataStoreFactory);
-            var serviceProviderSchemaInitializer = collection.BuildServiceProvider();
-
-            var schemaInitializer = new SchemaInitializer(
-                serviceProviderSchemaInitializer,
-                config,
-                schemaInformation,
-                mediator,
-                NullLogger<SchemaInitializer>.Instance);
-
             await testHelper.CreateAndInitializeDatabase(
                 databaseName,
-                maxSchemaVersion,
-                forceIncrementalSchemaUpgrade,
-                schemaInitializer);
+                maxSchemaVersion);
 
             return (testHelper, schemaUpgradeRunner);
         }
@@ -233,44 +203,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Exclude them from the schema comparison differences.
             (string type, string name)[] deprecatedObjectToIgnore =
             {
-                ("Procedure", "[dbo].[RebuildIndex]"),
-                ("Procedure", "[dbo].[UpsertResource]"),
-                ("Procedure", "[dbo].[UpsertResource_2]"),
-                ("Procedure", "[dbo].[UpsertResource_3]"),
-                ("Procedure", "[dbo].[UpsertResource_4]"),
-                ("Procedure", "[dbo].[UpsertResource_5]"),
-                ("Procedure", "[dbo].[UpsertResource_6]"),
-                ("Procedure", "[dbo].[ReindexResource]"),
-                ("Procedure", "[dbo].[BulkReindexResources]"),
-                ("Procedure", "[dbo].[CreateTask]"),
-                ("Procedure", "[dbo].[CreateTask_2]"),
-                ("Procedure", "[dbo].[GetNextTask]"),
-                ("Procedure", "[dbo].[GetNextTask_2]"),
-                ("Procedure", "[dbo].[ResetTask]"),
-                ("Procedure", "[dbo].[HardDeleteResource_2]"),
-                ("Procedure", "[dbo].[FetchResourceChanges]"),
-                ("Procedure", "[dbo].[FetchResourceChanges_2]"),
-                ("Procedure", "[dbo].[RemovePartitionFromResourceChanges]"),
-                ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
-                ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[ResourceWriteClaimTableType_1]"),
-                ("TableType", "[dbo].[CompartmentAssignmentTableType_1]"),
-                ("TableType", "[dbo].[ReferenceSearchParamTableType_2]"),
-                ("TableType", "[dbo].[TokenSearchParamTableType_1]"),
-                ("TableType", "[dbo].[TokenTextTableType_1]"),
-                ("TableType", "[dbo].[StringSearchParamTableType_1]"),
-                ("TableType", "[dbo].[UriSearchParamTableType_1]"),
-                ("TableType", "[dbo].[NumberSearchParamTableType_1]"),
-                ("TableType", "[dbo].[QuantitySearchParamTableType_1]"),
-                ("TableType", "[dbo].[DateTimeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_2]"),
-                ("TableType", "[dbo].[TokenTokenCompositeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[TokenDateTimeCompositeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[TokenQuantityCompositeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[TokenStringCompositeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[TokenNumberNumberCompositeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[BulkDateTimeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[BulkStringSearchParamTableType_1]"),
             };
 
             var remainingDifferences = result.Differences.Where(

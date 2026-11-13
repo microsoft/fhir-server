@@ -1,17 +1,19 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Api.Features.Filters.Metrics;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -29,21 +31,26 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     {
         private readonly IMediator _mediator;
         private readonly CoreFeatureConfiguration _coreFeaturesConfiguration;
+        private readonly ILogger<IncludesController> _logger;
 
         public IncludesController(
             IMediator mediator,
-            IOptions<CoreFeatureConfiguration> coreFeaturesConfiguration)
+            IOptions<CoreFeatureConfiguration> coreFeaturesConfiguration,
+            ILogger<IncludesController> logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(coreFeaturesConfiguration?.Value, nameof(coreFeaturesConfiguration));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _mediator = mediator;
             _coreFeaturesConfiguration = coreFeaturesConfiguration.Value;
+            _logger = logger;
         }
 
         [HttpGet]
         [Route(KnownRoutes.IncludesResourceType, Name = RouteNames.Includes)]
         [AuditEventType(AuditEventSubType.SearchSystem)]
+        [TypeFilter(typeof(SearchEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> Search(string typeParameter)
         {
             if (!_coreFeaturesConfiguration.SupportsIncludes)
@@ -56,7 +63,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 Request.GetQueriesForSearch(),
                 HttpContext.RequestAborted);
 
-            return FhirResult.Create(response);
+            return FhirResult.Create(_logger, response);
         }
     }
 }

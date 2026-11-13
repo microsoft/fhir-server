@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Net.Http.Headers;
@@ -71,7 +72,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                             LastUpdated = Clock.UtcNow,
                         },
                     },
-                    HttpStatusCode.BadRequest);
+                    HttpStatusCode.BadRequest,
+                    _logger);
 
                 switch (fhirException)
                 {
@@ -205,6 +207,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                 switch (microsoftHealthException)
                 {
+                    case IncompleteOperationException<IDictionary<string, long>> incompleteDeleteException when IsCanceledDelete(incompleteDeleteException):
+                        healthExceptionResult = CreateCancellationResult(context, incompleteDeleteException);
+                        break;
                     case RequestRateExceededException ex:
                         healthExceptionResult = CreateOperationOutcomeResult(ex.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Throttled, HttpStatusCode.TooManyRequests);
                         healthExceptionResult.Headers.AddRetryAfterHeaders(ex.RetryAfter);
@@ -239,9 +244,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 context.Result = CreateOperationOutcomeResult(formatException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.BadRequest);
                 context.ExceptionHandled = true;
             }
-            else if (context.Exception is System.OperationCanceledException)
+            else if (context.Exception is BundleOrchestratorOperationCanceledException)
             {
-                context.Result = CreateOperationOutcomeResult(Core.Resources.OperationCanceled, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Timeout, HttpStatusCode.RequestTimeout);
+                context.Result = CreateOperationOutcomeResult(Core.Resources.TransactionEntryFailedDependency, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Processing, HttpStatusCode.FailedDependency);
+                context.ExceptionHandled = true;
+            }
+            else if (context.Exception is System.OperationCanceledException operationCanceledException)
+            {
+                context.Result = CreateCancellationResult(context, operationCanceledException);
                 context.ExceptionHandled = true;
             }
             else if (context.Exception is System.OverflowException)
@@ -284,6 +294,27 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             }
         }
 
+        private static bool IsCanceledDelete(Exception exception)
+        {
+            return exception switch
+            {
+                System.OperationCanceledException => true,
+                AggregateException aggregate => aggregate.InnerExceptions.Count > 0 && aggregate.InnerExceptions.All(IsCanceledDelete),
+                IncompleteOperationException<IDictionary<string, long>> incomplete => IsCanceledDelete(incomplete.InnerException),
+                IncompleteOperationException<Dictionary<string, long>> incomplete => IsCanceledDelete(incomplete.InnerException),
+                _ => false,
+            };
+        }
+
+        private OperationOutcomeResult CreateCancellationResult(ActionExecutedContext context, Exception exception)
+        {
+            // Distinguishes a client/upstream disconnect from cancellation by another token (e.g. a server-side timeout).
+            bool clientDisconnected = context.HttpContext?.RequestAborted.IsCancellationRequested == true;
+            _logger.LogWarning(exception, "Request was canceled. ClientDisconnected: {ClientDisconnected}", clientDisconnected);
+
+            return CreateOperationOutcomeResult(Core.Resources.OperationCanceled, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Timeout, HttpStatusCode.RequestTimeout);
+        }
+
         private OperationOutcomeResult CreateOperationOutcomeResult(string message, OperationOutcome.IssueSeverity issueSeverity, OperationOutcome.IssueType issueType, HttpStatusCode httpStatusCode)
         {
             return new OperationOutcomeResult(
@@ -304,7 +335,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         LastUpdated = Clock.UtcNow,
                     },
                 },
-                httpStatusCode);
+                httpStatusCode,
+                _logger);
         }
     }
 }

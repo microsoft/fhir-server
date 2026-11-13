@@ -223,6 +223,33 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Input search parameters have duplicate codes [{0}] and Urls [{1}]..
+        /// </summary>
+        public static string DuplicateSearchParamCodesAndUrlsInBundle {
+            get {
+                return ResourceManager.GetString("DuplicateSearchParamCodesAndUrlsInBundle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Input search parameters have duplicate codes [{0}].
+        /// </summary>
+        public static string DuplicateSearchParamCodesInBundle {
+            get {
+                return ResourceManager.GetString("DuplicateSearchParamCodesInBundle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Input search parameters have duplicate Urls [{0}]..
+        /// </summary>
+        public static string DuplicateSearchParamUrlsInBundle {
+            get {
+                return ResourceManager.GetString("DuplicateSearchParamUrlsInBundle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to One or more invalid parameters are found: {0}.
         /// </summary>
         public static string ExpandInvalidParameter {
@@ -255,6 +282,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string ExpandMissingRequiredParameter {
             get {
                 return ResourceManager.GetString("ExpandMissingRequiredParameter", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The value &apos;{0}&apos; is not valid. Path traversal characters are not allowed..
+        /// </summary>
+        public static string ExportParameterPathTraversalNotAllowed {
+            get {
+                return ResourceManager.GetString("ExportParameterPathTraversalNotAllowed", resourceCulture);
             }
         }
         
@@ -340,6 +376,24 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to input.url must match the configured integration storage account endpoint..
+        /// </summary>
+        public static string ImportRequestInputUrlStorageEndpointMismatch {
+            get {
+                return ResourceManager.GetString("ImportRequestInputUrlStorageEndpointMismatch", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The integration storage account is not configured on the server. Import operations require a valid StorageAccountUri or StorageAccountConnection..
+        /// </summary>
+        public static string ImportStorageAccountNotConfigured {
+            get {
+                return ResourceManager.GetString("ImportStorageAccountNotConfigured", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Value of the following parameter {0} is invalid..
         /// </summary>
         public static string ImportRequestValueNotValid {
@@ -399,6 +453,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string InvalidBundleEntryRequest {
             get {
                 return ResourceManager.GetString("InvalidBundleEntryRequest", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The value &apos;{1}&apos; of header &apos;{0}&apos; is not valid. Supported values are &apos;create&apos; and &apos;upsert&apos;..
+        /// </summary>
+        public static string InvalidConditionalUpdateNoMatchHeader {
+            get {
+                return ResourceManager.GetString("InvalidConditionalUpdateNoMatchHeader", resourceCulture);
             }
         }
         
@@ -599,6 +662,78 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("MixedSMARTV1AndV2ScopesAreNotAllowed", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to SMART clinical scopes must use a single context. Patient, user, and system scopes cannot be mixed..
+        /// </summary>
+        public static string MixedSMARTScopeContextsAreNotAllowed {
+            get {
+                return ResourceManager.GetString("MixedSMARTScopeContextsAreNotAllowed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Patient-level SMART scopes require a single valid patient resource id in the patient claim, or a Patient-valued fhirUser claim when the patient claim is absent..
+        /// </summary>
+        public static string SmartPatientContextInvalid {
+            get {
+                return ResourceManager.GetString("SmartPatientContextInvalid", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Search parameter modifiers are not supported in SMART on FHIR clinical scopes. The scope &apos;{0}&apos; contains an unsupported modifier in parameter &apos;{1}&apos;..
+        /// </summary>
+        public static string SmartScopeSearchParameterModifiersNotSupported {
+            get {
+                return ResourceManager.GetString("SmartScopeSearchParameterModifiersNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Chained search parameters are not supported in SMART on FHIR clinical scopes. The scope &apos;{0}&apos; contains a chained search parameter &apos;{1}&apos;..
+        /// </summary>
+        public static string SmartScopeSearchParameterChainedSearchNotSupported {
+            get {
+                return ResourceManager.GetString("SmartScopeSearchParameterChainedSearchNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid search parameters in SMART on FHIR clinical scope &apos;{0}&apos;. The search parameter constraints could not be parsed..
+        /// </summary>
+        public static string SmartScopeInvalidSearchParameters {
+            get {
+                return ResourceManager.GetString("SmartScopeInvalidSearchParameters", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid SMART on FHIR clinical scope &apos;{0}&apos;. The resource type &apos;{1}&apos; is not a supported FHIR resource type..
+        /// </summary>
+        public static string SmartScopeUnknownResourceType {
+            get {
+                return ResourceManager.GetString("SmartScopeUnknownResourceType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Result parameters _include and _revinclude are not supported in SMART on FHIR clinical scopes. The scope &apos;{0}&apos; contains &apos;{1}&apos;..
+        /// </summary>
+        public static string SmartScopeSearchParameterIncludesNotSupported {
+            get {
+                return ResourceManager.GetString("SmartScopeSearchParameterIncludesNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The parameter in &apos;{1}&apos; cannot be enforced as a SMART on FHIR clinical scope constraint. The scope &apos;{0}&apos; must use a search parameter that filters resources..
+        /// </summary>
+        public static string SmartScopeSearchParameterResultParameterNotSupported {
+            get {
+                return ResourceManager.GetString("SmartScopeSearchParameterResultParameterNotSupported", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Only one profile can be provided between a Parameters resource and the URL.
@@ -606,6 +741,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string MultipleProfilesProvided {
             get {
                 return ResourceManager.GetString("MultipleProfilesProvided", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A resource to validate must be provided..
+        /// </summary>
+        public static string ValidateResourceRequired {
+            get {
+                return ResourceManager.GetString("ValidateResourceRequired", resourceCulture);
             }
         }
         
@@ -637,6 +781,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The requested route was not found..
+        /// </summary>
+        public static string NotFoundException {
+            get {
+                return ResourceManager.GetString("NotFoundException", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Content-Type must be application/x-www-form-urlencoded..
         /// </summary>
         public static string OAuth2ContentTypeMustBeFormUrlEncoded {
@@ -651,15 +804,6 @@ namespace Microsoft.Health.Fhir.Api {
         public static string OAuth2TokenParameterRequired {
             get {
                 return ResourceManager.GetString("OAuth2TokenParameterRequired", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The requested route was not found..
-        /// </summary>
-        public static string NotFoundException {
-            get {
-                return ResourceManager.GetString("NotFoundException", resourceCulture);
             }
         }
         

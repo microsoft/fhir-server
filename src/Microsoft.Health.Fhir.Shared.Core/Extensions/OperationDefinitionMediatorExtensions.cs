@@ -6,7 +6,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Messages.Operation;
 
 namespace Microsoft.Health.Fhir.Shared.Core.Extensions
@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Extensions
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNullOrWhiteSpace(operationName, nameof(operationName));
 
-            return await mediator.Send(new OperationDefinitionRequest(operationName), cancellationToken);
+            return await mediator.SendAsync(new OperationDefinitionRequest(operationName), cancellationToken);
         }
     }
 }

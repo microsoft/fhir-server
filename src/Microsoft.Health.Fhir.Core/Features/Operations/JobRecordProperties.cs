@@ -29,6 +29,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string CanceledTime = "canceledTime";
 
+        public const string CancelRequested = "CancelRequested";
+
         public const string RequestUri = "requestUri";
 
         public const string RequestorClaims = "requestorClaims";
@@ -68,6 +70,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string FailureStatusCode = "failureStatusCode";
 
         public const string FailureDetails = "failureDetails";
+
+        /// <summary>
+        /// The property name for customer-caused job failures.
+        /// </summary>
+        public const string IsCustomerCaused = "isCustomerCaused";
 
         public const string Since = "since";
 
@@ -141,6 +148,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Till = "till";
 
+        public const string IsTillExplicit = "isTillExplicit";
+
         public const string StartSurrogateId = "startSurrogateId";
 
         public const string EndSurrogateId = "endSurrogateId";
@@ -164,6 +173,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string IncludeDeleted = "includeDeleted";
 
         public const string SmartRequest = "smartRequest";
+
+        public const string AuthorizedIncludeResourceTypes = "authorizedIncludeResourceTypes";
 
         public const string DeleteOperation = "deleteOperation";
 
@@ -190,6 +201,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string Parameters = "parameters";
 
         public const string RemoveReferences = "removeReferences";
+
+        public const string AllowProfileResourceModification = "allowProfileResourceModification";
 
         public const string ReadNextPage = "readNextPage";
 

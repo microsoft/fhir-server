@@ -22,21 +22,26 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.IO;
 using Polly;
@@ -60,7 +65,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private static readonly ReplaceSingleResource _replaceSingleResource = new();
         private static readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager = new();
 
-        private readonly IScoped<Container> _containerScope;
+        private readonly IScopeProvider<Container> _containerScope;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly ICosmosQueryFactory _cosmosQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
@@ -69,13 +74,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly IBundleOrchestrator _bundleOrchestrator;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
+        private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosFhirDataStore"/> class.
         /// </summary>
         /// <param name="containerScope">
-        /// A function that returns an <see cref="Container"/>.
-        /// Note that this is a function so that the lifetime of the instance is not directly controlled by the IoC container.
+        /// A factory for caller-owned handles to the shared <see cref="Container"/>.
+        /// Disposing each handle leaves the shared container's lifetime with its owner.
         /// </param>
         /// <param name="cosmosDataStoreConfiguration">The data store configuration.</param>
         /// <param name="namedCosmosCollectionConfigurationAccessor">The IOptions accessor to get a named version.</param>
@@ -86,8 +93,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="bundleOrchestrator">Bundle orchestrator</param>
         /// <param name="supportedSearchParameters">The supported search parameters</param>
         /// <param name="modelInfoProvider">The model info provider to determine the FHIR version when handling resource conflicts.</param>
+        /// <param name="searchParameterStatusDataStore">The search parameter status data store used to persist queued search parameter status updates.</param>
+        /// <param name="requestContextAccessor">Accessor for request-scoped context properties, including pending search parameter status updates.</param>
         public CosmosFhirDataStore(
-            IScoped<Container> containerScope,
+            IScopeProvider<Container> containerScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             ICosmosQueryFactory cosmosQueryFactory,
@@ -96,7 +105,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             IOptions<CoreFeatureConfiguration> coreFeatures,
             IBundleOrchestrator bundleOrchestrator,
             Lazy<ISupportedSearchParameterDefinitionManager> supportedSearchParameters,
-            IModelInfoProvider modelInfoProvider)
+            IModelInfoProvider modelInfoProvider,
+            ISearchParameterStatusDataStore searchParameterStatusDataStore,
+            RequestContextAccessor<IFhirRequestContext> requestContextAccessor)
         {
             EnsureArg.IsNotNull(containerScope, nameof(containerScope));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -107,6 +118,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
             EnsureArg.IsNotNull(bundleOrchestrator, nameof(bundleOrchestrator));
             EnsureArg.IsNotNull(supportedSearchParameters, nameof(supportedSearchParameters));
+            EnsureArg.IsNotNull(searchParameterStatusDataStore, nameof(searchParameterStatusDataStore));
+            EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
 
             _containerScope = containerScope;
             _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
@@ -117,6 +130,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _coreFeatures = coreFeatures.Value;
             _bundleOrchestrator = bundleOrchestrator;
             _modelInfoProvider = modelInfoProvider;
+            _searchParameterStatusDataStore = searchParameterStatusDataStore;
+            _requestContextAccessor = requestContextAccessor;
+        }
+
+        public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            await Task.CompletedTask; // no event log table
         }
 
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
@@ -198,7 +218,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         resource.AllowCreate,
                         resource.KeepHistory,
                         innerCt,
-                        resource.RequireETagOnUpdate);
+                        resource.RequireETagOnUpdate,
+                        resource.CreateOnly);
 
                     var result = new DataStoreOperationOutcome(upsertOutcome);
                     results.AddOrUpdate(identifier, _ => result, (_, _) => result);
@@ -240,19 +261,33 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 IBundleOrchestratorOperation operation = _bundleOrchestrator.GetOperation(resource.BundleResourceContext.BundleOperationId);
 
                 // Internally Bundle Operation calls "MergeAsync".
-                return await operation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);
+                UpsertOutcome result = await operation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);
+                if (resource.Wrapper.ResourceTypeName == KnownResourceTypes.SearchParameter)
+                {
+                    await PersistPendingSearchParameterStatusUpdateAsync(cancellationToken);
+                }
+
+                return result;
             }
             else
             {
                 try
                 {
-                    return await InternalUpsertAsync(
+                    var upsertOutcome = await InternalUpsertAsync(
                         resource.Wrapper,
                         resource.WeakETag,
                         resource.AllowCreate,
                         resource.KeepHistory,
                         cancellationToken,
-                        resource.RequireETagOnUpdate);
+                        resource.RequireETagOnUpdate,
+                        resource.CreateOnly);
+
+                    if (resource.Wrapper.ResourceTypeName == KnownResourceTypes.SearchParameter)
+                    {
+                        await PersistPendingSearchParameterStatusUpdateAsync(cancellationToken);
+                    }
+
+                    return upsertOutcome;
                 }
                 catch (FhirException fhirException)
                 {
@@ -272,16 +307,36 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             bool allowCreate,
             bool keepHistory,
             CancellationToken cancellationToken,
-            bool requireETagOnUpdate = false)
+            bool requireETagOnUpdate = false,
+            bool createOnly = false)
         {
+            using IScoped<Container> containerScope = _containerScope.Invoke();
+
             EnsureArg.IsNotNull(resource, nameof(resource));
+
+            // Skip write for SearchParameter in pending delete - just return existing
+            if (resource.ResourceTypeName == KnownResourceTypes.SearchParameter && resource.IsDeleted)
+            {
+                var pending = GetPendingSearchParameterStatus();
+                if (pending?.Status == SearchParameterStatus.PendingDelete || pending?.Status == SearchParameterStatus.PendingHardDelete)
+                {
+                    var existing = await GetAsync(new ResourceKey(resource.ResourceTypeName, resource.ResourceId), cancellationToken);
+                    if (existing == null)
+                    {
+                        throw new ResourceNotFoundException(string.Format(Fhir.Core.Resources.ResourceNotFoundById, resource.ResourceTypeName, resource.ResourceId));
+                    }
+
+                    return new UpsertOutcome(existing, SaveOutcomeType.Updated);
+                }
+            }
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
             UpdateSortIndex(cosmosWrapper);
 
-            if (cosmosWrapper.SearchIndices == null || cosmosWrapper.SearchIndices.Count == 0)
+            if ((cosmosWrapper.SearchIndices == null || cosmosWrapper.SearchIndices.Count == 0)
+                 && !(cosmosWrapper.IsDeleted && cosmosWrapper.ResourceTypeName == KnownResourceTypes.SearchParameter)) // allow empty for search param deletes
             {
-                throw new MissingSearchIndicesException(string.Format(Microsoft.Health.Fhir.Core.Resources.MissingSearchIndices, resource.ResourceTypeName));
+                throw new MissingSearchIndicesException(string.Format(Fhir.Core.Resources.MissingSearchIndices, resource.ResourceTypeName));
             }
 
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
@@ -295,7 +350,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 try
                 {
                     await retryPolicy.ExecuteAsync(
-                        async ct => await _containerScope.Value.CreateItemAsync(
+                        async ct => await containerScope.Value.CreateItemAsync(
                             cosmosWrapper,
                             partitionKey,
                             cancellationToken: ct,
@@ -314,20 +369,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
             }
 
-            // If the versioning policy is set to versioned-update and no if-match header is provided
-            if (requireETagOnUpdate && weakETag == null)
-            {
-                // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Client Error
-                if (_modelInfoProvider.Version == FhirSpecification.Stu3)
-                {
-                    _logger.LogInformation("PreconditionFailed: IfMatchHeaderRequiredForResource");
-                    throw new PreconditionFailedException(string.Format(Microsoft.Health.Fhir.Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
-                }
-
-                _logger.LogInformation("BadRequest: IfMatchHeaderRequiredForResource");
-                throw new BadRequestException(string.Format(Microsoft.Health.Fhir.Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
-            }
-
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -336,7 +377,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 try
                 {
                     ItemResponse<FhirCosmosResourceWrapper> existingItem = await retryPolicy.ExecuteAsync(
-                        async ct => await _containerScope.Value.ReadItemAsync<FhirCosmosResourceWrapper>(cosmosWrapper.Id, partitionKey, cancellationToken: ct),
+                        async ct => await containerScope.Value.ReadItemAsync<FhirCosmosResourceWrapper>(cosmosWrapper.Id, partitionKey, cancellationToken: ct),
                         cancellationToken);
                     existingItemResource = existingItem.Resource;
                 }
@@ -362,6 +403,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     throw;
                 }
 
+                // Checked after every read so a live resource created concurrently (the replace below fails on the ETag and re-reads) is never overwritten.
+                if (createOnly && !existingItemResource.IsDeleted)
+                {
+                    _logger.LogInformation("Conflict: ResourceAlreadyExists");
+                    throw new ResourceConflictException(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceAlreadyExists, resource.ResourceTypeName, resource.ResourceId));
+                }
+
+                // If the versioning policy is set to versioned-update and no if-match header is provided
+                if (requireETagOnUpdate && weakETag == null)
+                {
+                    // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Client Error
+                    if (_modelInfoProvider.Version == FhirSpecification.Stu3)
+                    {
+                        _logger.LogInformation("PreconditionFailed: IfMatchHeaderRequiredForResource");
+                        throw new PreconditionFailedException(string.Format(Microsoft.Health.Fhir.Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+                    }
+
+                    _logger.LogInformation("BadRequest: IfMatchHeaderRequiredForResource");
+                    throw new BadRequestException(string.Format(Microsoft.Health.Fhir.Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+                }
+
                 if (weakETag != null && weakETag.VersionId != existingItemResource.Version)
                 {
                     // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
@@ -380,8 +442,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     return null;
                 }
 
-                // If not a delete then check if its an update with no data change
-                if (!cosmosWrapper.IsDeleted)
+                // Replacing a deleted resource with a live one re-creates it (FHIR R4 HTTP Update: 201 Created).
+                bool isResurrection = existingItemResource.IsDeleted && !cosmosWrapper.IsDeleted;
+
+                // If not a delete then check if its an update with no data change.
+                // A deleted existing resource must never be short-circuited, otherwise the tombstone would remain.
+                if (!cosmosWrapper.IsDeleted && !existingItemResource.IsDeleted)
                 {
                     // check if the new resource data is same as existing resource data
                     if (string.Equals(RemoveVersionIdAndLastUpdatedFromMeta(existingItemResource), RemoveVersionIdAndLastUpdatedFromMeta(cosmosWrapper), StringComparison.Ordinal))
@@ -429,7 +495,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                     TransactionalBatchResponse transactionalBatchResponse = await retryPolicy.ExecuteAsync(
                         async ct =>
-                            await _containerScope.Value.CreateTransactionalBatch(partitionKey)
+                            await containerScope.Value.CreateTransactionalBatch(partitionKey)
                                 .ReplaceItem(cosmosWrapper.Id, cosmosWrapper, new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false, IfMatchEtag = existingItemResource.ETag })
                                 .CreateItem(existingItemResource, new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false })
                                 .ExecuteAsync(cancellationToken: ct),
@@ -451,7 +517,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     try
                     {
                         await retryPolicy.ExecuteAsync(
-                            async ct => await _containerScope.Value.ReplaceItemAsync(
+                            async ct => await containerScope.Value.ReplaceItemAsync(
                                 cosmosWrapper,
                                 cosmosWrapper.Id,
                                 partitionKey,
@@ -466,12 +532,53 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     }
                 }
 
-                return new UpsertOutcome(cosmosWrapper, SaveOutcomeType.Updated);
+                return new UpsertOutcome(cosmosWrapper, isResurrection ? SaveOutcomeType.Created : SaveOutcomeType.Updated);
             }
+        }
+
+        private async Task PersistPendingSearchParameterStatusUpdateAsync(CancellationToken cancellationToken)
+        {
+            var status = GetPendingSearchParameterStatus();
+            if (status == null)
+            {
+                return;
+            }
+
+            IReadOnlyList<ResourceSearchParameterStatus> statuses =
+                status.PreviousUri == null
+                    ? [status]
+                    :
+                    [
+                        status,
+                        new ResourceSearchParameterStatus
+                        {
+                            Uri = status.PreviousUri,
+                            Status = SearchParameterStatus.Deleted,
+                            IsPartiallySupported = status.IsPartiallySupported,
+                            SortStatus = status.SortStatus,
+                            LastUpdated = status.LastUpdated,
+                        },
+                    ];
+
+            await _searchParameterStatusDataStore.UpsertStatuses(statuses, cancellationToken);
+            _requestContextAccessor.RequestContext.Properties.Remove(SearchParameterRequestContextPropertyNames.PendingStatus);
+        }
+
+        private ResourceSearchParameterStatus GetPendingSearchParameterStatus()
+        {
+            var context = _requestContextAccessor.RequestContext;
+            if (context?.Properties == null || !context.Properties.TryGetValue(SearchParameterRequestContextPropertyNames.PendingStatus, out var status))
+            {
+                return null;
+            }
+
+            return (ResourceSearchParameterStatus)status;
         }
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
         {
+            using IScoped<Container> containerScope = _containerScope.Invoke();
+
             EnsureArg.IsNotNull(key, nameof(key));
 
             bool isVersionedRead = !string.IsNullOrEmpty(key.VersionId);
@@ -493,7 +600,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                return await _containerScope.Value
+                return await containerScope.Value
                     .ReadItemAsync<FhirCosmosResourceWrapper>(key.Id, new PartitionKey(key.ToPartitionKey()), cancellationToken: cancellationToken);
             }
             catch (CosmosException exception) when (exception.StatusCode == HttpStatusCode.NotFound)
@@ -504,6 +611,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken)
         {
+            using IScoped<Container> containerScope = _containerScope.Invoke();
+
             EnsureArg.IsNotNull(key, nameof(key));
 
             try
@@ -512,7 +621,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 StoredProcedureExecuteResponse<int> response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     async ct => await _hardDelete.Execute(
-                        _containerScope.Value.Scripts,
+                        containerScope.Value.Scripts,
                         key,
                         keepCurrentVersion,
                         allowPartialSuccess,
@@ -550,6 +659,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resourceWrapper, CancellationToken cancellationToken)
         {
+            using IScoped<Container> containerScope = _containerScope.Invoke();
+
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resourceWrapper);
@@ -561,7 +672,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 FhirCosmosResourceWrapper response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     async ct => await _replaceSingleResource.Execute(
-                        _containerScope.Value.Scripts,
+                        containerScope.Value.Scripts,
                         cosmosWrapper,
                         resourceWrapper.Version,
                         ct),
@@ -575,8 +686,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 switch (exception.GetSubStatusCode())
                 {
                     case HttpStatusCode.PreconditionFailed:
-                        _logger.LogError(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceVersionConflict, WeakETag.FromVersionId(resourceWrapper.Version)));
-                        throw new PreconditionFailedException(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceVersionConflict, WeakETag.FromVersionId(resourceWrapper.Version)));
+                        _logger.LogWarning(string.Format(Microsoft.Health.Fhir.Core.Resources.ResourceVersionConflict, WeakETag.FromVersionId(resourceWrapper.Version)));
+                        return resourceWrapper;
 
                     case HttpStatusCode.ServiceUnavailable:
                         _logger.LogError("Failed to reindex resource because the Cosmos service was unavailable.");
@@ -605,6 +716,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <returns>The results and possible continuation token</returns>
         internal async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteDocumentQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, FeedRange feedRange = null, bool mustNotExceedMaxItemCount = true, TimeSpan? searchEnumerationTimeoutOverride = default, CancellationToken cancellationToken = default)
         {
+            using IScoped<Container> containerScope = _containerScope.Invoke();
+
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
             int totalDesiredCount = 0;
@@ -620,7 +733,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             FeedResponse<T> page = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(() =>
             {
-                cosmosQuery = _cosmosQueryFactory.Create<T>(_containerScope.Value, context); // SDK throws if we don't recreate this on retry
+                cosmosQuery = _cosmosQueryFactory.Create<T>(containerScope.Value, context); // SDK throws if we don't recreate this on retry
                 return cosmosQuery.ExecuteNextAsync(cancellationToken);
             });
 
@@ -676,7 +789,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     // we never have to throw a page of data away because it won't fit in the response.
                     feedOptions.MaxItemCount = currentDesiredCount;
                     context = new CosmosQueryContext(sqlQuerySpec, feedOptions, page.ContinuationToken);
-                    cosmosQuery = _cosmosQueryFactory.Create<T>(_containerScope.Value, context);
+                    cosmosQuery = _cosmosQueryFactory.Create<T>(containerScope.Value, context);
                 }
 
                 try
@@ -719,17 +832,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         internal async Task<IReadOnlyList<FeedRange>> GetFeedRanges(CancellationToken cancellationToken = default)
         {
+            using IScoped<Container> containerScope = _containerScope.Invoke();
+
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
 
             return await retryPolicy.ExecuteAsync(async () =>
             {
-                return await _containerScope.Value.GetFeedRangesAsync(cancellationToken);
+                return await containerScope.Value.GetFeedRangesAsync(cancellationToken);
             });
         }
 
         // This method should only be called by async jobs as some queries could take a long time to traverse all pages.
         internal async Task<IReadOnlyList<T>> ExecutePagedQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, CancellationToken cancellationToken = default)
         {
+            using IScoped<Container> containerScope = _containerScope.Invoke();
+
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
@@ -737,7 +854,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             return await retryPolicy.ExecuteAsync(async () =>
                 {
-                    using (FeedIterator<T> itr = _containerScope.Value.GetItemQueryIterator<T>(sqlQuerySpec, requestOptions: feedOptions))
+                    using (FeedIterator<T> itr = containerScope.Value.GetItemQueryIterator<T>(sqlQuerySpec, requestOptions: feedOptions))
                     {
                         while (itr.HasMoreResults)
                         {
@@ -867,9 +984,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken = default)
         {
+            using IScoped<Container> containerScope = _containerScope.Invoke();
+
             try
             {
-                return await _containerScope.Value.ReadThroughputAsync(cancellationToken);
+                return await containerScope.Value.ReadThroughputAsync(cancellationToken);
             }
             catch (CosmosException ex)
             {

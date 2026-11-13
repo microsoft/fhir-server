@@ -18,10 +18,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\DocRefRequestConverter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\IDocRefRequestConverter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\FirelyTerminologyServiceProxy.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\IInstantiateCapability.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\InstantiatesCapabilityProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\TerminologyRequestHandler.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\USCore6InstantiateCapability.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\DefaultParserSettings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationParameterNames.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationContinuationToken.cs" />
@@ -34,12 +31,12 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\MemberMatch\IMemberMatchService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\MemberMatch\MemberMatchHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\MemberMatch\MemberMatchService.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportResourceParser.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportErrorSerializer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSingleResourceRequestHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterInfoEqualityComparer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterStateHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterStateUpdateHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\BulkOperationAuditLogHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\BaseResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ConditionalResourceHandler.cs" />
@@ -81,8 +78,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\ConditionalUpsertResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\UpsertResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\BundleFactory.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\FhirPackages\SearchParameterPackageHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\ISearchParameterValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\PropertyMappingExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterConflictRules.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterSupportResolver.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterToTypeResolver.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterTypeResult.cs" />

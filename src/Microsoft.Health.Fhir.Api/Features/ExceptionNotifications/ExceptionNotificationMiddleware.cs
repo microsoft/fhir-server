@@ -7,7 +7,7 @@ using System;
 using System.Net;
 using System.Threading;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ExceptionNotifications
                     exceptionNotification.IsRequestRateExceeded = exception.IsRequestRateExceeded();
                     exceptionNotification.BaseException = exception;
 
-                    await _mediator.Publish(exceptionNotification, CancellationToken.None);
+                    await _mediator.PublishAsync(exceptionNotification, CancellationToken.None);
                 }
                 catch (Exception e)
                 {

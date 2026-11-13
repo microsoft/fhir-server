@@ -7,13 +7,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -36,6 +41,105 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 CommandTimeout = TimeSpan.FromSeconds(300),
             });
             _coreFeatureConfiguration = Options.Create(new CoreFeatureConfiguration());
+        }
+
+        [Fact]
+        public async Task GivenNonCmkConnectionFailure_WhenExecutingSql_ThenOriginalExceptionIsPreserved()
+        {
+            // Arrange
+            var failure = SqlExceptionFactory.GetSqlException(18456, "Login failed.");
+            _sqlConnectionBuilder.GetSqlConnectionAsync(Arg.Any<bool>(), Arg.Any<string>())
+                .Returns(Task.FromException<SqlConnection>(failure));
+            var service = SqlRetryService.GetInstance(_sqlConnectionBuilder, maxRetries: 1);
+            using var command = new SqlCommand("SELECT 1");
+
+            // Act
+            var exception = await Assert.ThrowsAsync<SqlException>(() => service.ExecuteSql(
+                command, (_, _) => Task.CompletedTask, NullLogger.Instance, null, CancellationToken.None));
+
+            // Assert
+            Assert.Same(failure, exception);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenRetriableCmkConnectionFailure_WhenRetriesAreExhausted_ThenCustomerManagedKeyExceptionIsThrown(bool useConnectionDelegate)
+        {
+            // Arrange
+            var failure = SqlExceptionFactory.GetSqlException(SqlErrorCodes.CannotConnectToDBInCurrentState, "Customer managed key is inaccessible.");
+            var attempts = 0;
+            _sqlConnectionBuilder.GetSqlConnectionAsync(Arg.Any<bool>(), Arg.Any<string>())
+                .Returns(_ =>
+                {
+                    attempts++;
+                    return Task.FromException<SqlConnection>(failure);
+                });
+            var options = new SqlRetryServiceOptions { MaxRetries = 2, RetryMillisecondsDelay = 0 };
+            options.AddTransientErrors.Add(SqlErrorCodes.CannotConnectToDBInCurrentState);
+            var service = new SqlRetryService(
+                _sqlConnectionBuilder,
+                _sqlServerDataStoreConfiguration,
+                Options.Create(options),
+                new SqlRetryServiceDelegateOptions(),
+                _coreFeatureConfiguration);
+            using var command = new SqlCommand("SELECT 1");
+
+            // Act
+            var exception = await Assert.ThrowsAsync<CustomerManagedKeyException>(() => useConnectionDelegate
+                ? service.ExecuteSql((_, _, _) => Task.CompletedTask, NullLogger.Instance, CancellationToken.None)
+                : service.ExecuteSql(command, (_, _) => Task.CompletedTask, NullLogger.Instance, null, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(2, attempts);
+            Assert.Same(failure, exception.InnerException);
+        }
+
+        [Theory]
+        [InlineData(SqlErrorCodes.KeyVaultCriticalError, false)]
+        [InlineData(SqlErrorCodes.KeyVaultEncounteredError, false)]
+        [InlineData(SqlErrorCodes.KeyVaultErrorObtainingInfo, false)]
+        [InlineData(SqlErrorCodes.CannotConnectToDBInCurrentState, false)]
+        [InlineData(SqlErrorCodes.CannotConnectToDBInCurrentState, true)]
+        public async Task GivenCmkConnectionFailure_WhenExecutingSql_ThenCustomerManagedKeyExceptionIsThrown(int errorCode, bool useConnectionDelegate)
+        {
+            // Arrange
+            var failure = SqlExceptionFactory.GetSqlException(errorCode, "Customer managed key is inaccessible.");
+            _sqlConnectionBuilder.GetSqlConnectionAsync(Arg.Any<bool>(), Arg.Any<string>())
+                .Returns(Task.FromException<SqlConnection>(failure));
+            var service = SqlRetryService.GetInstance(_sqlConnectionBuilder, maxRetries: 1);
+            using var command = new SqlCommand("SELECT 1");
+
+            // Act
+            var exception = await Assert.ThrowsAsync<CustomerManagedKeyException>(() => useConnectionDelegate
+                ? service.ExecuteSql((_, _, _) => Task.CompletedTask, NullLogger.Instance, CancellationToken.None)
+                : service.ExecuteSql(command, (_, _) => Task.CompletedTask, NullLogger.Instance, null, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(Core.Resources.OperationFailedForCustomerManagedKey, exception.Message);
+            Assert.Same(failure, exception.InnerException);
+        }
+
+        [Theory]
+        [InlineData(true, false)]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        public async Task GivenTooManyParameters_WhenExecutingSql_ThenRequestNotValidExceptionIsThrown(bool useConnectionDelegate, bool disableRetries)
+        {
+            // Arrange
+            var failure = SqlExceptionFactory.GetSqlException(SqlErrorCodes.TooManyParameters, "Too many SQL parameters.");
+            _sqlConnectionBuilder.GetSqlConnectionAsync(Arg.Any<bool>(), Arg.Any<string>())
+                .Returns(Task.FromException<SqlConnection>(failure));
+            var service = SqlRetryService.GetInstance(_sqlConnectionBuilder, maxRetries: 1);
+            using var command = new SqlCommand("SELECT 1");
+
+            // Act
+            var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => useConnectionDelegate
+                ? service.ExecuteSql((_, _, _) => Task.CompletedTask, NullLogger.Instance, CancellationToken.None)
+                : service.ExecuteSql(command, (_, _) => Task.CompletedTask, NullLogger.Instance, null, CancellationToken.None, disableRetries: disableRetries));
+
+            // Assert
+            Assert.Equal(Core.Resources.TooManyParameters, exception.Message);
         }
 
         [Fact]
@@ -189,6 +293,32 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             // Assert
             Assert.True(result);
+        }
+
+        [Fact]
+        public void IsRetriable_WithSuppressedSqlException_ShouldReturnFalse()
+        {
+            // Arrange
+            const int capacityErrorCode = 99999;
+            var options = Options.Create(new SqlRetryServiceOptions());
+            options.Value.AddTransientErrors.Add(capacityErrorCode);
+            var service = new SqlRetryService(
+                _sqlConnectionBuilder,
+                _sqlServerDataStoreConfiguration,
+                options,
+                new SqlRetryServiceDelegateOptions(),
+                _coreFeatureConfiguration);
+            var capacityException = CreateSqlException(capacityErrorCode, "Capacity error");
+            var transientException = CreateSqlException(1205, "Transaction was deadlocked");
+            Func<SqlException, bool> shouldNotRetry = ex => ex.Number == capacityErrorCode;
+
+            // Act
+            var shouldRetryCapacityError = InvokeIsRetriable(service, capacityException, shouldNotRetry);
+            var shouldRetryDeadlock = InvokeIsRetriable(service, transientException, shouldNotRetry);
+
+            // Assert
+            Assert.False(shouldRetryCapacityError);
+            Assert.True(shouldRetryDeadlock);
         }
 
         [Fact]
@@ -382,6 +512,105 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             Assert.Throws<ArgumentNullException>(() => SqlRetryService.GetInstance(null));
         }
 
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        [InlineData(1)]
+        [InlineData(SqlRetryService.MinimumMaxPoolSize - 1)]
+        [InlineData(30000)]
+        public void Constructor_WithOutOfRangeMaxPoolSize_ShouldThrowArgumentOutOfRangeException(int maxPoolSize)
+        {
+            // Arrange
+            var configuration = Options.Create(new SqlServerDataStoreConfiguration { MaxPoolSize = maxPoolSize });
+
+            // Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() => new SqlRetryService(
+                _sqlConnectionBuilder,
+                configuration,
+                Options.Create(new SqlRetryServiceOptions()),
+                new SqlRetryServiceDelegateOptions(),
+                _coreFeatureConfiguration));
+        }
+
+        [Fact]
+        public void Constructor_WithMinimumMaxPoolSize_ShouldSucceed()
+        {
+            // Arrange
+            var configuration = Options.Create(new SqlServerDataStoreConfiguration { MaxPoolSize = SqlRetryService.MinimumMaxPoolSize });
+
+            // Act
+            var service = new SqlRetryService(
+                _sqlConnectionBuilder,
+                configuration,
+                Options.Create(new SqlRetryServiceOptions()),
+                new SqlRetryServiceDelegateOptions(),
+                _coreFeatureConfiguration);
+
+            // Assert
+            Assert.Equal(SqlRetryService.MinimumMaxPoolSize, GetPrivateFieldValue<int?>(service, "_maxPoolSize"));
+        }
+
+        [Fact]
+        public async Task ExecuteSql_WithMaxPoolSizeConfigured_ShouldApplyMaxPoolSizeToConnection()
+        {
+            // Arrange
+            var configuration = Options.Create(new SqlServerDataStoreConfiguration { MaxPoolSize = 250 });
+            using var connection = new SqlConnection("Data Source=localhost;Encrypt=True;Initial Catalog=fhir;Application Name=test");
+            _sqlConnectionBuilder.GetSqlConnectionAsync(false, null).Returns(Task.FromResult(connection));
+            var service = new SqlRetryService(
+                _sqlConnectionBuilder,
+                configuration,
+                Options.Create(new SqlRetryServiceOptions { MaxRetries = 1 }),
+                new SqlRetryServiceDelegateOptions(),
+                _coreFeatureConfiguration);
+            using var cancellationTokenSource = new CancellationTokenSource();
+            await cancellationTokenSource.CancelAsync();
+
+            // Act: the canceled token stops the connection from opening, after the pool size has been applied.
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.ExecuteSql(
+                (_, _, _) => Task.CompletedTask,
+                NullLogger.Instance,
+                cancellationTokenSource.Token));
+
+            // Assert
+            var builder = new SqlConnectionStringBuilder(connection.ConnectionString);
+            Assert.Equal(250, builder.MaxPoolSize);
+            Assert.Equal("fhir", builder.InitialCatalog);
+            Assert.Equal("test", builder.ApplicationName);
+        }
+
+        [Fact]
+        public void ApplyMaxPoolSize_WithValue_ShouldSetMaxPoolSizeAndPreserveOtherSettings()
+        {
+            // Arrange
+            using var connection = new SqlConnection("Data Source=localhost;Encrypt=True;Initial Catalog=fhir;ApplicationIntent=ReadOnly;Application Name=MergeResources;Max Pool Size=100");
+
+            // Act
+            SqlRetryService.ApplyMaxPoolSize(connection, 400);
+
+            // Assert
+            var builder = new SqlConnectionStringBuilder(connection.ConnectionString);
+            Assert.Equal(400, builder.MaxPoolSize);
+            Assert.Equal("localhost", builder.DataSource);
+            Assert.Equal("fhir", builder.InitialCatalog);
+            Assert.Equal(ApplicationIntent.ReadOnly, builder.ApplicationIntent);
+            Assert.Equal("MergeResources", builder.ApplicationName);
+        }
+
+        [Fact]
+        public void ApplyMaxPoolSize_WithoutValue_ShouldLeaveConnectionStringUnchanged()
+        {
+            // Arrange
+            const string connectionString = "Data Source=localhost;Encrypt=True;Initial Catalog=fhir";
+            using var connection = new SqlConnection(connectionString);
+
+            // Act
+            SqlRetryService.ApplyMaxPoolSize(connection, null);
+
+            // Assert
+            Assert.Equal(connectionString, connection.ConnectionString);
+        }
+
         private static T GetPrivateFieldValue<T>(object obj, string fieldName)
         {
             var field = obj.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
@@ -407,18 +636,21 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             return (bool)method.Invoke(null, new object[] { ex });
         }
 
-        private static bool InvokeIsRetriable(SqlRetryService service, Exception ex)
+        private static bool InvokeIsRetriable(SqlRetryService service, Exception ex, Func<SqlException, bool> shouldNotRetry = null)
         {
             var method = typeof(SqlRetryService).GetMethod(
                 "IsRetriable",
-                BindingFlags.NonPublic | BindingFlags.Instance);
+                BindingFlags.NonPublic | BindingFlags.Instance,
+                null,
+                new[] { typeof(Exception), typeof(Func<SqlException, bool>) },
+                null);
 
             if (method == null)
             {
                 throw new InvalidOperationException("Method 'IsRetriable' not found");
             }
 
-            return (bool)method.Invoke(service, new object[] { ex });
+            return (bool)method.Invoke(service, new object[] { ex, shouldNotRetry });
         }
 
         private static SqlException CreateSqlException(int errorNumber, string message)

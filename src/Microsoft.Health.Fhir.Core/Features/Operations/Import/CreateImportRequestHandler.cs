@@ -7,18 +7,19 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     /// <summary>
-    /// MediatR request handler. Called when the ImportController creates an Import job.
+    /// Medino request handler. Called when the ImportController creates an Import job.
     /// </summary>
     public class CreateImportRequestHandler : IRequestHandler<CreateImportRequest, CreateImportResponse>
     {
@@ -40,14 +41,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _logger = logger;
         }
 
-        public async Task<CreateImportResponse> Handle(CreateImportRequest request, CancellationToken cancellationToken)
+        public async Task<CreateImportResponse> HandleAsync(CreateImportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Import, cancellationToken) != DataActions.Import)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(DataActions.Import, true, cancellationToken);
 
             var definitionObj = new ImportOrchestratorJobDefinition()
             {
@@ -63,6 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 EventualConsistency = request.EventualConsistency,
                 ErrorContainerName = request.ErrorContainerName,
                 ProcessingUnitBytesToRead = request.ProcessingUnitBytesToRead,
+                InMemoryTestProcessingJobs = request.InMemoryTestProcessingJobs,
             };
 
             var jobInfo = (await _queueClient.EnqueueAsync(QueueType.Import, cancellationToken, definitions: definitionObj))[0];

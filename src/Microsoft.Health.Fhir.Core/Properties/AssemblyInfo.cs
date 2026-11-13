@@ -13,6 +13,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Core")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4B.Core")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R5.Core")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Ignixa")]
 
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Core.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Core.UnitTests")]

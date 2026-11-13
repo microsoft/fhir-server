@@ -29,7 +29,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -103,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// This approach avoids returning already updated included resources in subsequent searches and ensures accurate bulk updates.
         /// Handles batching, error aggregation, and audit logging throughout the operation.
         /// </summary>
-        public async Task<BulkUpdateResult> UpdateMultipleAsync(string resourceType, string fhirPatchParameters, bool readNextPage, uint readUpto, bool isIncludesRequest, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, bool metaHistory, CancellationToken cancellationToken)
+        public async Task<BulkUpdateResult> UpdateMultipleAsync(string resourceType, string fhirPatchParameters, bool readNextPage, uint readUpto, bool isIncludesRequest, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, bool metaHistory, CancellationToken cancellationToken, bool allowProfileResourceModification = false)
         {
             IReadOnlyCollection<SearchResultEntry> searchResults;
             SearchResult searchResult;
@@ -144,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     if (!isIncludesRequest && !string.IsNullOrEmpty(ict) && AreIncludeResultsTruncated())
                     {
                         // run a search for included results
-                        finalBulkUpdateResult = await HandleIncludedResources(resourceType, fhirPatchParameters, true, conditionalParameters, bundleResourceContext, ct, ict, finalBulkUpdateResult, metaHistory, cancellationToken);
+                        finalBulkUpdateResult = await HandleIncludedResources(resourceType, fhirPatchParameters, true, conditionalParameters, bundleResourceContext, ct, ict, finalBulkUpdateResult, metaHistory, allowProfileResourceModification, cancellationToken);
                     }
 
                     // Keep reading the next page of results if there are more results to process and when it is not a continuation token level job
@@ -165,13 +164,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         }
 
                         readUpto--;
-                        var subResult = await UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, readUpto, isIncludesRequest, cloneList, bundleResourceContext, metaHistory, cancellationToken);
+                        var subResult = await UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, readUpto, isIncludesRequest, cloneList, bundleResourceContext, metaHistory, cancellationToken, allowProfileResourceModification);
                         finalBulkUpdateResult = AppendBulkUpdateResultsFromSubResults(finalBulkUpdateResult, subResult);
                         _logger.LogInformation("Bulk updated total {Count} resources for the page.", subResult.ResourcesUpdated.Sum(resource => resource.Value));
                     }
 
                     // Group the results based on the resource type and prepare the conditional patch requests
-                    BuildConditionalPatchRequests(conditionalParameters, bundleResourceContext, searchResults, totalResources, resourcesIgnored, commonPatchFailures, conditionalPatchResourceRequests, deserializedFhirPatchParameters);
+                    BuildConditionalPatchRequests(conditionalParameters, bundleResourceContext, searchResults, totalResources, resourcesIgnored, commonPatchFailures, conditionalPatchResourceRequests, deserializedFhirPatchParameters, allowProfileResourceModification);
 
                     // Filter out the seachResults which are not in resourcesIgnored and commonPatchFailures
                     searchResults = searchResults.Where(result => !resourcesIgnored.ContainsKey(result.Resource.ResourceTypeName) && !commonPatchFailures.ContainsKey(result.Resource.ResourceTypeName)).ToList();
@@ -303,7 +302,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <summary>
         /// Handles included resources in bulk update by recursively processing continuation tokens and aggregating results.
         /// </summary>
-        private async Task<BulkUpdateResult> HandleIncludedResources(string resourceType, string fhirPatchParameters, bool readNextPage, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, string ct, string ict, BulkUpdateResult finalBulkUpdateResult, bool metaHistory, CancellationToken cancellationToken)
+        private async Task<BulkUpdateResult> HandleIncludedResources(string resourceType, string fhirPatchParameters, bool readNextPage, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext, string ct, string ict, BulkUpdateResult finalBulkUpdateResult, bool metaHistory, bool allowProfileResourceModification, CancellationToken cancellationToken)
         {
             var cloneList = new List<Tuple<string, string>>(conditionalParameters);
             cloneList.RemoveAll(t => t.Item1.Equals(KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase));
@@ -312,7 +311,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             cloneList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenEncoder.Encode(ct)));
             cloneList.Add(Tuple.Create(KnownQueryParameterNames.IncludesContinuationToken, ContinuationTokenEncoder.Encode(ict)));
 
-            var subResult = await UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, true, cloneList, bundleResourceContext, metaHistory, cancellationToken);
+            var subResult = await UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, true, cloneList, bundleResourceContext, metaHistory, cancellationToken, allowProfileResourceModification);
             finalBulkUpdateResult = AppendBulkUpdateResultsFromSubResults(finalBulkUpdateResult, subResult);
             return finalBulkUpdateResult;
         }
@@ -362,7 +361,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             Dictionary<string, long> resourcesIgnored,
             Dictionary<string, long> commonPatchFailures,
             Dictionary<string, ConditionalPatchResourceRequest> conditionalPatchResourceRequests,
-            Hl7.Fhir.Model.Parameters fhirPatchParameters)
+            Hl7.Fhir.Model.Parameters fhirPatchParameters,
+            bool allowProfileResourceModification)
         {
             // searchResults could return resources of same resource type or differenet
             // We need to group by resource type and create applicable patchParameters
@@ -380,8 +380,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     : group.Value;
             }
 
-            // Add excluded resource types to resourcesIgnored and remove it from resourcesPerPage
-            foreach (var kvp in resourcesPerPage.Where(kvp => OperationsConstants.ExcludedResourceTypesForBulkUpdate.Contains(kvp.Key)))
+            // Add excluded resource types to resourcesIgnored and remove them from resourcesPerPage.
+            foreach (var kvp in resourcesPerPage.Where(kvp =>
+                OperationsConstants.ExcludedResourceTypesForBulkUpdate.Any(
+                    excludedType => string.Equals(kvp.Key, excludedType, StringComparison.OrdinalIgnoreCase))
+                || (!allowProfileResourceModification && OperationsConstants.ProtectedProfileResourceTypes.Contains(kvp.Key))))
             {
                 resourcesIgnored[kvp.Key] = resourcesIgnored.TryGetValue(kvp.Key, out var existing)
                     ? existing + kvp.Value
@@ -648,28 +651,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             {
                 AuditAction action = complete ? AuditAction.Executed : AuditAction.Executing;
                 var context = _contextAccessor.RequestContext;
-                var updateAdditionalProperties = new Dictionary<string, string>();
-                updateAdditionalProperties[typeOfAudit] = items.Aggregate(
-                    string.Empty,
-                    (aggregate, item) =>
-                    {
-                        aggregate += ", " + (item.included ? "[Include] " : string.Empty) + item.resourceType + "/" + item.resourceId;
-                        return aggregate;
-                    });
 
-                _auditLogger.LogAudit(
-                    auditAction: action,
-                    operation: "Update",
-                    resourceType: primaryResourceType,
-                    requestUri: context.Uri,
-                    statusCode: statusCode,
-                    correlationId: context.CorrelationId,
-                    callerIpAddress: string.Empty,
-                    callerClaims: null,
-                    customHeaders: null,
-                    operationType: string.Empty,
-                    callerAgent: DefaultCallerAgent,
-                    additionalProperties: updateAdditionalProperties);
+                var batches = BulkOperationAuditLogHelper.CreateAffectedItemBatches(items.ToList());
+
+                foreach (var batch in batches)
+                {
+                    var updateAdditionalProperties = new Dictionary<string, string>();
+                    updateAdditionalProperties[typeOfAudit] = batch;
+
+                    _auditLogger.LogAudit(
+                        auditAction: action,
+                        operation: "Update",
+                        resourceType: primaryResourceType,
+                        requestUri: context.Uri,
+                        statusCode: statusCode,
+                        correlationId: context.CorrelationId,
+                        callerIpAddress: string.Empty,
+                        callerClaims: null,
+                        customHeaders: null,
+                        operationType: string.Empty,
+                        callerAgent: DefaultCallerAgent,
+                        additionalProperties: updateAdditionalProperties);
+                }
             });
 
             return auditTask;

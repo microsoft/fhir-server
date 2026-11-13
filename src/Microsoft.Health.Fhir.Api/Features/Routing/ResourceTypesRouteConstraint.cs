@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
             if (values.TryGetValue(KnownActionParameterNames.ResourceType, out var resourceTypeObj) && resourceTypeObj is string resourceType && !string.IsNullOrEmpty(resourceType))
             {
-                return ModelInfoProvider.IsKnownResource(resourceType);
+                return ModelInfoProvider.IsKnownResource(resourceType, ignoreCase: false);
             }
 
             return false;

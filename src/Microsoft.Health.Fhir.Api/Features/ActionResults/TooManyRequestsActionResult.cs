@@ -4,21 +4,21 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
     public class TooManyRequestsActionResult : ResourceActionResult<OperationOutcomeIssue>
     {
-        public static readonly TooManyRequestsActionResult TooManyRequests = new TooManyRequestsActionResult();
-
-        public TooManyRequestsActionResult()
+        public TooManyRequestsActionResult(ILogger logger)
             : base(
                   new OperationOutcomeIssue(
                         OperationOutcomeConstants.IssueSeverity.Error,
                         OperationOutcomeConstants.IssueType.Throttled,
                         Api.Resources.TooManyConcurrentRequests),
-                  HttpStatusCode.TooManyRequests)
+                  HttpStatusCode.TooManyRequests,
+                  logger)
         {
         }
     }

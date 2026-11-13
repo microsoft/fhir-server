@@ -45,7 +45,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             }
 
             _active = true;
-            await Task.Delay(TimeSpan.FromSeconds(PeriodSec * RandomNumberGenerator.GetInt32(1000) / 1000), cancellationToken);
+            var initialDelay = TimeSpan.FromSeconds(PeriodSec * RandomNumberGenerator.GetInt32(1000) / 1000);
+            await Task.Delay(initialDelay, cancellationToken);
             using var periodicTimer = new PeriodicTimer(TimeSpan.FromSeconds(PeriodSec));
 
             try

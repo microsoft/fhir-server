@@ -6,7 +6,7 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Http.Features.Authentication;
@@ -28,8 +28,12 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -146,7 +150,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var mediator = Substitute.For<IMediator>();
 
+            var metricHandler = Substitute.For<IBundleMetricHandler>();
+
             var bundleHandler = new BundleHandler(
+                new AzureHealthDataServicesRuntimeConfiguration(),
                 httpContextAccessor,
                 fhirRequestContextAccessor,
                 fhirJsonSerializer,
@@ -159,10 +166,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 resourceReferenceResolver,
                 auditEventTypeMapping,
                 bundleOptions,
+                Options.Create(new CoreFeatureConfiguration()),
                 DisabledFhirAuthorizationService.Instance,
+                profilesResolver,
+                Substitute.For<IModelInfoProvider>(),
+                Substitute.For<ISearchParameterOperations>(),
                 mediator,
                 router,
-                profilesResolver,
+                metricHandler,
                 NullLogger<BundleHandler>.Instance);
 
             return fhirRequestContextAccessor.RequestContext;

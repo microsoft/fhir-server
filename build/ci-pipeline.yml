@@ -10,14 +10,25 @@ variables:
 
 stages:
 # *********************** Setup ***********************
+- stage: scaleUpContainerApps
+  displayName: 'Scale Container Apps Up (min=3)'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/scale-container-apps.yml
+    parameters:
+      minReplicas: 3
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+
 - stage: UpdateVersion
   displayName: 'Determine Semver'
   dependsOn: []
   jobs:
   - job: Semver
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/update-semver.yml  
 
@@ -35,8 +46,9 @@ stages:
   jobs:
   - job: cleanup
     pool:
-      name: '$(SharedLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - task: AzurePowerShell@5
       displayName: 'Azure PowerShell script: InlineScript'
@@ -66,25 +78,27 @@ stages:
     majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
     nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
   jobs:
-  - job: Windows_dotnet9
+  - job: Windows_dotnet11
     pool:
-      name: '$(DefaultWindowsPool)'
+      name: '$(InternalPool)'
       demands:
-        - ImageOverride -equals $(DefaultWindowsImage)
+        - ImageOverride -equals $(InternalWindowsImage)
     steps:
     - template: ./jobs/build.yml
       parameters:
         targetBuildFramework: $(defaultBuildFramework)
         unitTest: false
         codeCoverage: true
-  - job: Linux_dotnet8
+
+  - job: Windows_dotnet10
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalWindowsImage)
     steps:
     - template: ./jobs/build.yml
       parameters:
-        targetBuildFramework: 'net8.0'
+        targetBuildFramework: 'net10.0'
 
 - stage: BuildArtifacts
   displayName: 'Build artifacts'
@@ -99,8 +113,9 @@ stages:
   jobs:
   - job: Linux_BuildAndPackage
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/build.yml
       parameters:
@@ -118,10 +133,9 @@ stages:
   jobs:
   - job: Guardian
     pool:
-      name: '$(DefaultWindowsPool)'
+      name: '$(InternalPool)'
       demands:
-        - ImageOverride -equals $(DefaultWindowsImage)
-      
+        - ImageOverride -equals $(InternalWindowsImage)
     steps:
     - template: ./jobs/analyze.yml
 
@@ -149,6 +163,7 @@ stages:
       webAppName: $(DeploymentEnvironmentName)
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
+      resourceGroup: $(ResourceGroupName)
 
 - stage: redeployStu3Sql
   displayName: 'Redeploy STU3 SQL Site'
@@ -161,6 +176,7 @@ stages:
       webAppName: $(DeploymentEnvironmentNameSql)
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
+      resourceGroup: $(ResourceGroupName)
 
 - stage: testStu3Cosmos
   displayName: 'Run Stu3 Cosmos Tests'
@@ -171,8 +187,10 @@ stages:
   - template: ./jobs/run-cosmos-tests.yml
     parameters:
       version: Stu3
-      keyVaultName: $(DeploymentEnvironmentName)
-      appServiceName: $(DeploymentEnvironmentName)
+      keyVaultName: $(KeyVaultBaseName)
+      containerAppName: $(DeploymentEnvironmentName)
+      mainCategoryFilter: 'Category!=ExportLongRunning&Category!=ReindexOperation'
+      runReindexJob: false
 
 - stage: testStu3Sql
   displayName: 'Run Stu3 SQL Tests'
@@ -183,9 +201,12 @@ stages:
   - template: ./jobs/run-sql-tests.yml
     parameters:
       version: Stu3
-      keyVaultName: $(DeploymentEnvironmentName)
-      appServiceName: $(DeploymentEnvironmentName)
-      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      keyVaultName: $(KeyVaultNameSql)
+      containerAppName: $(DeploymentEnvironmentNameSql)
+      integrationSqlServerName: $(DeploymentEnvironmentName)integrtest
+      mainCategoryFilter: 'Category!=ExportLongRunning'
+      runReindexJob: false
+      runBulkUpdateJob: false
 
 # *********************** R4 ***********************
 - stage: redeployR4
@@ -199,6 +220,7 @@ stages:
       webAppName: $(DeploymentEnvironmentNameR4)
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
+      resourceGroup: $(ResourceGroupName)
 
 - stage: redeployR4Sql
   displayName: 'Redeploy R4 SQL Site'
@@ -211,6 +233,7 @@ stages:
       webAppName: $(DeploymentEnvironmentNameR4Sql)
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
+      resourceGroup: $(ResourceGroupName)
 
 - stage: testR4Cosmos
   displayName: 'Run R4 Cosmos Tests'
@@ -221,8 +244,10 @@ stages:
   - template: ./jobs/run-cosmos-tests.yml
     parameters:
       version: R4
-      keyVaultName: $(DeploymentEnvironmentNameR4)
-      appServiceName: $(DeploymentEnvironmentNameR4)
+      keyVaultName: $(KeyVaultNameR4)
+      containerAppName: $(DeploymentEnvironmentNameR4)
+      mainCategoryFilter: 'Category!=ExportLongRunning&Category!=ReindexOperation'
+      runReindexJob: false
 
 - stage: testR4Sql
   displayName: 'Run R4 SQL Tests'
@@ -233,73 +258,14 @@ stages:
   - template: ./jobs/run-sql-tests.yml
     parameters:
       version: R4
-      keyVaultName: $(DeploymentEnvironmentNameR4)
-      appServiceName: $(DeploymentEnvironmentNameR4)
-      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
-
-# *********************** R4B ***********************
-- stage: redeployR4B
-  displayName: 'Redeploy R4B CosmosDB Site'
-  dependsOn:
-  - DockerBuild
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: R4B
-      webAppName: $(DeploymentEnvironmentNameR4B)
-      subscription: $(ConnectedServiceName)
-      imageTag: $(ImageTag)
-
-- stage: redeployR4BSql
-  displayName: 'Redeploy R4B SQL Site'
-  dependsOn:
-  - DockerBuild
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: R4B
-      webAppName: $(DeploymentEnvironmentNameR4BSql)
-      subscription: $(ConnectedServiceName)
-      imageTag: $(ImageTag)
-
-- stage: testR4BCosmos
-  displayName: 'Run R4B Cosmos Tests'
-  dependsOn:
-  - BuildArtifacts
-  - redeployR4B
-  jobs:
-  - template: ./jobs/run-cosmos-tests.yml
-    parameters:
-      version: R4B
-      keyVaultName: $(DeploymentEnvironmentNameR4B)
-      appServiceName: $(DeploymentEnvironmentNameR4B)
-
-- stage: testR4BSql
-  displayName: 'Run R4B SQL Tests'
-  dependsOn:
-  - BuildArtifacts
-  - redeployR4BSql
-  jobs:
-  - template: ./jobs/run-sql-tests.yml
-    parameters:
-      version: R4B
-      keyVaultName: $(DeploymentEnvironmentNameR4B)
-      appServiceName: $(DeploymentEnvironmentNameR4B)
-      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      keyVaultName: $(KeyVaultNameR4Sql)
+      containerAppName: $(DeploymentEnvironmentNameR4Sql)
+      integrationSqlServerName: $(DeploymentEnvironmentName)integrtest
+      mainCategoryFilter: 'Category!=ExportLongRunning'
+      runReindexJob: false
+      runBulkUpdateJob: false
 
 # *********************** R5 ***********************
-- stage: redeployR5
-  displayName: 'Redeploy R5 CosmosDB Site'
-  dependsOn:
-  - DockerBuild
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: R5
-      webAppName: $(DeploymentEnvironmentNameR5)
-      subscription: $(ConnectedServiceName)
-      imageTag: $(ImageTag)
-
 - stage: redeployR5Sql
   displayName: 'Redeploy R5 SQL Site'
   dependsOn:
@@ -311,18 +277,7 @@ stages:
       webAppName: $(DeploymentEnvironmentNameR5Sql)
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
-
-- stage: testR5Cosmos
-  displayName: 'Run R5 Cosmos Tests'
-  dependsOn:
-  - BuildArtifacts
-  - redeployR5
-  jobs:
-  - template: ./jobs/run-cosmos-tests.yml
-    parameters:
-      version: R5
-      keyVaultName: $(DeploymentEnvironmentNameR5)
-      appServiceName: $(DeploymentEnvironmentNameR5)
+      resourceGroup: $(ResourceGroupName)
 
 - stage: testR5Sql
   displayName: 'Run R5 SQL Tests'
@@ -333,9 +288,12 @@ stages:
   - template: ./jobs/run-sql-tests.yml
     parameters:
       version: R5
-      keyVaultName: $(DeploymentEnvironmentNameR5)
-      appServiceName: $(DeploymentEnvironmentNameR5)
-      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      keyVaultName: $(KeyVaultNameR5Sql)
+      containerAppName: $(DeploymentEnvironmentNameR5Sql)
+      integrationSqlServerName: $(DeploymentEnvironmentName)integrtest
+      mainCategoryFilter: 'Category!=ExportLongRunning'
+      runReindexJob: false
+      runBulkUpdateJob: false
 
 - stage: aggregateCoverage
   displayName: 'Aggregate All Coverage Reports'
@@ -345,21 +303,38 @@ stages:
   - testStu3Sql
   - testR4Cosmos
   - testR4Sql
-  - testR4BCosmos
-  - testR4BSql
-  - testR5Cosmos
   - testR5Sql
   condition: succeeded()
   jobs:
   - job: AggregateCoverage
     displayName: 'Aggregate coverage from all test types and versions'
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/aggregate-coverage.yml
 
 # *********************** Finalize ***********************
+- stage: scaleDownContainerApps
+  displayName: 'Scale Container Apps Down (min=0)'
+  dependsOn:
+  - testStu3Cosmos
+  - testStu3Sql
+  - testR4Cosmos
+  - testR4Sql
+  - testR5Sql
+  # Only scale down on success. On failure we leave the apps at min=3 so developers can investigate
+  # via the live endpoints and ADO "Rerun failed stages" (which does NOT re-execute scaleUpContainerApps)
+  # doesn't hit cold-started apps mid-test.
+  condition: succeeded()
+  jobs:
+  - template: ./jobs/scale-container-apps.yml
+    parameters:
+      minReplicas: 0
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(ResourceGroupName)
+
 - stage: DockerAddTag
   displayName: 'Docker add main tag'
   dependsOn:
@@ -367,9 +342,6 @@ stages:
   - testStu3Sql
   - testR4Cosmos
   - testR4Sql
-  - testR4BCosmos
-  - testR4BSql
-  - testR5Cosmos
   - testR5Sql
   jobs:
   - template: ./jobs/docker-add-tag.yml

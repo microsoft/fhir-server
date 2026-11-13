@@ -1,0 +1,58 @@
+parameters:
+- name: containerAppName
+  type: string
+- name: resourceGroup
+  type: string
+- name: subscription
+  type: string
+
+steps:
+- task: AzureCLI@2
+  displayName: 'Health Check - ${{ parameters.containerAppName }}'
+  inputs:
+    azureSubscription: '${{ parameters.subscription }}'
+    scriptType: pscore
+    scriptLocation: inlineScript
+    inlineScript: |
+      $fqdn = az containerapp show `
+        --name "${{ parameters.containerAppName }}".ToLower() `
+        --resource-group "${{ parameters.resourceGroup }}" `
+        --query "properties.configuration.ingress.fqdn" -o tsv
+
+      if (-not $fqdn) {
+          throw "Could not resolve FQDN for container app '${{ parameters.containerAppName }}'"
+      }
+
+      $healthCheckUrl = "https://$fqdn/health/check"
+      $timeoutMinutes = 7
+      $consecutiveSuccessRequired = 5
+      $consecutiveSuccessCount = 0
+      $startTime = Get-Date
+      $timeoutTime = $startTime.AddMinutes($timeoutMinutes)
+
+      Write-Host "Starting health check for $healthCheckUrl"
+
+      Do {
+        Start-Sleep -Seconds 5
+        Write-Host "Checking: $healthCheckUrl ($consecutiveSuccessCount/$consecutiveSuccessRequired)"
+        try {
+          $response = Invoke-WebRequest -Uri $healthCheckUrl -UseBasicParsing
+          if ($response.StatusCode -eq 200) {
+            $consecutiveSuccessCount++
+            Write-Host "Success ($consecutiveSuccessCount/$consecutiveSuccessRequired)"
+          } else {
+            $consecutiveSuccessCount = 0
+          }
+        } catch {
+          Write-Host $_.Exception.Message
+          $consecutiveSuccessCount = 0
+        } finally {
+          $Error.Clear()
+        }
+
+        if ((Get-Date) -gt $timeoutTime) {
+          throw "Health check timed out after $([math]::Round(((Get-Date) - $startTime).TotalMinutes, 2)) minutes"
+        }
+      } While ($consecutiveSuccessCount -lt $consecutiveSuccessRequired)
+
+      Write-Host "Health check passed after $([math]::Round(((Get-Date) - $startTime).TotalSeconds, 2)) seconds"

@@ -11,7 +11,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
 
-        public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(UpsertResourceRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -110,7 +110,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
 
             ResourceWrapper resourceWrapper = ResourceWrapperFactory.CreateResourceWrapper(resource, ResourceIdProvider, deleted: false, keepMeta: allowCreate);
 
-            UpsertOutcome result = await FhirDataStore.UpsertAsync(new ResourceWrapperOperation(resourceWrapper, allowCreate, keepHistory, request.WeakETag, requireETagOnUpdate, false, request.BundleResourceContext, request.MetaHistory), cancellationToken);
+            UpsertOutcome result = await FhirDataStore.UpsertAsync(
+                new ResourceWrapperOperation(
+                    wrapper: resourceWrapper,
+                    allowCreate: allowCreate,
+                    keepHistory: keepHistory,
+                    weakETag: request.WeakETag,
+                    requireETagOnUpdate: requireETagOnUpdate,
+                    keepVersion: false,
+                    bundleResourceContext: request.BundleResourceContext,
+                    metaHistory: request.MetaHistory,
+                    createOnly: request.CreateOnly),
+                cancellationToken);
 
             resource.VersionId = result.Wrapper.Version;
 

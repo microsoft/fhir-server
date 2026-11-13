@@ -9,11 +9,12 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.JobManagement;
 
@@ -36,14 +37,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _logger = logger;
         }
 
-        public async Task<CancelImportResponse> Handle(CancelImportRequest request, CancellationToken cancellationToken)
+        public async Task<CancelImportResponse> HandleAsync(CancelImportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Import, cancellationToken) != DataActions.Import)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(DataActions.Import, true, cancellationToken);
 
             // We need to check the status of all jobs
             IReadOnlyList<JobInfo> jobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Import, request.JobId, false, cancellationToken);

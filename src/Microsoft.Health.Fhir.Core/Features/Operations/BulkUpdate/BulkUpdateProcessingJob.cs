@@ -6,33 +6,24 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Support;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
-using Microsoft.Health.Fhir.Core.Messages.Patch;
-using Microsoft.Health.Fhir.Core.Messages.Upsert;
-using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
-using Polly;
-using Polly.Retry;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 {
@@ -48,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
     {
         private readonly IQueueClient _queueClient;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private readonly Func<IScoped<IBulkUpdateService>> _updateFactory;
+        private readonly IScopeProvider<IBulkUpdateService> _updateFactory;
         private readonly IMediator _mediator;
         private readonly ISupportedProfilesStore _supportedProfiles;
         private readonly ILogger<BulkUpdateProcessingJob> _logger;
@@ -56,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
         public BulkUpdateProcessingJob(
             IQueueClient queueClient,
-            Func<IScoped<IBulkUpdateService>> updateFactory,
+            IScopeProvider<IBulkUpdateService> updateFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ISupportedProfilesStore supportedProfiles,
             IMediator mediator,
@@ -135,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                                       ? 1
                                       : ((definition.MaximumNumberOfResourcesPerQuery - 1) / 1000) + 1);
 
-                    result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, definition.ReadNextPage, readUpto, isIncludesRequest: false, queryParametersList, null, definition.MetaHistory, cancellationToken);
+                    result = await upsertService.Value.UpdateMultipleAsync(definition.Type, definition.Parameters, definition.ReadNextPage, readUpto, isIncludesRequest: false, queryParametersList, null, definition.MetaHistory, cancellationToken, definition.AllowProfileResourceModification);
                 }
                 catch (IncompleteOperationException<BulkUpdateResult> ex)
                 {
@@ -143,15 +134,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     result.Issues.Add(ex.Message);
                     exception = ex;
                 }
+                catch (Exception ex) when (ex.IsCustomerCaused())
+                {
+                    result.Issues.Add(ex.Message);
+                    exception = ex;
+                }
+
+                if (!definition.AllowProfileResourceModification)
+                {
+                    foreach (var (resourceType, count) in result.ResourcesIgnored.Where(resource => OperationsConstants.ProtectedProfileResourceTypes.Contains(resource.Key)))
+                    {
+                        result.Issues.Add($"Skipped {count} {resourceType} resource(s) because the submitting caller did not have EditProfileDefinitions permission. The resources were not updated.");
+                    }
+                }
 
                 if (result.ResourcesUpdated.Any())
                 {
-                    await _mediator.Publish(new BulkUpdateMetricsNotification(jobInfo.Id, result.ResourcesUpdated.Sum(resource => resource.Value)), cancellationToken);
+                    await _mediator.PublishAsync(new BulkUpdateMetricsNotification(jobInfo.Id, result.ResourcesUpdated.Sum(resource => resource.Value)), cancellationToken);
                 }
 
                 if (exception != null)
                 {
-                    throw new JobExecutionException($"Exception encounted while updating resources: {result.Issues.First()}", result, exception, false);
+                    throw new JobExecutionException($"Exception encounted while updating resources: {result.Issues.First()}", result, exception, exception.IsCustomerCaused());
                 }
                 else
                 {

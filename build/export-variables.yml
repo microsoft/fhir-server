@@ -1,8 +1,8 @@
 variables:
     ResourceGroupRegion: 'southcentralus'
     resourceGroupRoot: 'msh-fhir-export'
-    appServicePlanName: '$(resourceGroupRoot)-linux'
     DeploymentEnvironmentName: '$(resourceGroupRoot)'
+    AcaEnvironmentName: '$(DeploymentEnvironmentName)-acae'
     ResourceGroupName: '$(resourceGroupRoot)'
     TestEnvironmentName: 'OSS Export'
     ImageTag: 'master'

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -17,7 +17,8 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
+using Microsoft.Azure.Cosmos.Linq;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
@@ -47,14 +48,94 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         private readonly TestFhirClient _client;
         private readonly MetricHandler _metricHandler;
         private readonly ImportTestFixture<StartupForImportTestProvider> _fixture;
+        private readonly ITestOutputHelper _testOutputHelper;
         private static readonly FhirJsonSerializer _fhirJsonSerializer = new FhirJsonSerializer();
         private static readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
 
-        public ImportTests(ImportTestFixture<StartupForImportTestProvider> fixture)
+        public ImportTests(
+            ImportTestFixture<StartupForImportTestProvider> fixture,
+            ITestOutputHelper testOutputHelper)
         {
             _client = fixture.TestFhirClient;
             _metricHandler = fixture.MetricHandler;
             _fixture = fixture;
+            _testOutputHelper = testOutputHelper;
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenIncrementalLoad_WithOutOfRangeIndexedQuantity_ImportShouldFail(bool includeValidResource)
+        {
+            // Arrange
+            var observation = new Observation
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Status = ObservationStatus.Final,
+                Code = new CodeableConcept("http://loinc.org", "29463-7"),
+                Value = new Quantity(1000000000000000000m, "mg"),
+            };
+            var observations = new List<Observation>();
+            if (includeValidResource)
+            {
+                observations.Add(new Observation
+                {
+                    Id = Guid.NewGuid().ToString("N"),
+                    Status = ObservationStatus.Final,
+                    Code = new CodeableConcept("http://loinc.org", "29463-7"),
+                    Value = new Quantity(10m, "mg"),
+                });
+            }
+
+            observations.Add(observation);
+            var ndJson = string.Join(Environment.NewLine, observations.Select(resource => _fhirJsonSerializer.SerializeToString(resource))) + Environment.NewLine;
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, processingUnitBytesToRead: Encoding.UTF8.GetByteCount(ndJson));
+            request.Input.Single().Type = "Observation";
+
+            // Act
+            var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            using var response = await ImportWaitAsync(checkLocation, checkSuccessStatus: false);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            var outcome = _fhirJsonParser.Parse<OperationOutcome>(await response.Content.ReadAsStringAsync());
+            Assert.Contains(outcome.Issue, issue =>
+                issue.Diagnostics != null && issue.Diagnostics.Contains(location.OriginalString, StringComparison.Ordinal));
+            Assert.Contains(outcome.Issue, issue =>
+                issue.Diagnostics != null && issue.Diagnostics.Contains("DECIMAL(36,18)", StringComparison.OrdinalIgnoreCase));
+            foreach (var resource in observations)
+            {
+                using var readException = await Assert.ThrowsAsync<FhirClientException>(
+                    () => _client.ReadAsync<Observation>(ResourceType.Observation, resource.Id));
+                Assert.Equal(HttpStatusCode.NotFound, readException.StatusCode);
+            }
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_WithExcessScaleIndexedQuantity_ImportShouldPreserveRawQuantity()
+        {
+            // Arrange
+            const decimal value = 0.0000000000000000001m;
+            var observation = new Observation
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Status = ObservationStatus.Final,
+                Code = new CodeableConcept("http://loinc.org", "29463-7"),
+                Value = new Quantity(value, "mg"),
+            };
+            var ndJson = _fhirJsonSerializer.SerializeToString(observation) + Environment.NewLine;
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            request.Input.Single().Type = "Observation";
+
+            // Act
+            var result = await ImportCheckAsync(request);
+
+            // Assert
+            Assert.Equal(1L, result.Output.Sum(output => output.Count));
+            using var readResponse = await _client.ReadAsync<Observation>(ResourceType.Observation, observation.Id);
+            Assert.Equal(value, Assert.IsType<Quantity>(readResponse.Resource.Value).Value);
         }
 
         [Fact]
@@ -254,6 +335,23 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
             var id = long.Parse(checkLocation.LocalPath.Split('/').Last());
             return (checkLocation, id);
+        }
+
+        [Fact]
+        public async Task GivenImportStatusRequestedByProcessingJobId_ThenNotFoundIsReturned()
+        {
+            var (checkLocation, orchestratorJobId) = await RegisterImport();
+            var response = await ImportWaitAsync(checkLocation);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            // Ids are issued in sequence, so the id after the orchestrator's belongs to one of its processing jobs.
+            var processingJobId = orchestratorJobId + 1;
+
+            // Relative resolution swaps the last path segment.
+            var processingJobLocation = new Uri(checkLocation, $"{processingJobId}");
+            var processingJobResponse = await _client.CheckImportAsync(processingJobLocation, checkSuccessStatus: false);
+
+            Assert.Equal(HttpStatusCode.NotFound, processingJobResponse.StatusCode);
         }
 
         [Fact]
@@ -574,7 +672,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             Assert.Equal(2, history.Resource.Entry.Count);
             //// same order
             Assert.True(int.Parse(history.Resource.Entry[0].Resource.VersionId) > int.Parse(history.Resource.Entry[1].Resource.VersionId));
-            Assert.True(history.Resource.Entry[0].Resource.Meta.LastUpdated > history.Resource.Entry[1].Resource.Meta.LastUpdated);
+            Assert.True(history.Resource.Entry[0].Resource.Meta.LastUpdated > history.Resource.Entry[1].Resource.Meta.LastUpdated, $"Expected {history.Resource.Entry[0].Resource.Meta.LastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff")} > {history.Resource.Entry[1].Resource.Meta.LastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff")}");
         }
 
         [Fact]
@@ -783,6 +881,38 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             var observation = await _client.ReadAsync<Observation>(ResourceType.Observation, oid);
             Assert.Equal("1", observation.Resource.Meta.VersionId);
         }
+
+#if R4
+        [Fact]
+        public async Task GivenIncrementalLoad_WithInMemorySource_AndMultipleInputs_SameDataIsImported()
+        {
+            const int jobs = 100;
+            var id = Guid.NewGuid().ToString("N")[..8]; // we want to override registration idempotence
+            var request = CreateImportRequest(new Uri($"inmemorytest://whatever/{id}"), ImportMode.IncrementalLoad, setResourceType: false, inMemoryTestProcessingJobs: jobs);
+            var result = await ImportCheckAsync(request, null, 0);
+            Assert.Empty(result.Output);
+            Assert.NotEmpty(result.ExecutionStats);
+            var statsJson = JsonConvert.SerializeObject(result.ExecutionStats, Formatting.Indented);
+            _testOutputHelper.WriteLine("ExecutionStats:");
+            _testOutputHelper.WriteLine(statsJson);
+            Console.WriteLine("========== ExecutionStats ==========");
+            Console.WriteLine(statsJson);
+            Console.WriteLine("====================================");
+
+            Assert.StartsWith($"jobs_total={jobs} ", result.ExecutionStats.First());
+            Assert.Contains("cpu_msec_per_resource=", result.ExecutionStats.First()); // only emitted when timings were actually collected
+            var jobLines = result.ExecutionStats.Where(l => l.StartsWith("job=")).ToList();
+            Assert.Equal(50, jobLines.Count); // max output is 50
+            Assert.All(jobLines, jobLine =>
+            {
+                Assert.Contains("succeeded=1000", jobLine);
+                Assert.Contains("failed=0", jobLine);
+                Assert.Contains("cpu_msec=", jobLine);
+                Assert.Contains("clock_msec=", jobLine);
+                Assert.Contains("database_msec=", jobLine);
+            });
+        }
+#endif
 
         [Theory]
         [InlineData(true)]
@@ -1184,7 +1314,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             return DateTimeOffset.Parse(lastUpdatedYear + "-01-01T00:00:00.000+00:00");
         }
 
-        private static ImportRequest CreateImportRequest(IList<Uri> locations, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null, bool eventualConsistency = false, int? processingUnitBytesToRead = null)
+        private static ImportRequest CreateImportRequest(IList<Uri> locations, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null, bool eventualConsistency = false, int? processingUnitBytesToRead = null, int inMemoryTestProcessingJobs = 0)
         {
             var input = locations.Select(location =>
             {
@@ -1207,6 +1337,7 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
                 AllowNegativeVersions = allowNegativeVersions,
                 EventualConsistency = eventualConsistency,
                 ErrorContainerName = errorContainerName,
+                InMemoryTestProcessingJobs = inMemoryTestProcessingJobs,
             };
 
             if (processingUnitBytesToRead.HasValue)
@@ -1217,9 +1348,9 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
             return request;
         }
 
-        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null, bool eventualConsistency = false, int? processingUnitBytesToRead = null)
+        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false, string errorContainerName = null, bool eventualConsistency = false, int? processingUnitBytesToRead = null, int inMemoryTestProcessingJobs = 0)
         {
-            return CreateImportRequest([location], importMode, setResourceType, allowNegativeVersions, errorContainerName, eventualConsistency, processingUnitBytesToRead);
+            return CreateImportRequest([location], importMode, setResourceType, allowNegativeVersions, errorContainerName, eventualConsistency, processingUnitBytesToRead, inMemoryTestProcessingJobs);
         }
 
         private static string PrepareResource(string id, string version, string lastUpdatedYear)
@@ -1851,6 +1982,31 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
         }
 
         [Fact]
+        public async Task GivenImportInputUrlForUnconfiguredStorageAccount_ThenBadRequestShouldBeReturned()
+        {
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = new Uri("https://unconfigured.example.org/container/patient.ndjson"),
+                        Type = "Patient",
+                    },
+                },
+                Mode = ImportMode.InitialLoad.ToString(),
+            };
+
+            FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(
+                async () => await _client.ImportAsync(request.ToParameters()));
+
+            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+        }
+
+        [Fact]
         public async Task GivenImportRequestWithMultipleSameFile_ThenBadRequestShouldBeReturned()
         {
             _metricHandler?.ResetCount();
@@ -1956,15 +2112,25 @@ EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
 
             var response = await ImportWaitAsync(checkLocation, returnDetails: returnDetails);
 
-            Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
-            Assert.NotEmpty(result.Output);
+            if (request.InMemoryTestProcessingJobs <= 0)
+            {
+                Assert.NotEmpty(result.Output);
+            }
+
             if (errorCount != null && errorCount != 0)
             {
                 Assert.Equal(errorCount.Value, result.Error.Count > 0 ? result.Error.First().Count : 0);
             }
             else
             {
+                if (result.Error.Count > 0)
+                {
+                    _testOutputHelper.WriteLine("Import errors:");
+                    _testOutputHelper.WriteLine(JsonConvert.SerializeObject(result.Error, Formatting.Indented));
+                }
+
                 Assert.Empty(result.Error);
             }
 

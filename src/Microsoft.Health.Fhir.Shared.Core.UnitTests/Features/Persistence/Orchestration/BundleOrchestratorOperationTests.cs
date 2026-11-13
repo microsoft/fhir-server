@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -90,8 +91,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
 
             // Append resources to an operation.
-            List<Task> tasksWaitingForMergeAsync = new List<Task>(capacity: numberOfResources);
-            Parallel.For(0, numberOfResources, async (i, task) =>
+            ConcurrentBag<Task> tasksWaitingForMergeAsync = new ConcurrentBag<Task>();
+            await Parallel.ForAsync(0, numberOfResources, async (i, _) =>
             {
                 DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
                 ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(
@@ -212,8 +213,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
 
             // Append resources to an operation.
-            List<Task> tasksWaitingForMergeAsync = new List<Task>(capacity: numberOfResources);
-            Parallel.For(0, numberOfResources, async (i, task) =>
+            ConcurrentBag<Task> tasksWaitingForMergeAsync = new ConcurrentBag<Task>();
+            await Parallel.ForAsync(0, numberOfResources, async (i, _) =>
             {
                 Task appendTask;
                 if (i % 2 == 0)
@@ -276,6 +277,105 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Equal(BundleOrchestratorOperationStatus.Canceled, operation.Status);
             Assert.Equal(numberOfResources, operation.OriginalExpectedNumberOfResources);
             Assert.Equal(numberOfResources, operation.CurrentExpectedNumberOfResources);
+        }
+
+        [Fact]
+        public async Task GivenABatchOperation_WhenAlreadyCanceled_ThenReleaseResourceAsyncShouldReturnWithoutThrowingBundleOrchestratorException()
+        {
+            // When a parallel bundle is canceled, subsequent ReleaseResourceAsync
+            // calls from remaining workers must silently return rather than attempt an invalid
+            // status transition that throws BundleOrchestratorException.
+
+            const int numberOfResources = 10;
+
+            using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+            var batchOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
+            IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
+
+            operation.Cancel("Simulated cancellation for test.");
+            Assert.Equal(BundleOrchestratorOperationStatus.Canceled, operation.Status);
+
+            Task[] releaseTasks = new Task[numberOfResources];
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                releaseTasks[i] = operation.ReleaseResourceAsync("Released after cancellation.", cts.Token);
+            }
+
+            Exception exception = await Record.ExceptionAsync(() => Task.WhenAll(releaseTasks));
+            Assert.Null(exception);
+
+            Assert.Equal(BundleOrchestratorOperationStatus.Canceled, operation.Status);
+        }
+
+        [Fact]
+        public async Task GivenATransactionOperation_WhenCanceledWhileMergeIsWaitingForResources_ThenRemainCanceled()
+        {
+            // Cancel() is only called on the transaction path, when a sibling entry fails.
+            using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+            var transactionOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
+            IBundleOrchestratorOperation operation = transactionOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Transaction, "POST", expectedNumberOfResources: 2);
+
+            DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
+            ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(
+                resource,
+                new BundleResourceContext(Bundle.BundleType.Transaction, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.POST, persistedId: null, operation.Id));
+
+            Task<UpsertOutcome> appendTask = operation.AppendResourceAsync(resourceWrapper, BundleTestsCommonFunctions.GetSubstituteForIFhirDataStore(), cts.Token);
+
+            operation.Cancel("Simulated client failure.");
+
+            await Assert.ThrowsAsync<BundleOrchestratorOperationCanceledException>(() => appendTask);
+            Assert.Equal(BundleOrchestratorOperationStatus.Canceled, operation.Status);
+        }
+
+        [Fact]
+        public async Task GivenABatchOperation_WhenOneWorkerFailsAndRemainingWorkersRelease_ThenReleaseResourceAsyncShouldReturnWithoutThrowingBundleOrchestratorException()
+        {
+            // A bundle with N parallel workers is being processed. One worker fails (e.g., SQL timeout)
+            // which sets the operation to Failed. The remaining N-1 workers then call ReleaseResourceAsync
+            // concurrently and do not throw BundleOrchestratorException.
+
+            const int numberOfResources = 10;
+            using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+            var batchOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
+            IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
+
+            // Worker 0 fails first (e.g., SQL timeout). AppendResourceAsync with a pre-cancelled
+            // token triggers the internal catch block → status becomes Failed.
+            using CancellationTokenSource preCancelled = new CancellationTokenSource();
+            preCancelled.Cancel();
+
+            DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
+            ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(
+                resource,
+                new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Parallel, Bundle.HTTPVerb.POST, persistedId: null, operation.Id));
+
+            try
+            {
+                await operation.AppendResourceAsync(resourceWrapper, BundleTestsCommonFunctions.GetSubstituteForIFhirDataStore(), preCancelled.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected: the failing worker propagates the exception.
+            }
+
+            Assert.Equal(BundleOrchestratorOperationStatus.Failed, operation.Status);
+
+            // Remaining N-1 workers call ReleaseResourceAsync concurrently after the failure. Operation is already Failed,
+            // and these workers must not throw BundleOrchestratorException.
+            Task[] releaseTasks = new Task[numberOfResources - 1];
+            Parallel.For(1, numberOfResources, (i, _) =>
+            {
+                releaseTasks[i - 1] = operation.ReleaseResourceAsync($"Worker {i} releasing.", cts.Token);
+            });
+
+            Exception exception = await Record.ExceptionAsync(() => Task.WhenAll(releaseTasks));
+            Assert.Null(exception);
+
+            Assert.Equal(BundleOrchestratorOperationStatus.Failed, operation.Status);
         }
 
         private static Bundle.HTTPVerb GetHttpVerb(int index)

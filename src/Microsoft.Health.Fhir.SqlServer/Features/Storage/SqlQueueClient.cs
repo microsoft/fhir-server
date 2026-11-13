@@ -8,10 +8,12 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -176,12 +178,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task<JobInfo> EnqueueWithStatusAsync(byte queueType, long groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken)
+        public async Task<JobInfo> EnqueueWithStatusAsync(byte queueType, long? groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken)
         {
             using var sqlCommand = new SqlCommand() { CommandText = "dbo.EnqueueJobs", CommandType = CommandType.StoredProcedure, CommandTimeout = 300 };
             sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
             new StringListTableValuedParameterDefinition("@Definitions").AddParameter(sqlCommand.Parameters, [new StringListRow(definition)]);
-            sqlCommand.Parameters.AddWithValue("@GroupId", groupId);
+            if (groupId.HasValue)
+            {
+                sqlCommand.Parameters.AddWithValue("@GroupId", groupId.Value);
+            }
+
             sqlCommand.Parameters.AddWithValue("@Status", jobStatus);
             if (startDate.HasValue)
             {

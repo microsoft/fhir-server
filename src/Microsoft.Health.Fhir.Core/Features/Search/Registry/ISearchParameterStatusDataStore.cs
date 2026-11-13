@@ -12,18 +12,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
     public interface ISearchParameterStatusDataStore
     {
-        Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken);
+        string SearchParamCacheUpdateProcessName { get; }
 
-        Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken);
+        Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null);
+
+        Task UpsertStatuses(IReadOnlyList<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken, long? reindexId = null);
 
         void SyncStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses);
 
+        Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken);
+
         /// <summary>
-        /// Gets the maximum LastUpdated timestamp from the search parameter status store.
-        /// This is used for efficient cache validation without retrieving all records.
+        /// Checks whether all active instances have updated their search parameter caches
         /// </summary>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>Maximum LastUpdated timestamp, or DateTimeOffset.MinValue if no records exist</returns>
-        Task<DateTimeOffset> GetMaxLastUpdatedAsync(CancellationToken cancellationToken);
+        /// <param name="updateEventsSince">Only cache update records after this time are considered for convergence.</param>
+        /// <param name="activeHostsSince">Only active hosts after this time are considered.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A <see cref="CacheConsistencyResult"/> indicating convergence status.</returns>
+        Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken);
     }
 }

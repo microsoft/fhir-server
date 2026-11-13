@@ -16,7 +16,6 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence;
 
@@ -70,6 +69,37 @@ public class SqlServerSearchParameterInitializationTests : IClassFixture<SqlServ
                 var reInitializedSearchParameterStatus = reInitializedSearchParameterStatuses.Single(s => s.Uri == updatedSearchParameterStatus.Uri);
                 Assert.Equal(updatedSearchParameterStatus.Status, reInitializedSearchParameterStatus.Status);
             });
+    }
+
+    [Fact]
+    public async Task GivenSearchParametersMarkedUnsupportedInTheFile_WhenInitializing_ThenTheyRemainUnsupportedInTheDatabase()
+    {
+        // Arrange - collect every URI that the file-based data store marks as Unsupported.
+        // These are the search parameters listed in Data/{Version}/unsupported-search-parameters.json
+        // and must never be overwritten by SqlServerFhirModel.InitializeSearchParameterStatuses,
+        // otherwise the server would silently return empty results (with 200 OK) for those params
+        // instead of an OperationOutcome warning.
+        var fileStatuses = (await _fixture.FilebasedSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None)).ToList();
+        var expectedUnsupportedUris = fileStatuses
+            .Where(s => s.Status == SearchParameterStatus.Unsupported)
+            .Select(s => s.Uri)
+            .ToList();
+
+        Assert.NotEmpty(expectedUnsupportedUris);
+
+        // Act - re-run the initializer. This exercises the code path that previously overwrote
+        // Unsupported with Enabled/Supported on every startup.
+        await _fixture.SqlServerFhirModel.Initialize(SchemaVersionConstants.Max, CancellationToken.None);
+
+        // Assert - every URI that came from the file as Unsupported is still Unsupported in SQL.
+        var dbStatuses = (await _fixture.SqlServerSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None))
+            .ToDictionary(s => s.Uri);
+
+        foreach (var uri in expectedUnsupportedUris)
+        {
+            Assert.True(dbStatuses.TryGetValue(uri, out var dbStatus), $"Expected search parameter '{uri}' to exist in the SQL SearchParam table.");
+            Assert.Equal(SearchParameterStatus.Unsupported, dbStatus.Status);
+        }
     }
 
     private async Task CheckSearchParametersForInvalid()

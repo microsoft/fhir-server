@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,8 +11,9 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Extensions;
@@ -46,16 +47,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private readonly IMediator _mediator;
         private readonly TerminologyConfiguration _configuration;
+        private readonly ILogger<TerminologyController> _logger;
 
         public TerminologyController(
             IMediator mediator,
-            IOptions<TerminologyConfiguration> configuration)
+            IOptions<TerminologyConfiguration> configuration,
+            ILogger<TerminologyController> logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(configuration?.Value, nameof(configuration));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _mediator = mediator;
             _configuration = configuration.Value;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -73,10 +78,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ValidateExpandParameters(parameters);
 
             var request = new ExpandRequest(parameters);
-            var response = await _mediator.Send<ExpandResponse>(
+            var response = await _mediator.SendAsync<ExpandResponse>(
                 request,
                 HttpContext.RequestAborted);
-            return FhirResult.Create(response.Resource);
+            return FhirResult.Create(_logger, response.Resource);
         }
 
         [HttpGet]
@@ -99,10 +104,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ValidateExpandParameters(parameters, idParameter);
 
             var request = new ExpandRequest(parameters, idParameter);
-            var response = await _mediator.Send<ExpandResponse>(
+            var response = await _mediator.SendAsync<ExpandResponse>(
                 request,
                 HttpContext.RequestAborted);
-            return FhirResult.Create(response.Resource);
+            return FhirResult.Create(_logger, response.Resource);
         }
 
         [HttpPost]
@@ -121,10 +126,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ValidateExpandParameters(parameterList);
 
             var request = new ExpandRequest(parameterList);
-            var response = await _mediator.Send<ExpandResponse>(
+            var response = await _mediator.SendAsync<ExpandResponse>(
                 request,
                 HttpContext.RequestAborted);
-            return FhirResult.Create(response.Resource);
+            return FhirResult.Create(_logger, response.Resource);
         }
 
         private static string Convert(DataType value)

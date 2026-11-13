@@ -17,6 +17,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)PrometheusMetricsApplicationBuilderExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)PrometheusMetricsServicesCollectionExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)PrometheusMetricsServer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SqlClientMeterProviderBuilderExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Startup.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)UserAgentHeaderTelemetryInitializer.cs" />
   </ItemGroup>

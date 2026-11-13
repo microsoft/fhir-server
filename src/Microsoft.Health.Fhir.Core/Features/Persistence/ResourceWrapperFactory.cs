@@ -5,6 +5,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
@@ -13,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
@@ -22,6 +26,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     /// </summary>
     public class ResourceWrapperFactory : IResourceWrapperFactory
     {
+        /// <summary>
+        /// Request context property that holds the number of search index values extracted for a bundle entry's resource.
+        /// </summary>
+        public const string SearchIndexValuesPropertyName = "Bundle.Entry.SearchIndexValues";
+
         private readonly IRawResourceFactory _rawResourceFactory;
         private readonly ISearchIndexer _searchIndexer;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
@@ -29,6 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly ICompartmentIndexer _compartmentIndexer;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IResourceDeserializer _resourceDeserializer;
+        private readonly IVectorSearchIndexer _vectorSearchIndexer;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ResourceWrapperFactory"/> class.
@@ -40,6 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <param name="compartmentIndexer">The compartment indexer.</param>
         /// <param name="searchParameterDefinitionManager"> The search parameter definition manager.</param>
         /// <param name="resourceDeserializer">Resource deserializer</param>
+        /// <param name="vectorSearchIndexer">The optional vector indexer, registered when vector search is enabled.</param>
         public ResourceWrapperFactory(
             IRawResourceFactory rawResourceFactory,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
@@ -47,7 +58,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IClaimsExtractor claimsExtractor,
             ICompartmentIndexer compartmentIndexer,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            IResourceDeserializer resourceDeserializer)
+            IResourceDeserializer resourceDeserializer,
+            IVectorSearchIndexer vectorSearchIndexer = null)
         {
             EnsureArg.IsNotNull(rawResourceFactory, nameof(rawResourceFactory));
             EnsureArg.IsNotNull(searchIndexer, nameof(searchIndexer));
@@ -64,6 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _compartmentIndexer = compartmentIndexer;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _resourceDeserializer = resourceDeserializer;
+            _vectorSearchIndexer = vectorSearchIndexer;
         }
 
         /// <inheritdoc />
@@ -72,11 +85,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             RawResource rawResource = _rawResourceFactory.Create(resource, keepMeta, keepVersion);
             IReadOnlyCollection<SearchIndexEntry> searchIndices = _searchIndexer.Extract(resource);
 
+            if (deleted && searchIndices.Any(x => x.SearchParameter.Code != KnownQueryParameterNames.LastUpdated && x.SearchParameter.Code != KnownQueryParameterNames.Id))
+            {
+                searchIndices = searchIndices.Where(x => x.SearchParameter.Code == KnownQueryParameterNames.LastUpdated || x.SearchParameter.Code == KnownQueryParameterNames.Id).ToList();
+            }
+
             string searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resource.InstanceType);
 
             ExtractMinAndMaxValues(searchIndices);
 
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
+
+            if (!deleted && fhirRequestContext.ExecutingBatchOrTransaction)
+            {
+                fhirRequestContext.Properties[SearchIndexValuesPropertyName] = searchIndices.Count;
+            }
 
             return new ResourceWrapper(
                 resource,
@@ -92,10 +115,87 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <inheritdoc />
         public void Update(ResourceWrapper resourceWrapper)
         {
+            if (resourceWrapper.IsDeleted)
+            {
+                var searchIndices = resourceWrapper.SearchIndices.Where(x => x.SearchParameter.Code == KnownQueryParameterNames.LastUpdated || x.SearchParameter.Code == KnownQueryParameterNames.Id).ToList();
+                resourceWrapper.UpdateSearchIndices(searchIndices);
+                return;
+            }
+
             var resourceElement = _resourceDeserializer.Deserialize(resourceWrapper);
             var newIndices = _searchIndexer.Extract(resourceElement);
+            var searchParameterHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resourceElement.InstanceType);
             ExtractMinAndMaxValues(newIndices);
-            resourceWrapper.UpdateSearchIndices(newIndices);
+            resourceWrapper.UpdateSearchIndices(newIndices, searchParameterHash);
+        }
+
+        /// <inheritdoc />
+        public async Task UpdateAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(resources, nameof(resources));
+
+            foreach (ResourceWrapper resource in resources)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Update(resource);
+            }
+
+            // Update already extracted every index from the persisted resource, so vector sources need no refresh.
+            await IndexVectorsAsync(resources, cancellationToken);
+        }
+
+        /// <inheritdoc />
+        public async Task UpdateVectorSearchIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(resources, nameof(resources));
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (_vectorSearchIndexer == null)
+            {
+                return;
+            }
+
+            foreach (ResourceWrapper resource in resources)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                RefreshVectorSources(resource);
+            }
+
+            await IndexVectorsAsync(resources, cancellationToken);
+        }
+
+        private async Task IndexVectorsAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (_vectorSearchIndexer != null && resources.Count > 0)
+            {
+                await _vectorSearchIndexer.UpdateVectorSearchIndicesAsync(resources, cancellationToken);
+            }
+        }
+
+        // Vector sources are FHIRPath values, and an expression such as meta.versionId reads state that
+        // only exists once the version is finalized. Create extracted them from the input resource, so
+        // re-extract them from the finalized one; otherwise a reindex of the same resource would produce
+        // different passages. Ordinary indices, the search parameter hash and min/max flags stay as created.
+        private void RefreshVectorSources(ResourceWrapper resource)
+        {
+            if (resource.IsDeleted
+                || resource.IsHistory
+                || !_searchParameterDefinitionManager.GetSearchParameters(resource.ResourceTypeName).Any(searchParameter => searchParameter.VectorConfig != null))
+            {
+                return;
+            }
+
+            IEnumerable<SearchIndexEntry> vectorSources = _searchIndexer
+                .Extract(_resourceDeserializer.Deserialize(resource))
+                .Where(entry => entry.SearchParameter.VectorConfig != null);
+
+            resource.UpdateSearchIndices(
+                (resource.SearchIndices ?? Array.Empty<SearchIndexEntry>())
+                .Where(entry => entry.SearchParameter.VectorConfig == null)
+                .Concat(vectorSources)
+                .ToList());
         }
 
         // A given search parameter can have multiple values. We want to keep track of which

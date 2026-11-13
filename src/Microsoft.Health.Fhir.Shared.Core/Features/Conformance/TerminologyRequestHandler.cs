@@ -8,7 +8,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Conformance;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -45,16 +46,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
             _logger = logger;
         }
 
-        public async Task<ExpandResponse> Handle(
+        public async Task<ExpandResponse> HandleAsync(
             ExpandRequest request,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Read, cancellationToken) != DataActions.Read)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(DataActions.Read, true, cancellationToken);
 
             try
             {
@@ -80,6 +78,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Conformance
                     request.ResourceId,
                     cancellationToken);
                 return new ExpandResponse(resource);
+            }
+            catch (ResourceNotFoundException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

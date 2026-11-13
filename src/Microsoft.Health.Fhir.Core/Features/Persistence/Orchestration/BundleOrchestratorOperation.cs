@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         private static readonly BundleResourceContextComparer _contextComparer = new BundleResourceContextComparer();
 
         private readonly int _maxExecutionTimeInSeconds;
-        private readonly bool _ensureAtomicOperations = false;
+        private readonly bool _isBundleTransaction = false;
 
         /// <summary>
         /// List of resource to be sent to the data layer.
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             _dataStore = null;
 
             _maxExecutionTimeInSeconds = maxExecutionTimeInSeconds;
-            _ensureAtomicOperations = type == BundleOrchestratorOperationType.Transaction;
+            _isBundleTransaction = type == BundleOrchestratorOperationType.Transaction;
         }
 
         public Guid Id { get; private set; }
@@ -135,6 +135,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                 InitializeMergeTaskSafe(dataStore, cancellationToken);
             }
+            catch (BundleOrchestratorOperationCanceledException)
+            {
+                // Operation is already in a terminal state (Failed or Canceled). Re-throw to avoid
+                // the generic catch from redundantly calling SetStatusSafe(Failed).
+                throw;
+            }
             catch (Exception ex)
             {
                 SetStatusSafe(BundleOrchestratorOperationStatus.Failed);
@@ -143,11 +149,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 throw;
             }
 
+            // Add the HTTP Verb to the list of known HTTP Verbs in the operation.
+            // If the same HTTP Verb is already present, it will not be added again, as the value is a byte and the key is unique.
+            _knownHttpVerbsInOperation.TryAdd(resource.BundleResourceContext.HttpVerb, 0);
+
             identifier = resource.GetIdentifier();
             if (_resources.TryAdd(identifier, resource))
             {
-                _knownHttpVerbsInOperation.TryAdd(resource.BundleResourceContext.HttpVerb, 0);
-
                 // Await for the merge async task to complete merging all resources.
                 MergeOutcome mergeOutcome = await _mergeAsyncTask;
 
@@ -239,6 +247,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 Interlocked.Decrement(ref _currentExpectedNumberOfResources);
 
                 InitializeMergeTaskSafe(dataStore: null, cancellationToken);
+            }
+            catch (BundleOrchestratorOperationCanceledException)
+            {
+                // Operation is already in a terminal state (Failed or Canceled). Silently return to avoid
+                // cascading log noise when many parallel workers release after a single failure.
+                return;
             }
             catch (OperationCanceledException oce)
             {
@@ -387,8 +401,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                     // Bundle Orchestrator operations will not enlist to C# transactions.
                     // The database will be responsible for handling it internally.
-                    // For Transaction, atomicity will be ensured based on the 'ensureAtomicOperations' flag.
-                    MergeOptions mergeOptions = new MergeOptions(enlistTransaction: false, ensureAtomicOperations: _ensureAtomicOperations);
+                    // For Transaction, atomicity will be ensured based on the 'isBundleTransaction' flag.
+                    MergeOptions mergeOptions = new MergeOptions(enlistTransaction: false, isBundleTransaction: _isBundleTransaction);
 
                     // 2 - Merge all resources in the database.
                     MergeOutcome mergeOutcome = await _dataStore.MergeAsync(_resources.Values.ToList(), mergeOptions, cancellationToken);
@@ -403,6 +417,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                     // 3 - Return all resources processed during the operation.
                     return mergeOutcome;
                 }
+            }
+            catch (BundleOrchestratorOperationCanceledException)
+            {
+                throw;
             }
             catch (OperationCanceledException oce)
             {
@@ -428,6 +446,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 {
                     return;
                 }
+                else if (suggestedStatus == BundleOrchestratorOperationStatus.Canceled || suggestedStatus == BundleOrchestratorOperationStatus.Failed)
+                {
+                    Status = suggestedStatus;
+                }
+                else if (Status == BundleOrchestratorOperationStatus.Failed || Status == BundleOrchestratorOperationStatus.Canceled)
+                {
+                    throw new BundleOrchestratorOperationCanceledException($"Bundle Operation {Id}. Operation is already in terminal state '{Status}'. Ignoring transition to '{suggestedStatus}'.");
+                }
                 else if (suggestedStatus == BundleOrchestratorOperationStatus.WaitingForResources && Status == BundleOrchestratorOperationStatus.Open)
                 {
                     Status = BundleOrchestratorOperationStatus.WaitingForResources;
@@ -439,10 +465,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 else if (suggestedStatus == BundleOrchestratorOperationStatus.Completed && Status == BundleOrchestratorOperationStatus.Processing)
                 {
                     Status = BundleOrchestratorOperationStatus.Completed;
-                }
-                else if (suggestedStatus == BundleOrchestratorOperationStatus.Canceled || suggestedStatus == BundleOrchestratorOperationStatus.Failed)
-                {
-                    Status = suggestedStatus;
                 }
                 else
                 {

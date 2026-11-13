@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
@@ -52,13 +52,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             {
                 // No matches, no id provided: The server creates the resource
                 // TODO: There is a potential contention issue here in that this could create another new resource with a different id
-                return await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(request.Resource, request.BundleResourceContext), cancellationToken);
+                return await _mediator.SendAsync<UpsertResourceResponse>(new CreateResourceRequest(request.Resource, request.BundleResourceContext), cancellationToken);
             }
             else
             {
-                // No matches, id provided: The server treats the interaction as an Update as Create interaction (or rejects it, if it does not support Update as Create)
-                // TODO: There is a potential contention issue here that this could replace an existing resource
-                return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(request.Resource, request.BundleResourceContext), cancellationToken);
+                // No matches, id provided and doesn't already exist: The server treats the interaction as an Update as Create interaction (or rejects it, if it does not support Update as Create)
+                // No matches, id provided and already exists:
+                //   - NoMatchBehavior.Create: the server rejects the update with a 409 Conflict (the request is flagged createOnly and the data store checks for a live resource before writing; this is a best-effort check, not an atomic guarantee against concurrent creates)
+                //   - NoMatchBehavior.Upsert (legacy default): the resource with that id is overwritten
+                bool createOnly = request.NoMatchBehavior == ConditionalUpdateNoMatchBehavior.Create;
+                return await _mediator.SendAsync<UpsertResourceResponse>(new UpsertResourceRequest(request.Resource, request.BundleResourceContext, createOnly: createOnly), cancellationToken);
             }
         }
 
@@ -72,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             if (string.IsNullOrEmpty(resource.Id) || string.Equals(resource.Id, resourceWrapper.ResourceId, StringComparison.Ordinal))
             {
                 resource.Id = resourceWrapper.ResourceId;
-                return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(resource.ToResourceElement(), request.BundleResourceContext, version), cancellationToken);
+                return await _mediator.SendAsync<UpsertResourceResponse>(new UpsertResourceRequest(resource.ToResourceElement(), request.BundleResourceContext, version), cancellationToken);
             }
             else
             {
@@ -80,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             }
         }
 
-        public override Task<DataActions> CheckAccess(CancellationToken cancellationToken)
+        public override Task<bool> CheckAccess(CancellationToken cancellationToken)
         {
             return AuthorizationService.CheckConditionalUpdateAccess(cancellationToken);
         }

@@ -35,7 +35,6 @@ namespace Microsoft.Health.JobManagement
             : base(message, innerException)
         {
             EnsureArg.IsNotNull(message, nameof(message));
-            EnsureArg.IsNotNull(innerException, nameof(innerException));
 
             Error = error;
             IsCustomerCaused = isCustomerCaused;

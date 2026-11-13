@@ -24,7 +24,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Conformance\DocRefOperationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Conformance\ExpandOperationTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Conformance\ExpandOperationTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\Conformance\InstantiatesCapabilityProviderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CustomHeadersTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HttpIntegrationFixtureArgumentSetsAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\AuditEntry.cs" />
@@ -33,9 +32,11 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\StartupWithTraceAuditLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\TraceAuditLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BasicAuthTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\SmartPatientReferenceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BundleBatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CompartmentTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CompartmentTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\SmartPatientScopeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalCreateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalUpdateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CorsTests.cs" />
@@ -93,9 +94,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\JsonPatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\FhirPathPatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ReadTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\Reindex\ReindexTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Reindex\ReindexTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RemoteTestFhirServer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\MsSearchParameterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TokenIntrospectionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SearchProxyTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ChainingAndSortTests.cs" />
@@ -110,6 +111,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CompositeSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\DateSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\DateSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\InstantDateSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\EscapeCharactersSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludeSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludeSearchTests.cs" />
@@ -126,6 +128,13 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ReferenceSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ReferenceSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SearchTestsBase.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SearchParameterInitializationTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StartupWithDefinitionInitializationFailure.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StartupWithStatusInitializationFailure.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\AlwaysFailingSearchParameterStatusDataStore.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\FailingSearchParameterStatusManager.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SortedIncludesTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SortedIncludesTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SortTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StringSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StringSearchTests.cs" />

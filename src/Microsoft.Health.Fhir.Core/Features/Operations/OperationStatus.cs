@@ -14,5 +14,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         Failed = 3,
         Canceled = 4,
         Paused = 5,
+        CancelledByUser = 6,
     }
 }

@@ -260,6 +260,46 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
         }
 
         [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenSearchOnlyPermission_WhenCheckingConditionalDeleteAccess_ThenAccessIsDenied(bool hardDelete)
+        {
+            var service = Substitute.For<IAuthorizationService<DataActions>>();
+            service.CheckAccess(
+                Arg.Any<DataActions>(),
+                Arg.Any<CancellationToken>())
+                .Returns(DataActions.Search);
+
+            var result = await service.CheckConditionalDeleteAccess(
+                CancellationToken.None,
+                hardDelete,
+                true,
+                false);
+
+            Assert.False(result);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenNoPermissionsAndGranularDisabled_WhenCheckingConditionalDeleteAccess_ThenAccessIsDenied(bool hardDelete)
+        {
+            var service = Substitute.For<IAuthorizationService<DataActions>>();
+            service.CheckAccess(
+                Arg.Any<DataActions>(),
+                Arg.Any<CancellationToken>())
+                .Returns(DataActions.None);
+
+            var result = await service.CheckConditionalDeleteAccess(
+                CancellationToken.None,
+                hardDelete,
+                false,
+                false);
+
+            Assert.False(result);
+        }
+
+        [Theory]
         [InlineData(true, true, DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update)]
         [InlineData(false, true, DataActions.Read | DataActions.Write, DataActions.Read | DataActions.Write)]
         [InlineData(true, true, DataActions.Read | DataActions.Write | DataActions.Search | DataActions.Update, DataActions.Read | DataActions.Write)]
@@ -311,16 +351,42 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
                 });
         }
 
-        private static async Task TestCheckAccess(
+        [Theory]
+        [InlineData(true, true, DataActions.Write | DataActions.Read, DataActions.Write | DataActions.Read)]
+        [InlineData(false, true, DataActions.Write, DataActions.Read)]
+        [InlineData(false, false, DataActions.Write, DataActions.Read)]
+        [InlineData(false, true, DataActions.Write | DataActions.Read, DataActions.Write)]
+        public async Task GivenDataActions_WhenCheckingAccess_ThenCheckAccessIsPerformedCorrectly(
+            bool success,
+            bool throwException,
+            DataActions requested,
+            DataActions granted)
+        {
+            var result = await TestCheckAccess(
+                requested,
+                granted,
+                throwException && (granted & requested) != requested,
+                service =>
+                {
+                    return service.CheckAccess(
+                        requested,
+                        throwException,
+                        CancellationToken.None);
+                });
+            Assert.Equal(success, result);
+        }
+
+        private static async Task<bool> TestCheckAccess(
             DataActions requested,
             DataActions granted,
             bool exception,
-            Func<IAuthorizationService<DataActions>, Task<DataActions>> func)
+            Func<IAuthorizationService<DataActions>, Task<bool>> func)
         {
             var service = CreateAuthorizationService(requested, granted);
+            var result = false;
             try
             {
-                var result = await func(service);
+                result = await func(service);
                 Assert.True(!exception);
             }
             catch (UnauthorizedFhirActionException)
@@ -331,6 +397,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
             await service.Received(1).CheckAccess(
                 Arg.Is<DataActions>(x => x == requested),
                 Arg.Any<CancellationToken>());
+            return result;
         }
 
         private static IAuthorizationService<DataActions> CreateAuthorizationService(

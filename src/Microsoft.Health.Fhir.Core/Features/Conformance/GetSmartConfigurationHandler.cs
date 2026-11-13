@@ -1,19 +1,20 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -23,24 +24,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
     {
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly SmartIdentityProviderConfiguration _smartIdentityProviderConfiguration;
+        private readonly IOidcDiscoveryService _oidcDiscoveryService;
 
         public GetSmartConfigurationHandler(
             IOptions<SecurityConfiguration> securityConfigurationOptions,
-            IOptions<SmartIdentityProviderConfiguration> smartIdentityProviderConfiguration)
+            IOptions<SmartIdentityProviderConfiguration> smartIdentityProviderConfiguration,
+            IOidcDiscoveryService oidcDiscoveryService)
         {
             EnsureArg.IsNotNull(securityConfigurationOptions?.Value, nameof(securityConfigurationOptions));
             EnsureArg.IsNotNull(smartIdentityProviderConfiguration?.Value, nameof(smartIdentityProviderConfiguration));
+            EnsureArg.IsNotNull(oidcDiscoveryService, nameof(oidcDiscoveryService));
 
             _securityConfiguration = securityConfigurationOptions.Value;
             _smartIdentityProviderConfiguration = smartIdentityProviderConfiguration.Value;
+            _oidcDiscoveryService = oidcDiscoveryService;
         }
 
-        public Task<GetSmartConfigurationResponse> Handle(GetSmartConfigurationRequest request, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(Handle(request));
-        }
-
-        protected GetSmartConfigurationResponse Handle(GetSmartConfigurationRequest request)
+        public async Task<GetSmartConfigurationResponse> HandleAsync(GetSmartConfigurationRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -49,22 +49,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 try
                 {
                     string baseEndpoint = GetAuthority();
-                    Uri authorizationEndpoint = new Uri(baseEndpoint + "/authorize");
-                    Uri tokenEndpoint = new Uri(baseEndpoint + "/token");
+
+                    Uri authorizationEndpoint;
+                    Uri tokenEndpoint;
+                    string issuer;
+                    string jwksUri;
 
                     if (_securityConfiguration.EnableAadSmartOnFhirProxy)
                     {
                         authorizationEndpoint = new Uri(request.BaseUri, "AadSmartOnFhirProxy/authorize");
                         tokenEndpoint = new Uri(request.BaseUri, "AadSmartOnFhirProxy/token");
+
+                        // Still resolve issuer and jwks_uri from OIDC discovery
+                        (_, _, issuer, jwksUri) = await _oidcDiscoveryService.ResolveEndpointsAsync(baseEndpoint, cancellationToken);
+                    }
+                    else
+                    {
+                        (authorizationEndpoint, tokenEndpoint, issuer, jwksUri) = await _oidcDiscoveryService.ResolveEndpointsAsync(baseEndpoint, cancellationToken);
                     }
 
-                    ICollection<string> capabilities = new List<string>
+                    ICollection<string> capabilities = new List<string>(
+                        Constants.SmartCapabilityClients
+                            .Concat(Constants.SmartCapabilityAdditional)
+                            .Concat(Constants.SmartCapabilityLaunches)
+                            .Concat(Constants.SmartCapabilityPermissions)
+                            .Concat(Constants.SmartCapabilitySSOs));
+
+                    if (!string.IsNullOrEmpty(_smartIdentityProviderConfiguration.Authority))
                     {
-                        "sso-openid-connect",
-                        "permission-offline",
-                        "permission-patient",
-                        "permission-user",
-                    };
+                        ((List<string>)capabilities).AddRange(Constants.SmartCapabilityThirdPartyContexts);
+                    }
 
                     // Add SMART v2 scope support - these are the core scopes supported natively by the FHIR service
                     ICollection<string> scopesSupported = new List<string>
@@ -101,6 +115,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         "code",
                     };
 
+                    string introspectionEndpoint = !string.IsNullOrEmpty(_smartIdentityProviderConfiguration.Introspection)
+                        ? _smartIdentityProviderConfiguration.Introspection
+                        : new Uri(request.BaseUri, "connect/introspect").ToString();
+
                     return new GetSmartConfigurationResponse(
                         authorizationEndpoint,
                         tokenEndpoint,
@@ -110,9 +128,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         grantTypesSupported,
                         tokenEndpointAuthMethodsSupported,
                         responseTypesSupported,
-                        _smartIdentityProviderConfiguration.Introspection,
+                        introspectionEndpoint,
                         _smartIdentityProviderConfiguration.Management,
-                        _smartIdentityProviderConfiguration.Revocation);
+                        _smartIdentityProviderConfiguration.Revocation,
+                        issuer,
+                        jwksUri);
                 }
                 catch (Exception e) when (e is ArgumentNullException || e is UriFormatException)
                 {

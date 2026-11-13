@@ -8,12 +8,13 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
@@ -32,14 +33,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _authorizationService = authorizationService;
         }
 
-        public async Task<GetReindexResponse> Handle(GetReindexRequest request, CancellationToken cancellationToken)
+        public async Task<GetReindexResponse> HandleAsync(GetReindexRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Reindex, cancellationToken) != DataActions.Reindex)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(DataActions.Reindex, true, cancellationToken);
 
             if (request.JobId != null)
             {

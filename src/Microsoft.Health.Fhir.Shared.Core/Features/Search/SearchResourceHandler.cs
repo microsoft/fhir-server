@@ -6,10 +6,11 @@
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         }
 
         /// <inheritdoc />
-        public async Task<SearchResourceResponse> Handle(SearchResourceRequest request, CancellationToken cancellationToken)
+        public async Task<SearchResourceResponse> HandleAsync(SearchResourceRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -55,11 +56,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // while "patient/Patient.s" or "patient/Patient.rs" include search permissions.
             // Users with only read permission can access resources directly by ID but cannot search.
             // We continue to allow DataActions.Read for legacy support
-            var grantedAccess = await _authorizationService.CheckAccess(DataActions.Search | DataActions.Read, cancellationToken);
-            if ((grantedAccess & (DataActions.Search | DataActions.Read)) == 0)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(
+                DataActions.Search | DataActions.Read,
+                x => (x & (DataActions.Search | DataActions.Read)) != DataActions.None,
+                true,
+                cancellationToken);
 
             SearchResult searchResult = await _searchService.SearchAsync(
                 resourceType: request.ResourceType,

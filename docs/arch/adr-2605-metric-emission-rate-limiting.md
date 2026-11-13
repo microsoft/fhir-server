@@ -1,0 +1,225 @@
+# Filter Auth-Failure Exception Metrics via a Pluggable Filter at the Emission Chokepoint
+
+## Context
+
+An incident occurred where a customer sent a massive volume of unauthorized requests to the FHIR service using an expired token. Every request produced a `SecurityTokenException` that was logged at error severity, which in turn caused the OpenTelemetry log enricher to emit a `fhir/failures/exceptions` metric event per request. The aggregate volume was high enough to cause Geneva (Azure's monitoring pipeline) to throttle the shared metric account, which degraded monitoring for **both** the FHIR service and the DICOM service — neither could reliably emit or read metrics during the incident.
+
+### Why Not Filter at Geneva?
+
+The initial plan was to filter these high-volume events inbound at Geneva (e.g., via ingestion-time filters or a pre-aggregation rule on the metric account). After investigation, **this is not possible** with the current Geneva configuration:
+
+- Geneva does not support inbound filtering of per-request metric events by status-code or exception-type dimensions before they count against the account's ingest budget. The metrics are charged on receipt, so a server-side filter does not relieve pressure on the shared account.
+- The shared metric account is owned outside of the FHIR team's control, and per-customer/per-tenant filter rules at the account level are not a supported configuration path.
+- Even if account-level filtering existed, the events still travel from the FHIR instance to the metric pipeline, contributing to per-instance emission limits before they would be dropped.
+
+Because the flood cannot be filtered at the ingest side, **the only place we can stop it is at the point of emission in the FHIR server itself.**
+
+### Where the Metric Is Emitted
+
+The `fhir/failures/exceptions` metric has a **single emission chokepoint** in fhir-server: `AzureMonitorOpenTelemetryLogEnricher.EmitMetricBasedOnLogs()` (`src/Microsoft.Health.Fhir.Shared.Web/AzureMonitorOpenTelemetryLogEnricher.cs`). This is an OpenTelemetry `BaseProcessor<LogRecord>` that runs for every emitted log record; when the record carries an exception or is logged at `LogLevel.Error`, it constructs an `ExceptionMetricNotification` and calls `IFailureMetricHandler.EmitException(notification)`.
+
+```mermaid
+flowchart TD
+    LOG([ILogger emits a record]) --> OTEL[OpenTelemetry pipeline]
+    OTEL --> ENRICH[AzureMonitorOpenTelemetryLogEnricher.OnEnd]
+    ENRICH --> CHECK{Exception != null OR LogLevel == Error?}
+    CHECK -->|No| SKIP[Nothing emitted]
+    CHECK -->|Yes| ENRICHFN[EmitMetricBasedOnLogs]
+    ENRICHFN --> HANDLER[IFailureMetricHandler.EmitException]
+    HANDLER --> GENEVA[Geneva: fhir/failures/exceptions]
+
+    style HANDLER fill:#f96,stroke:#333,color:#000
+    style GENEVA fill:#f96,stroke:#333,color:#000
+```
+
+Because every emission of `fhir/failures/exceptions` passes through `EmitMetricBasedOnLogs`, a single guard here suppresses the metric for all downstream consumers (Geneva counters, dashboards, alerts).
+
+### Why a Status-Code-Only Filter at `ApiNotificationMiddleware` Was Insufficient
+
+An earlier proposal added a status-code guard in `ApiNotificationMiddleware` to skip publishing `ApiResponseNotification` for any 401/403 response. That approach was rejected for two reasons:
+
+1. **Wrong metric.** `ApiNotificationMiddleware` produces the request/latency metric notification, not the `fhir/failures/exceptions` metric. The metric that overwhelmed Geneva is emitted from the OpenTelemetry log enricher, not from MediatR notifications.
+2. **Too broad.** Filtering on status code alone removes the metric for *every* 401/403, including 403s that come from legitimate authorization-policy failures we may want to see in dashboards. The incident was specifically driven by authentication exceptions (expired tokens producing `SecurityTokenException`), not by all 401/403 responses.
+
+The chosen design narrows the filter to the precise exception type that caused the flood — `SecurityTokenException` and its derivatives — and places it at the metric that actually went out of control.
+
+## Decision
+
+Introduce a pluggable `IExceptionMetricEmissionFilter` interface that decides, given an exception and the current `HttpContext`, whether the `fhir/failures/exceptions` metric should be emitted. `AzureMonitorOpenTelemetryLogEnricher` consults all registered filters before emitting; a metric is published only when every filter returns `true` (logical AND).
+
+Ship two default implementations in fhir-server:
+
+### 1. `AuthenticationFailureExceptionMetricEmissionFilter`
+
+Suppresses metric emission when the exception (or any exception in its inner-exception chain) is a `Microsoft.IdentityModel.Tokens.SecurityTokenException`.
+
+Because `SecurityTokenException` is the common base class, the following derived types are matched automatically without any extra code:
+
+- `SecurityTokenExpiredException`
+- `SecurityTokenInvalidAudienceException`
+- `SecurityTokenInvalidIssuerException`
+- Any other `SecurityTokenException` subclass (the `Microsoft.IdentityModel.Tokens` family is large; the inner-chain walk catches all of them).
+
+Matching is **exception-type-only** (no status-code condition). This was the source of the most important design correction during review:
+
+- **The flood log is written *before* the 401 is set on the response.** The expired-token requests are logged from inside the token-introspection / JwtBearer authentication path (e.g. `DefaultTokenIntrospectionService.ValidateAsync` `_logger.LogInformation(ex, ...)`, and JwtBearer's own `TokenValidationFailed` log at Information level with the exception attached). The OpenTelemetry log enricher fires synchronously on those records — at which point the authorization middleware has not yet issued the challenge that writes the 401, so `HttpContext.Response.StatusCode` is still the default 200. A 401-coupled filter would therefore never match the very flood it was intended to suppress.
+- **`SecurityTokenException` is not produced outside the auth surface in this server.** It is defined in `Microsoft.IdentityModel.Tokens` and the only producers in this repo are the token-validation and token-introspection paths. Suppressing on type alone does not hide any non-authentication failure mode.
+- **The enricher does not require `LogLevel.Error` to emit.** It fires on `data.Exception != null OR data.LogLevel == LogLevel.Error`, so Information-level logs that carry an exception object (exactly the JwtBearer / introspection flood path) are full-fat metric events.
+
+### 2. `SecurityAbuseExceptionMetricEmissionFilter`
+
+Suppresses metric emission for exceptions thrown when the server detects and rejects an abuse pattern. The default implementation matches `ServerSideRequestForgeryException` in the inner-exception chain.
+
+Matching is **exception-type-only** (no status-code condition) because:
+
+- These types are constructed only inside FHIR's SSRF-detection/security-rejection paths — there is no legitimate non-abuse code path that throws them.
+- They always produce a 4xx response (typically 403); a status-code condition would add no precision.
+
+The actionable signal for these events comes from audit logs and gateway-level rejection counters, not from per-event FHIR failure metrics, so suppression preserves no operational value.
+
+### Why an Interface (Not Just a Status-Code Check or an Extension Method)
+
+Both default filters today key on exception type alone, but the abstraction intentionally exposes the `HttpContext` as well so that future filters can make request-aware decisions (e.g. suppressing only on a particular request path or for a particular tenant) without another round of plumbing changes. An `IExceptionMetricEmissionFilter(Exception, HttpContext) → bool` interface is the smallest abstraction that captures both inputs cleanly, while also being:
+
+- **Composable** — multiple filters can be registered and are AND-combined. New "this exception is not worth a metric" rules can be added by registering a new implementation, with no change to the enricher or to existing filters.
+- **Replaceable** — a downstream consumer can swap out our default implementations if their notion of "authentication failure" or "security abuse" differs.
+- **Testable in isolation** — each filter is a pure function of (exception, http context) and can be unit-tested without the enricher, the OpenTelemetry pipeline, or DI.
+
+### Code Shape
+
+```csharp
+// src/Microsoft.Health.Fhir.Api/Features/Metrics/IExceptionMetricEmissionFilter.cs
+public interface IExceptionMetricEmissionFilter
+{
+    bool ShouldEmit(Exception exception, HttpContext httpContext);
+}
+
+// src/Microsoft.Health.Fhir.Api/Features/Metrics/AuthenticationFailureExceptionMetricEmissionFilter.cs
+public class AuthenticationFailureExceptionMetricEmissionFilter : IExceptionMetricEmissionFilter
+{
+    public bool ShouldEmit(Exception exception, HttpContext httpContext)
+    {
+        if (exception == null) return true;
+        return !IsAuthenticationException(exception);
+    }
+
+    // Virtual so subclasses can recognize additional authentication exception types.
+    protected virtual bool IsAuthenticationException(Exception exception) { /* walks inner-exception chain for SecurityTokenException */ }
+}
+
+// src/Microsoft.Health.Fhir.Api/Features/Metrics/SecurityAbuseExceptionMetricEmissionFilter.cs
+public class SecurityAbuseExceptionMetricEmissionFilter : IExceptionMetricEmissionFilter
+{
+    public bool ShouldEmit(Exception exception, HttpContext httpContext)
+    {
+        if (exception == null) return true;
+        return !IsSecurityAbuseException(exception);
+    }
+
+    // Virtual so subclasses can recognize additional security-abuse exception types.
+    protected virtual bool IsSecurityAbuseException(Exception exception) { /* walks inner-exception chain for ServerSideRequestForgeryException */ }
+}
+```
+
+The enricher receives `IEnumerable<IExceptionMetricEmissionFilter>` and short-circuits on the first `false`:
+
+```csharp
+foreach (var filter in _exceptionMetricEmissionFilters)
+{
+    if (!filter.ShouldEmit(data.Exception, httpContext)) return;
+}
+```
+
+### Updated Emission Flow
+
+```mermaid
+flowchart TD
+    LOG([ILogger emits a record]) --> ENRICH[AzureMonitorOpenTelemetryLogEnricher.OnEnd]
+    ENRICH --> CHECK{Exception != null OR LogLevel == Error?}
+    CHECK -->|No| SKIP[Nothing emitted]
+    CHECK -->|Yes| FILTERS{All registered IExceptionMetricEmissionFilter return true?}
+    FILTERS -->|No - any filter says skip| SUPPRESS[Metric suppressed]
+    FILTERS -->|Yes| HANDLER[IFailureMetricHandler.EmitException]
+    HANDLER --> GENEVA[Geneva: fhir/failures/exceptions]
+
+    style FILTERS fill:#ff9,stroke:#333,color:#000
+    style SUPPRESS fill:#69f,stroke:#333,color:#fff
+    style HANDLER fill:#9f9,stroke:#333,color:#000
+    style GENEVA fill:#9f9,stroke:#333,color:#000
+```
+
+### Extensibility for Downstream Consumers (fhir-paas)
+
+fhir-paas already extends fhir-server through DI. The filter chain is designed so that fhir-paas (or any other consumer) can extend or override behavior without forking the FHIR server. Several downstream-only exception types motivate this design:
+
+| Downstream exception | Defined in | Recommended extension pattern |
+|---|---|---|
+| `S2SAuthenticationException` | fhir-paas | Subclass `AuthenticationFailureExceptionMetricEmissionFilter` and override `IsAuthenticationException` to also return `true` for `S2SAuthenticationException`. Replace the registration via `RemoveAll` + `AddSingleton`. |
+| `AntiSSRFException` | fhir-paas | Subclass `SecurityAbuseExceptionMetricEmissionFilter` and override `IsSecurityAbuseException` to also return `true` for `AntiSSRFException`. Replace the registration via `RemoveAll` + `AddSingleton`. (Alternative: register a separate filter that only checks for `AntiSSRFException`; the chain AND-combines, so the net behavior is identical.) |
+
+The general extension patterns are:
+
+| Goal | Pattern | Code |
+|---|---|---|
+| **Add a new, independent rule** (e.g., suppress a specific benign exception type) | Register an additional filter. The enricher AND-combines all registered filters. | `services.AddSingleton<IExceptionMetricEmissionFilter, MyPaasBenignExceptionFilter>();` |
+| **Extend what counts as an authentication exception** | Subclass `AuthenticationFailureExceptionMetricEmissionFilter` and override `IsAuthenticationException`. Replace the registration. | `services.RemoveAll<IExceptionMetricEmissionFilter>();`<br>`services.AddSingleton<IExceptionMetricEmissionFilter, MyExtendedAuthFilter>();`<br>`services.AddSingleton<IExceptionMetricEmissionFilter, SecurityAbuseExceptionMetricEmissionFilter>();` |
+| **Extend what counts as a security-abuse exception** | Subclass `SecurityAbuseExceptionMetricEmissionFilter` and override `IsSecurityAbuseException`. Replace the registration. | `services.RemoveAll<IExceptionMetricEmissionFilter>();`<br>`services.AddSingleton<IExceptionMetricEmissionFilter, AuthenticationFailureExceptionMetricEmissionFilter>();`<br>`services.AddSingleton<IExceptionMetricEmissionFilter, MyExtendedSecurityFilter>();` |
+| **Disable all filtering** | Remove all registrations. | `services.RemoveAll<IExceptionMetricEmissionFilter>();` |
+
+The default registrations in fhir-server use `AddSingleton` (not `TryAddSingleton`) so that additional consumer registrations do **not** silently replace ours — they compose. Consumers that want replacement must opt in explicitly via `RemoveAll`. This is the safer default: an fhir-paas team that adds a new filter does not accidentally turn off the auth-failure or SSRF suppression that protects Geneva.
+
+Both default filter classes are intentionally **not sealed**, and their `Is…Exception` methods are `protected virtual`, so subclassing is a first-class extension path.
+
+### Scope of Changes
+
+**fhir-server (this repo):**
+- `src/Microsoft.Health.Fhir.Api/Features/Metrics/IExceptionMetricEmissionFilter.cs` — new interface.
+- `src/Microsoft.Health.Fhir.Api/Features/Metrics/AuthenticationFailureExceptionMetricEmissionFilter.cs` — auth-failure default implementation (subclassable; covers entire `SecurityTokenException` family).
+- `src/Microsoft.Health.Fhir.Api/Features/Metrics/SecurityAbuseExceptionMetricEmissionFilter.cs` — security-abuse default implementation (subclassable; covers `ServerSideRequestForgeryException`).
+- `src/Microsoft.Health.Fhir.Shared.Web/AzureMonitorOpenTelemetryLogEnricher.cs` — accept and consult `IEnumerable<IExceptionMetricEmissionFilter>`.
+- `src/Microsoft.Health.Fhir.Shared.Web/Startup.cs` — resolve the filter collection and pass it to the enricher.
+- `src/Microsoft.Health.Fhir.Shared.Api/Registration/FhirServerServiceCollectionExtensions.cs` — register both default filters via `AddSingleton`.
+- Unit tests for each filter (including a subclass-extension test for the security filter) and for the enricher's integration with the filter chain.
+
+**fhir-paas (downstream, not in this PR):**
+- No required changes. Both default filters are registered automatically when fhir-paas calls `AddFhirServer`/`UseFhirServer`.
+- Recommended follow-up: subclass the default filters to recognize `S2SAuthenticationException` (auth filter) and `AntiSSRFException` (security filter), and re-register via `RemoveAll` + `AddSingleton`. See the table above.
+
+### Considered Alternatives
+
+1. **Filter inbound at Geneva.** Not supported by the metric account configuration (see Context).
+2. **Status-code-only suppression in `ApiNotificationMiddleware`** (the previous version of this ADR). Wrong middleware — that path produces a different metric and is not what overwhelmed Geneva — and too broad (suppresses all 401/403 regardless of cause).
+3. **Extension method on `Exception` (`ShouldEmitFailureMetric`).** Considered for simplicity, but rejected because (a) authoritative emission decisions need *both* the exception and the request context, and a static extension cannot be replaced or composed by downstream consumers; (b) DI-registered filters give fhir-paas a first-class extension path without subclassing or forking.
+4. **Per-instance rate limiting of the metric pipeline.** Considered for general flood protection, but rejected as overkill given that the actual incident has a precise, narrow signature (token-validation exception type) that can be eliminated deterministically. A general rate limiter can be revisited if a future flood comes from a different signature.
+5. **Gate suppression on the HTTP 401/403 response status code (in addition to exception type).** This was the initial design and is intuitively appealing — "only suppress when the request actually produced an auth failure response" — but it cannot be made race-free at the metric emission point:
+   - The flood log is written from inside the auth pipeline (`JwtBearerHandler.HandleAuthenticateAsync` and `DefaultTokenIntrospectionService.ValidateAsync`) **before** `AuthorizationMiddleware` issues the challenge that writes the 401 to the response. The OpenTelemetry log enricher runs synchronously when each log record is recorded, so at the moment the filter runs `HttpContext.Response.StatusCode` is still the default 200. A 401/403 gate would therefore never match the flood it is intended to suppress — exactly the opposite of the intent.
+   - The metric pipeline does not support "emit-then-rescind", so we cannot defer the decision until the response status is known without buffering every candidate log record per request (which would also break for log records emitted outside an HTTP request scope).
+   - The two race-free ways to recover the 401-equivalent precision were considered and rejected for this PR:
+     - **A `HttpContext.Items` marker set by `JwtBearerEvents.OnAuthenticationFailed`/`OnChallenge` and by the token-introspection catch block.** The marker would be set before the failure log fires, so the filter could read it race-free. Rejected because `SecurityTokenException` is produced only by the auth surface in this server (verified by code search) and the type check is therefore already as precise as the marker would be — the marker would add plumbing across multiple files without changing observed behavior. May be revisited if a downstream consumer introduces a non-auth producer of `SecurityTokenException`.
+     - **Buffering log records and emitting on `HttpResponse.OnStarting`.** Rejected as too invasive for this incident-driven change and because it changes the shape of the entire metric pipeline (introduces per-request state and silently drops logs that occur outside an HTTP scope).
+
+### Consequences
+
+#### Beneficial
+- **Eliminates the root cause.** Exact-shape filter (`SecurityTokenException` family) deterministically removes the flood class without affecting other failure metrics.
+- **Targeted, not blanket.** Authorization failures (403), validation errors, and every other failure continue to emit metrics. Operators still see auth-failure trends via logs, audit, and gateway-level counters.
+- **Composable.** Adding a new "skip this exception" rule is a single DI registration in fhir-paas. No need to coordinate changes in fhir-server.
+- **Replaceable.** Subclassing and `RemoveAll` give consumers full control over the filter set without forking fhir-server.
+- **Single chokepoint.** The enricher is the only place that emits `fhir/failures/exceptions`. One guard, all consumers protected.
+- **Safe default.** `AddSingleton` (not `TryAddSingleton`) means a consumer that adds a new filter does not accidentally turn off the auth-failure suppression.
+
+#### Adverse
+- **Loss of per-request token-validation-failure visibility in `fhir/failures/exceptions`.** Operators who used this metric to count expired-token events must rely on alternative signals (logs, audit, gateway/WAF counters, or a separate low-cardinality auth-failure counter).
+- **Filter chain is in-process only.** No cross-instance coordination. This is fine because the filter is deterministic (same input → same decision on every instance); there is nothing to coordinate.
+- **Convention-based composition.** "All filters AND-combined" is a documented contract on the interface, not a compiler-enforced invariant. A consumer that misreads the contract could be surprised.
+- **Subclass-based extension of the auth filter requires `RemoveAll`.** Slightly more friction than a single `AddSingleton`. This is intentional — it makes "I am replacing the default" an explicit action.
+
+#### Neutral
+- **`ApiNotificationMiddleware` and `ApiResponseNotification` are unchanged.** The MediatR-based request/latency metric pipeline is not affected; it never had the flood problem.
+- **Audit unaffected.** Audit logging for 401 requests continues to run.
+- **Status code semantics unchanged.** Clients still receive normal 401 responses; no 429 substitution, no new headers.
+- **No new configuration surface.** Filter selection is via DI registrations, not configuration files. Operators do not need to learn new settings.
+
+## Status
+
+Accepted

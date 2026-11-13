@@ -17,18 +17,19 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Specification.Summary;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Storage;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Scoping;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
@@ -38,13 +39,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     /// </summary>
     public sealed class ServerProvideProfileValidation : IProvideProfilesForValidation, IDisposable
     {
-        private static HashSet<string> _supportedTypes = new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" };
+        private static readonly HashSet<string> _supportedTypes = new HashSet<string>()
+        {
+            KnownResourceTypes.ValueSet,
+            KnownResourceTypes.StructureDefinition,
+            KnownResourceTypes.CodeSystem,
+        };
+
         private static string _structureDefinitionVersionKey = "Conformance.version";
 
         private readonly Task _backgroundTask;
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly SemaphoreSlim _cacheSemaphore = new SemaphoreSlim(1, 1);
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ValidateOperationConfiguration _validateOperationConfig;
         private readonly FhirMemoryCache<Resource> _resourcesByUri;
         private readonly IMediator _mediator;
@@ -57,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private ILogger<ServerProvideProfileValidation> _logger;
 
         public ServerProvideProfileValidation(
-            Func<IScoped<ISearchService>> searchServiceFactory,
+            IScopeProvider<ISearchService> searchServiceFactory,
             IOptions<ValidateOperationConfiguration> options,
             IMediator mediator,
             IHostApplicationLifetime hostApplicationLifetime,
@@ -82,13 +89,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 logger: _logger,
                 limitType: FhirCacheLimitType.Count);
 
-            // Setting up background task to monitor profile changes.
-            // The background task will only be created if the interval is higher or equal than five seconds (for security).
-            if (_validateOperationConfig.BackgroundProfileStatusCheckIntervalInSeconds >= 5)
-            {
-                _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(hostApplicationLifetime.ApplicationStopping);
-                _backgroundTask = Task.Run(() => BackgroundLoop(_cancellationTokenSource.Token), _cancellationTokenSource.Token);
-            }
+            _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(hostApplicationLifetime.ApplicationStopping);
+            _backgroundTask = Task.Run(() => BackgroundLoop(_cancellationTokenSource.Token), _cancellationTokenSource.Token);
         }
 
         public IReadOnlySet<string> GetProfilesTypes() => _supportedTypes;
@@ -223,7 +225,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 if (newHash != oldHash)
                 {
                     _logger.LogDebug("Profiles: New Profiles found.");
-                    await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.Profiles));
+                    await _mediator.PublishAsync(new RebuildCapabilityStatement(RebuildPart.Profiles));
                 }
 
                 _logger.LogInformation("Profiles: Profiles are updated. {CountOfProfiles} Profile(s) are loaded in memory.", _summaries.Count);
@@ -238,7 +240,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private async Task<List<ArtifactSummary>> GetSummariesAsync(CancellationToken cancellationToken)
         {
             var result = new Dictionary<string, ArtifactSummary>();
-            using (IScoped<ISearchService> searchService = _searchServiceFactory())
+            using (IScoped<ISearchService> searchService = _searchServiceFactory.Invoke())
             {
                 foreach (var type in _supportedTypes)
                 {
@@ -273,7 +275,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
                                     foreach (var artifact in artifacts)
                                     {
-                                        result[artifact.ResourceUri] = artifact;
+                                        result[GetCanonicalUrl(artifact)] = artifact;
                                     }
                                 }
                             }
@@ -295,7 +297,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 return null;
             }
 
-            if (_resourcesByUri.TryGet(summary.ResourceUri, out Resource resource))
+            var cacheKey = GetCanonicalUrl(summary);
+            if (_resourcesByUri.TryGet(cacheKey, out Resource resource))
             {
                 return resource;
             }
@@ -308,7 +311,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     if (navStream.Current != null)
                     {
                         resource = navStream.Current.ToPoco<Resource>();
-                        _resourcesByUri.TryAdd(summary.ResourceUri, resource);
+                        _resourcesByUri.TryAdd(cacheKey, resource);
                         return resource;
                     }
                 }
@@ -365,7 +368,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             StringBuilder hashBuilder = new StringBuilder();
 
             long totalCountOfProfiles = 0;
-            using (IScoped<ISearchService> searchService = _searchServiceFactory())
+            using (IScoped<ISearchService> searchService = _searchServiceFactory.Invoke())
             {
                 foreach (var type in _supportedTypes)
                 {

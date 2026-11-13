@@ -4,10 +4,6 @@ parameters:
 - name: BuildConfiguration
   default: release
 
-variables:
-- name: vmImage
-  value: windows-latest 
-
 trigger:
 
   branches:
@@ -27,13 +23,17 @@ resources:
     type: git
     ref: main
 
+variables:
+- template: build-variables.yml
+
 jobs:
 
 - job: Phase_1
   displayName: Internal Checks CI - build and restore
   cancelTimeoutInMinutes: 1
   pool:
-    vmImage: $(vmImage)
+    name: '$(AzurePipelinesPool)'
+    vmImage: '$(WindowsVmImage)'
   steps:
   - checkout: self
     persistCredentials: True
@@ -138,7 +138,8 @@ jobs:
   cancelTimeoutInMinutes: 1
   dependsOn: Phase_1
   pool:
-    vmImage: $(vmImage)
+    name: '$(AzurePipelinesPool)'
+    vmImage: '$(WindowsVmImage)'
 
   steps:
   - checkout: self

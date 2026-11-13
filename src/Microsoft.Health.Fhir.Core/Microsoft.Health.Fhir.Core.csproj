@@ -7,13 +7,16 @@
     <EmbeddedResource Include="Data\OperationDefinition\member-match.json" />
     <EmbeddedResource Include="Data\OperationDefinition\purge-history.json" />
     <EmbeddedResource Include="Data\OperationDefinition\search-parameter-status.json" />
+    <EmbeddedResource Include="Data\R4B\ms-search-parameters.json" />
     <EmbeddedResource Include="Data\R4\BaseCapabilities.json" />
     <EmbeddedResource Include="Data\R4\compartment.json" />
     <EmbeddedResource Include="Data\R4\search-parameters.json" />
     <EmbeddedResource Include="Data\R4\unsupported-search-parameters.json" />
+    <EmbeddedResource Include="Data\R4\ms-search-parameters.json" />
     <EmbeddedResource Include="Data\R4\resourcepath-codesystem-mappings.json" />
     <EmbeddedResource Include="Data\R5\BaseCapabilities.json" />
     <EmbeddedResource Include="Data\R5\compartment.json" />
+    <EmbeddedResource Include="Data\R5\ms-search-parameters.json" />
     <EmbeddedResource Include="Data\R5\search-parameters.json" />
     <EmbeddedResource Include="Data\R5\unsupported-search-parameters.json" />
     <EmbeddedResource Include="Data\R5\resourcepath-codesystem-mappings.json" />
@@ -31,6 +34,7 @@
     <EmbeddedResource Include="Data\OperationDefinition\includes.json" />
     <EmbeddedResource Include="Data\OperationDefinition\docref.json" />
     <EmbeddedResource Include="Data\OperationDefinition\valueset-expand.json" />
+    <EmbeddedResource Include="Data\Stu3\ms-search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\unsupported-search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\resourcepath-codesystem-mappings.json" />
@@ -45,13 +49,15 @@
     <PackageReference Include="AngleSharp" />
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="FluentValidation" />
-    <PackageReference Include="MediatR" />
+    <PackageReference Include="Medino" />
     <PackageReference Include="Microsoft.AspNetCore.JsonPatch" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="Microsoft.ML.Tokenizers" />
+    <PackageReference Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" />
     <PackageReference Include="Microsoft.Health.Abstractions" />
     <PackageReference Include="Microsoft.Health.Core" />
     <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" />
@@ -63,9 +69,11 @@
     <PackageReference Include="Polly" />
     <PackageReference Include="System.Collections.Immutable" />
     <PackageReference Include="System.Net.Http" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Transitive Dependency of Microsoft.Health.SqlServer. Fixing version to mitigate CVE -->
+    <PackageReference Include="Azure.Storage.Blobs" />
     <PackageReference Include="System.Drawing.Common" />
   </ItemGroup>
   <ItemGroup>

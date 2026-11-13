@@ -9,9 +9,10 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
@@ -50,12 +51,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var controllerContext = new ControllerContext() { HttpContext = _httpContext };
             _coreFeaturesConfiguration.SupportsSelectableSearchParameters = true;
-            _mediator.Send(Arg.Any<SearchParameterStateRequest>(), default(CancellationToken)).Returns(new SearchParameterStateResponse());
-            _mediator.Send(Arg.Any<SearchParameterStateUpdateRequest>(), default(CancellationToken)).Returns(new SearchParameterStateUpdateResponse());
+            _mediator.SendAsync(Arg.Any<SearchParameterStateRequest>(), default(CancellationToken)).Returns(new SearchParameterStateResponse());
+            _mediator.SendAsync(Arg.Any<SearchParameterStateUpdateRequest>(), default(CancellationToken)).Returns(new SearchParameterStateUpdateResponse());
             _controller = new SearchParameterController(
                 _mediator,
                 Options.Create(_coreFeaturesConfiguration),
-                _fhirConfiguration);
+                _fhirConfiguration,
+                NullLogger<SearchParameterController>.Instance);
             _controller.ControllerContext = controllerContext;
         }
 
@@ -65,7 +67,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             CoreFeatureConfiguration coreFeaturesConfiguration = new CoreFeatureConfiguration();
             coreFeaturesConfiguration.SupportsSelectableSearchParameters = false;
 
-            SearchParameterController controller = new SearchParameterController(_mediator, Options.Create(coreFeaturesConfiguration), _fhirConfiguration);
+            SearchParameterController controller = new SearchParameterController(_mediator, Options.Create(coreFeaturesConfiguration), _fhirConfiguration, NullLogger<SearchParameterController>.Instance);
 
             Func<Task> act = () => controller.GetSearchParametersStatus(default(CancellationToken));
 
@@ -83,7 +85,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             {
             }
 
-            await _mediator.Received(1).Send(Arg.Any<SearchParameterStateRequest>(), default(CancellationToken));
+            await _mediator.Received(1).SendAsync(Arg.Any<SearchParameterStateRequest>(), default(CancellationToken));
         }
 
         [Fact]
@@ -102,7 +104,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             CoreFeatureConfiguration coreFeaturesConfiguration = new CoreFeatureConfiguration();
             coreFeaturesConfiguration.SupportsSelectableSearchParameters = false;
 
-            SearchParameterController controller = new SearchParameterController(_mediator, Options.Create(coreFeaturesConfiguration), _fhirConfiguration);
+            SearchParameterController controller = new SearchParameterController(_mediator, Options.Create(coreFeaturesConfiguration), _fhirConfiguration, NullLogger<SearchParameterController>.Instance);
             var requestBody = CreateValidRequestBody();
             Func<System.Threading.Tasks.Task> act = () => controller.UpdateSearchParametersStatus(requestBody, default(CancellationToken));
 
@@ -113,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenAValidSearchParameterStatusUpdateRequest_WhenServiceIsAzureApiForFhir_ThenRequestNotValidExceptionShouldBeReturned()
         {
             AzureApiForFhirRuntimeConfiguration azureApiForFhirConfiguration = new AzureApiForFhirRuntimeConfiguration();
-            SearchParameterController controller = new SearchParameterController(_mediator, Options.Create(_coreFeaturesConfiguration), azureApiForFhirConfiguration);
+            SearchParameterController controller = new SearchParameterController(_mediator, Options.Create(_coreFeaturesConfiguration), azureApiForFhirConfiguration, NullLogger<SearchParameterController>.Instance);
             var requestBody = CreateValidRequestBody();
             Func<System.Threading.Tasks.Task> act = () => controller.UpdateSearchParametersStatus(requestBody, default(CancellationToken));
 
@@ -133,7 +135,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             {
             }
 
-            await _mediator.Received(1).Send(Arg.Any<SearchParameterStateUpdateRequest>(), default(CancellationToken));
+            await _mediator.Received(1).SendAsync(Arg.Any<SearchParameterStateUpdateRequest>(), default(CancellationToken));
         }
 
         [Fact]
@@ -148,7 +150,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             {
             }
 
-            await _mediator.Received(1).Send(Arg.Is<SearchParameterStateUpdateRequest>(x => x.SearchParameters.Any(sp => sp.Item1 == new Uri(DummyUrl) && sp.Item2 == SearchParameterStatus.Disabled)), default(CancellationToken));
+            await _mediator.Received(1).SendAsync(Arg.Is<SearchParameterStateUpdateRequest>(x => x.SearchParameters.Any(sp => sp.Item1 == new Uri(DummyUrl) && sp.Item2 == SearchParameterStatus.Disabled)), default(CancellationToken));
         }
 
         [Theory]
@@ -161,7 +163,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             fhirRuntimeConfiguration.IsSelectiveSearchParameterSupported.Returns(true);
             _coreFeaturesConfiguration.SupportsSelectableSearchParameters = true;
 
-            var controller = new SearchParameterController(_mediator, Options.Create(_coreFeaturesConfiguration), fhirRuntimeConfiguration);
+            var controller = new SearchParameterController(_mediator, Options.Create(_coreFeaturesConfiguration), fhirRuntimeConfiguration, NullLogger<SearchParameterController>.Instance);
             var requestBody = emptyParameters ? new Parameters() : null;
             var act = () => controller.UpdateSearchParametersStatus(requestBody, default(CancellationToken));
             await Assert.ThrowsAsync<RequestNotValidException>(act);
@@ -199,12 +201,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _httpContext.Request.QueryString = new QueryString(query);
 
             _mediator
-                .Send(Arg.Any<SearchParameterStateRequest>())
+                .SendAsync(Arg.Any<SearchParameterStateRequest>())
                 .Returns(new SearchParameterStateResponse(new Parameters().ToResourceElement()));
 
             var request = default(SearchParameterStateRequest);
             _mediator.When(
-                x => x.Send(
+                x => x.SendAsync(
                     Arg.Any<SearchParameterStateRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.ArgAt<SearchParameterStateRequest>(0));
@@ -229,7 +231,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                         });
                 });
 
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync(
                 Arg.Any<SearchParameterStateRequest>(),
                 Arg.Any<CancellationToken>());
             _mediator.ClearReceivedCalls();

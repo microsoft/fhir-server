@@ -288,6 +288,9 @@
   <data name="MultipleProfilesProvided" xml:space="preserve">
     <value>Only one profile can be provided between a Parameters resource and the URL</value>
   </data>
+  <data name="ValidateResourceRequired" xml:space="preserve">
+    <value>A resource to validate must be provided.</value>
+  </data>
   <data name="ReindexParameterNotValid" xml:space="preserve">
     <value>Reindex job does not support the following parameter {0} for a {1} operation.</value>
     <comment>{0} = the parameter name which was invalid, {1} is the operation type, POST or PATCH</comment>
@@ -319,6 +322,12 @@
   <data name="ImportRequestValueNotValid" xml:space="preserve">
     <value>Value of the following parameter {0} is invalid.</value>
     <comment>{0} = the configuration name which was invalid</comment>
+  </data>
+  <data name="ImportRequestInputUrlStorageEndpointMismatch" xml:space="preserve">
+    <value>input.url must match the configured integration storage account endpoint.</value>
+  </data>
+  <data name="ImportStorageAccountNotConfigured" xml:space="preserve">
+    <value>The import storage account is not configured correctly on the server. Import operations require a valid storage account.</value>
   </data>
   <data name="ImportRequestNotValid" xml:space="preserve">
     <value>Import request must be specified as a Paramters.  The body provided in this request is not valid. </value>
@@ -403,6 +412,36 @@
   <data name="MixedSMARTV1AndV2ScopesAreNotAllowed" xml:space="preserve">
     <value>Mixed SMART v1 and v2 scopes are not allowed. Please use either SMART v1 or SMART v2 scopes. </value>
   </data>
+  <data name="MixedSMARTScopeContextsAreNotAllowed" xml:space="preserve">
+    <value>SMART clinical scopes must use a single context. Patient, user, and system scopes cannot be mixed.</value>
+  </data>
+  <data name="SmartScopeSearchParameterModifiersNotSupported" xml:space="preserve">
+    <value>Search parameter modifiers are not supported in SMART on FHIR clinical scopes. The scope '{0}' contains an unsupported modifier in parameter '{1}'.</value>
+    <comment>{0} is the scope string; {1} is the offending search parameter key=value</comment>
+  </data>
+  <data name="SmartScopeSearchParameterIncludesNotSupported" xml:space="preserve">
+    <value>Result parameters _include and _revinclude are not supported in SMART on FHIR clinical scopes. The scope '{0}' contains '{1}'.</value>
+    <comment>{0} is the scope string; {1} is the offending search parameter key=value</comment>
+  </data>
+  <data name="SmartScopeSearchParameterResultParameterNotSupported" xml:space="preserve">
+    <value>The parameter in '{1}' cannot be enforced as a SMART on FHIR clinical scope constraint. The scope '{0}' must use a search parameter that filters resources.</value>
+    <comment>{0} is the scope string; {1} is the offending search parameter key=value</comment>
+  </data>
+  <data name="SmartScopeSearchParameterChainedSearchNotSupported" xml:space="preserve">
+    <value>Chained search parameters are not supported in SMART on FHIR clinical scopes. The scope '{0}' contains a chained search parameter '{1}'.</value>
+    <comment>{0} is the scope string; {1} is the offending search parameter key=value</comment>
+  </data>
+  <data name="SmartScopeInvalidSearchParameters" xml:space="preserve">
+    <value>Invalid search parameters in SMART on FHIR clinical scope '{0}'. The search parameter constraints could not be parsed.</value>
+    <comment>{0} is the scope string</comment>
+  </data>
+  <data name="SmartScopeUnknownResourceType" xml:space="preserve">
+    <value>Invalid SMART on FHIR clinical scope '{0}'. The resource type '{1}' is not a supported FHIR resource type.</value>
+    <comment>{0} is the scope string; {1} is the unknown resource type</comment>
+  </data>
+  <data name="SmartPatientContextInvalid" xml:space="preserve">
+    <value>Patient-level SMART scopes require a single valid patient resource id in the patient claim, or a Patient-valued fhirUser claim when the patient claim is absent.</value>
+  </data>
   <data name="SearchParameterStatusNotFound" xml:space="preserve">
     <value>No Search Parameters found. </value>
   </data>
@@ -422,6 +461,9 @@
   </data>
   <data name="InvalidExportAssociatedDataParameter" xml:space="preserve">
     <value>The export parameter "includeAssociatedData" contains an invalid value. Supported values are: {0}. </value>
+  </data>
+  <data name="ExportParameterPathTraversalNotAllowed" xml:space="preserve">
+    <value>The value '{0}' is not valid. Path traversal characters are not allowed.</value>
   </data>
   <data name="OAuth2ContentTypeMustBeFormUrlEncoded" xml:space="preserve">
     <value>Content-Type must be application/x-www-form-urlencoded.</value>
@@ -458,5 +500,20 @@
   </data>
   <data name="ExpandInvalidParameterCount" xml:space="preserve">
     <value>The number of the parameter must not be more than one: {0}</value>
+  </data>
+  <data name="DuplicateSearchParamCodesInBundle" xml:space="preserve">
+    <value>Input search parameters have duplicate codes [{0}]</value>
+    <comment>{0} is comma delimited list of dup codes</comment>
+  </data>
+  <data name="DuplicateSearchParamUrlsInBundle" xml:space="preserve">
+    <value>Input search parameters have duplicate Urls [{0}].</value>
+    <comment>{0} is comma delimited list of duplicate Urls</comment>
+  </data>
+  <data name="DuplicateSearchParamCodesAndUrlsInBundle" xml:space="preserve">
+    <value>Input search parameters have duplicate codes [{0}] and Urls [{1}].</value>
+  </data>
+  <data name="InvalidConditionalUpdateNoMatchHeader" xml:space="preserve">
+    <value>The value '{1}' of header '{0}' is not valid. Supported values are 'create' and 'upsert'.</value>
+    <comment>{0} is the header name; {1} is the supplied value.</comment>
   </data>
 </root>

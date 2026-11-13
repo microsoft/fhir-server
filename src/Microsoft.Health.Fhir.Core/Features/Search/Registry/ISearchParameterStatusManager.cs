@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,26 +13,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
     public interface ISearchParameterStatusManager
     {
-        Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken);
+        Task ApplySearchParameterStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken);
 
-        Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken);
+        Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatuses(CancellationToken cancellationToken);
 
-        Task DeleteSearchParameterStatusAsync(string url, CancellationToken cancellationToken);
+        Task HandleAsync(SearchParameterDefinitionManagerInitialized notification, CancellationToken cancellationToken);
 
-        Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatus(CancellationToken cancellationToken);
+        Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, long? reindexId = null, DateTimeOffset? lastUpdated = null);
 
-        Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatusUpdates(CancellationToken cancellationToken);
+        Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken);
 
-        Task Handle(SearchParameterDefinitionManagerInitialized notification, CancellationToken cancellationToken);
-
-        Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
-
-        /// <summary>
-        /// Ensures the search parameter cache is fresh by validating against the database max LastUpdated timestamp.
-        /// Uses configurable time-based intervals to balance freshness with performance.
-        /// </summary>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>True if cache was stale and needs full refresh, false if cache is up to date</returns>
-        Task<bool> EnsureCacheFreshnessAsync(CancellationToken cancellationToken = default);
+        Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken);
     }
 }

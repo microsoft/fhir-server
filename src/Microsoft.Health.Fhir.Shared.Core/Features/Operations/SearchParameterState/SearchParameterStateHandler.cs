@@ -10,13 +10,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Parameters;
@@ -40,14 +41,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
             _searchParameterStatusManager = searchParameterStatusManager;
         }
 
-        public async Task<SearchParameterStateResponse> Handle(SearchParameterStateRequest request, CancellationToken cancellationToken)
+        public async Task<SearchParameterStateResponse> HandleAsync(SearchParameterStateRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Read, cancellationToken) != DataActions.Read)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(DataActions.Read, true, cancellationToken);
 
             IEnumerable<SearchParameterInfo> searchParameterResult = new List<SearchParameterInfo>();
             if (request.Queries.Count == 0)
@@ -92,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
 
             SearchParameterStateResponse response;
             Hl7.Fhir.Model.Parameters parameters = new Hl7.Fhir.Model.Parameters();
-            IReadOnlyCollection<ResourceSearchParameterStatus> states = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
+            IReadOnlyCollection<ResourceSearchParameterStatus> states = await _searchParameterStatusManager.GetAllSearchParameterStatuses(cancellationToken);
             foreach (SearchParameterInfo searchParam in searchParameterResult)
             {
                 try

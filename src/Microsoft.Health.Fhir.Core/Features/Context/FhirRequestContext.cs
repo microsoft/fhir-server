@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using EnsureThat;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
@@ -76,6 +77,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public AccessControlContext AccessControlContext { get; set; } = new AccessControlContext();
 
+        public ActionTimer RequestTimer { get; set; }
+
         public object Clone()
         {
             KeyValuePair<string, StringValues>[] requestHeaders = new KeyValuePair<string, StringValues>[RequestHeaders.Count];
@@ -100,6 +103,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             clone.ExecutingBatchOrTransaction = ExecutingBatchOrTransaction;
             clone.IsBackgroundTask = IsBackgroundTask;
             clone.AccessControlContext = (AccessControlContext)AccessControlContext.Clone();
+
+            // clone explicitly does not copy the RequestTimer to allow subrequests to have their own timer.
 
             foreach (OperationOutcomeIssue bundleIssue in BundleIssues)
             {

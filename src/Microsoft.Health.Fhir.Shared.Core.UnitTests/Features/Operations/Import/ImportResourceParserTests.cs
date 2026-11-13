@@ -15,7 +15,9 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.FirelySdk.Features.Operations.Import;
 using Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -34,7 +36,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
 
         private readonly ResourceWrapperFactory _wrapperFactory;
 
-        private readonly ImportResourceParser _importResourceParser;
+        private readonly FirelyImportResourceParser _importResourceParser;
 
         public ImportResourceParserTests()
         {
@@ -52,10 +54,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                                     Substitute.For<ISearchParameterDefinitionManager>(),
                                     Deserializers.ResourceDeserializer);
 
-            _importResourceParser = new(_jsonParser, _wrapperFactory);
+            _importResourceParser = new(_jsonParser, _wrapperFactory, ResourceIdPolicy.Standard);
         }
 
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 5000)]
+        [Fact]
         public void GivenImportWithSoftDeletedFile_WhenParsed_DeletedExtensionShouldBeRemoved()
         {
             Patient patient = new Patient();

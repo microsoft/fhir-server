@@ -62,6 +62,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public ResourceElement Metadata { get; set; }
 
+        /// <summary>
+        /// Gets the token endpoint used when tests acquire client-credential tokens directly.
+        /// </summary>
+        internal Uri ClientCredentialTokenUri => GetClientCredentialTokenEndpoint();
+
         public TestFhirClient GetTestFhirClient(ResourceFormat format, bool reusable = true, HttpMessageHandler authenticationHandler = null)
         {
             return GetTestFhirClient(format, TestApplications.GlobalAdminServicePrincipal, null, reusable, authenticationHandler);
@@ -102,7 +107,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var sessionMessageHandler = new SessionMessageHandler(innerHandler, _sessionTokenContainer);
 
-            var httpClient = new HttpClient(sessionMessageHandler) { BaseAddress = BaseAddress };
+            // Use a 5-minute timeout (vs the .NET HttpClient default of 100s) because some E2E
+            // operations — notably batch/transaction bundles with ProfileValidation enabled and
+            // parallel processing — can exceed 100s on the first hit while the server cold-loads
+            // the US Core profile pack into the validation engine. The retry policy inside
+            // SessionMessageHandler shares this budget via the linked CT.
+            var httpClient = new HttpClient(sessionMessageHandler)
+            {
+                BaseAddress = BaseAddress,
+                Timeout = TimeSpan.FromMinutes(5),
+            };
 
             return new TestFhirClient(httpClient, this, format, clientApplication, user);
         }
@@ -133,7 +147,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             if (user == null)
             {
                 var credentialConfiguration = new OAuth2ClientCredentialOptions(
-                    TokenUri,
+                    GetClientCredentialTokenEndpoint(),
                     resource,
                     scope,
                     clientApplication.ClientId,
@@ -191,6 +205,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         internal abstract HttpMessageHandler CreateMessageHandler();
 
         /// <summary>
+        /// Gets the token endpoint used for standard client-credential authentication.
+        /// </summary>
+        protected virtual Uri GetClientCredentialTokenEndpoint() => TokenUri;
+
+        /// <summary>
         /// Set the security options on the class.
         /// <remarks>Examines the metadata endpoint to determine if there's a token and authorize url exposed and sets the property <see cref="SecurityEnabled"/> to <value>true</value> or <value>false</value> based on this.
         /// Additionally, the <see cref="TokenUri"/> and <see cref="AuthorizeUri"/> is set if it they are found.</remarks>
@@ -200,73 +219,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             bool localSecurityEnabled = false;
 
-            var httpClient = new HttpClient(CreateMessageHandler())
+            using var availabilityHttpClient = new HttpClient(CreateMessageHandler())
             {
                 BaseAddress = BaseAddress,
                 Timeout = TimeSpan.FromSeconds(30),
             };
 
-            // Retry policy for transient failures (500 errors, timeouts, etc.) during server startup
-            // Total timeout is 5 minutes to ensure we fail fast if the server is not coming up
-            var overallTimeout = TimeSpan.FromMinutes(5);
-            var overallStopwatch = System.Diagnostics.Stopwatch.StartNew();
-            const int baseDelaySeconds = 5;
-            const int maxDelaySeconds = 30;
-            HttpResponseMessage response = null;
-            string content = null;
-            int attempt = 0;
+            await WaitForAvailabilityAsync(availabilityHttpClient, cancellationToken);
 
-            while (overallStopwatch.Elapsed < overallTimeout)
+            using var metadataHttpClient = new HttpClient(CreateMessageHandler())
             {
-                attempt++;
-                try
-                {
-                    using HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Get, new Uri(BaseAddress, "metadata"));
-                    response = await httpClient.SendAsync(requestMessage, cancellationToken);
-                    content = await response.Content.ReadAsStringAsync();
+                BaseAddress = BaseAddress,
+                Timeout = TimeSpan.FromSeconds(180),
+            };
 
-                    if (response.IsSuccessStatusCode)
-                    {
-                        Console.WriteLine($"[ConfigureSecurityOptions] Metadata fetch successful on attempt {attempt} after {overallStopwatch.Elapsed.TotalSeconds:F1}s.");
-                        break;
-                    }
-
-                    // Retry on 5xx errors (server not ready) or 401/503 (transient auth/availability issues) if within timeout
-                    if (((int)response.StatusCode >= 500 || response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.ServiceUnavailable) &&
-                        overallStopwatch.Elapsed < overallTimeout)
-                    {
-                        int delaySeconds = Math.Min(baseDelaySeconds * (int)Math.Pow(2, Math.Min(attempt - 1, 3)), maxDelaySeconds); // Cap growth at attempt 4
-                        Console.WriteLine($"[ConfigureSecurityOptions] Metadata fetch returned {response.StatusCode} on attempt {attempt}. Elapsed: {overallStopwatch.Elapsed.TotalSeconds:F1}s. Retrying in {delaySeconds}s...");
-                        await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
-                        response.Dispose();
-                        continue;
-                    }
-
-                    // Non-retryable error or timeout exhausted
-                    response.EnsureSuccessStatusCode();
-                }
-                catch (Exception ex) when (ex is TaskCanceledException || ex is HttpRequestException || ex is IOException)
-                {
-                    if (overallStopwatch.Elapsed < overallTimeout)
-                    {
-                        int delaySeconds = Math.Min(baseDelaySeconds * (int)Math.Pow(2, Math.Min(attempt - 1, 3)), maxDelaySeconds);
-                        Console.WriteLine($"[ConfigureSecurityOptions] Metadata fetch failed with {ex.GetType().Name} on attempt {attempt}. Elapsed: {overallStopwatch.Elapsed.TotalSeconds:F1}s. Retrying in {delaySeconds}s...");
-                        await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
-                        continue;
-                    }
-
-                    throw new HttpRequestException($"ConfigureSecurityOptions failed after {attempt} attempts over {overallStopwatch.Elapsed.TotalSeconds:F1}s. Last error: {ex.Message}", ex);
-                }
-            }
-
-            // If we exited the loop due to timeout without success
-            if (response == null || !response.IsSuccessStatusCode)
-            {
-                string errorMessage = response != null
-                    ? $"ConfigureSecurityOptions failed after {attempt} attempts over {overallStopwatch.Elapsed.TotalSeconds:F1}s. Last status: {response.StatusCode}"
-                    : $"ConfigureSecurityOptions failed after {attempt} attempts over {overallStopwatch.Elapsed.TotalSeconds:F1}s. No response received.";
-                throw new HttpRequestException(errorMessage);
-            }
+            string content = await GetMetadataAsync(metadataHttpClient, cancellationToken);
 
             CapabilityStatement metadata = new FhirJsonParser().Parse<CapabilityStatement>(content);
             Metadata = metadata.ToResourceElement();
@@ -292,6 +259,87 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             SecurityEnabled = localSecurityEnabled;
+        }
+
+        private async Task WaitForAvailabilityAsync(HttpClient httpClient, CancellationToken cancellationToken)
+        {
+            await SendGetWithRetryAsync(
+                httpClient,
+                new Uri(BaseAddress, "$versions"),
+                "Availability check",
+                TimeSpan.FromMinutes(5),
+                cancellationToken);
+        }
+
+        private async Task<string> GetMetadataAsync(HttpClient httpClient, CancellationToken cancellationToken)
+        {
+            return await SendGetWithRetryAsync(
+                httpClient,
+                new Uri(BaseAddress, "metadata"),
+                "Metadata fetch",
+                TimeSpan.FromMinutes(10),
+                cancellationToken);
+        }
+
+        private static async Task<string> SendGetWithRetryAsync(HttpClient httpClient, Uri requestUri, string operationName, TimeSpan overallTimeout, CancellationToken cancellationToken)
+        {
+            // Retry policy for transient failures during server startup with exponential backoff.
+            var overallStopwatch = Stopwatch.StartNew();
+            const int baseDelaySeconds = 5;
+            const int maxDelaySeconds = 30;
+            int attempt = 0;
+            HttpStatusCode? lastStatusCode = null;
+            string lastErrorMessage = null;
+
+            while (overallStopwatch.Elapsed < overallTimeout)
+            {
+                attempt++;
+                try
+                {
+                    using HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Get, requestUri);
+                    using HttpResponseMessage response = await httpClient.SendAsync(requestMessage, cancellationToken);
+                    string content = await response.Content.ReadAsStringAsync();
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine($"[ConfigureSecurityOptions] {operationName} successful on attempt {attempt} after {overallStopwatch.Elapsed.TotalSeconds:F1}s.");
+                        return content;
+                    }
+
+                    lastStatusCode = response.StatusCode;
+                    lastErrorMessage = $"Last status: {response.StatusCode}";
+
+                    if (((int)response.StatusCode >= 500 || response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.ServiceUnavailable) &&
+                        overallStopwatch.Elapsed < overallTimeout)
+                    {
+                        int delaySeconds = Math.Min(baseDelaySeconds * (int)Math.Pow(2, Math.Min(attempt - 1, 3)), maxDelaySeconds);
+                        Console.WriteLine($"[ConfigureSecurityOptions] {operationName} returned {response.StatusCode} on attempt {attempt}. Elapsed: {overallStopwatch.Elapsed.TotalSeconds:F1}s. Retrying in {delaySeconds}s...");
+                        await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
+                        continue;
+                    }
+
+                    response.EnsureSuccessStatusCode();
+                }
+                catch (Exception ex) when (ex is TaskCanceledException || ex is HttpRequestException || ex is IOException)
+                {
+                    lastErrorMessage = $"Last error: {ex.Message}";
+
+                    if (overallStopwatch.Elapsed < overallTimeout)
+                    {
+                        int delaySeconds = Math.Min(baseDelaySeconds * (int)Math.Pow(2, Math.Min(attempt - 1, 3)), maxDelaySeconds);
+                        Console.WriteLine($"[ConfigureSecurityOptions] {operationName} failed with {ex.GetType().Name} on attempt {attempt}. Elapsed: {overallStopwatch.Elapsed.TotalSeconds:F1}s. Retrying in {delaySeconds}s...");
+                        await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
+                        continue;
+                    }
+
+                    throw new HttpRequestException($"{operationName} failed after {attempt} attempts over {overallStopwatch.Elapsed.TotalSeconds:F1}s. {lastErrorMessage}", ex);
+                }
+            }
+
+            string errorMessage = lastStatusCode.HasValue
+                ? $"{operationName} failed after {attempt} attempts over {overallStopwatch.Elapsed.TotalSeconds:F1}s. Last status: {lastStatusCode.Value}"
+                : $"{operationName} failed after {attempt} attempts over {overallStopwatch.Elapsed.TotalSeconds:F1}s. {lastErrorMessage ?? "No response received."}";
+            throw new HttpRequestException(errorMessage);
         }
 
         public virtual ValueTask DisposeAsync()
@@ -332,7 +380,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                         return false;
                     })
-                    .Or<TaskCanceledException>(ex => !CancellationToken.None.IsCancellationRequested) // Timeout, not user cancellation
+                    .Or<TaskCanceledException>() // Treat as transient; Polly respects the per-call CT (passed to ExecuteAsync) and will short-circuit on real cancellation/timeout.
                     .OrResult<HttpResponseMessage>(message => message.StatusCode == HttpStatusCode.TooManyRequests ||
                                                               message.StatusCode == HttpStatusCode.ServiceUnavailable)
                     .WaitAndRetryAsync(
@@ -389,40 +437,42 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 try
                 {
-                    HttpResponseMessage response = await _polly.ExecuteAsync(async () =>
+                    HttpResponseMessage response = await _polly.ExecuteAsync(
+                        async ct =>
+                        {
+                            attemptNumber++;
+                            var attemptStopwatch = Stopwatch.StartNew();
+
+                            // Clone the request for each attempt (HttpRequestMessage cannot be reused after sending)
+                            using var clonedRequest = CloneHttpRequestMessage(request, contentBytes, contentType);
+
+                            // Re-add session token to cloned request (may have been updated from previous response)
+                            string currentSessionToken = _sessionTokenContainer.SessionToken;
+                            if (!string.IsNullOrEmpty(currentSessionToken))
+                            {
+                                clonedRequest.Headers.Remove("x-ms-session-token");
+                                clonedRequest.Headers.TryAddWithoutValidation("x-ms-session-token", currentSessionToken);
+                            }
+
+                            try
+                            {
+                                var result = await base.SendAsync(clonedRequest, ct);
+                                attemptStopwatch.Stop();
+                                diagnostics.AppendLine($"  Attempt {attemptNumber}: {(int)result.StatusCode} {result.StatusCode} in {attemptStopwatch.ElapsedMilliseconds}ms");
+                                return result;
+                            }
+                            catch (Exception ex)
+                            {
+                                attemptStopwatch.Stop();
+                                diagnostics.AppendLine($"  Attempt {attemptNumber}: Exception ({ex.GetType().Name}: {ex.Message}) in {attemptStopwatch.ElapsedMilliseconds}ms");
+                                throw;
+                            }
+                        },
+                        cancellationToken);
+
+                    if (response.Headers.TryGetValues("x-ms-session-token", out var tokens) && tokens != null && tokens.Any())
                     {
-                        attemptNumber++;
-                        var attemptStopwatch = Stopwatch.StartNew();
-
-                        // Clone the request for each attempt (HttpRequestMessage cannot be reused after sending)
-                        using var clonedRequest = CloneHttpRequestMessage(request, contentBytes, contentType);
-
-                        // Re-add session token to cloned request (may have been updated from previous response)
-                        string currentSessionToken = _sessionTokenContainer.SessionToken;
-                        if (!string.IsNullOrEmpty(currentSessionToken))
-                        {
-                            clonedRequest.Headers.Remove("x-ms-session-token");
-                            clonedRequest.Headers.TryAddWithoutValidation("x-ms-session-token", currentSessionToken);
-                        }
-
-                        try
-                        {
-                            var result = await base.SendAsync(clonedRequest, cancellationToken);
-                            attemptStopwatch.Stop();
-                            diagnostics.AppendLine($"  Attempt {attemptNumber}: {(int)result.StatusCode} {result.StatusCode} in {attemptStopwatch.ElapsedMilliseconds}ms");
-                            return result;
-                        }
-                        catch (Exception ex)
-                        {
-                            attemptStopwatch.Stop();
-                            diagnostics.AppendLine($"  Attempt {attemptNumber}: Exception ({ex.GetType().Name}: {ex.Message}) in {attemptStopwatch.ElapsedMilliseconds}ms");
-                            throw;
-                        }
-                    });
-
-                    if (response.Headers.TryGetValues("x-ms-session-token", out var tokens))
-                    {
-                        _sessionTokenContainer.SessionToken = tokens.SingleOrDefault();
+                        _sessionTokenContainer.SessionToken = string.Join(",", tokens);
                     }
 
                     return response;

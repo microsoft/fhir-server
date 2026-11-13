@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// Provides R4 resource creation tests.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Create)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public partial class CreateAllFhirResourcesTests : IClassFixture<CreateAllFhirResourcesTestsFixture>
     {

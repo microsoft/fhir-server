@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Resources.MemberMatch;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Messages.MemberMatch;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives;
@@ -42,10 +43,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
             contextAccessor.RequestContext.RequestHeaders.Returns(new Dictionary<string, StringValues>());
             var validator = new MemberMatchResourceValidator(
                 new ModelAttributeValidator(),
-                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
+                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance, Options.Create(new CoreFeatureConfiguration())),
                 profileValidator,
                 contextAccessor,
-                config);
+                config,
+                ResourceIdPolicy.Standard);
 
             var defaultCoverage = Samples.GetDefaultCoverage().ToPoco<Coverage>();
             var defaultPatient = Samples.GetDefaultPatient().ToPoco<Patient>();
@@ -73,10 +75,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
             contextAccessor.RequestContext.RequestHeaders.Returns(new Dictionary<string, StringValues>());
             var validator = new MemberMatchResourceValidator(
                 new ModelAttributeValidator(),
-                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
+                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance, Options.Create(new CoreFeatureConfiguration())),
                 profileValidator,
                 contextAccessor,
-                config);
+                config,
+                ResourceIdPolicy.Standard);
 
             var defaultCoverage = Samples.GetDefaultCoverage().ToPoco<Coverage>();
             var defaultPatient = Samples.GetDefaultPatient().ToPoco<Patient>();
@@ -120,10 +123,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
             contextAccessor.RequestContext.RequestHeaders.Returns(headers);
             var validator = new MemberMatchResourceValidator(
                 new ModelAttributeValidator(),
-                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
+                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance, Options.Create(new CoreFeatureConfiguration())),
                 profileValidator,
                 contextAccessor,
-                config);
+                config,
+                ResourceIdPolicy.Standard);
 
             var createMemberMatchRequest = new MemberMatchRequest(Samples.GetDefaultCoverage().ToPoco<Coverage>().ToResourceElement(), Samples.GetDefaultPatient().ToPoco<Patient>().ToResourceElement());
             validator.Validate(createMemberMatchRequest);

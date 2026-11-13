@@ -7,7 +7,7 @@ using System.Collections.Generic;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
-    internal class DefaultOptionHashSet<T> : HashSet<T>, IDefaultOption
+    internal class DefaultOptionHashSet<T> : ThreadSafeHashSet<T>, IDefaultOption
     {
         public DefaultOptionHashSet(T defaultOption)
         {

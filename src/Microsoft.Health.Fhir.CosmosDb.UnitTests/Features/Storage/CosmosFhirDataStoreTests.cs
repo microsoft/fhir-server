@@ -21,7 +21,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -30,12 +29,15 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -72,7 +74,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _bundleOrchestrator = new BundleOrchestrator(bundleOptions, logger);
 
             _dataStore = new CosmosFhirDataStore(
-                _container,
+                _container.CreateMockScopeProviderFromScoped(),
                 _cosmosDataStoreConfiguration,
                 Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>(),
                 _cosmosQueryFactory,
@@ -81,7 +83,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 Options.Create(new CoreFeatureConfiguration()),
                 _bundleOrchestrator,
                 new Lazy<ISupportedSearchParameterDefinitionManager>(Substitute.For<ISupportedSearchParameterDefinitionManager>()),
-                ModelInfoProvider.Instance);
+                ModelInfoProvider.Instance,
+                Substitute.For<ISearchParameterStatusDataStore>(),
+                requestContextAccessor);
         }
 
         [Fact]
@@ -282,6 +286,64 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             }
 
             await _container.Value.ReceivedWithAnyArgs(7).CreateItemAsync(Arg.Any<FhirCosmosResourceWrapper>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenPendingSearchParameterStatusWithPreviousUri_WhenPersisted_ThenCurrentAndPreviousDeletedStatusesAreUpserted()
+        {
+            var pendingStatus = new ResourceSearchParameterStatus
+            {
+                Uri = new Uri("http://hl7.org/fhir/SearchParameter/new-url"),
+                PreviousUri = new Uri("http://hl7.org/fhir/SearchParameter/old-url"),
+                Status = SearchParameterStatus.Supported,
+                IsPartiallySupported = true,
+                SortStatus = SortParameterStatus.Enabled,
+                LastUpdated = DateTimeOffset.UtcNow,
+            };
+
+            var requestContext = Substitute.For<IFhirRequestContext>();
+            var properties = new Dictionary<string, object>
+            {
+                [SearchParameterRequestContextPropertyNames.PendingStatus] = pendingStatus,
+            };
+            requestContext.Properties.Returns(properties);
+
+            var requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            requestContextAccessor.RequestContext.Returns(requestContext);
+
+            var searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            var dataStore = new CosmosFhirDataStore(
+                _container.CreateMockScopeProviderFromScoped(),
+                _cosmosDataStoreConfiguration,
+                Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>(),
+                _cosmosQueryFactory,
+                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, requestContextAccessor, NullLogger<RetryExceptionPolicyFactory>.Instance),
+                NullLogger<CosmosFhirDataStore>.Instance,
+                Options.Create(new CoreFeatureConfiguration()),
+                _bundleOrchestrator,
+                new Lazy<ISupportedSearchParameterDefinitionManager>(Substitute.For<ISupportedSearchParameterDefinitionManager>()),
+                ModelInfoProvider.Instance,
+                searchParameterStatusDataStore,
+                requestContextAccessor);
+
+            var persistMethod = typeof(CosmosFhirDataStore).GetMethod("PersistPendingSearchParameterStatusUpdateAsync", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(persistMethod);
+
+            await ((Task)persistMethod.Invoke(dataStore, [CancellationToken.None]));
+
+            await searchParameterStatusDataStore.Received(1).UpsertStatuses(
+                Arg.Is<IReadOnlyList<ResourceSearchParameterStatus>>(statuses =>
+                    statuses.Count == 2 &&
+                    statuses.Any(s => s.Uri == pendingStatus.Uri && s.Status == SearchParameterStatus.Supported) &&
+                    statuses.Any(s =>
+                        s.Uri == pendingStatus.PreviousUri &&
+                        s.Status == SearchParameterStatus.Deleted &&
+                        s.IsPartiallySupported == pendingStatus.IsPartiallySupported &&
+                        s.SortStatus == pendingStatus.SortStatus &&
+                        s.LastUpdated == pendingStatus.LastUpdated)),
+                CancellationToken.None);
+
+            Assert.False(properties.ContainsKey(SearchParameterRequestContextPropertyNames.PendingStatus));
         }
 
         [Fact]

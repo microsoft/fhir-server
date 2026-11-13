@@ -9,17 +9,19 @@ using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -35,7 +37,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
         private readonly IHostApplicationLifetime _hostApplicationLifetime;
         private readonly ISearchService _searchService;
         private readonly IScoped<ISearchService> _scopedSearchService;
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly IMediator _mediator;
         private readonly IOptions<ValidateOperationConfiguration> _options;
         private readonly ServerProvideProfileValidation _serverProvideProfileValidation;
@@ -47,7 +49,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
             _searchService = Substitute.For<ISearchService>();
             _scopedSearchService = Substitute.For<IScoped<ISearchService>>();
             _scopedSearchService.Value.Returns(_searchService);
-            _searchServiceFactory = () => _scopedSearchService;
+            _searchServiceFactory = _scopedSearchService.CreateMockScopeProviderFromScoped();
             _mediator = Substitute.For<IMediator>();
 
             var config = new ValidateOperationConfiguration
@@ -62,6 +64,17 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
                 _mediator,
                 _hostApplicationLifetime,
                 NullLogger<ServerProvideProfileValidation>.Instance);
+        }
+
+        [Fact]
+        public void GivenAValidateOperationConfiguration_ThenEnsureThatLimitsAndIntervalsAreUsingSafeValues()
+        {
+            ValidateOperationConfiguration configuration = new ValidateOperationConfiguration();
+
+            Assert.Equal(14400, configuration.CacheDurationInSeconds);
+            Assert.Equal(20000, configuration.MaxExpansionSize);
+            Assert.Equal(300, configuration.BackgroundProfileStatusCheckIntervalInSeconds);
+            Assert.Equal(300, configuration.BackgroundProfileStatusDelayedStartInSeconds);
         }
 
         [Fact]
@@ -264,10 +277,38 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Validation
             // Act
             var profiles = await _serverProvideProfileValidation.GetSupportedProfilesAsync("Patient", CancellationToken.None);
 
-            // Assert
+            // Assert - both versions should be present, not just the last one loaded
             Assert.NotNull(profiles);
-            Assert.Single(profiles);
+            Assert.Equal(2, profiles.Count());
+            Assert.Contains("http://example.org/fhir/StructureDefinition/custom-patient|1.0.0", profiles);
             Assert.Contains("http://example.org/fhir/StructureDefinition/custom-patient|2.0.0", profiles);
+        }
+
+        [Fact]
+        public async Task GivenMultipleVersionsOfSameProfile_WhenResolvingByVersionedCanonicalUri_ThenCorrectVersionIsReturned()
+        {
+            // Arrange
+            var patientProfileV1 = CreateStructureDefinition("http://example.org/fhir/StructureDefinition/custom-patient", "Patient", "1.0.0");
+            var patientProfileV2 = CreateStructureDefinition("http://example.org/fhir/StructureDefinition/custom-patient", "Patient", "2.0.0");
+            SetupSearchServiceWithResults("StructureDefinition", patientProfileV1, patientProfileV2);
+
+            // Warm the cache
+            await _serverProvideProfileValidation.GetSupportedProfilesAsync("Patient", CancellationToken.None);
+
+            // Act - resolve the specific version 1.0.0
+            var resolvedV1 = await _serverProvideProfileValidation.ResolveByCanonicalUriAsync(
+                "http://example.org/fhir/StructureDefinition/custom-patient|1.0.0");
+
+            // Act - resolve the specific version 2.0.0
+            var resolvedV2 = await _serverProvideProfileValidation.ResolveByCanonicalUriAsync(
+                "http://example.org/fhir/StructureDefinition/custom-patient|2.0.0");
+
+            // Assert - each versioned lookup returns the correct profile
+            Assert.NotNull(resolvedV1);
+            Assert.Equal("1.0.0", ((StructureDefinition)resolvedV1).Version);
+
+            Assert.NotNull(resolvedV2);
+            Assert.Equal("2.0.0", ((StructureDefinition)resolvedV2).Version);
         }
 
         [Fact]

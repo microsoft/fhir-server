@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,7 +12,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -35,7 +35,9 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Filters;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
@@ -69,6 +71,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         private readonly ResourceDeserializer _deserializer;
         private readonly DataResourceFilter _dataResourceFilter = new DataResourceFilter(MissingDataFilterCriteria.Default);
         private readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
+        private readonly IProvideProfilesForValidation _profilesProvider = CreateProfilesProvider();
         private IAuthorizationService<DataActions> _authorizationService;
 
         public ResourceHandlerTests()
@@ -145,6 +148,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 Substitute.For<IFhirRuntimeConfiguration>(),
                 Substitute.For<ISearchParameterOperations>(),
                 _deserializer,
+                _profilesProvider,
+                _authorizationService,
                 logger);
 
             var conditionalCreateLogger = Substitute.For<ILogger<ConditionalCreateResourceHandler>>();
@@ -255,6 +260,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             // Version gets overriden during RawResource creation to 1
             Assert.Equal("1", outcome.RawResourceElement.VersionId);
             Assert.Equal("1", deserialized.VersionId);
+
+            // The data store assigns the version; a client-supplied meta.versionId must not be kept.
+            await _fhirDataStore.Received(1).UpsertAsync(Arg.Is<ResourceWrapperOperation>(x => !x.KeepVersion), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenAResourceWithAConditionalReference_WhenUpserting_ThenTheStoredResourceReferencesTheMatchedResource()
+        {
+            string patientId = Guid.NewGuid().ToString();
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Subject = new ResourceReference("Patient?identifier=12345");
+
+            var match = new SearchResultEntry(CreateResourceWrapper(Samples.GetDefaultPatient().UpdateId(patientId), false));
+            _searchService.SearchAsync(KnownResourceTypes.Patient, Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
+                .Returns(new SearchResult(new[] { match }, null, null, Array.Empty<Tuple<string, string>>()));
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>())
+                .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Updated));
+
+            await _mediator.UpsertResourceAsync(observation.ToResourceElement());
+
+            await _fhirDataStore.Received(1).UpsertAsync(
+                Arg.Is<ResourceWrapperOperation>(x => _fhirJsonParser.Parse<Observation>(x.Wrapper.RawResource.Data).Subject.Reference == $"Patient/{patientId}"),
+                Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -476,6 +504,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 0);
         }
 
+        private static IProvideProfilesForValidation CreateProfilesProvider()
+        {
+            var profilesProvider = Substitute.For<IProvideProfilesForValidation>();
+            profilesProvider.GetProfilesTypes().Returns(
+                new HashSet<string>()
+                {
+                    KnownResourceTypes.ValueSet,
+                    KnownResourceTypes.StructureDefinition,
+                    KnownResourceTypes.CodeSystem,
+                });
+            return profilesProvider;
+        }
+
         private ResourceWrapper CreateMockResourceWrapper(ResourceElement resource, bool isDeleted)
         {
             return Substitute.For<ResourceWrapper>(
@@ -504,7 +545,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
             var request = new UpsertResourceRequest(resource, bundleContext);
 
-            var result = await handler.Handle(request, CancellationToken.None);
+            var result = await handler.HandleAsync(request, CancellationToken.None);
             Assert.NotNull(result);
         }
 
@@ -523,7 +564,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
             var request = new UpsertResourceRequest(resource, bundleContext);
 
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.HandleAsync(request, CancellationToken.None));
         }
 
         [Fact]
@@ -540,7 +581,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
             var request = new UpsertResourceRequest(resource, bundleContext);
 
-            var result = await handler.Handle(request, CancellationToken.None);
+            var result = await handler.HandleAsync(request, CancellationToken.None);
             Assert.NotNull(result);
         }
 
@@ -559,58 +600,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
             var request = new UpsertResourceRequest(resource, bundleContext);
 
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => handler.HandleAsync(request, CancellationToken.None));
         }
 
-        [Fact]
-        public async Task GivenUpsertRequestWithInvalidHttpVerb_WhenResourceHasNoId_ThenShouldRequireCreatePermission()
+        [Theory]
+        [InlineData("POST", null, true, false, DataActions.Write | DataActions.Create)]
+        [InlineData("PUT", null, true, false, DataActions.Write | DataActions.Update)]
+        [InlineData("POST", Bundle.HTTPVerb.PUT, true, false, DataActions.Write | DataActions.Update)]
+        [InlineData("foo", null, false, false, DataActions.Write | DataActions.Create)]
+        [InlineData("foo", null, true, true, DataActions.Write | DataActions.Update)]
+        [InlineData("foo", null, true, false, DataActions.Write | DataActions.Create | DataActions.Update)]
+        public async Task GivenUpsertRequest_WhenHandled_ThenOnlyThePermissionImpliedByTheVerbOrResourceIsRequested(string requestMethod, Bundle.HTTPVerb? bundleVerb, bool hasId, bool hasETag, DataActions expectedActions)
         {
-            var resource = Samples.GetDefaultObservation().UpdateId(null);
+            // The bundle entry verb wins over the request method (bundles are always POSTed); without a known verb,
+            // no id means create, an If-Match ETag means update, and anything else is an upsert.
+            var resource = Samples.GetDefaultObservation().UpdateId(hasId ? Guid.NewGuid().ToString() : null);
             var contextAccessor = Substitute.For<FhirRequestContextAccessor>();
-            contextAccessor.RequestContext = new FhirRequestContext("foo", "http://localhost", "http://localhost", "id", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
+            contextAccessor.RequestContext = new FhirRequestContext(requestMethod, "http://localhost", "http://localhost", "id", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
+            BundleResourceContext bundleContext = bundleVerb == null
+                ? null
+                : new BundleResourceContext(Bundle.BundleType.Batch, BundleProcessingLogic.Sequential, bundleVerb.Value, persistedId: null, Guid.NewGuid());
 
-            _authorizationService.CheckAccess(DataActions.Create | DataActions.Write, Arg.Any<CancellationToken>()).Returns(DataActions.Create);
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Created));
-
-            var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
-            var request = new UpsertResourceRequest(resource, bundleResourceContext: null);
-
-            var result = await handler.Handle(request, CancellationToken.None);
-            Assert.NotNull(result);
-        }
-
-        [Fact]
-        public async Task GivenUpsertRequestWithRequestContextPost_WhenNoBundleContext_ThenShouldRequireCreatePermission()
-        {
-            var resource = Samples.GetDefaultObservation();
-            var contextAccessor = Substitute.For<FhirRequestContextAccessor>();
-            contextAccessor.RequestContext = new FhirRequestContext("POST", "http://localhost", "http://localhost", "id", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
-
-            _authorizationService.CheckAccess(DataActions.Create | DataActions.Write, Arg.Any<CancellationToken>()).Returns(DataActions.Create);
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Created));
-
-            var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
-            var request = new UpsertResourceRequest(resource, bundleResourceContext: null);
-
-            var result = await handler.Handle(request, CancellationToken.None);
-            Assert.NotNull(result);
-        }
-
-        [Fact]
-        public async Task GivenUpsertRequestWithRequestContextPut_WhenNoBundleContext_ThenShouldRequireUpdatePermission()
-        {
-            var resource = Samples.GetDefaultObservation();
-            var contextAccessor = Substitute.For<FhirRequestContextAccessor>();
-            contextAccessor.RequestContext = new FhirRequestContext("PUT", "http://localhost", "http://localhost", "id", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
-
-            _authorizationService.CheckAccess(DataActions.Update | DataActions.Write, Arg.Any<CancellationToken>()).Returns(DataActions.Update);
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Updated));
 
             var handler = new UpsertResourceHandler(_fhirDataStore, new Lazy<IConformanceProvider>(() => _conformanceProvider), _resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser(), Substitute.For<ILogger<ResourceReferenceResolver>>()), contextAccessor, _authorizationService, ModelInfoProvider.Instance);
-            var request = new UpsertResourceRequest(resource, bundleResourceContext: null);
+            var request = new UpsertResourceRequest(resource, bundleContext, hasETag ? WeakETag.FromVersionId("1") : null);
 
-            var result = await handler.Handle(request, CancellationToken.None);
-            Assert.NotNull(result);
+            await handler.HandleAsync(request, CancellationToken.None);
+
+            await _authorizationService.Received(1).CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>());
+            await _authorizationService.Received(1).CheckAccess(expectedActions, Arg.Any<CancellationToken>());
         }
     }
 }

@@ -50,7 +50,7 @@
                 ],
                 "code": "race",
                 "base": [
-                    "Patient"
+                    "Person"
                 ],
                 "type": "token",
                 "expression": "Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race').extension.value.code",
@@ -109,7 +109,7 @@
                 ],
                 "code": "ethnicity",
                 "base": [
-                    "Patient"
+                    "Person"
                 ],
                 "type": "token",
                 "expression": "Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity').extension.value.code",
@@ -168,7 +168,7 @@
                 ],
                 "code": "gender-identity",
                 "base": [
-                    "Patient"
+                    "Person"
                 ],
                 "type": "token",
                 "expression": "Patient.extension.where(url='http://hl7.org/fhir/us/core/StructureDefinition/us-core-genderIdentity').value.coding.code",

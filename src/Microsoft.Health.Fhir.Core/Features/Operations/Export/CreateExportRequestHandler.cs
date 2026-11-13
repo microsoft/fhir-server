@@ -13,7 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Rest;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
@@ -24,16 +24,19 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
+using Microsoft.Health.Fhir.Core.Models;
 using StringExtensions = Microsoft.Health.Core.Extensions.StringExtensions;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     /// <summary>
-    /// MediatR request handler. Called when the ExportController creates an export job.
+    /// Medino request handler. Called when the ExportController creates an export job.
     /// </summary>
     public class CreateExportRequestHandler : IRequestHandler<CreateExportRequest, CreateExportResponse>
     {
@@ -43,6 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ISearchOptionsFactory _searchOptionsFactory;
+        private readonly IExportSmartScopeAuthorizer _exportSmartScopeAuthorizer;
         private readonly ILogger<CreateExportRequestHandler> _logger;
         private readonly bool _includeValidateTypeFiltersValidationDetails;
 
@@ -53,6 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             IOptions<ExportJobConfiguration> exportJobConfiguration,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             ISearchOptionsFactory searchOptionsFactory,
+            IExportSmartScopeAuthorizer exportSmartScopeAuthorizer,
             ILogger<CreateExportRequestHandler> logger,
             bool includeValidateTypeFiltersValidationDetails = false)
         {
@@ -62,6 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
+            EnsureArg.IsNotNull(exportSmartScopeAuthorizer, nameof(exportSmartScopeAuthorizer));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _claimsExtractor = claimsExtractor;
@@ -70,18 +76,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _exportJobConfiguration = exportJobConfiguration.Value;
             _contextAccessor = fhirRequestContextAccessor;
             _searchOptionsFactory = searchOptionsFactory;
+            _exportSmartScopeAuthorizer = exportSmartScopeAuthorizer;
             _logger = logger;
             _includeValidateTypeFiltersValidationDetails = includeValidateTypeFiltersValidationDetails;
         }
 
-        public async Task<CreateExportResponse> Handle(CreateExportRequest request, CancellationToken cancellationToken)
+        public async Task<CreateExportResponse> HandleAsync(CreateExportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Export, cancellationToken) != DataActions.Export)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(DataActions.Export, true, cancellationToken);
+
+            // The authorizer applies SMART scope checks when applicable; otherwise it returns the requested resource type.
+            AccessControlContext accessControlContext = _contextAccessor?.RequestContext?.AccessControlContext;
+            bool smartRequest = accessControlContext?.ApplyFineGrainedAccessControl == true;
+            string resourceTypeToPersist = _exportSmartScopeAuthorizer.AuthorizeCreateAndResolveResourceType(request);
 
             var requestorClaims = _claimsExtractor.Extract()?.OrderBy(claim => claim.Key, StringComparer.Ordinal).ToList();
 
@@ -100,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 requestUri: request.RequestUri,
                 exportType: request.RequestType,
                 exportFormat: formatConfiguration.Format,
-                resourceType: request.ResourceType,
+                resourceType: resourceTypeToPersist,
                 filters: filters,
                 hash: "N/A",
                 rollingFileSizeInMB: _exportJobConfiguration.RollingFileSizeInMB,
@@ -119,7 +128,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 isParallel: request.IsParallel,
                 includeHistory: request.IncludeHistory,
                 includeDeleted: request.IncludeDeleted,
-                smartRequest: _contextAccessor?.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true);
+                smartRequest: smartRequest,
+                authorizedIncludeResourceTypes: _exportSmartScopeAuthorizer.GetAuthorizedIncludeResourceTypes());
 
             var outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
 
@@ -201,6 +211,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private void ValidateTypeFilters(List<ExportJobFilter> filters)
         {
+            // Client filters remain untrusted when replayed by a background export job.
+            foreach (var filter in filters ?? Enumerable.Empty<ExportJobFilter>())
+            {
+                var reservedParameter = filter.Parameters?.FirstOrDefault(parameter =>
+                    string.Equals(parameter.Item1, KnownQueryParameterNames.StartSurrogateId, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(parameter.Item1, KnownQueryParameterNames.EndSurrogateId, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(parameter.Item1, KnownQueryParameterNames.GlobalEndSurrogateId, StringComparison.OrdinalIgnoreCase));
+
+                if (reservedParameter != null)
+                {
+                    _logger.LogWarning("Rejected internal surrogate id range parameter {ParameterName} in an export filter.", reservedParameter.Item1);
+                    throw new BadRequestException(
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, reservedParameter.Item1, filter.ResourceType));
+                }
+            }
+
             if (_contextAccessor.GetHandlingHeader() == SearchParameterHandling.Lenient)
             {
                 _logger.LogInformation("Validation skipped due to opting for Lenient error handling.");

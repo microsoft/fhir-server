@@ -12,6 +12,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -45,12 +46,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             _dataStore = fixture.DataStore;
         }
 
-        public Task InitializeAsync() => Task.CompletedTask;
+        public ValueTask InitializeAsync() => ValueTask.CompletedTask;
 
-        public Task DisposeAsync()
+        public ValueTask DisposeAsync()
         {
             // Clean up is handled by fixture disposal
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
 
         [Fact]
@@ -121,7 +122,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                 null,
                 null,
                 CancellationToken.None,
-                searchParamHashFilter: null,
                 includeHistory: true,
                 includeDeleted: false);
 
@@ -150,6 +150,42 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             Assert.True(
                 versions.Count >= 2,
                 $"Expected different version numbers for historical versions, got {versions.Count} unique versions: [{string.Join(", ", versions)}]");
+        }
+
+        [Fact]
+        public async Task SearchBySurrogateIdRange_WithGlobalEndId_ReturnsVersionCurrentAtSnapshot()
+        {
+            // Arrange - version 1 becomes history when version 2 is written. This drives the snapshot branch of
+            // GetResourcesByTypeAndSurrogateIdRange that joins @SurrogateIds to dbo.Resource.
+            var version1 = await CreateTestObservation("TestSnapshotObservation");
+            var observationToUpdate = new RawResourceElement(version1).ToPoco<Observation>(_fixture.Deserializer);
+            await _fixture.Mediator.UpsertResourceAsync(UpdateObservationStatus(observationToUpdate), WeakETag.FromVersionId(version1.Version));
+            var version2 = await _dataStore.GetAsync(new ResourceKey("Observation", version1.ResourceId), CancellationToken.None);
+
+            var sqlSearchService = Assert.IsType<SqlServerSearchService>(_searchService);
+
+            // Act - read the range of version 1 with snapshots taken before and after version 2.
+            var beforeUpdate = await sqlSearchService.SearchBySurrogateIdRange(
+                "Observation",
+                version1.ResourceSurrogateId,
+                version1.ResourceSurrogateId,
+                null,
+                version2.ResourceSurrogateId - 1,
+                CancellationToken.None);
+
+            var afterUpdate = await sqlSearchService.SearchBySurrogateIdRange(
+                "Observation",
+                version1.ResourceSurrogateId,
+                version1.ResourceSurrogateId,
+                null,
+                version2.ResourceSurrogateId,
+                CancellationToken.None);
+
+            // Assert - version 1 is returned only while it is the latest version in the snapshot.
+            var snapshotEntry = Assert.Single(beforeUpdate.Results, r => r.Resource.ResourceId == version1.ResourceId);
+            Assert.Equal(version1.Version, snapshotEntry.Resource.Version);
+            Assert.Equal(version1.ResourceSurrogateId, snapshotEntry.Resource.ResourceSurrogateId);
+            Assert.DoesNotContain(afterUpdate.Results, r => r.Resource.ResourceId == version1.ResourceId);
         }
 
         [Fact]
@@ -320,7 +356,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
 
             // Assert
             Assert.NotNull(stats);
-            Assert.IsAssignableFrom<ICollection<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>>(stats);
+            Assert.IsAssignableFrom<ICollection<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)>>(stats);
 
             // Verify that stats were actually created for the Patient identifier search
             // The cache should contain at least one entry for Patient with identifier search parameter
@@ -407,55 +443,17 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
         }
 
         [Fact]
-        public async Task SearchForReindex_WithCountOnly_ReturnsAccurateCount()
-        {
-            // Arrange - Create test patients
-            var patients = await CreateTestPatients(10);
-            var surrogateIds = patients.Select(p => p.ResourceSurrogateId).OrderBy(id => id).ToList();
-
-            // Act - Search for reindex with count only
-            var queryParameters = new List<Tuple<string, string>>
-            {
-                new Tuple<string, string>("_type", "Patient"),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.StartSurrogateId, surrogateIds.First().ToString()),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.EndSurrogateId, surrogateIds.Last().ToString()),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
-            };
-
-            var result = await _searchService.SearchForReindexAsync(
-                queryParameters,
-                searchParameterHash: string.Empty,
-                countOnly: true,
-                CancellationToken.None);
-
-            // Assert
-            Assert.NotNull(result);
-            Assert.True(result.TotalCount >= 10, $"Expected count to be >= 10, got {result.TotalCount}");
-            Assert.Empty(result.Results); // Count-only should not return resources
-        }
-
-        [Fact]
-        public async Task SearchForReindex_WithSurrogateIdRange_ReturnsResourcesInRange()
+        public async Task SearchBySurrogateIdRange_WithValidRange_ReturnsResourcesInRange()
         {
             // Arrange - Create test patients
             var patients = await CreateTestPatients(5);
             var surrogateIds = patients.Select(p => p.ResourceSurrogateId).OrderBy(id => id).ToList();
 
-            // Act - Search for reindex with surrogate ID range
-            var queryParameters = new List<Tuple<string, string>>
-            {
-                new Tuple<string, string>("_type", "Patient"),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.StartSurrogateId, surrogateIds.First().ToString()),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.EndSurrogateId, surrogateIds.Last().ToString()),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
-                new Tuple<string, string>(Microsoft.Health.Fhir.Core.Features.KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
-            };
-
-            var result = await _searchService.SearchForReindexAsync(
-                queryParameters,
-                searchParameterHash: string.Empty,
-                countOnly: false,
+            // Act - Search by surrogate ID range directly (this is the path SQL reindex uses)
+            var result = await _searchService.SearchBySurrogateIdRange(
+                "Patient",
+                surrogateIds.First(),
+                surrogateIds.Last(),
                 CancellationToken.None);
 
             // Assert
@@ -726,40 +724,77 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             }
         }
 
-        [Fact]
-        public async Task SearchBySurrogateIdRange_WithSearchParamHashFilter_FiltersCorrectly()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenALaterPageEndingTheFirstSortPhase_WhenAccurateTotalIsRequested_ThenTotalCountsAllMatches(bool hasDatedMatch)
         {
             // Arrange
-            var patients = await CreateTestPatients(5);
-            var surrogateIds = patients.Select(p => p.ResourceSurrogateId).OrderBy(id => id).ToList();
-
-            var sqlSearchService = _searchService as SqlServerSearchService;
-            Assert.NotNull(sqlSearchService);
-
-            // Act - Search with a hash filter (resources with different hash should be excluded)
-            var result = await sqlSearchService!.SearchBySurrogateIdRange(
-                "Patient",
-                surrogateIds.First(),
-                surrogateIds.Last(),
-                null,
-                null,
-                CancellationToken.None,
-                searchParamHashFilter: "non-matching-hash");
-
-            // Assert - Resources should be returned but filtered by hash
-            // Since we're using a non-matching hash, we expect resources with NULL or different hashes
-            Assert.NotNull(result);
-            Assert.NotNull(result.Results);
-
-            // All returned resources should either have NULL hash or a hash different from the filter
-            Assert.All(result.Results, r =>
+            var tag = Guid.NewGuid().ToString();
+            var totalCount = hasDatedMatch ? 5 : 6;
+            for (var i = 0; i < totalCount; i++)
             {
-                // If the resource has a hash, it should not match our non-matching-hash filter
-                // This test verifies the hash filtering mechanism works correctly
-                Assert.True(
-                    string.IsNullOrEmpty(r.Resource.SearchParameterHash) || r.Resource.SearchParameterHash != "non-matching-hash",
-                    $"Resource {r.Resource.ResourceId} should not have the filtered hash value");
-            });
+                await CreateIndexedPatient(tag, hasDatedMatch && i == totalCount - 1 ? "1980-01-01" : null);
+            }
+
+            var query = new List<Tuple<string, string>>
+            {
+                Tuple.Create("_tag", tag),
+                Tuple.Create("_sort", "birthdate"),
+                Tuple.Create("_count", "3"),
+                Tuple.Create("_total", "accurate"),
+            };
+            var firstPage = await _searchService.SearchAsync("Patient", query, CancellationToken.None);
+            Assert.Equal(totalCount, firstPage.TotalCount);
+            Assert.NotNull(firstPage.ContinuationToken);
+            query.Add(Tuple.Create("ct", ContinuationTokenEncoder.Encode(firstPage.ContinuationToken)));
+
+            // Act
+            var lastPage = await _searchService.SearchAsync("Patient", query, CancellationToken.None);
+
+            // Assert
+            Assert.Null(lastPage.ContinuationToken);
+            Assert.Equal(totalCount, lastPage.TotalCount);
+            Assert.Equal(hasDatedMatch ? 2 : 3, lastPage.Results.Count());
+        }
+
+        [Fact]
+        public async Task GivenADescendingMissingValuePage_WhenRemainingMatchesAreDeleted_ThenContinuationDoesNotRestartThePhase()
+        {
+            // Arrange
+            var tag = Guid.NewGuid().ToString();
+            var patients = new List<ResourceWrapper>();
+            for (var i = 0; i < 5; i++)
+            {
+                patients.Add(await CreateIndexedPatient(tag));
+            }
+
+            var query = new List<Tuple<string, string>>
+            {
+                Tuple.Create("_tag", tag),
+                Tuple.Create("_sort", "-birthdate"),
+                Tuple.Create("_count", "3"),
+            };
+            var firstPage = await _searchService.SearchAsync("Patient", query, CancellationToken.None);
+            Assert.Equal(3, firstPage.Results.Count());
+            Assert.NotNull(firstPage.ContinuationToken);
+            var returnedIds = firstPage.Results.Select(result => result.Resource.ResourceId).ToHashSet();
+            foreach (var patient in patients.Where(patient => !returnedIds.Contains(patient.ResourceId)))
+            {
+                await _fixture.Mediator.DeleteResourceAsync(
+                    new ResourceKey("Patient", patient.ResourceId),
+                    DeleteOperation.SoftDelete,
+                    CancellationToken.None);
+            }
+
+            query.Add(Tuple.Create("ct", ContinuationTokenEncoder.Encode(firstPage.ContinuationToken)));
+
+            // Act
+            var lastPage = await _searchService.SearchAsync("Patient", query, CancellationToken.None);
+
+            // Assert
+            Assert.Empty(lastPage.Results);
+            Assert.Null(lastPage.ContinuationToken);
         }
 
         [Fact]
@@ -862,7 +897,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                 null,
                 null,
                 CancellationToken.None,
-                searchParamHashFilter: null,
                 includeHistory: false,
                 includeDeleted: true);
 
@@ -874,7 +908,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                 null,
                 null,
                 CancellationToken.None,
-                searchParamHashFilter: null,
                 includeHistory: false,
                 includeDeleted: false);
 
@@ -891,27 +924,29 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             Assert.Null(deletedResourceInNonDeletedSearch.Resource);
         }
 
-        [Fact]
-        public async Task Search_WithResetQueryPlans_ExecutesSuccessfully()
+        private async Task<ResourceWrapper> CreateIndexedPatient(string tag, string birthDate = null)
         {
-            // Arrange
-            var patient = await CreateTestPatient($"QueryPlanTest_{Guid.NewGuid()}");
-
-            // Act - Reset query plans
-            SqlServerSearchService.ResetReuseQueryPlans();
-
-            // Act - Execute search after reset using _id (doesn't require name search parameter indexing)
-            var queryParameters = new List<Tuple<string, string>>
+            var patient = new Patient
             {
-                new Tuple<string, string>("_id", patient.ResourceId),
+                Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) } },
+                BirthDate = birthDate,
             };
+            var saved = await _fixture.Mediator.UpsertResourceAsync(patient.ToResourceElement());
+            var wrapper = await _dataStore.GetAsync(new ResourceKey("Patient", saved.RawResourceElement.Id), CancellationToken.None);
+            Assert.True(_fixture.SearchParameterDefinitionManager.TryGetSearchParameter("Patient", "_tag", out var tagParameter));
 
-            var result = await _searchService.SearchAsync("Patient", queryParameters, CancellationToken.None);
+            // This storage fixture's mediator does not extract Patient search indices.
+            var indices = new List<SearchIndexEntry> { new SearchIndexEntry(tagParameter, new TokenSearchValue(null, tag, null)) };
+            if (birthDate != null)
+            {
+                Assert.True(_fixture.SearchParameterDefinitionManager.TryGetSearchParameter("Patient", "birthdate", out var birthdateParameter));
+                indices.Add(new SearchIndexEntry(
+                    birthdateParameter,
+                    new DateTimeSearchValue(PartialDateTime.Parse(birthDate)) { IsMin = true, IsMax = true }));
+            }
 
-            // Assert - Search should still work after reset
-            Assert.NotNull(result);
-            Assert.Single(result.Results);
-            Assert.Equal(patient.ResourceId, result.Results.First().Resource.ResourceId);
+            wrapper.SearchIndices = indices;
+            return await _dataStore.UpdateSearchParameterIndicesAsync(wrapper, CancellationToken.None);
         }
 
         private async Task<List<ResourceWrapper>> CreateTestPatients(int count)

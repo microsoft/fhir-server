@@ -28,5 +28,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public void LogQueryClientElapsedTime(string activityId, string clientElapsedTime = null, Exception exception = null)
         {
         }
+
+        public void LogMalformedContinuationToken(Exception exception)
+        {
+        }
     }
 }

@@ -37,7 +37,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         public delegate ISearchParameterStatusDataStore Resolver();
 
-        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken)
+        public string SearchParamCacheUpdateProcessName => null;
+
+        public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            await Task.CompletedTask; // noop
+        }
+
+        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
         {
             if (_statusResults == null)
             {
@@ -82,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             return _statusResults;
         }
 
-        public Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
+        public Task UpsertStatuses(IReadOnlyList<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken, long? reindexId = null)
         {
             // File based registry does not persist runtime updates
             return Task.CompletedTask;
@@ -91,6 +98,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         public void SyncStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
         {
             // Do nothing. This is only required for SQL.
+        }
+
+        public Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException("Cache sync is not supported for file-based storage.");
         }
 
         public async Task<DateTimeOffset> GetMaxLastUpdatedAsync(CancellationToken cancellationToken)

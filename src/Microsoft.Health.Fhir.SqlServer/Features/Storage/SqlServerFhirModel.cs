@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,22 +11,26 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Hl7.Fhir.Model;
+using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Storage;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
@@ -52,6 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly IScopeProvider<SqlConnectionWrapperFactory> _scopedSqlConnectionWrapperFactory;
         private readonly IMediator _mediator;
+        private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<SqlServerFhirModel> _logger;
         private Dictionary<string, short> _resourceTypeToId;
         private Dictionary<short, string> _resourceTypeIdToTypeName;
@@ -71,6 +76,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             IOptions<SecurityConfiguration> securityConfiguration,
             IScopeProvider<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory,
             IMediator mediator,
+            ISqlRetryService sqlRetryService,
+            ResourceIdPolicy resourceIdPolicy,
             ILogger<SqlServerFhirModel> logger)
         {
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
@@ -78,6 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
             EnsureArg.IsNotNull(scopedSqlConnectionWrapperFactory, nameof(scopedSqlConnectionWrapperFactory));
+            EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _schemaInformation = schemaInformation;
@@ -86,8 +94,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _securityConfiguration = securityConfiguration.Value;
             _scopedSqlConnectionWrapperFactory = scopedSqlConnectionWrapperFactory;
             _mediator = mediator;
+            _sqlRetryService = sqlRetryService;
             _logger = logger;
+            ResourceIdPolicy = EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
         }
+
+        /// <summary>
+        /// Gets the resource id policy that the database schema must support.
+        /// </summary>
+        public ResourceIdPolicy ResourceIdPolicy { get; }
 
         public (short lowestId, short highestId) ResourceTypeIdRange
         {
@@ -101,7 +116,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public short GetResourceTypeId(string resourceTypeName)
         {
             ThrowIfNotInitialized();
-            return _resourceTypeToId[resourceTypeName];
+
+            if (_resourceTypeToId.TryGetValue(resourceTypeName, out short resourceTypeId))
+            {
+                return resourceTypeId;
+            }
+
+            throw new ResourceNotFoundException($"Resource type '{resourceTypeName}' is not a known resource type.");
         }
 
         public bool TryGetResourceTypeId(string resourceTypeName, out short id)
@@ -164,16 +185,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             ThrowIfNotInitialized();
 
-            VLatest.SystemTable systemTable = VLatest.System;
-            return GetStringId(_systemToId, system, systemTable, systemTable.SystemId, systemTable.Value);
+            var systemSproc = VLatest.GetSystemId;
+            return GetStringId(_systemToId, system, systemSproc);
         }
 
         public int GetQuantityCodeId(string code)
         {
             ThrowIfNotInitialized();
 
-            VLatest.QuantityCodeTable quantityCodeTable = VLatest.QuantityCode;
-            return GetStringId(_quantityCodeToId, code, quantityCodeTable, quantityCodeTable.QuantityCodeId, quantityCodeTable.Value);
+            var quantityCodeSproc = VLatest.GetQuantityCodeId;
+            return GetStringId(_quantityCodeToId, code, quantityCodeSproc);
         }
 
         public bool TryGetQuantityCodeId(string code, out int quantityCodeId)
@@ -202,7 +223,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                 _logger.LogInformation("Initializing {Server} {Database} to version {Version}", sqlCommandWrapper.Connection.DataSource, sqlCommandWrapper.Connection.Database, version);
+                _logger.LogInformation("Initializing {Server} {Database} to version {Version}", sqlCommandWrapper.Connection.DataSource, sqlCommandWrapper.Connection.Database, version);
             }
 
             // Run the schema initialization required for all schema versions, from the minimum version to the current version.
@@ -213,10 +234,306 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             _highestInitializedVersion = version;
 
-            await _mediator.Publish(new StorageInitializedNotification(), CancellationToken.None);
+            await _mediator.PublishAsync(new StorageInitializedNotification(), CancellationToken.None);
         }
 
         private async Task InitializeBase(CancellationToken cancellationToken)
+        {
+            if (_schemaInformation.Current < SchemaVersionConstants.FhirModelInitialization)
+            {
+                await LegacyInitializeBase(cancellationToken);
+                return;
+            }
+
+            string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Uri = p.Url, IsPartiallySupported = p.IsPartiallySupported }));
+            string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
+            string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
+            string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
+
+            _systemToId = new FhirMemoryCache<int>("systemToId", _logger, ignoreCase: true);
+            _quantityCodeToId = new FhirMemoryCache<int>("quantityCodeToId", _logger, ignoreCase: true);
+            bool systemWarningLogged = false;
+            bool quantityCodeWarningLogged = false;
+
+            using var cmd = new SqlCommand();
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = "dbo.InitializeBase";
+            cmd.Parameters.AddWithValue("@searchParams", searchParametersJson);
+            cmd.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);
+            cmd.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
+            cmd.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
+
+            // The stored procedure returns 6 result sets, so the reader needs to handle 6 sets of results.
+            var resultsList = await cmd.ExecuteMultiResultReaderAsync(
+                _sqlRetryService,
+                new List<Func<SqlDataReader, object>>()
+                {
+                    (reader) =>
+                    {
+                        return reader.ReadRow(VLatest.ResourceType.ResourceTypeId, VLatest.ResourceType.Name);
+                    },
+                    (reader) =>
+                    {
+                        return reader.ReadRow(VLatest.SearchParam.Uri, VLatest.SearchParam.SearchParamId);
+                    },
+                    (reader) =>
+                    {
+                        return reader.ReadRow(VLatest.ClaimType.ClaimTypeId, VLatest.ClaimType.Name);
+                    },
+                    (reader) =>
+                    {
+                        return reader.ReadRow(VLatest.CompartmentType.CompartmentTypeId, VLatest.CompartmentType.Name);
+                    },
+                    (reader) =>
+                    {
+                        // This data is processed in a streaming fashion to avoid loading the entire set of systems into memory at once, as there could be a large number of them.
+                        if (systemWarningLogged)
+                        {
+                            // If we've already logged a warning about the cache size, we can skip trying to add to the cache to save some CPU and memory.
+                            return null;
+                        }
+
+                        var (value, systemId) = reader.ReadRow(VLatest.System.Value, VLatest.System.SystemId);
+
+                        if (!_systemToId.TryAdd(value, systemId) && !systemWarningLogged)
+                        {
+                            _logger.LogWarning($"Cache '{_systemToId.Name}' reached the limit of {_systemToId.CacheMemoryLimit} bytes (with {_systemToId.Count} cached elements).");
+                            systemWarningLogged = true;
+                        }
+
+                        return null;
+                    },
+                    (reader) =>
+                    {
+                        // This data is processed in a streaming fashion to avoid loading the entire set of quantity codes into memory at once, as there could be a large number of them.
+                        if (quantityCodeWarningLogged)
+                        {
+                            // If we've already logged a warning about the cache size, we can skip trying to add to the cache to save some CPU and memory.
+                            return null;
+                        }
+
+                        var (value, quantityCodeId) = reader.ReadRow(VLatest.QuantityCode.Value, VLatest.QuantityCode.QuantityCodeId);
+
+                        if (!_quantityCodeToId.TryAdd(value, quantityCodeId) && !quantityCodeWarningLogged)
+                        {
+                            _logger.LogWarning($"Cache '{_quantityCodeToId.Name}' reached the limit of {_quantityCodeToId.CacheMemoryLimit} bytes (with {_quantityCodeToId.Count} cached elements).");
+                            quantityCodeWarningLogged = true;
+                        }
+
+                        return null;
+                    },
+                },
+                _logger,
+                cancellationToken);
+
+            if (resultsList.Count != 6)
+            {
+                _logger.LogError("Unexpected number of result sets returned from InitializeBase sproc. Expected: 6, Actual: {Count}", resultsList.Count);
+                throw new InvalidOperationException($"Unexpected number of result sets returned from InitializeBase sproc. Expected: 6, Actual: {resultsList.Count}");
+            }
+
+            var resourceTypeToId = new Dictionary<string, short>(StringComparer.Ordinal);
+            var resourceTypeIdToTypeName = new Dictionary<short, string>();
+            var searchParamUriToId = new Dictionary<Uri, short>();
+            var claimNameToId = new Dictionary<string, byte>(StringComparer.Ordinal);
+            var compartmentTypeToId = new Dictionary<string, byte>();
+
+            // result set 1
+            short lowestResourceTypeId = short.MaxValue;
+            short highestResourceTypeId = short.MinValue;
+            foreach (var result in resultsList[0])
+            {
+                (short id, string resourceTypeName) = ((short, string))result;
+                resourceTypeToId.Add(resourceTypeName, id);
+                if (id > highestResourceTypeId)
+                {
+                    highestResourceTypeId = id;
+                }
+
+                if (id < lowestResourceTypeId)
+                {
+                    lowestResourceTypeId = id;
+                }
+
+                resourceTypeIdToTypeName.Add(id, resourceTypeName);
+            }
+
+            // result set 2
+            foreach (var result in resultsList[1])
+            {
+                (string uri, short searchParamId) = ((string, short))result;
+                searchParamUriToId.Add(new Uri(uri), searchParamId);
+            }
+
+            _logger.LogInformation("Initialized {Count} search parameters.", searchParamUriToId.Count);
+
+            // result set 3
+            foreach (var result in resultsList[2])
+            {
+                (byte id, string claimTypeName) = ((byte, string))result;
+                claimNameToId.Add(claimTypeName, id);
+            }
+
+            // result set 4
+            foreach (var result in resultsList[3])
+            {
+                (byte id, string compartmentName) = ((byte, string))result;
+                compartmentTypeToId.Add(compartmentName, id);
+            }
+
+            _resourceTypeToId = resourceTypeToId;
+            _resourceTypeIdToTypeName = resourceTypeIdToTypeName;
+            _searchParamUriToId = searchParamUriToId;
+            _claimNameToId = claimNameToId;
+            _compartmentTypeToId = compartmentTypeToId;
+            _resourceTypeIdRange = (lowestResourceTypeId, highestResourceTypeId);
+        }
+
+        private async Task InitializeSearchParameterStatuses(CancellationToken cancellationToken, int retryDepth = 0)
+        {
+            if (_schemaInformation.Current < SchemaVersionConstants.FhirModelInitialization)
+            {
+                await LegacyInitializeSearchParameterStatuses(cancellationToken);
+                return;
+            }
+
+            _logger.LogInformation("Initializing search parameters statuses.");
+
+            List<ResourceSearchParameterStatus> fileStatuses = (await _filebasedSearchParameterStatusDataStore
+                    .GetSearchParameterStatuses(cancellationToken)).ToList();
+
+            using var getStatusCmd = new SqlCommand();
+            getStatusCmd.CommandType = CommandType.StoredProcedure;
+            getStatusCmd.CommandText = "dbo.GetSearchParamStatuses";
+
+            var existingParams = await getStatusCmd.ExecuteReaderAsync(
+                _sqlRetryService,
+                (reader) =>
+                {
+                    (_, var uri, var stringStatus, var lastUpdated, var isPartiallySupported) = reader.ReadRow(
+                            VLatest.SearchParam.SearchParamId,
+                            VLatest.SearchParam.Uri,
+                            VLatest.SearchParam.Status,
+                            VLatest.SearchParam.LastUpdated,
+                            VLatest.SearchParam.IsPartiallySupported);
+                    return new ResourceSearchParameterStatus
+                    {
+                        Uri = new Uri(uri),
+                        Status = Enum.Parse<SearchParameterStatus>(stringStatus),
+                        LastUpdated = lastUpdated,
+                        IsPartiallySupported = isPartiallySupported,
+                    };
+                },
+                _logger,
+                cancellationToken);
+
+            fileStatuses.RemoveAll((fs) => existingParams.Any((param) => param.Uri == fs.Uri && (param.Status != SearchParameterStatus.Initialized)));
+
+            if (fileStatuses.Count == 0)
+            {
+                _logger.LogInformation("No Search Parameters need to be initialized.");
+                return;
+            }
+
+            using var resourceExistCmd = new SqlCommand();
+            resourceExistCmd.CommandType = CommandType.Text;
+            resourceExistCmd.CommandText = "SELECT TOP 1 1 FROM dbo.Resource";
+            var hasResources = await resourceExistCmd.ExecuteScalarAsync<int?>(_sqlRetryService, _logger, cancellationToken) == 1;
+
+            fileStatuses.ForEach(fs =>
+            {
+                // Preserve the Unsupported status that comes from unsupported-search-parameters.json.
+                // Overwriting it would cause parameters that the server cannot search on to be reported
+                // as Enabled/Supported, and returning 500 error instead of an OperationOutcome warning.
+                if (fs.Status != SearchParameterStatus.Unsupported)
+                {
+                    fs.Status = hasResources ? SearchParameterStatus.Supported : SearchParameterStatus.Enabled;
+                }
+
+                fs.LastUpdated = existingParams.FirstOrDefault(p => p.Uri == fs.Uri)?.LastUpdated ?? fs.LastUpdated;
+            });
+
+            using var cmd = new SqlCommand();
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = "dbo.MergeSearchParams";
+
+            new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(fileStatuses));
+
+            try
+            {
+                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+                _logger.LogInformation("Number of Search Parameters initialized: {Number}", fileStatuses.Count);
+            }
+            catch (SqlException ex) when (ex.Number == 50001)
+            {
+                if (retryDepth >= 3)
+                {
+                    _logger.LogError("Maximum retry attempts reached for initializing search parameter statuses.");
+                    throw;
+                }
+
+                _logger.LogInformation("Concurrent update detected, retrying");
+                await InitializeSearchParameterStatuses(cancellationToken, retryDepth + 1);
+            }
+        }
+
+        private int GetStringId(FhirMemoryCache<int> cache, string stringValue, StoredProcedure sproc)
+        {
+            if (cache.TryGet(stringValue, out int id))
+            {
+                return id;
+            }
+
+            _logger.LogInformation("Cache miss for string ID on {Sproc}", sproc);
+
+            using var cmd = new SqlCommand();
+            cmd.CommandType = CommandType.StoredProcedure;
+#pragma warning disable CA2100 // Review SQL queries for security vulnerabilities. The stored procedure name is not influenced by user input, but determined by the code, so this is not vulnerable to SQL injection.
+            cmd.CommandText = sproc.ProcedureName;
+#pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
+            cmd.Parameters.AddWithValue("@stringValue", stringValue);
+
+            // Forgive me father, I have sinned.
+            // In ideal world I should make this method async, but that spirals out of control and forces changes in all RowGenerators (about 35 files)
+            // and overall logic of preparing data for insert.
+            id = cmd.ExecuteScalarAsync<int>(_sqlRetryService, _logger, CancellationToken.None).GetAwaiter().GetResult();
+            cache.TryAdd(stringValue, id);
+            return id;
+        }
+
+        private void ThrowIfNotInitialized()
+        {
+            ThrowIfCurrentSchemaVersionIsNull();
+
+            if (_highestInitializedVersion < _schemaInformation.MinimumSupportedVersion)
+            {
+                _logger.LogError($"The {nameof(SqlServerFhirModel)} instance has not run the initialization required for minimum supported schema version");
+                throw new ServiceUnavailableException();
+            }
+
+            if (_highestInitializedVersion < _schemaInformation.Current)
+            {
+                _logger.LogWarning($"The {nameof(SqlServerFhirModel)} instance has not run the initialization required for the current schema version");
+            }
+        }
+
+        private void ThrowIfCurrentSchemaVersionIsNull()
+        {
+            if (_schemaInformation.Current == null)
+            {
+                _logger.LogError($"The SQL schema is yet to be initialized.");
+                throw new ServiceUnavailableException();
+            }
+
+            // During schema initialization, once the base schema is initialized, CurrentVersion is set as 0 in InstanceSchema table and making progress to apply full schema snapshot file.
+            if (_schemaInformation.Current == 0)
+            {
+                _logger.LogError($"The SQL Schema initialization is in progress.");
+                throw new ServiceUnavailableException();
+            }
+        }
+
+        private async Task LegacyInitializeBase(CancellationToken cancellationToken)
         {
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
@@ -380,7 +697,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task InitializeSearchParameterStatuses(CancellationToken cancellationToken)
+        private async Task LegacyInitializeSearchParameterStatuses(CancellationToken cancellationToken)
         {
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
@@ -415,13 +732,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     : "dbo.SearchParamTableType_2";
 
                 var tableValuedParameter = new SqlParameter
-                    {
-                        ParameterName = "searchParamStatuses",
-                        SqlDbType = SqlDbType.Structured,
-                        Value = collection,
-                        Direction = ParameterDirection.Input,
-                        TypeName = tableTypeName,
-                    };
+                {
+                    ParameterName = "searchParamStatuses",
+                    SqlDbType = SqlDbType.Structured,
+                    Value = collection,
+                    Direction = ParameterDirection.Input,
+                    TypeName = tableTypeName,
+                };
 
                 sqlCommandWrapper.Parameters.Add(tableValuedParameter);
                 sqlCommandWrapper.Parameters.Add(new SqlParameter("@RowsAffected", SqlDbType.Int) { Direction = ParameterDirection.Output });
@@ -430,85 +747,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 int rowsAffected = (int)sqlCommandWrapper.Parameters["@RowsAffected"].Value;
                 _logger.LogInformation("Number of Search Parameters initialized: {RowsAffected}.", rowsAffected);
-            }
-        }
-
-        private int GetStringId(FhirMemoryCache<int> cache, string stringValue, Table table, Column<int> idColumn, Column<string> stringColumn)
-        {
-            if (cache.TryGet(stringValue, out int id))
-            {
-                return id;
-            }
-
-            _logger.LogInformation("Cache miss for string ID on {Table}", table);
-
-            // Forgive me father, I have sinned.
-            // In ideal world I should make this method async, but that spirals out of control and forces changes in all RowGenerators (about 35 files)
-            // and overall logic of preparing data for insert.
-            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory.Invoke())
-            using (SqlConnectionWrapper sqlConnectionWrapper = scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true).Result)
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-            {
-                // This command are not using any user arguments, and can't be rewritten to parametrized command string
-                // because you can't parameterize column or table.
-#pragma warning disable CA2100
-                sqlCommandWrapper.CommandText = $@"
-                        SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
-                        BEGIN TRANSACTION
-
-                        DECLARE @id int = (SELECT {idColumn} FROM {table} WITH (UPDLOCK) WHERE {stringColumn} = @stringValue)
-
-                        IF (@id IS NULL) BEGIN
-                            INSERT INTO {table} 
-                                ({stringColumn})
-                            VALUES 
-                                (@stringValue)
-                            SET @id = SCOPE_IDENTITY()
-                        END
-
-                        COMMIT TRANSACTION
-
-                        SELECT @id";
-
-                sqlCommandWrapper.Parameters.AddWithValue("@stringValue", stringValue);
-
-#pragma warning restore CA2100
-                id = (int)sqlCommandWrapper.ExecuteScalarAsync(CancellationToken.None).Result;
-
-                cache.TryAdd(stringValue, id);
-                return id;
-            }
-        }
-
-        private void ThrowIfNotInitialized()
-        {
-            ThrowIfCurrentSchemaVersionIsNull();
-
-            if (_highestInitializedVersion < _schemaInformation.MinimumSupportedVersion)
-            {
-                _logger.LogError($"The {nameof(SqlServerFhirModel)} instance has not run the initialization required for minimum supported schema version");
-                throw new ServiceUnavailableException();
-            }
-
-            if (_highestInitializedVersion < _schemaInformation.Current)
-            {
-                _logger.LogWarning($"The {nameof(SqlServerFhirModel)} instance has not run the initialization required for the current schema version");
-            }
-        }
-
-        private void ThrowIfCurrentSchemaVersionIsNull()
-        {
-            if (_schemaInformation.Current == null)
-            {
-                _logger.LogError($"The SQL schema is yet to be initialized.");
-                throw new ServiceUnavailableException();
-            }
-
-            // During schema initialization, once the base schema is initialized, CurrentVersion is set as 0 in InstanceSchema table and making progress to apply full schema snapshot file.
-            if (_schemaInformation.Current == 0)
-            {
-                _logger.LogError($"The SQL Schema initialization is in progress.");
-                throw new ServiceUnavailableException();
             }
         }
     }

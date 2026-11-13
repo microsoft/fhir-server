@@ -13,10 +13,11 @@ using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Abstractions.Features.Transactions;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -30,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -44,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     /// Tests for storage layer.
     /// </summary>
     [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
-    public partial class FhirStorageTests : IClassFixture<FhirStorageTestsFixture>
+    public partial class FhirStorageTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
         private readonly FhirStorageTestsFixture _fixture;
         private readonly CapabilityStatement _capabilityStatement;
@@ -70,7 +72,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         protected Mediator Mediator { get; }
 
-        [RetryTheory(MaxRetries = 3, DelayBetweenRetriesMs = 5000)]
+        public async ValueTask InitializeAsync()
+        {
+            await _fixture.TestHelper.DeleteAllReindexJobRecordsAsync(CancellationToken.None);
+            await CleanupSearchParametersAsync(CancellationToken.None);
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        [Theory]
         [InlineData(5)] // should succeed
         [InlineData(35)] // shoul fail
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
@@ -100,7 +110,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 {
                     if (requestedExceptions > 30)
                     {
-                        Assert.Contains("Resource has been recently updated or added", e.Message);
+                        Assert.Contains("Cannot persit resource due to a conflict with duplicated keys. Check the volume of resource being submited for ingestion.", e.Message);
                     }
                     else
                     {
@@ -114,7 +124,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-        [RetryTheory(MaxRetries = 3, DelayBetweenRetriesMs = 5000)]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
@@ -214,7 +224,8 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             };
 
             // !!! time travel behavior
-            results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
+            // Surrogate id range parameters are reserved for background tasks such as export.
+            results = await SearchAsBackgroundTaskAsync(type, queryParameters);
             Assert.Single(results.Results);
             resource = results.Results.First().Resource;
             Assert.Equal("1", resource.Version);
@@ -237,11 +248,18 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 Tuple.Create(KnownQueryParameterNames.EndSurrogateId, range.EndId.ToString()),
                 Tuple.Create(KnownQueryParameterNames.StartSurrogateId, range.StartId.ToString()),
             };
-            results = await _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None);
+            results = await SearchAsBackgroundTaskAsync(type, queryParameters);
             Assert.Single(results.Results);
             resource = results.Results.First().Resource;
             Assert.Equal("3", resource.Version);
             Assert.False(resource.IsHistory); // current
+        }
+
+        private Task<SearchResult> SearchAsBackgroundTaskAsync(string type, IReadOnlyList<Tuple<string, string>> queryParameters)
+        {
+            return BackgroundTaskRequestContext.RunAsync(
+                _fixture.FhirRequestContextAccessor,
+                () => _fixture.SearchService.SearchAsync(type, queryParameters, CancellationToken.None));
         }
 
         private async Task UpdateResource(Patient patient)
@@ -258,7 +276,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.Resource SET ResourceId = '{oldId}', Version = 3 WHERE ResourceId = '{newId}' AND Version = 1");
         }
 
-        [RetryFact]
+        [Fact]
         public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated_AndLastUpdatedIsWithin1sec()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
@@ -505,6 +523,153 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
         }
 
         [Fact]
+        public async Task GivenANewId_WhenUpsertingCreateOnly_ThenTheResourceIsCreated()
+        {
+            string id = Guid.NewGuid().ToString();
+
+            SaveOutcome result = await Mediator.UpsertResourceAsync(new UpsertResourceRequest(CreateWeightObservation(id), createOnly: true));
+
+            Assert.Equal(SaveOutcomeType.Created, result.Outcome);
+            Assert.Equal(id, result.RawResourceElement.Id);
+            Assert.Equal("1", result.RawResourceElement.VersionId);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenAnExistingResource_WhenUpsertingCreateOnly_ThenConflictIsReturnedAndTheResourceIsNotModified(bool sameContent)
+        {
+            string id = Guid.NewGuid().ToString();
+            await Mediator.UpsertResourceAsync(CreateWeightObservation(id));
+
+            // Identical content must also conflict: the no-op update shortcut must not bypass the create-only check.
+            await Assert.ThrowsAsync<ResourceConflictException>(
+                () => Mediator.UpsertResourceAsync(new UpsertResourceRequest(CreateWeightObservation(id, sameContent ? null : 99), createOnly: true)));
+
+            RawResourceElement current = await Mediator.GetResourceAsync(new ResourceKey<Observation>(id));
+            Assert.Equal("1", current.VersionId);
+            Assert.Equal(67, ((Quantity)current.ToPoco<Observation>(Deserializers.ResourceDeserializer).Value).Value);
+        }
+
+        [Fact]
+        public async Task GivenACreateOnlyConflict_WhenUpsertingTheSameIdWithoutCreateOnly_ThenTheResourceIsUpdated()
+        {
+            string id = Guid.NewGuid().ToString();
+            await Mediator.UpsertResourceAsync(CreateWeightObservation(id));
+            await Assert.ThrowsAsync<ResourceConflictException>(
+                () => Mediator.UpsertResourceAsync(new UpsertResourceRequest(CreateWeightObservation(id, 99), createOnly: true)));
+
+            SaveOutcome result = await Mediator.UpsertResourceAsync(new UpsertResourceRequest(CreateWeightObservation(id, 99)));
+
+            Assert.Equal(SaveOutcomeType.Updated, result.Outcome);
+            Assert.Equal("2", result.RawResourceElement.VersionId);
+            RawResourceElement current = await Mediator.GetResourceAsync(new ResourceKey<Observation>(id));
+            Assert.Equal(99, ((Quantity)current.ToPoco<Observation>(Deserializers.ResourceDeserializer).Value).Value);
+        }
+
+        [Theory]
+        [InlineData(DeleteOperation.SoftDelete)]
+        [InlineData(DeleteOperation.HardDelete)]
+        public async Task GivenADeletedResource_WhenUpsertingCreateOnly_ThenTheResourceIsRecreated(DeleteOperation deleteOperation)
+        {
+            string id = Guid.NewGuid().ToString();
+            await Mediator.UpsertResourceAsync(CreateWeightObservation(id));
+            await Mediator.DeleteResourceAsync(new ResourceKey("Observation", id), deleteOperation);
+
+            SaveOutcome result = await Mediator.UpsertResourceAsync(new UpsertResourceRequest(CreateWeightObservation(id, 99), createOnly: true));
+
+            Assert.Equal(SaveOutcomeType.Created, result.Outcome);
+            Assert.Equal(id, result.RawResourceElement.Id);
+            RawResourceElement current = await Mediator.GetResourceAsync(new ResourceKey<Observation>(id));
+            Assert.Equal(result.RawResourceElement.VersionId, current.VersionId);
+            Assert.Equal(99, ((Quantity)current.ToPoco<Observation>(Deserializers.ResourceDeserializer).Value).Value);
+        }
+
+        [Fact]
+        public async Task GivenASoftDeletedResource_WhenUpsertingTheSameBody_ThenTheResourceIsRecreatedAsANewVersion()
+        {
+            string id = Guid.NewGuid().ToString();
+            await Mediator.UpsertResourceAsync(CreateWeightObservation(id));
+            await Mediator.DeleteResourceAsync(new ResourceKey("Observation", id), DeleteOperation.SoftDelete);
+
+            // Same content as the deleted version: the unchanged-content shortcut must not leave the tombstone in place.
+            SaveOutcome result = await Mediator.UpsertResourceAsync(CreateWeightObservation(id));
+
+            Assert.Equal(SaveOutcomeType.Created, result.Outcome);
+            Assert.Equal("3", result.RawResourceElement.VersionId);
+            RawResourceElement current = await Mediator.GetResourceAsync(new ResourceKey<Observation>(id));
+            Assert.Equal("3", current.VersionId);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenAMergeWithACreateOnlyConflict_WhenMerging_ThenOnlyTheConflictFailsUnlessItIsABundleTransaction(bool isBundleTransaction)
+        {
+            string existingId = Guid.NewGuid().ToString();
+            string updatedId = Guid.NewGuid().ToString();
+            string newId = Guid.NewGuid().ToString();
+            await _dataStore.MergeAsync([CreateObservationMergeOperation(existingId), CreateObservationMergeOperation(updatedId)], CancellationToken.None);
+
+            ResourceWrapperOperation conflicting = CreateObservationMergeOperation(existingId, createOnly: true, narrative: ContentUpdated);
+            ResourceWrapperOperation regularUpdate = CreateObservationMergeOperation(updatedId, narrative: ContentUpdated);
+            ResourceWrapperOperation newCreate = CreateObservationMergeOperation(newId, createOnly: true);
+
+            MergeOutcome outcome = await _dataStore.MergeAsync([conflicting, regularUpdate, newCreate], new MergeOptions(isBundleTransaction: isBundleTransaction), CancellationToken.None);
+
+            DataStoreOperationOutcome conflictOutcome = outcome.Results[conflicting.GetIdentifier()];
+            Assert.False(conflictOutcome.IsOperationSuccessful);
+            Assert.IsType<ResourceConflictException>(conflictOutcome.Exception);
+            Assert.Equal("1", (await _dataStore.GetAsync(new ResourceKey("Observation", existingId), CancellationToken.None)).Version);
+
+            if (isBundleTransaction)
+            {
+                // Atomic transaction: one failure rolls back all operations in the merge.
+                Assert.Equal(MergeOutcomeFinalState.CompletedWithFailures, outcome.State);
+                Assert.Equal("1", (await _dataStore.GetAsync(new ResourceKey("Observation", updatedId), CancellationToken.None)).Version);
+                Assert.Null(await _dataStore.GetAsync(new ResourceKey("Observation", newId), CancellationToken.None));
+            }
+            else
+            {
+                Assert.Equal(SaveOutcomeType.Updated, outcome.Results[regularUpdate.GetIdentifier()].UpsertOutcome.OutcomeType);
+                Assert.Equal(SaveOutcomeType.Created, outcome.Results[newCreate.GetIdentifier()].UpsertOutcome.OutcomeType);
+                Assert.Equal("2", (await _dataStore.GetAsync(new ResourceKey("Observation", updatedId), CancellationToken.None)).Version);
+                Assert.Equal("1", (await _dataStore.GetAsync(new ResourceKey("Observation", newId), CancellationToken.None)).Version);
+            }
+        }
+
+        [Fact]
+        public async Task GivenConcurrentCreateOnlyUpsertsForTheSameNewId_WhenSaving_ThenExactlyOneSucceedsAndTheOthersConflict()
+        {
+            string id = Guid.NewGuid().ToString();
+            const int attempts = 5;
+
+            Task<SaveOutcome>[] tasks = Enumerable.Range(0, attempts)
+                .Select(i => Mediator.UpsertResourceAsync(new UpsertResourceRequest(CreateWeightObservation(id, i), createOnly: true)))
+                .ToArray();
+
+            var succeeded = new List<SaveOutcome>();
+            var conflicts = 0;
+            foreach (Task<SaveOutcome> task in tasks)
+            {
+                try
+                {
+                    succeeded.Add(await task);
+                }
+                catch (ResourceConflictException)
+                {
+                    conflicts++;
+                }
+            }
+
+            SaveOutcome winner = Assert.Single(succeeded);
+            Assert.Equal(SaveOutcomeType.Created, winner.Outcome);
+            Assert.Equal(attempts - 1, conflicts);
+            Assert.Equal("1", (await _dataStore.GetAsync(new ResourceKey("Observation", id), CancellationToken.None)).Version);
+        }
+
+        [Fact]
         public async Task GivenAResourceWithNoHistory_WhenFetchingByVersionId_ThenReadWorksCorrectly()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
@@ -694,7 +859,9 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             var updateResult = await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), deletedResourceKey.WeakETag);
 
             Assert.NotNull(updateResult);
-            Assert.Equal(SaveOutcomeType.Updated, updateResult.Outcome);
+
+            // FHIR R4 HTTP Update: bringing a deleted resource back to life is a create (201).
+            Assert.Equal(SaveOutcomeType.Created, updateResult.Outcome);
 
             Assert.NotNull(updateResult.RawResourceElement);
             Assert.Equal(saveResult.RawResourceElement.Id, updateResult.RawResourceElement.Id);
@@ -757,13 +924,27 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
 
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        [Trait(Traits.Category, Categories.BundleTransaction)]
         public async Task GivenATransactionHandler_WhenATransactionIsNotCommitted_ThenNothingShouldBeCreated()
         {
+            // In this test, after a C# transaction is created and never commit, it's expected that the resource will not exist.
+            // For the use of C# transactions, operations should enlist in transactions. And it'll only work as expected for transaction sequential bundles.
+
             string createdId = string.Empty;
 
             using (_ = _fixture.TransactionHandler.BeginTransaction())
             {
-                SaveOutcome saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+                ResourceElement resource = Samples.GetJsonSample("Weight");
+                UpsertResourceRequest upsertResource = new UpsertResourceRequest(
+                    resource,
+                    new BundleResourceContext(
+                        Bundle.BundleType.Transaction,
+                        BundleProcessingLogic.Sequential,
+                        Bundle.HTTPVerb.PUT,
+                        null,
+                        Guid.Empty));
+
+                SaveOutcome saveResult = await Mediator.UpsertResourceAsync(upsertResource);
                 createdId = saveResult.RawResourceElement.Id;
 
                 Assert.NotEqual(string.Empty, createdId);
@@ -785,7 +966,17 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 {
                     using (ITransactionScope transactionScope = _fixture.TransactionHandler.BeginTransaction())
                     {
-                        SaveOutcome saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+                        ResourceElement resource = Samples.GetJsonSample("Weight");
+                        UpsertResourceRequest upsertResource = new UpsertResourceRequest(
+                           resource,
+                           new BundleResourceContext(
+                               Bundle.BundleType.Transaction,
+                               BundleProcessingLogic.Sequential,
+                               Bundle.HTTPVerb.PUT,
+                               null,
+                               Guid.Empty));
+
+                        SaveOutcome saveResult = await Mediator.UpsertResourceAsync(upsertResource);
                         createdId = saveResult.RawResourceElement.Id;
 
                         Assert.NotEqual(string.Empty, createdId);
@@ -806,114 +997,71 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             ResourceElement patientResource = CreatePatientResourceElement("Patient", Guid.NewGuid().ToString());
             SaveOutcome upsertResult = await Mediator.UpsertResourceAsync(patientResource);
 
-            SearchParameter searchParam = null;
             const string searchParamName = "newSearchParam";
+            var searchParam = await CreatePatientSearchParam(searchParamName, SearchParamType.String, "Patient.name");
+            ISearchValue searchValue = new StringSearchValue(searchParamName);
 
-            try
-            {
-                searchParam = await CreatePatientSearchParam(searchParamName, SearchParamType.String, "Patient.name");
-                ISearchValue searchValue = new StringSearchValue(searchParamName);
+            (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam, searchValue);
 
-                (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam, searchValue);
+            await _dataStore.UpdateSearchParameterIndicesAsync(updated, CancellationToken.None);
 
-                await _dataStore.UpdateSearchParameterIndicesAsync(updated, CancellationToken.None);
+            // Get the reindexed resource from the database
+            var resourceKey1 = new ResourceKey(upsertResult.RawResourceElement.InstanceType, upsertResult.RawResourceElement.Id, upsertResult.RawResourceElement.VersionId);
+            ResourceWrapper reindexed = await _dataStore.GetAsync(resourceKey1, CancellationToken.None);
 
-                // Get the reindexed resource from the database
-                var resourceKey1 = new ResourceKey(upsertResult.RawResourceElement.InstanceType, upsertResult.RawResourceElement.Id, upsertResult.RawResourceElement.VersionId);
-                ResourceWrapper reindexed = await _dataStore.GetAsync(resourceKey1, CancellationToken.None);
-
-                VerifyReindexedResource(original, reindexed);
-            }
-            finally
-            {
-                if (searchParam != null)
-                {
-                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
-                    await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
-                }
-            }
+            VerifyReindexedResource(original, reindexed);
         }
 
         [Fact]
-        public async Task GivenAnUpdatedResourceWithWrongWeakETag_WhenUpdatingSearchParameterIndexAsync_ThenExceptionIsThrown()
+        public async Task GivenAnUpdatedResourceWithWrongWeakETag_WhenUpdatingSearchParameterIndexAsync_ThenConflictIsHandled()
         {
             ResourceElement patientResource = CreatePatientResourceElement("Patient", Guid.NewGuid().ToString());
             SaveOutcome upsertResult = await Mediator.UpsertResourceAsync(patientResource);
 
-            SearchParameter searchParam1 = null;
             const string searchParamName1 = "newSearchParam1";
-
-            SearchParameter searchParam2 = null;
             const string searchParamName2 = "newSearchParam2";
+            var searchParam1 = await CreatePatientSearchParam(searchParamName1, SearchParamType.String, "Patient.name");
+            ISearchValue searchValue1 = new StringSearchValue(searchParamName1);
 
-            try
-            {
-                searchParam1 = await CreatePatientSearchParam(searchParamName1, SearchParamType.String, "Patient.name");
-                ISearchValue searchValue1 = new StringSearchValue(searchParamName1);
+            var original = (await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam1, searchValue1)).original;
 
-                (ResourceWrapper original, ResourceWrapper updatedWithSearchParam1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam1, searchValue1);
+            var deserializedResource = _fhirJsonParser.Parse<Patient>(original.RawResource.Data);
+            UpdatePatient(deserializedResource);
+            await _dataStore.UpsertAsync(new ResourceWrapperOperation(UpdatePatientResourceWrapper(deserializedResource), allowCreate: false, keepHistory: false, WeakETag.FromVersionId(original.Version), false, false, bundleResourceContext: null), CancellationToken.None);
 
-                var deserializedResource = _fhirJsonParser.Parse<Patient>(original.RawResource.Data);
-                UpdatePatient(deserializedResource);
-                await _dataStore.UpsertAsync(new ResourceWrapperOperation(UpdatePatientResourceWrapper(deserializedResource), allowCreate: false, keepHistory: false, WeakETag.FromVersionId(original.Version), false, false, bundleResourceContext: null), CancellationToken.None);
+            // Let's update the resource again with new information
+            var searchParam2 = await CreatePatientSearchParam(searchParamName2, SearchParamType.Token, "Patient.gender");
+            ISearchValue searchValue2 = new TokenSearchValue("system", "code", "text");
 
-                // Let's update the resource again with new information
-                searchParam2 = await CreatePatientSearchParam(searchParamName2, SearchParamType.Token, "Patient.gender");
-                ISearchValue searchValue2 = new TokenSearchValue("system", "code", "text");
+            // Create the updated wrapper from the original resource that has the outdated version
+            (_, ResourceWrapper updatedWithSearchParam2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam2, searchValue2, original);
 
-                // Create the updated wrapper from the original resource that has the outdated version
-                (_, ResourceWrapper updatedWithSearchParam2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam2, searchValue2, original);
-
-                // Attempt to reindex the resource
-                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updatedWithSearchParam2, CancellationToken.None));
-            }
-            finally
-            {
-                if (searchParam1 != null)
-                {
-                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam1.ToTypedElement());
-                    await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam1.Url, CancellationToken.None);
-                }
-
-                if (searchParam2 != null)
-                {
-                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam2.ToTypedElement());
-                    await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam2.Url, CancellationToken.None);
-                }
-            }
+            // Attempt to reindex the resource. Both data stores handle the version conflict
+            // gracefully by logging and continuing, rather than throwing an exception.
+            ResourceWrapper result = await _dataStore.UpdateSearchParameterIndicesAsync(updatedWithSearchParam2, CancellationToken.None);
+            Assert.NotNull(result);
         }
 
         [Fact]
-        public async Task GivenADeletedResource_WhenUpdatingSearchParameterIndexAsync_ThenExceptionIsThrown()
+        public async Task GivenADeletedResource_WhenUpdatingSearchParameterIndexAsync_ThenConflictIsHandled()
         {
             ResourceElement patientResource = CreatePatientResourceElement("Patient", Guid.NewGuid().ToString());
             SaveOutcome upsertResult = await Mediator.UpsertResourceAsync(patientResource);
 
-            SearchParameter searchParam = null;
             const string searchParamName = "newSearchParam";
+            var searchParam = await CreatePatientSearchParam(searchParamName, SearchParamType.String, "Patient.name");
+            ISearchValue searchValue = new StringSearchValue(searchParamName);
 
-            try
-            {
-                searchParam = await CreatePatientSearchParam(searchParamName, SearchParamType.String, "Patient.name");
-                ISearchValue searchValue = new StringSearchValue(searchParamName);
+            // Update the resource wrapper, adding the new search parameter
+            (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam, searchValue);
 
-                // Update the resource wrapper, adding the new search parameter
-                (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam, searchValue);
+            ResourceWrapper deletedWrapper = CreateDeletedWrapper(original);
+            await _dataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, allowCreate: true, keepHistory: false, WeakETag.FromVersionId(deletedWrapper.Version), false, false, bundleResourceContext: null), CancellationToken.None);
 
-                ResourceWrapper deletedWrapper = CreateDeletedWrapper(original);
-                await _dataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, allowCreate: true, keepHistory: false, WeakETag.FromVersionId(deletedWrapper.Version), false, false, bundleResourceContext: null), CancellationToken.None);
-
-                // Attempt to reindex the version of the resource that hasn't been deleted
-                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updated, CancellationToken.None));
-            }
-            finally
-            {
-                if (searchParam != null)
-                {
-                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
-                    await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
-                }
-            }
+            // Attempt to reindex the version of the resource that hasn't been deleted.
+            // Both data stores handle the version conflict gracefully by logging and continuing.
+            ResourceWrapper result = await _dataStore.UpdateSearchParameterIndicesAsync(updated, CancellationToken.None);
+            Assert.NotNull(result);
         }
 
         [Theory]
@@ -953,43 +1101,30 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             ResourceElement patientResource2 = CreatePatientResourceElement("Patient2", Guid.NewGuid().ToString());
             SaveOutcome upsertResult2 = await Mediator.UpsertResourceAsync(patientResource2);
 
-            SearchParameter searchParam = null;
             const string searchParamName = "newSearchParam";
+            var searchParam = await CreatePatientSearchParam(searchParamName, SearchParamType.String, "Patient.name");
+            ISearchValue searchValue = new StringSearchValue(searchParamName);
 
-            try
-            {
-                searchParam = await CreatePatientSearchParam(searchParamName, SearchParamType.String, "Patient.name");
-                ISearchValue searchValue = new StringSearchValue(searchParamName);
+            (ResourceWrapper original1, ResourceWrapper updated1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam, searchValue);
+            (ResourceWrapper original2, ResourceWrapper updated2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam, searchValue);
 
-                (ResourceWrapper original1, ResourceWrapper updated1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam, searchValue);
-                (ResourceWrapper original2, ResourceWrapper updated2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam, searchValue);
+            var resources = new List<ResourceWrapper> { updated1, updated2 };
 
-                var resources = new List<ResourceWrapper> { updated1, updated2 };
+            await _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None);
 
-                await _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None);
+            // Get the reindexed resources from the database
+            var resourceKey1 = new ResourceKey(upsertResult1.RawResourceElement.InstanceType, upsertResult1.RawResourceElement.Id, upsertResult1.RawResourceElement.VersionId);
+            ResourceWrapper reindexed1 = await _dataStore.GetAsync(resourceKey1, CancellationToken.None);
 
-                // Get the reindexed resources from the database
-                var resourceKey1 = new ResourceKey(upsertResult1.RawResourceElement.InstanceType, upsertResult1.RawResourceElement.Id, upsertResult1.RawResourceElement.VersionId);
-                ResourceWrapper reindexed1 = await _dataStore.GetAsync(resourceKey1, CancellationToken.None);
+            var resourceKey2 = new ResourceKey(upsertResult2.RawResourceElement.InstanceType, upsertResult2.RawResourceElement.Id, upsertResult2.RawResourceElement.VersionId);
+            ResourceWrapper reindexed2 = await _dataStore.GetAsync(resourceKey2, CancellationToken.None);
 
-                var resourceKey2 = new ResourceKey(upsertResult2.RawResourceElement.InstanceType, upsertResult2.RawResourceElement.Id, upsertResult2.RawResourceElement.VersionId);
-                ResourceWrapper reindexed2 = await _dataStore.GetAsync(resourceKey2, CancellationToken.None);
-
-                VerifyReindexedResource(original1, reindexed1);
-                VerifyReindexedResource(original2, reindexed2);
-            }
-            finally
-            {
-                if (searchParam != null)
-                {
-                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
-                    await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
-                }
-            }
+            VerifyReindexedResource(original1, reindexed1);
+            VerifyReindexedResource(original2, reindexed2);
         }
 
         [Fact]
-        public async Task GivenUpdatedResourcesWithWrongWeakETag_WhenBulkUpdatingSearchParameterIndicesAsync_ThenExceptionIsThrown()
+        public async Task GivenUpdatedResourcesWithWrongWeakETag_WhenBulkUpdatingSearchParameterIndicesAsync_ThenConflictIsHandled()
         {
             ResourceElement patientResource1 = CreatePatientResourceElement("Patient1", Guid.NewGuid().ToString());
             SaveOutcome upsertResult1 = await Mediator.UpsertResourceAsync(patientResource1);
@@ -997,61 +1132,41 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             ResourceElement patientResource2 = CreatePatientResourceElement("Patient2", Guid.NewGuid().ToString());
             SaveOutcome upsertResult2 = await Mediator.UpsertResourceAsync(patientResource2);
 
-            SearchParameter searchParam1 = null;
             const string searchParamName1 = "newSearchParam1";
-
-            SearchParameter searchParam2 = null;
             const string searchParamName2 = "newSearchParam2";
+            var searchParam1 = await CreatePatientSearchParam(searchParamName1, SearchParamType.String, "Patient.name");
+            ISearchValue searchValue1 = new StringSearchValue(searchParamName1);
 
-            try
-            {
-                searchParam1 = await CreatePatientSearchParam(searchParamName1, SearchParamType.String, "Patient.name");
-                ISearchValue searchValue1 = new StringSearchValue(searchParamName1);
+            var original1 = (await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam1, searchValue1)).original;
+            var original2 = (await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam1, searchValue1)).original;
 
-                (ResourceWrapper original1, ResourceWrapper updated1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam1, searchValue1);
-                (ResourceWrapper original2, ResourceWrapper updated2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam1, searchValue1);
+            var deserializedResource = _fhirJsonParser.Parse<Patient>(original1.RawResource.Data);
+            UpdatePatient(deserializedResource);
+            await _dataStore.UpsertAsync(new ResourceWrapperOperation(UpdatePatientResourceWrapper(deserializedResource), false, false, WeakETag.FromVersionId(original1.Version), false, false, bundleResourceContext: null), CancellationToken.None);
 
-                var deserializedResource = _fhirJsonParser.Parse<Patient>(original1.RawResource.Data);
-                UpdatePatient(deserializedResource);
-                await _dataStore.UpsertAsync(new ResourceWrapperOperation(UpdatePatientResourceWrapper(deserializedResource), false, false, WeakETag.FromVersionId(original1.Version), false, false, bundleResourceContext: null), CancellationToken.None);
+            deserializedResource = _fhirJsonParser.Parse<Patient>(original2.RawResource.Data);
+            UpdatePatient(deserializedResource);
+            await _dataStore.UpsertAsync(new ResourceWrapperOperation(UpdatePatientResourceWrapper(deserializedResource), false, false, WeakETag.FromVersionId(original2.Version), false, false, bundleResourceContext: null), CancellationToken.None);
 
-                deserializedResource = _fhirJsonParser.Parse<Patient>(original2.RawResource.Data);
-                UpdatePatient(deserializedResource);
-                await _dataStore.UpsertAsync(new ResourceWrapperOperation(UpdatePatientResourceWrapper(deserializedResource), false, false, WeakETag.FromVersionId(original2.Version), false, false, bundleResourceContext: null), CancellationToken.None);
+            // Let's update the resources again with new information
+            var searchParam2 = await CreatePatientSearchParam(searchParamName2, SearchParamType.Token, "Patient.gender");
+            ISearchValue searchValue2 = new TokenSearchValue("system", "code", "text");
 
-                // Let's update the resources again with new information
-                searchParam2 = await CreatePatientSearchParam(searchParamName2, SearchParamType.Token, "Patient.gender");
-                ISearchValue searchValue2 = new TokenSearchValue("system", "code", "text");
+            // Create the updated wrappers using the original resource and its outdated version
+            UpdatePatient(upsertResult1.RawResourceElement.ToPoco<Patient>(Deserializers.ResourceDeserializer));
+            UpdatePatient(upsertResult2.RawResourceElement.ToPoco<Patient>(Deserializers.ResourceDeserializer));
+            var updated1WithSearchParam2 = (await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam2, searchValue2, original1)).updated;
+            var updated2WithSearchParam2 = (await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam2, searchValue2, original2)).updated;
 
-                // Create the updated wrappers using the original resource and its outdated version
-                UpdatePatient(upsertResult1.RawResourceElement.ToPoco<Patient>(Deserializers.ResourceDeserializer));
-                UpdatePatient(upsertResult2.RawResourceElement.ToPoco<Patient>(Deserializers.ResourceDeserializer));
-                (_, ResourceWrapper updated1WithSearchParam2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam2, searchValue2, original1);
-                (_, ResourceWrapper updated2WithSearchParam2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam2, searchValue2, original2);
+            var resources = new List<ResourceWrapper> { updated1WithSearchParam2, updated2WithSearchParam2 };
 
-                var resources = new List<ResourceWrapper> { updated1WithSearchParam2, updated2WithSearchParam2 };
-
-                // Attempt to reindex resources with the old versions
-                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None));
-            }
-            finally
-            {
-                if (searchParam1 != null)
-                {
-                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam1.ToTypedElement());
-                    await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam1.Url, CancellationToken.None);
-                }
-
-                if (searchParam2 != null)
-                {
-                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam2.ToTypedElement());
-                    await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam2.Url, CancellationToken.None);
-                }
-            }
+            // Attempt to reindex resources with the old versions. Both data stores handle
+            // version conflicts gracefully by logging and continuing, rather than throwing.
+            await _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None);
         }
 
         [Fact]
-        public async Task GivenDeletedResource_WhenBulkUpdatingSearchParameterIndicesAsync_ThenExceptionIsThrown()
+        public async Task GivenDeletedResource_WhenBulkUpdatingSearchParameterIndicesAsync_ThenConflictIsHandled()
         {
             ResourceElement patientResource1 = CreatePatientResourceElement("Patient1", Guid.NewGuid().ToString());
             SaveOutcome upsertResult1 = await Mediator.UpsertResourceAsync(patientResource1);
@@ -1059,35 +1174,23 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             ResourceElement patientResource2 = CreatePatientResourceElement("Patient2", Guid.NewGuid().ToString());
             SaveOutcome upsertResult2 = await Mediator.UpsertResourceAsync(patientResource2);
 
-            SearchParameter searchParam = null;
             const string searchParamName = "newSearchParam";
+            var searchParam = await CreatePatientSearchParam(searchParamName, SearchParamType.String, "Patient.name");
+            ISearchValue searchValue = new StringSearchValue(searchParamName);
 
-            try
-            {
-                searchParam = await CreatePatientSearchParam(searchParamName, SearchParamType.String, "Patient.name");
-                ISearchValue searchValue = new StringSearchValue(searchParamName);
+            // Update the resource wrappers, adding the new search parameter
+            (ResourceWrapper original1, ResourceWrapper updated1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam, searchValue);
+            (_, ResourceWrapper updated2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam, searchValue);
 
-                // Update the resource wrappers, adding the new search parameter
-                (ResourceWrapper original1, ResourceWrapper updated1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam, searchValue);
-                (_, ResourceWrapper updated2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam, searchValue);
+            // Delete one of the two resources
+            ResourceWrapper deletedWrapper = CreateDeletedWrapper(original1);
+            await _dataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, false, WeakETag.FromVersionId(deletedWrapper.Version), false, false, bundleResourceContext: null), CancellationToken.None);
 
-                // Delete one of the two resources
-                ResourceWrapper deletedWrapper = CreateDeletedWrapper(original1);
-                await _dataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, false, WeakETag.FromVersionId(deletedWrapper.Version), false, false, bundleResourceContext: null), CancellationToken.None);
+            var resources = new List<ResourceWrapper> { updated1, updated2 };
 
-                var resources = new List<ResourceWrapper> { updated1, updated2 };
-
-                // Attempt to reindex both resources, one of which has since been deleted and has a version that is out of date.
-                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None));
-            }
-            finally
-            {
-                if (searchParam != null)
-                {
-                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
-                    await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
-                }
-            }
+            // Attempt to reindex both resources, one of which has since been deleted and has a version that is out of date.
+            // Both data stores handle this conflict gracefully by logging and continuing, rather than throwing.
+            await _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None);
         }
 
         [Fact]
@@ -1200,12 +1303,29 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
                 Code = searchParamName,
             };
 
-            _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam.ToTypedElement() });
+            await _fixture.Mediator.CreateResourceAsync(searchParam.ToResourceElement(), cancellationToken: CancellationToken.None);
 
-            // Add the search parameter to the datastore
-            await _fixture.SearchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string> { searchParam.Url }, SearchParameterStatus.Supported, CancellationToken.None);
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates();
+
+            await _fixture.SearchParameterStatusManager.UpdateSearchParameterStatusAsync([searchParam.Url], SearchParameterStatus.Supported, CancellationToken.None, lastUpdated: _fixture.SearchParameterOperations.SearchParamLastUpdated);
+
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates();
 
             return searchParam;
+        }
+
+        private async Task CleanupSearchParametersAsync(CancellationToken cancellationToken)
+        {
+            var results = await _fixture.SearchService.SearchAsync(KnownResourceTypes.SearchParameter, new List<Tuple<string, string>>(), cancellationToken);
+            foreach (var result in results.Results)
+            {
+                var searchParameter = _fhirJsonParser.Parse<SearchParameter>(result.Resource.RawResource.Data);
+                await _fixture.DataStore.HardDeleteAsync(result.Resource.ToResourceKey(true), false, false, cancellationToken);
+                await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                await _fixture.SearchParameterStatusManager.UpdateSearchParameterStatusAsync([searchParameter.Url], SearchParameterStatus.Deleted, cancellationToken, lastUpdated: _fixture.SearchParameterOperations.SearchParamLastUpdated);
+            }
+
+            await _fixture.SearchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
         }
 
         private ResourceElement CreatePatientResourceElement(string patientName, string id)
@@ -1215,12 +1335,6 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             json = json.Replace("\"id\": \"example\"", "\"id\": \"" + id + "\"");
             var rawResource = new RawResource(json, FhirResourceFormat.Json, isMetaSet: false);
             return Deserializers.ResourceDeserializer.DeserializeRaw(rawResource, "v1", DateTimeOffset.UtcNow);
-        }
-
-        private async Task ExecuteAndVerifyException<TException>(Func<Task> action)
-            where TException : Exception
-        {
-            await Assert.ThrowsAsync<TException>(action);
         }
 
         private async Task SetAllowCreateForOperation(bool allowCreate, Func<Task> operation)
@@ -1242,11 +1356,46 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
         }
 
-        private ResourceWrapper CreateObservationResourceWrapper(string observationId, bool setRawResourceNull = false)
+        private static ResourceElement CreateWeightObservation(string id, decimal? value = null)
+        {
+            Observation observation = Samples.GetJsonSample("Weight").ToPoco<Observation>();
+            observation.Id = id;
+            if (value.HasValue)
+            {
+                observation.Value = new Quantity(value.Value, "kg");
+            }
+
+            return observation.ToResourceElement();
+        }
+
+        private ResourceWrapperOperation CreateObservationMergeOperation(string observationId, bool createOnly = false, string narrative = null)
+        {
+            return new ResourceWrapperOperation(
+                CreateObservationResourceWrapper(observationId, narrative: narrative),
+                allowCreate: true,
+                keepHistory: true,
+                weakETag: null,
+                requireETagOnUpdate: false,
+                keepVersion: false,
+                bundleResourceContext: null,
+                createOnly: createOnly);
+        }
+
+        private ResourceWrapper CreateObservationResourceWrapper(string observationId, bool setRawResourceNull = false, string narrative = null)
         {
             Observation observationResource = Samples.GetDefaultObservation().ToPoco<Observation>();
             observationResource.Id = observationId;
             observationResource.VersionId = "1";
+            observationResource.Meta ??= new Meta();
+            observationResource.Meta.LastUpdated = DateTimeOffset.UtcNow;
+            if (narrative != null)
+            {
+                observationResource.Text = new Narrative
+                {
+                    Status = Narrative.NarrativeStatus.Generated,
+                    Div = $"<div>{narrative}</div>",
+                };
+            }
 
             var resourceElement = observationResource.ToResourceElement();
             RawResource rawResource;
@@ -1258,14 +1407,13 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             }
             else
             {
-                rawResource = new RawResource(observationResource.ToJson(), FhirResourceFormat.Json, isMetaSet: true);
+                rawResource = new RawResource(observationResource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
             }
 
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
             var searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(new SearchParameterInfo("status", "status", ValueSets.SearchParamType.String, new Uri("http://hl7.org/fhir/SearchParameter/Observation-status")) { SortStatus = SortParameterStatus.Disabled }, new StringSearchValue("final")) };
-            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Observation"));
-            wrapper.SearchParameterHash = "hash";
+            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash");
 
             return wrapper;
         }
@@ -1277,8 +1425,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
             var searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(new SearchParameterInfo("name", "name", ValueSets.SearchParamType.String, new Uri("http://hl7.org/fhir/SearchParameter/Patient-name")) { SortStatus = SortParameterStatus.Enabled }, new StringSearchValue("alpha")) };
-            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Observation"));
-            wrapper.SearchParameterHash = "hash";
+            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash");
 
             return wrapper;
         }

@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
     /// </summary>
     public class CoreFeatureConfiguration
     {
+        private VersioningConfiguration _versioning = new VersioningConfiguration();
+
         /// <summary>
         /// Defines CapabilityStatement.name
         /// </summary>
@@ -33,6 +35,12 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public TotalType IncludeTotalInBundle { get; set; } = TotalType.None;
 
         /// <summary>
+        /// Gets or sets the preferred FHIR SDK at feature seams that support provider selection.
+        /// Firely remains the default until the final migration cutover.
+        /// </summary>
+        public FhirSdkProvider FhirSdkProvider { get; set; } = FhirSdkProvider.Firely;
+
+        /// <summary>
         /// Gets or sets the maximum value for _count in search.
         /// </summary>
         public int MaxItemCountPerSearch { get; set; } = 1000;
@@ -51,6 +59,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets the default value for included search results.
         /// </summary>
         public int DefaultIncludeCountPerSearch { get; set; } = 1000;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether resource ids up to 128 characters are allowed instead of the FHIR limit of 64.
+        /// </summary>
+        public bool UseLongResourceIds { get; set; }
 
         /// <summary>
         /// Gets or sets a value whether we need to run profile validation during resource creation.
@@ -74,13 +87,35 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         /// <summary>
         /// Gets or sets the resource versioning policy.
+        /// When binding from config, will normalized.
         /// </summary>
-        public VersioningConfiguration Versioning { get; set; } = new VersioningConfiguration();
+        public VersioningConfiguration Versioning
+        {
+            get => _versioning;
+            set
+            {
+                _versioning = value;
+
+                // When we bind from configuration, normalize the values to lower case.
+                _versioning?.NormalizeOverrideValues();
+            }
+        }
+
+        /// <summary>
+        /// Gets the vector search configuration.
+        /// </summary>
+        public VectorSearchConfiguration VectorSearch { get; } = new VectorSearchConfiguration();
 
         /// <summary>
         /// Gets or sets a value indicating whether the server supports the $status operation for SearchParameters.
         /// </summary>
         public bool SupportsSelectableSearchParameters { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether built-in search parameters are classified by temporal type.
+        /// This setting is read when search parameter definitions are initialized.
+        /// </summary>
+        public bool EnableSearchParameterTemporalClassification { get; set; }
 
         /// <summary>
         /// Whether the service supports SQL read only replicas.
@@ -101,11 +136,19 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public bool EnableGeoRedundancy { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether stale job queue monitoring is enabled.
+        /// When enabled (the default), the <c>JobMonitorWatchdog</c> periodically reads aggregate job
+        /// queue state and emits the <c>Jobs.OldestQueuedAge</c> and <c>Jobs.QueueDepth</c> metrics.
+        /// Disabling it stops the periodic SQL reads and metric publication without affecting job processing.
+        /// </summary>
+        public bool EnableJobMonitor { get; set; } = true;
+
+        /// <summary>
         /// Gets or sets the refresh interval in seconds for the SearchParameter cache background service.
         /// The background service will call EnsureCacheFreshnessAsync at this interval to keep
         /// SearchParameter cache synchronized across instances. Default is 60 seconds if not specified.
         /// </summary>
-        public int SearchParameterCacheRefreshIntervalSeconds { get; set; } = 60;
+        public int SearchParameterCacheRefreshIntervalSeconds { get; set; } = 20;
 
         /// <summary>
         /// Gets or sets the maximum initial delay in seconds for the SearchParameter cache background service timer.
@@ -113,5 +156,80 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Default is 15 seconds. Set to 0 to disable the delay (useful for testing).
         /// </summary>
         public int SearchParameterCacheRefreshMaxInitialDelaySeconds { get; set; } = 15;
+
+        /// <summary>
+        /// Gets or sets the number of consecutive failed refresh attempts the SearchParameter cache background
+        /// service will tolerate before emitting a failure metric. This prevents transient, single-run failures
+        /// (e.g. momentary database blips) from triggering alerts when a subsequent refresh is likely to succeed.
+        /// Default is 3 consecutive failures. Minimum is 1, which preserves immediate emission on the first failure.
+        /// </summary>
+        public int SearchParameterCacheRefreshConsecutiveFailureThreshold { get; set; } = 3;
+
+        /// <summary>
+        /// Gets or sets the refresh interval in seconds for the SystemConformanceProvider cache background service.
+        /// </summary>
+        public int SystemConformanceProviderRefreshIntervalSeconds { get; set; } = 60;
+
+        /// <summary>
+        /// Gets or sets the rebuild interval in seconds for the SystemConformanceProvider background service.
+        /// </summary>
+        public int SystemConformanceProviderRebuildIntervalSeconds { get; set; } = 14400; // 4 hours.
+
+        /// <summary>
+        /// Gets or sets a value indicating whether FHIR resources with dangerous href schemes
+        /// (e.g., javascript:, vbscript:) in narrative HTML should be rejected during validation.
+        /// When false (default), a warning is logged but the resource is accepted.
+        /// When true, the resource is rejected with a validation error.
+        /// </summary>
+        public bool RejectDangerousNarrativeHrefs { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether Device resources in a SMART compartment are restricted
+        /// to those without a patient reference, or (for Patient compartments) those whose patient reference
+        /// matches the compartment. When false, all Device resources are treated as universal resources.
+        /// Only effective when the Device resource type has a "patient" search parameter (STU3/R4/R4B).
+        /// When the restriction is enabled but the Device "patient" search parameter is unavailable, the
+        /// "no patient reference" condition cannot be evaluated safely and the restriction fails closed:
+        /// no Device is visible within a SMART compartment until that search parameter is enabled and its
+        /// index has been rebuilt.
+        /// </summary>
+        public bool EnableSmartCompartmentDeviceRestriction { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the $member-match operation is rejected for SMART
+        /// requests whenever fine-grained access control applies to the request. When true (the default),
+        /// requests with an active SMART scope context are forbidden from calling $member-match, after
+        /// the usual RBAC read authorization check. When false, the pre-existing behavior is restored and
+        /// $member-match is allowed for SMART requests, matching non-SMART behavior.
+        /// </summary>
+        public bool EnableSmartMemberMatchRestriction { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the $bulk-delete operation is rejected for SMART
+        /// requests whenever fine-grained access control applies to the request. When true (the default),
+        /// requests with an active SMART scope context are forbidden from creating $bulk-delete jobs, after
+        /// the usual RBAC authorization check. When false, the pre-existing behavior is restored and
+        /// $bulk-delete is allowed for SMART requests, matching non-SMART behavior.
+        /// </summary>
+        public bool EnableSmartBulkDeleteRestriction { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the $bulk-update operation is rejected for SMART
+        /// requests whenever fine-grained access control applies to the request. When true (the default),
+        /// requests with an active SMART scope context are forbidden from creating $bulk-update jobs, after
+        /// the usual RBAC authorization check. When false, the pre-existing behavior is restored and
+        /// $bulk-update is allowed for SMART requests, matching non-SMART behavior.
+        /// </summary>
+        public bool EnableSmartBulkUpdateRestriction { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether SMART system scope authorization is enforced for Bulk Export.
+        /// </summary>
+        public bool EnableSmartExportScopeAuthorization { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets a value indicating the runtime state of the FHIR server.
+        /// </summary>
+        public string RuntimeState { get; set; }
     }
 }

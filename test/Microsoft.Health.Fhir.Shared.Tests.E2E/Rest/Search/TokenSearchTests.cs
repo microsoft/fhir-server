@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
@@ -137,6 +138,51 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Observation[] expected = Fixture.Observations.Where((_, i) => _.Identifier.Any((id) => id.Value == queryValue)).ToArray();
 
             ValidateBundle(bundle, expected);
+        }
+
+        [Fact]
+        public async Task GivenIdentifierQuery_WhenSearched_ThenResourceIsReturned()
+        {
+            // FYI cannot use tags because otherwise token stored procedure will not be called
+            var id = "system.only.id";
+            var system = "http://system.only.org";
+            var identifier = "system.only.identifier";
+            await Client.UpdateAsync(new Patient { Id = id, Identifier = [new Identifier(system, identifier)] });
+
+            // search by system only
+            var bundle = await Client.SearchAsync(ResourceType.Patient, $"identifier={system}|");
+            var cnt = bundle.Resource.Entry.Count;
+            Assert.True(cnt == 1, $"total count: expected=1 actual={cnt}");
+            cnt = bundle.Resource.Entry.Count(_ => _.Resource.Id == id);
+            Assert.True(cnt == 1, $"count with specific id: expected=1 actual={cnt}");
+
+            // search by both system and code
+            bundle = await Client.SearchAsync(ResourceType.Patient, $"identifier={system}|{identifier}");
+            cnt = bundle.Resource.Entry.Count;
+            Assert.True(cnt == 1, $"total count: expected=1 actual={cnt}");
+            cnt = bundle.Resource.Entry.Count(_ => _.Resource.Id == id);
+            Assert.True(cnt == 1, $"count with specific id: expected=1 actual={cnt}");
+
+            // search by code only
+            bundle = await Client.SearchAsync(ResourceType.Patient, $"identifier={identifier}");
+            cnt = bundle.Resource.Entry.Count;
+            Assert.True(cnt == 1, $"total count: expected=1 actual={cnt}");
+            cnt = bundle.Resource.Entry.Count(_ => _.Resource.Id == id);
+            Assert.True(cnt == 1, $"count with specific id: expected=1 actual={cnt}");
+        }
+
+        [Fact]
+        public async Task GivenAPatient_WhenSoftDeleted_ThenDeceasedFalseCountShouldNotChange()
+        {
+            // A tag filter would hide an invalid Patient-deceased row left on the tombstone.
+            var countBefore = await Client.SearchAsync("Patient?deceased=false&_summary=count");
+
+            var createResponse = await Client.CreateAsync(new Patient());
+            await Client.DeleteAsync(createResponse.Resource);
+
+            var countAfter = await Client.SearchAsync("Patient?deceased=false&_summary=count");
+
+            Assert.Equal(countBefore.Resource.Total, countAfter.Resource.Total);
         }
     }
 }

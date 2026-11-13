@@ -1,0 +1,325 @@
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
+using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.Visitors.QueryGenerators;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.Test.Utilities;
+using Xunit;
+
+namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
+{
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Search)]
+    public class ScalarTemporalEqualityRewriterTests : IClassFixture<ModelInfoProviderFixture>
+    {
+        private static readonly DateTimeOffset StartOfDay = new DateTimeOffset(2016, 7, 6, 0, 0, 0, TimeSpan.Zero);
+        private static readonly DateTimeOffset EndOfDay = new DateTimeOffset(2016, 7, 6, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
+        private static readonly DateTimeOffset StartOfLastDayOfMonth = new DateTimeOffset(2016, 7, 31, 0, 0, 0, TimeSpan.Zero);
+        private static readonly DateTimeOffset EndOfLastDayOfMonth = new DateTimeOffset(2016, 7, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
+        private static readonly DateTimeOffset StartOfLastDayOfYear = new DateTimeOffset(2016, 12, 31, 0, 0, 0, TimeSpan.Zero);
+        private static readonly DateTimeOffset EndOfLastDayOfYear = new DateTimeOffset(2016, 12, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
+        private static readonly DateTimeOffset StartOfMaximumDate = new DateTimeOffset(9999, 12, 31, 0, 0, 0, TimeSpan.Zero);
+        private static readonly DateTimeOffset StartOfMonth = new DateTimeOffset(2016, 7, 1, 0, 0, 0, TimeSpan.Zero);
+        private static readonly DateTimeOffset EndOfMonth = new DateTimeOffset(2016, 7, 31, 23, 59, 59, TimeSpan.Zero).AddTicks(9999999);
+
+        // The shared fixture initializes the static ModelInfoProvider with a compartment-aware
+        // provider. The ChainedExpression rewrite test below relies on that provider being set,
+        // and using the shared fixture (rather than mutating the global inline) keeps this class
+        // from clobbering the provider other parallel test classes depend on.
+        public ScalarTemporalEqualityRewriterTests(ModelInfoProviderFixture fixture)
+        {
+            _ = fixture;
+        }
+
+        public static TheoryData<DateTimeOffset, DateTimeOffset> ExactDayDates => new()
+        {
+            { StartOfDay, EndOfDay },
+            { StartOfLastDayOfMonth, EndOfLastDayOfMonth },
+            { StartOfLastDayOfYear, EndOfLastDayOfYear },
+            { StartOfMaximumDate, DateTimeOffset.MaxValue },
+        };
+
+        public static TheoryData<Expression> NonRewritableExpressions => new()
+        {
+            EqualityPattern(StartOfMonth, EndOfMonth), // month precision
+            Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay), // single-sided predicate
+            Expression.GreaterThan(FieldName.DateTimeStart, null, EndOfDay), // range operator
+            EqualityPattern(StartOfDay.AddDays(-30), EndOfDay.AddDays(30)), // approximate / multi-day window
+            EqualityPattern(StartOfMaximumDate, DateTimeOffset.MaxValue.AddTicks(-1)), // not the full final day
+        };
+
+        public static TheoryData<SearchParameterInfo> IneligibleParameters => new()
+        {
+            BuildCalendarDateParameter(new Uri("http://example.org/SearchParameter/test-date"), isSystemDefined: false),
+            BuildCalendarDateParameter(searchParamType: SearchParamType.String),
+            new SearchParameterInfo(
+                "ClaimResponse-code-payment-date",
+                "code-payment-date",
+                SearchParamType.Composite,
+                new Uri("http://example.org/SearchParameter/ClaimResponse-code-payment-date"),
+                expression: "ClaimResponse",
+                baseResourceTypes: new[] { "ClaimResponse" })
+            {
+                IsSystemDefined = true,
+                TemporalType = TemporalType.Date,
+            },
+        };
+
+        private static SearchParameterInfo BuildCalendarDateParameter(Uri url = null, SearchParamType searchParamType = SearchParamType.Date, bool isSystemDefined = true)
+        {
+            return new SearchParameterInfo(
+                "payment-date",
+                "payment-date",
+                searchParamType,
+                url ?? new Uri("http://hl7.org/fhir/SearchParameter/ClaimResponse-payment-date"),
+                expression: "ClaimResponse.payment.date",
+                baseResourceTypes: new[] { "ClaimResponse" })
+            {
+                IsSystemDefined = isSystemDefined,
+                TemporalType = TemporalType.Date,
+            };
+        }
+
+        private static SearchParameterInfo BuildPatientBirthdateParameter() => new(
+            "birthdate",
+            "birthdate",
+            SearchParamType.Date,
+            new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
+            expression: "Patient.birthDate | Person.birthDate | RelatedPerson.birthDate",
+            baseResourceTypes: new[] { "Patient", "Person", "RelatedPerson" })
+        {
+            IsSystemDefined = true,
+            TemporalType = TemporalType.Date,
+        };
+
+        private static SearchParameterInfo BuildReferenceParam()
+        {
+            return new SearchParameterInfo(
+                "Observation-patient",
+                "patient",
+                SearchParamType.Reference,
+                new Uri("http://hl7.org/fhir/SearchParameter/Observation-patient"),
+                expression: "Observation.subject",
+                baseResourceTypes: new[] { "Observation" },
+                targetResourceTypes: new[] { "Patient" });
+        }
+
+        private static ChainedExpression BuildChainedExpression(Expression inner)
+        {
+            var expression = (ChainedExpression)RuntimeHelpers.GetUninitializedObject(typeof(ChainedExpression));
+            SetBackingField(expression, nameof(ChainedExpression.ResourceTypes), new[] { "Observation" });
+            SetBackingField(expression, nameof(ChainedExpression.ReferenceSearchParameter), BuildReferenceParam());
+            SetBackingField(expression, nameof(ChainedExpression.TargetResourceTypes), new[] { "Patient" });
+            SetBackingField(expression, nameof(ChainedExpression.Reversed), false);
+            SetBackingField(expression, nameof(ChainedExpression.Expression), inner);
+            return expression;
+        }
+
+        private static void SetBackingField<T>(ChainedExpression expression, string propertyName, T value)
+        {
+            FieldInfo field = typeof(ChainedExpression).GetField($"<{propertyName}>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic);
+            field.SetValue(expression, value);
+        }
+
+        private static MultiaryExpression EqualityPattern(DateTimeOffset start, DateTimeOffset end) =>
+            Expression.And(
+                Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, start),
+                Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, end));
+
+        [Fact]
+        public void GivenBuiltInCalendarDate_WhenRewritten_ThenEmitsEndOnlyPredicate()
+        {
+            var parameter = BuildCalendarDateParameter();
+            var expression = Expression.SearchParameter(parameter, EqualityPattern(StartOfDay, EndOfDay));
+
+            var result = expression.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
+
+            AssertEndOnlyPredicate(result, EndOfDay);
+        }
+
+        [Theory]
+        [InlineData(TemporalType.Unknown)]
+        [InlineData(TemporalType.DateTime)]
+        [InlineData(TemporalType.Instant)]
+        [InlineData(TemporalType.Period)]
+        [InlineData(TemporalType.Timing)]
+        [InlineData(TemporalType.Mixed)]
+        public void GivenNonDateTemporalType_WhenExactDayMatched_ThenPassThrough(TemporalType temporalType)
+        {
+            var parameter = BuildCalendarDateParameter();
+            parameter.TemporalType = temporalType;
+            var expression = Expression.SearchParameter(parameter, EqualityPattern(StartOfDay, EndOfDay));
+
+            var result = expression.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
+
+            Assert.Same(expression, result);
+        }
+
+        [Fact]
+        public void GivenCustomDateWithDateMetadata_WhenExactDayMatched_ThenPassThrough()
+        {
+            var parameter = BuildCalendarDateParameter(isSystemDefined: false);
+            var expression = Expression.SearchParameter(parameter, EqualityPattern(StartOfDay, EndOfDay));
+
+            var result = expression.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
+
+            Assert.Same(expression, result);
+        }
+
+        [Fact]
+        public void GivenDateWithComponents_WhenExactDayMatched_ThenPassThrough()
+        {
+            var parameter = new SearchParameterInfo(
+                "payment-date",
+                "payment-date",
+                SearchParamType.Date,
+                new Uri("http://hl7.org/fhir/SearchParameter/ClaimResponse-payment-date"),
+                components: new[] { new SearchParameterComponentInfo(new Uri("http://example.org/component"), "ClaimResponse.payment.date") })
+            {
+                IsSystemDefined = true,
+                TemporalType = TemporalType.Date,
+            };
+            var expression = Expression.SearchParameter(parameter, EqualityPattern(StartOfDay, EndOfDay));
+
+            var result = expression.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
+
+            Assert.Same(expression, result);
+        }
+
+        [Theory]
+        [MemberData(nameof(ExactDayDates))]
+        public void GivenBuiltInCalendarDateExactDay_WhenRewritten_ThenEmitsEndOnlyPredicate(DateTimeOffset start, DateTimeOffset end)
+        {
+            var expr = new SearchParameterExpression(BuildCalendarDateParameter(), EqualityPattern(start, end));
+
+            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
+
+            AssertEndOnlyPredicate(result, end);
+        }
+
+        [Fact]
+        public void GivenBuiltInCalendarDateExactDayReversedOperandOrder_WhenRewritten_ThenEmitsEndOnlyPredicate()
+        {
+            var reversedPattern = Expression.And(
+                Expression.LessThanOrEqual(FieldName.DateTimeEnd, null, EndOfDay),
+                Expression.GreaterThanOrEqual(FieldName.DateTimeStart, null, StartOfDay));
+            var expr = new SearchParameterExpression(BuildCalendarDateParameter(), reversedPattern);
+
+            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
+
+            AssertEndOnlyPredicate(result, EndOfDay);
+        }
+
+        [Fact]
+        public void GivenBuiltInCalendarDateExactDay_WhenRewritten_ThenNoUnionExpressionIsEmitted()
+        {
+            var expr = new SearchParameterExpression(BuildCalendarDateParameter(), EqualityPattern(StartOfDay, EndOfDay));
+
+            var result = expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
+
+            Assert.IsNotType<UnionExpression>(result);
+            var searchParameter = Assert.IsType<SearchParameterExpression>(result);
+            Assert.IsNotType<UnionExpression>(searchParameter.Expression);
+        }
+
+        [Fact]
+        public void GivenBuiltInBirthdateExactDayInChainedExpression_WhenRewritten_ThenRewritesInnerToEndOnlyPredicate()
+        {
+            // Rewriting the inner predicate forces the base visitor to rebuild the ChainedExpression,
+            // whose constructor validates resource/target types against the static ModelInfoProvider
+            // (initialized by the shared ModelInfoProviderFixture).
+            var inner = new SearchParameterExpression(BuildPatientBirthdateParameter(), EqualityPattern(StartOfDay, EndOfDay));
+            var expr = BuildChainedExpression(inner);
+
+            var result = Assert.IsType<ChainedExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
+
+            Assert.NotSame(inner, result.Expression);
+            AssertEndOnlyPredicate(result.Expression, EndOfDay);
+        }
+
+        [Fact]
+        public void GivenBuiltInBirthdateExactDayInsideUnionExpression_WhenRewritten_ThenRewritesInnerToEndOnlyPredicateWithoutNestedUnion()
+        {
+            // Day-precision collapses to a single end-only predicate (no UNION), so an eligible birthdate
+            // equality nested inside a UnionExpression (e.g. the SMART v2 scope union built in
+            // SearchOptionsFactory) is rewritten in place. The outer union is preserved and no invalid
+            // nested UnionExpression is produced.
+            var inner = new SearchParameterExpression(BuildPatientBirthdateParameter(), EqualityPattern(StartOfDay, EndOfDay));
+            var union = Expression.Union(UnionOperator.All, new Expression[] { inner });
+
+            var result = Assert.IsType<UnionExpression>(union.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
+
+            Assert.DoesNotContain(result.Expressions, e => e is UnionExpression);
+            var rewritten = Assert.Single(result.Expressions);
+            AssertEndOnlyPredicate(rewritten, EndOfDay);
+        }
+
+        [Theory]
+        [MemberData(nameof(NonRewritableExpressions))]
+        public void GivenBuiltInCalendarDateWithNonExactDayExpression_WhenRewritten_ThenPassThrough(Expression inner)
+        {
+            var expr = new SearchParameterExpression(BuildCalendarDateParameter(), inner);
+
+            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
+
+            Assert.Same(expr, result);
+        }
+
+        [Theory]
+        [MemberData(nameof(IneligibleParameters))]
+        public void GivenIneligibleParameter_WhenEqualityPatternMatched_ThenPassThrough(SearchParameterInfo param)
+        {
+            var expr = new SearchParameterExpression(param, EqualityPattern(StartOfDay, EndOfDay));
+
+            var result = Assert.IsType<SearchParameterExpression>(expr.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance));
+
+            Assert.Same(expr, result);
+        }
+
+        private static void AssertEndOnlyPredicate(Expression result, DateTimeOffset expectedEnd)
+        {
+            Assert.IsNotType<UnionExpression>(result);
+            AssertSearchParameterAnd(
+                result,
+                and =>
+                {
+                    Assert.Collection(
+                        and.Expressions,
+                        longerFlag => AssertIsLongerThanADayEquals(longerFlag, false),
+                        endEq =>
+                        {
+                            var binary = Assert.IsType<BinaryExpression>(endEq);
+                            Assert.Equal(FieldName.DateTimeEnd, binary.FieldName);
+                            Assert.Equal(BinaryOperator.Equal, binary.BinaryOperator);
+                            Assert.Equal(expectedEnd, binary.Value);
+                        });
+                });
+        }
+
+        private static void AssertSearchParameterAnd(Expression branch, Action<MultiaryExpression> assertAnd)
+        {
+            var searchParameter = Assert.IsType<SearchParameterExpression>(branch);
+            var and = Assert.IsType<MultiaryExpression>(searchParameter.Expression);
+            Assert.Equal(MultiaryOperator.And, and.MultiaryOperation);
+            assertAnd(and);
+        }
+
+        private static void AssertIsLongerThanADayEquals(Expression expr, bool expected)
+        {
+            var binary = Assert.IsType<BinaryExpression>(expr);
+            Assert.Equal(SqlFieldName.DateTimeIsLongerThanADay, binary.FieldName);
+            Assert.Equal(BinaryOperator.Equal, binary.BinaryOperator);
+            Assert.Equal(expected, binary.Value);
+        }
+    }
+}

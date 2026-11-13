@@ -1,0 +1,1261 @@
+// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
+using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
+using Medino;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Audit;
+using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Audit;
+using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence;
+using Microsoft.Health.Fhir.Scoping;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.JobManagement;
+using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json;
+using NSubstitute;
+using Xunit;
+using Task = System.Threading.Tasks.Task;
+
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Delete
+{
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.BulkDelete)]
+    public class DeletionServiceTests
+    {
+        private const int WrappedCancellationFailure = 2;
+
+        private readonly IResourceWrapperFactory _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
+        private readonly Lazy<IConformanceProvider> _conformanceProvider = new Lazy<IConformanceProvider>(() => Substitute.For<IConformanceProvider>());
+        private readonly IDeletionServiceDataStoreFactory _dataStoreFactory = Substitute.For<IDeletionServiceDataStoreFactory>();
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory = Substitute.For<IScopeProvider<ISearchService>>();
+        private readonly ResourceIdProvider _resourceIdProvider = Substitute.For<ResourceIdProvider>();
+        private readonly FhirRequestContextAccessor _contextAccessor = Substitute.For<FhirRequestContextAccessor>();
+        private readonly IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
+        private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration = Substitute.For<IFhirRuntimeConfiguration>();
+        private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
+        private readonly IResourceDeserializer _resourceDeserializer = Substitute.For<IResourceDeserializer>();
+        private readonly IProvideProfilesForValidation _profilesProvider = Substitute.For<IProvideProfilesForValidation>();
+        private readonly IAuthorizationService<DataActions> _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+        private readonly ILogger<DeletionService> _logger = Substitute.For<ILogger<DeletionService>>();
+        private readonly DeletionService _service;
+
+        public DeletionServiceTests()
+        {
+            var config = new CoreFeatureConfiguration
+            {
+                SupportsIncludes = true,
+            };
+            var configuration = Options.Create(config);
+            _fhirRuntimeConfiguration.DataStore.Returns(KnownDataStores.SqlServer);
+
+            var dummyRequestContext = new FhirRequestContext(
+                "DELETE",
+                "https://localhost/Patient",
+                "https://localhost/",
+                Guid.NewGuid().ToString(),
+                new Dictionary<string, StringValues>(),
+                new Dictionary<string, StringValues>());
+            _contextAccessor.RequestContext.Returns(dummyRequestContext);
+
+            _profilesProvider.GetProfilesTypes().Returns(
+                new HashSet<string>()
+                {
+                    KnownResourceTypes.ValueSet,
+                    KnownResourceTypes.StructureDefinition,
+                    KnownResourceTypes.CodeSystem,
+                });
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(ci => ci.Arg<DataActions>());
+
+            _service = new DeletionService(
+                _resourceWrapperFactory,
+                _conformanceProvider,
+                _dataStoreFactory,
+                _searchServiceFactory,
+                _resourceIdProvider,
+                _contextAccessor,
+                _auditLogger,
+                configuration,
+                _fhirRuntimeConfiguration,
+                _searchParameterOperations,
+                _resourceDeserializer,
+                _profilesProvider,
+                _authorizationService,
+                _logger);
+        }
+
+        [Fact]
+        public async Task GivenCanceledPageTask_WhenDeletingMultipleResources_ThenCancellationEvidenceIsPreserved()
+        {
+            // Arrange
+            var request = new ConditionalDeleteResourceRequest(
+                "Patient",
+                new List<Tuple<string, string>> { Tuple.Create("active", "false") },
+                DeleteOperation.SoftDelete,
+                maxDeleteCount: 10);
+            var dataStore = SetUpDeletionSearch(Task.FromResult(new SearchResult(
+                new[] { CreateSearchResultEntry("Patient", "canceled", SearchEntryMode.Match) },
+                null,
+                null,
+                Array.Empty<Tuple<string, string>>())));
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromCanceled<bool>(new CancellationToken(canceled: true)));
+
+            // Act
+            var exception = await Assert.ThrowsAsync<IncompleteOperationException<IDictionary<string, long>>>(
+                () => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            // Assert
+            var aggregate = Assert.IsType<AggregateException>(exception.InnerException);
+            Assert.IsType<TaskCanceledException>(Assert.Single(aggregate.InnerExceptions));
+            Assert.Empty(exception.PartialResults);
+            await dataStore.DidNotReceiveWithAnyArgs().MergeAsync(default, default);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenParallelDeleteWorkersFailAndCancel_WhenDeletingMultipleResources_ThenTheStorageFailureIsPreserved(bool included)
+        {
+            // Arrange
+            using var cancellation = new CancellationTokenSource();
+            var siblingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var storageFailure = new InvalidOperationException("Storage delete failed.");
+            var mode = included ? SearchEntryMode.Include : SearchEntryMode.Match;
+            var dataStore = SetUpDeletionSearch(
+                Task.FromResult(new SearchResult(
+                    new[] { CreateSearchResultEntry("Patient", "failure", mode) },
+                    "next-page",
+                    null,
+                    Array.Empty<Tuple<string, string>>())),
+                Task.FromResult(new SearchResult(
+                    new[] { CreateSearchResultEntry("Patient", "canceled", mode) },
+                    null,
+                    null,
+                    Array.Empty<Tuple<string, string>>())));
+            dataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(async call =>
+                {
+                    if (call.Arg<ResourceKey>().Id == "failure")
+                    {
+                        await siblingStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                        await cancellation.CancelAsync();
+                        throw storageFailure;
+                    }
+
+                    siblingStarted.TrySetResult();
+                    await Task.Delay(Timeout.Infinite, call.Arg<CancellationToken>());
+                });
+            var request = new ConditionalDeleteResourceRequest(
+                "Patient",
+                new List<Tuple<string, string>> { Tuple.Create("active", "false") },
+                DeleteOperation.HardDelete,
+                maxDeleteCount: 10);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<IncompleteOperationException<IDictionary<string, long>>>(
+                () => _service.DeleteMultipleAsync(request, cancellation.Token));
+
+            // Assert
+            Assert.True(cancellation.IsCancellationRequested);
+            var aggregate = Assert.IsType<AggregateException>(exception.InnerException);
+            var pageFailures = aggregate.InnerExceptions
+                .Cast<IncompleteOperationException<Dictionary<string, long>>>()
+                .Select(page => page.InnerException)
+                .ToList();
+            Assert.Same(storageFailure, Assert.Single(pageFailures));
+            Assert.Empty(exception.PartialResults);
+        }
+
+        [Theory]
+        [InlineData(false, 0)]
+        [InlineData(true, 0)]
+        [InlineData(true, 1)]
+        [InlineData(true, WrappedCancellationFailure)]
+        public async Task GivenCanceledPageAndAnotherFailure_WhenExecutingBulkDelete_ThenTheJobReportsTheOtherFailureAndPartialCount(bool wrappedCancellation, int failureKind)
+        {
+            // Arrange
+            var failureStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var canceledCapability = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var dataStore = SetUpDeletionSearch(
+                Task.FromResult(new SearchResult(
+                    wrappedCancellation
+                        ? new[]
+                        {
+                            CreateSearchResultEntry("Patient", "completed", SearchEntryMode.Include),
+                            CreateSearchResultEntry("Patient", "canceled", SearchEntryMode.Match),
+                        }
+                        : new[] { CreateSearchResultEntry("Patient", "canceled", SearchEntryMode.Match) },
+                    "next-page",
+                    null,
+                    Array.Empty<Tuple<string, string>>())),
+                Task.FromResult(new SearchResult(
+                    new[] { CreateSearchResultEntry("Patient", "failure", SearchEntryMode.Match) },
+                    null,
+                    null,
+                    Array.Empty<Tuple<string, string>>())));
+            Exception failure = failureKind switch
+            {
+                0 => new InvalidOperationException("Storage delete failed."),
+                1 => new AggregateException(),
+                WrappedCancellationFailure => new Exception("Unknown wrapper.", new OperationCanceledException()),
+                _ => throw new ArgumentOutOfRangeException(nameof(failureKind)),
+            };
+            var capabilityCalls = 0;
+            _conformanceProvider.Value.SatisfiesAsync(Arg.Any<IReadOnlyCollection<CapabilityQuery>>(), Arg.Any<CancellationToken>())
+                .Returns(_ => Interlocked.Increment(ref capabilityCalls) == 1 ? canceledCapability.Task : Task.FromResult(false));
+            _resourceWrapperFactory.Create(Arg.Any<ResourceElement>(), true, false)
+                .Returns(call => CreateSearchResultEntry(call.Arg<ResourceElement>().InstanceType, call.Arg<ResourceElement>().Id, SearchEntryMode.Match).Resource);
+            dataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>())
+                .Returns(_ =>
+                {
+                    canceledCapability.TrySetCanceled();
+                    return Task.FromException<MergeOutcome>(failure);
+                });
+            dataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(async call =>
+                {
+                    if (call.Arg<ResourceKey>().Id == "completed")
+                    {
+                        return;
+                    }
+
+                    if (call.Arg<ResourceKey>().Id == "canceled")
+                    {
+                        await failureStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                        throw new TaskCanceledException();
+                    }
+
+                    failureStarted.TrySetResult(true);
+                    throw failure;
+                });
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() =>
+                ExecuteBulkDeleteJobAsync(wrappedCancellation ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete, CancellationToken.None));
+
+            // Assert
+            var result = Assert.IsType<BulkDeleteResult>(exception.Error);
+            Assert.Equal(wrappedCancellation ? 1 : 0, result.ResourcesDeleted.Values.Sum());
+            var aggregate = Assert.IsType<AggregateException>(exception.InnerException.InnerException);
+            var page = Assert.IsType<IncompleteOperationException<Dictionary<string, long>>>(Assert.Single(aggregate.InnerExceptions));
+            Assert.Same(failure, page.InnerException);
+            var reportedFailure = failureKind == WrappedCancellationFailure ? failure.InnerException : failure;
+            Assert.Contains(reportedFailure.Message, exception.Message);
+        }
+
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        [InlineData(true, true)]
+        public async Task GivenOneWorkerConflict_WhenExecutingBulkDelete_ThenTheJobRecognizesTheConflictAndPreservesCompletedItems(bool included, bool cancelRequest)
+        {
+            // Arrange
+            using var cancellation = new CancellationTokenSource();
+            var conflict = new Microsoft.Health.Fhir.Core.Features.Operations.JobConflictException("A reindex job is running.");
+            var dataStore = SetUpDeletionSearch(Task.FromResult(new SearchResult(
+                new[]
+                {
+                    CreateSearchResultEntry("Patient", "completed", SearchEntryMode.Include),
+                    CreateSearchResultEntry("Patient", "failure", included ? SearchEntryMode.Include : SearchEntryMode.Match),
+                },
+                null,
+                null,
+                Array.Empty<Tuple<string, string>>())));
+            dataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(call =>
+                {
+                    if (call.Arg<ResourceKey>().Id == "completed")
+                    {
+                        return Task.CompletedTask;
+                    }
+
+                    if (cancelRequest)
+                    {
+                        cancellation.Cancel();
+                    }
+
+                    return Task.FromException(conflict);
+                });
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() =>
+                ExecuteBulkDeleteJobAsync(DeleteOperation.HardDelete, cancellation.Token));
+
+            // Assert
+            var result = Assert.IsType<BulkDeleteResult>(exception.Error);
+            Assert.Equal(1, result.ResourcesDeleted["Patient"]);
+            var audit = Assert.Single(_auditLogger.ReceivedCalls(), call =>
+                call.GetMethodInfo().Name == nameof(IAuditLogger.LogAudit) && (AuditAction)call.GetArguments()[0] == AuditAction.Executed);
+            var auditProperties = Assert.Single(audit.GetArguments().OfType<IReadOnlyDictionary<string, string>>(), value => value.ContainsKey("Affected Items"));
+            Assert.Equal("[Include] Patient/completed", auditProperties["Affected Items"]);
+            var leaves = CustomerCausedExceptionExtensions.GetLeaves(exception.InnerException).ToList();
+            Assert.Contains(leaves, ex => ReferenceEquals(ex, conflict));
+            Assert.True(exception.IsCustomerCaused);
+            Assert.StartsWith("JobConflictException:", result.Issues.First());
+        }
+
+        [Fact]
+        public async Task GivenMultipleWorkerFailuresAndCancellation_WhenExecutingBulkDelete_ThenAllRealFailuresArePreserved()
+        {
+            // Arrange
+            Assert.SkipWhen(Environment.ProcessorCount < 2, "Parallel delete workers require at least two logical processors.");
+            using var cancellation = new CancellationTokenSource();
+            var allStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var started = 0;
+            var failures = new Dictionary<string, Exception>
+            {
+                ["failure-1"] = new InvalidOperationException("First storage failure."),
+                ["failure-2"] = new InvalidOperationException("Second storage failure."),
+            };
+            var dataStore = SetUpDeletionSearch(Task.FromResult(new SearchResult(
+                new[]
+                {
+                    CreateSearchResultEntry("Patient", "completed", SearchEntryMode.Include),
+                    CreateSearchResultEntry("Patient", "failure-1", SearchEntryMode.Match),
+                    CreateSearchResultEntry("Patient", "failure-2", SearchEntryMode.Match),
+                },
+                null,
+                null,
+                Array.Empty<Tuple<string, string>>())));
+            dataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(async call =>
+                {
+                    string id = call.Arg<ResourceKey>().Id;
+                    if (id == "completed")
+                    {
+                        return;
+                    }
+
+                    if (Interlocked.Increment(ref started) == 2)
+                    {
+                        cancellation.Cancel();
+                        allStarted.TrySetResult(true);
+                    }
+
+                    await allStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                    throw failures[id];
+                });
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() =>
+                ExecuteBulkDeleteJobAsync(DeleteOperation.HardDelete, cancellation.Token));
+
+            // Assert
+            var result = Assert.IsType<BulkDeleteResult>(exception.Error);
+            Assert.Equal(1, result.ResourcesDeleted["Patient"]);
+            var aggregate = Assert.IsType<AggregateException>(exception.InnerException.InnerException);
+            var page = Assert.IsType<IncompleteOperationException<Dictionary<string, long>>>(Assert.Single(aggregate.InnerExceptions));
+            var workerErrors = Assert.IsType<AggregateException>(page.InnerException);
+            Assert.Equal(2, workerErrors.InnerExceptions.Count);
+            Assert.Contains(failures["failure-1"], workerErrors.InnerExceptions);
+            Assert.Contains(failures["failure-2"], workerErrors.InnerExceptions);
+        }
+
+        [Fact]
+        public async Task GivenBulkHardDelete_WhenResourcesAreDeleted_ThenAuditLoggerIsCalledWithBatchedAffectedItems()
+        {
+            // Arrange
+            var resourceType = "Patient";
+            var parameters = new List<Tuple<string, string>>()
+            {
+                Tuple.Create("_lastUpdated", "2000-01-01T00:00:00Z"),
+            };
+
+            var request = new ConditionalDeleteResourceRequest(
+                resourceType,
+                parameters,
+                DeleteOperation.HardDelete,
+                maxDeleteCount: 10,
+                deleteAll: false);
+
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+
+            var entries = new List<SearchResultEntry>();
+            for (int i = 0; i < 3; i++)
+            {
+                var resource = Samples.GetDefaultPatient().ToPoco<Patient>();
+                resource.Id = $"id-{i}";
+                resource.VersionId = "1";
+
+                var resourceElement = resource.ToResourceElement();
+                var rawResource = new RawResource(resource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
+                var resourceRequest = Substitute.For<ResourceRequest>();
+                var compartmentIndices = Substitute.For<CompartmentIndices>();
+                var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, null, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash");
+                entries.Add(new SearchResultEntry(wrapper, SearchEntryMode.Match));
+            }
+
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>()).Returns(
+                Task.FromResult(new SearchResult(entries, null, null, Array.Empty<Tuple<string, string>>())));
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
+            _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
+
+            // Act
+            await _service.DeleteMultipleAsync(request, CancellationToken.None);
+
+            // Wait for Task.Run-based audit logging to complete (poll for the expected call)
+            await BulkOperationAuditLogHelperTests.WaitForAuditLogCall(_auditLogger);
+
+            // Assert - verify audit logger was called with "Affected Items" property (produced by BulkOperationAuditLogHelper)
+            _auditLogger.Received().LogAudit(
+                Arg.Any<AuditAction>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<Uri>(),
+                Arg.Any<HttpStatusCode?>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyCollection<KeyValuePair<string, string>>>(),
+                Arg.Any<IReadOnlyDictionary<string, string>>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Is<IReadOnlyDictionary<string, string>>(d => d.ContainsKey("Affected Items")));
+        }
+
+        [Theory]
+        [InlineData("CodeSystem", false, true)]
+        [InlineData("CodeSystem", true, true)]
+        [InlineData("ValueSet", false, true)]
+        [InlineData("ValueSet", true, true)]
+        [InlineData("StructureDefinition", false, true)]
+        [InlineData("StructureDefinition", true, true)]
+        [InlineData("Patient", false, false)]
+        [InlineData("Patient", true, false)]
+        public async Task GivenBulkDelete_WhenResourceIsReturned_ThenProfilePermissionIsRespected(
+            string resourceType,
+            bool allowProfileResourceModification,
+            bool isProtectedProfileResource)
+        {
+            var request = new ConditionalDeleteResourceRequest(
+                resourceType,
+                new List<Tuple<string, string>> { Tuple.Create("_id", "resource-1") },
+                DeleteOperation.HardDelete,
+                maxDeleteCount: null,
+                deleteAll: true);
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>()).Returns(
+                Task.FromResult(new SearchResult(
+                    new[] { CreateSearchResultEntry(resourceType, "resource-1", SearchEntryMode.Match) },
+                    null,
+                    null,
+                    Array.Empty<Tuple<string, string>>())));
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            _dataStoreFactory.GetScopedDataStore().Returns(new DeletionServiceScopedDataStore(fhirDataStore));
+            var skipped = new Dictionary<string, long>();
+            Action<string, long> onProfileResourceSkipped = allowProfileResourceModification
+                ? null
+                : (skippedResourceType, count) => skipped[skippedResourceType] = count;
+
+            var result = await _service.DeleteMultipleAsync(
+                request,
+                CancellationToken.None,
+                onProfileResourceSkipped: onProfileResourceSkipped);
+
+            if (isProtectedProfileResource && !allowProfileResourceModification)
+            {
+                Assert.Empty(result);
+                Assert.Equal(1, skipped[resourceType]);
+                await fhirDataStore.DidNotReceiveWithAnyArgs().HardDeleteAsync(default, default, default, default);
+            }
+            else
+            {
+                Assert.Equal(1, result[resourceType]);
+                Assert.Empty(skipped);
+                await fhirDataStore.Received(1).HardDeleteAsync(
+                    Arg.Is<ResourceKey>(key => key.ResourceType == resourceType),
+                    Arg.Any<bool>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<CancellationToken>());
+            }
+        }
+
+        [Fact]
+        public async Task GivenBulkDelete_WhenIncludedProfileResourceIsReturned_ThenEligibleResourceIsDeletedAndProfileResourceIsSkipped()
+        {
+            var request = new ConditionalDeleteResourceRequest(
+                "Provenance",
+                new List<Tuple<string, string>> { Tuple.Create("_include", "Provenance:target") },
+                DeleteOperation.HardDelete,
+                maxDeleteCount: null,
+                deleteAll: true);
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>()).Returns(
+                Task.FromResult(new SearchResult(
+                    new[]
+                    {
+                        CreateSearchResultEntry("Provenance", "provenance-1", SearchEntryMode.Match),
+                        CreateSearchResultEntry("ValueSet", "valueset-1", SearchEntryMode.Include),
+                    },
+                    null,
+                    null,
+                    Array.Empty<Tuple<string, string>>())));
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            _dataStoreFactory.GetScopedDataStore().Returns(new DeletionServiceScopedDataStore(fhirDataStore));
+            var skipped = new Dictionary<string, long>();
+
+            var result = await _service.DeleteMultipleAsync(
+                request,
+                CancellationToken.None,
+                onProfileResourceSkipped: (resourceType, count) => skipped[resourceType] = count);
+
+            Assert.Equal(1, result["Provenance"]);
+            Assert.Equal(1, skipped["ValueSet"]);
+            await fhirDataStore.Received(1).HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.ResourceType == "Provenance"),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+            await fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.ResourceType == "ValueSet"),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenConditionalDeleteOfOrdinaryType_WhenIncludeResultIsAProfileResourceAndCallerLacksEditProfileDefinitions_ThenThrowsAndDeletesNothing()
+        {
+            // Arrange: deleting an ordinary "Provenance" type, but _include pulls in a protected
+            // StructureDefinition as part of the same page of results.
+            var request = new ConditionalDeleteResourceRequest(
+                "Provenance",
+                new List<Tuple<string, string>> { Tuple.Create("_include", "Provenance:target") },
+                DeleteOperation.HardDelete,
+                maxDeleteCount: 10,
+                deleteAll: false);
+
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+
+            var entries = new List<SearchResultEntry>
+            {
+                CreateSearchResultEntry("Provenance", "prov-1", SearchEntryMode.Match),
+                CreateSearchResultEntry("StructureDefinition", "sd-1", SearchEntryMode.Include),
+            };
+
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>()).Returns(
+                Task.FromResult(new SearchResult(entries, null, null, Array.Empty<Tuple<string, string>>())));
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
+            _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
+
+            // Caller has normal delete rights but not EditProfileDefinitions.
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.None);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            await fhirDataStore.DidNotReceiveWithAnyArgs().HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenConditionalDeleteOfOrdinaryType_WhenIncludeResultIsAProfileResourceAndCallerHasEditProfileDefinitions_ThenDeletesSucceed()
+        {
+            // Arrange: same scenario as above, but the caller has EditProfileDefinitions.
+            var request = new ConditionalDeleteResourceRequest(
+                "Provenance",
+                new List<Tuple<string, string>> { Tuple.Create("_include", "Provenance:target") },
+                DeleteOperation.HardDelete,
+                maxDeleteCount: 10,
+                deleteAll: false);
+
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+
+            var entries = new List<SearchResultEntry>
+            {
+                CreateSearchResultEntry("Provenance", "prov-1", SearchEntryMode.Match),
+                CreateSearchResultEntry("StructureDefinition", "sd-1", SearchEntryMode.Include),
+            };
+
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>()).Returns(
+                Task.FromResult(new SearchResult(entries, null, null, Array.Empty<Tuple<string, string>>())));
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
+            _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
+
+            // Default constructor setup grants whatever DataActions are requested, including EditProfileDefinitions.
+
+            // Act
+            var result = await _service.DeleteMultipleAsync(request, CancellationToken.None);
+
+            // Assert
+            Assert.Equal(2, result.Values.Sum());
+            await fhirDataStore.Received(2).HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+            _profilesProvider.Received(1).Refresh();
+        }
+
+        [Fact]
+        public async Task GivenConditionalDeleteSpanningMultiplePages_WhenALaterPageContainsAProfileResourceAndCallerLacksEditProfileDefinitions_ThenReturnsIncompleteOperationException()
+        {
+            // Arrange: page 1 is entirely ordinary resources (legitimately deletable); page 2, reached only
+            // through pagination (no _include involved), contains a protected StructureDefinition.
+            var request = new ConditionalDeleteResourceRequest(
+                "Provenance",
+                new List<Tuple<string, string>> { Tuple.Create("_lastUpdated", "2000-01-01T00:00:00Z") },
+                DeleteOperation.HardDelete,
+                maxDeleteCount: 10,
+                deleteAll: true);
+
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+
+            var firstPageEntries = new List<SearchResultEntry> { CreateSearchResultEntry("Provenance", "prov-1", SearchEntryMode.Match) };
+            var secondPageEntries = new List<SearchResultEntry> { CreateSearchResultEntry("StructureDefinition", "sd-1", SearchEntryMode.Match) };
+            var firstPageDeleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            int searchCallCount = 0;
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>()).Returns(_ =>
+                ++searchCallCount == 1
+                    ? Task.FromResult(new SearchResult(firstPageEntries, "page-2-token", null, Array.Empty<Tuple<string, string>>()))
+                    : GetSecondPageAfterFirstPageIsDeletedAsync());
+
+            async Task<SearchResult> GetSecondPageAfterFirstPageIsDeletedAsync()
+            {
+                await firstPageDeleted.Task;
+                return new SearchResult(secondPageEntries, null, null, Array.Empty<Tuple<string, string>>());
+            }
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            fhirDataStore.HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.ResourceType == "Provenance"),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>()).Returns(_ =>
+                {
+                    firstPageDeleted.TrySetResult(true);
+                    return Task.CompletedTask;
+                });
+            var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
+            _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
+
+            // Caller has normal delete rights but not EditProfileDefinitions. Page 1 never calls this (no
+            // protected type present), so it has no bearing on page 1's legitimate deletion below.
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.None);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<IncompleteOperationException<IDictionary<string, long>>>(
+                () => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            // Assert
+            var aggregateException = Assert.IsType<AggregateException>(exception.InnerException);
+            Assert.Contains(aggregateException.InnerExceptions, ex => ex is UnauthorizedFhirActionException);
+            Assert.True(exception.PartialResults.TryGetValue("Provenance", out long deletedProvenanceCount));
+            Assert.Equal(1, deletedProvenanceCount);
+
+            // Page 1 had already been queued (and was legitimately authorized) before page 2 was denied, so it
+            // must still have been deleted; page 2's protected resource must never have been deleted.
+            await fhirDataStore.Received(1).HardDeleteAsync(Arg.Is<ResourceKey>(k => k.ResourceType == "Provenance"), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+            await fhirDataStore.DidNotReceive().HardDeleteAsync(Arg.Is<ResourceKey>(k => k.ResourceType == "StructureDefinition"), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenInitialIncludedPagesPartiallyDeleteAProfileResource_WhenALaterIncludeSearchFails_ThenReturnsPublicPartialResultsAndRefreshesProfiles()
+        {
+            // Arrange
+            var request = new ConditionalDeleteResourceRequest(
+                "Provenance",
+                new List<Tuple<string, string>> { Tuple.Create("_include", "Provenance:target") },
+                DeleteOperation.HardDelete,
+                maxDeleteCount: 10,
+                deleteAll: true);
+
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+
+            var primaryPage = new SearchResult(
+                new List<SearchResultEntry> { CreateSearchResultEntry("Provenance", "prov-1", SearchEntryMode.Match) },
+                continuationToken: null,
+                sortOrder: null,
+                unsupportedSearchParameters: Array.Empty<Tuple<string, string>>(),
+                includesContinuationToken: "include-page-1");
+            var includedPage = new SearchResult(
+                new List<SearchResultEntry> { CreateSearchResultEntry("StructureDefinition", "sd-1", SearchEntryMode.Include) },
+                continuationToken: null,
+                sortOrder: null,
+                unsupportedSearchParameters: Array.Empty<Tuple<string, string>>(),
+                includesContinuationToken: "include-page-2");
+            var includedProfileDeleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            int searchCallCount = 0;
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>()).Returns(_ =>
+                ++searchCallCount switch
+                {
+                    1 => Task.FromResult(primaryPage),
+                    2 => Task.FromResult(includedPage),
+                    _ => ThrowAfterIncludedProfileIsDeletedAsync(),
+                });
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            fhirDataStore.HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.ResourceType == "StructureDefinition"),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>()).Returns(_ =>
+                {
+                    includedProfileDeleted.TrySetResult(true);
+                    return Task.CompletedTask;
+                });
+            _dataStoreFactory.GetScopedDataStore().Returns(new DeletionServiceScopedDataStore(fhirDataStore));
+
+            // Act
+            var exception = await Assert.ThrowsAsync<IncompleteOperationException<IDictionary<string, long>>>(
+                () => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(1, exception.PartialResults["StructureDefinition"]);
+            await fhirDataStore.Received(1).HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.ResourceType == "StructureDefinition"),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
+            _profilesProvider.Received(1).Refresh();
+
+            async Task<SearchResult> ThrowAfterIncludedProfileIsDeletedAsync()
+            {
+                await includedProfileDeleted.Task;
+                throw new WebException("Include search failed.");
+            }
+        }
+
+        [Theory]
+        [InlineData(DeleteOperation.SoftDelete, 1, DataActions.None, false)]
+        [InlineData(DeleteOperation.SoftDelete, 2, DataActions.None, false)]
+        [InlineData(DeleteOperation.HardDelete, 1, DataActions.None, false)]
+        [InlineData(DeleteOperation.HardDelete, 2, DataActions.None, false)]
+        [InlineData(DeleteOperation.HardDelete, 1, DataActions.Delete, false)]
+        [InlineData(DeleteOperation.SoftDelete, 1, DataActions.Delete, true)]
+        [InlineData(DeleteOperation.SoftDelete, 2, DataActions.Delete, true)]
+        [InlineData(DeleteOperation.HardDelete, 1, DataActions.Delete | DataActions.HardDelete, true)]
+        [InlineData(DeleteOperation.HardDelete, 2, DataActions.Delete | DataActions.HardDelete, true)]
+        public async Task GivenSmartConditionalDeleteWithInclude_WhenAuthorizingTargets_ThenRequiresDeletePermissionForEveryType(
+            DeleteOperation deleteOperation,
+            int maxDeleteCount,
+            DataActions patientDeleteActions,
+            bool authorized)
+        {
+            // Arrange
+            _contextAccessor.RequestContext.ResourceType = KnownResourceTypes.Observation;
+            var accessControl = _contextAccessor.RequestContext.AccessControlContext;
+            accessControl.ApplyFineGrainedAccessControl = true;
+            accessControl.AllowedResourceActions.Add(new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Search | DataActions.Delete | DataActions.HardDelete, "user"));
+            accessControl.AllowedResourceActions.Add(new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Search | patientDeleteActions, "user"));
+
+            var entries = new List<SearchResultEntry>
+            {
+                CreateSearchResultEntry(KnownResourceTypes.Observation, "observation-1", SearchEntryMode.Match),
+                CreateSearchResultEntry(KnownResourceTypes.Patient, "patient-1", SearchEntryMode.Include),
+            };
+            var fhirDataStore = SetUpDeletionSearch(Task.FromResult(new SearchResult(entries, null, null, Array.Empty<Tuple<string, string>>())));
+            _resourceWrapperFactory.Create(Arg.Any<ResourceElement>(), true, false)
+                .Returns(call => CreateSearchResultEntry(call.Arg<ResourceElement>().InstanceType, call.Arg<ResourceElement>().Id, SearchEntryMode.Match).Resource);
+
+            var request = new ConditionalDeleteResourceRequest(
+                KnownResourceTypes.Observation,
+                new List<Tuple<string, string>> { Tuple.Create("_include", "Observation:subject") },
+                deleteOperation,
+                maxDeleteCount,
+                deleteAll: false);
+
+            // Act / Assert
+            if (authorized)
+            {
+                var result = await _service.DeleteMultipleAsync(request, CancellationToken.None);
+                Assert.Equal(1, result[KnownResourceTypes.Observation]);
+                Assert.Equal(1, result[KnownResourceTypes.Patient]);
+                if (deleteOperation == DeleteOperation.SoftDelete)
+                {
+                    await fhirDataStore.Received(2).MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>());
+                }
+                else
+                {
+                    await fhirDataStore.Received(2).HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+                }
+            }
+            else
+            {
+                await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _service.DeleteMultipleAsync(request, CancellationToken.None));
+                await fhirDataStore.DidNotReceiveWithAnyArgs().MergeAsync(default, default);
+                await fhirDataStore.DidNotReceiveWithAnyArgs().HardDeleteAsync(default, default, default, default);
+            }
+
+            Assert.Equal(KnownResourceTypes.Observation, _contextAccessor.RequestContext.ResourceType);
+        }
+
+        [Fact]
+        public async Task GivenSmartConditionalDelete_WhenALaterPageIncludesAnUnauthorizedType_ThenOnlyTheAuthorizedPageIsDeleted()
+        {
+            // Arrange
+            _contextAccessor.RequestContext.ResourceType = KnownResourceTypes.Observation;
+            var accessControl = _contextAccessor.RequestContext.AccessControlContext;
+            accessControl.ApplyFineGrainedAccessControl = true;
+            accessControl.AllowedResourceActions.Add(new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Search | DataActions.Delete | DataActions.HardDelete, "user"));
+            accessControl.AllowedResourceActions.Add(new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Search, "user"));
+
+            var firstPage = new SearchResult(
+                new[] { CreateSearchResultEntry(KnownResourceTypes.Observation, "observation-1", SearchEntryMode.Match) },
+                "page-2",
+                null,
+                Array.Empty<Tuple<string, string>>());
+            var firstPageDeleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var fhirDataStore = SetUpDeletionSearch(Task.FromResult(firstPage), GetSecondPageAsync());
+            fhirDataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(_ =>
+                {
+                    firstPageDeleted.TrySetResult(true);
+                    return Task.CompletedTask;
+                });
+            var request = new ConditionalDeleteResourceRequest(
+                KnownResourceTypes.Observation,
+                new List<Tuple<string, string>> { Tuple.Create("_include", "Observation:subject") },
+                DeleteOperation.HardDelete,
+                maxDeleteCount: 10,
+                deleteAll: true);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<IncompleteOperationException<IDictionary<string, long>>>(
+                () => _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            // Assert
+            Assert.Contains(Assert.IsType<AggregateException>(exception.InnerException).InnerExceptions, ex => ex is UnauthorizedFhirActionException);
+            Assert.Equal(1, exception.PartialResults[KnownResourceTypes.Observation]);
+            await fhirDataStore.Received(1).HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.Id == "observation-1"), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+            await fhirDataStore.DidNotReceive().HardDeleteAsync(
+                Arg.Is<ResourceKey>(key => key.Id != "observation-1"), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+
+            async Task<SearchResult> GetSecondPageAsync()
+            {
+                await firstPageDeleted.Task;
+                return new SearchResult(
+                    new[]
+                    {
+                        CreateSearchResultEntry(KnownResourceTypes.Observation, "observation-2", SearchEntryMode.Match),
+                        CreateSearchResultEntry(KnownResourceTypes.Patient, "patient-1", SearchEntryMode.Include),
+                    },
+                    null,
+                    null,
+                    Array.Empty<Tuple<string, string>>());
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenSmartConditionalDelete_WhenAnIncludeContinuationContainsAnotherType_ThenChecksItsDeletePermission(bool authorized)
+        {
+            // Arrange
+            _contextAccessor.RequestContext.ResourceType = KnownResourceTypes.Observation;
+            var accessControl = _contextAccessor.RequestContext.AccessControlContext;
+            accessControl.ApplyFineGrainedAccessControl = true;
+            accessControl.AllowedResourceActions.Add(new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Search | DataActions.Delete | DataActions.HardDelete, "user"));
+            accessControl.AllowedResourceActions.Add(new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Search | (authorized ? DataActions.Delete | DataActions.HardDelete : DataActions.None), "user"));
+            var firstPage = new SearchResult(
+                new[] { CreateSearchResultEntry(KnownResourceTypes.Observation, "observation-1", SearchEntryMode.Match) },
+                null,
+                null,
+                Array.Empty<Tuple<string, string>>(),
+                includesContinuationToken: "include-page-1");
+            var includedPage = new SearchResult(
+                new[] { CreateSearchResultEntry(KnownResourceTypes.Patient, "patient-1", SearchEntryMode.Include) },
+                null,
+                null,
+                Array.Empty<Tuple<string, string>>());
+            var fhirDataStore = SetUpDeletionSearch(Task.FromResult(firstPage), Task.FromResult(includedPage));
+            var request = new ConditionalDeleteResourceRequest(
+                KnownResourceTypes.Observation,
+                new List<Tuple<string, string>> { Tuple.Create("_include", "Observation:subject") },
+                DeleteOperation.HardDelete,
+                maxDeleteCount: 10,
+                deleteAll: true);
+
+            // Act / Assert
+            if (authorized)
+            {
+                var result = await _service.DeleteMultipleAsync(request, CancellationToken.None);
+                Assert.Equal(1, result[KnownResourceTypes.Observation]);
+                Assert.Equal(1, result[KnownResourceTypes.Patient]);
+                await fhirDataStore.Received(2).HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+            }
+            else
+            {
+                await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _service.DeleteMultipleAsync(request, CancellationToken.None));
+                await fhirDataStore.DidNotReceiveWithAnyArgs().HardDeleteAsync(default, default, default, default);
+            }
+        }
+
+        private Task<string> ExecuteBulkDeleteJobAsync(DeleteOperation deleteOperation, CancellationToken cancellationToken)
+        {
+            var job = new BulkDeleteProcessingJob(
+                _service.CreateMockScopeProvider<IDeletionService>(),
+                _contextAccessor,
+                Substitute.For<IMediator>(),
+                Substitute.For<ISearchService>().CreateMockScopeProvider(),
+                Substitute.For<IQueueClient>());
+            var definition = new BulkDeleteDefinition(
+                JobType.BulkDeleteProcessing,
+                deleteOperation,
+                "Patient",
+                new List<Tuple<string, string>> { Tuple.Create("active", "false") },
+                new List<string>(),
+                "https://localhost/Patient",
+                "https://localhost/",
+                "bulk-delete-test");
+            return job.ExecuteAsync(new JobInfo { Id = 1, Definition = JsonConvert.SerializeObject(definition) }, cancellationToken);
+        }
+
+        private IFhirDataStore SetUpDeletionSearch(params Task<SearchResult>[] pages)
+        {
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>()).Returns(pages[0], pages.Skip(1).ToArray());
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            _dataStoreFactory.GetScopedDataStore().Returns(new DeletionServiceScopedDataStore(fhirDataStore));
+            return fhirDataStore;
+        }
+
+        private static SearchResultEntry CreateSearchResultEntry(string resourceType, string resourceId, SearchEntryMode searchEntryMode)
+        {
+            var rawJson = $"{{\"resourceType\":\"{resourceType}\",\"id\":\"{resourceId}\"}}";
+            var resourceElement = new FhirJsonParser().Parse(rawJson).ToResourceElement();
+            var rawResource = new RawResource(rawJson, FhirResourceFormat.Json, isMetaSet: false);
+            var resourceRequest = Substitute.For<ResourceRequest>();
+            var compartmentIndices = Substitute.For<CompartmentIndices>();
+            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, null, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash");
+            return new SearchResultEntry(wrapper, searchEntryMode);
+        }
+
+        [Fact]
+        public async Task GivenSearchParameterDelete_WhenConcurrencyConflictOccurs_ThenRetries()
+        {
+            var resourceType = "SearchParameter";
+            var parameters = new List<Tuple<string, string>>()
+            {
+                Tuple.Create("url", "http://test.com/param"),
+            };
+
+            var request = new ConditionalDeleteResourceRequest(
+                resourceType,
+                parameters,
+                DeleteOperation.HardDelete,
+                maxDeleteCount: 10,
+                deleteAll: false);
+
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+
+            var searchParameter = new SearchParameter { Id = "test", Url = "http://test.com/param" };
+            var resource = searchParameter.ToResourceElement();
+            var rawResource = new RawResource(searchParameter.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
+            var resourceRequest = Substitute.For<ResourceRequest>();
+            var compartmentIndices = Substitute.For<CompartmentIndices>();
+            var wrapper = new ResourceWrapper(resource, rawResource, resourceRequest, false, null, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash");
+            var entries = new List<SearchResultEntry> { new SearchResultEntry(wrapper, SearchEntryMode.Match) };
+
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>()).Returns(
+                Task.FromResult(new SearchResult(entries, null, null, Array.Empty<Tuple<string, string>>())));
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
+            _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
+
+            var attemptCount = 0;
+            _searchParameterOperations
+                .MarkSearchParameterForDeletionAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
+                .Returns(callInfo =>
+                {
+                    attemptCount++;
+                    if (attemptCount < 3)
+                    {
+                        throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
+                    }
+
+                    return Task.CompletedTask;
+                });
+
+            await _service.DeleteMultipleAsync(request, CancellationToken.None);
+
+            Assert.Equal(3, attemptCount);
+        }
+
+        [Fact]
+        public async Task GivenSearchParameterDelete_WhenConcurrencyConflictExhaustsRetries_ThenThrowsWithRetryCount()
+        {
+            var resourceType = "SearchParameter";
+            var parameters = new List<Tuple<string, string>>()
+            {
+                Tuple.Create("url", "http://test.com/param"),
+            };
+
+            var request = new ConditionalDeleteResourceRequest(
+                resourceType,
+                parameters,
+                DeleteOperation.HardDelete,
+                maxDeleteCount: 10,
+                deleteAll: false);
+
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+
+            var searchParameter = new SearchParameter { Id = "test", Url = "http://test.com/param" };
+            var resource = searchParameter.ToResourceElement();
+            var rawResource = new RawResource(searchParameter.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
+            var resourceRequest = Substitute.For<ResourceRequest>();
+            var compartmentIndices = Substitute.For<CompartmentIndices>();
+            var wrapper = new ResourceWrapper(resource, rawResource, resourceRequest, false, null, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash");
+            var entries = new List<SearchResultEntry> { new SearchResultEntry(wrapper, SearchEntryMode.Match) };
+
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>()).Returns(
+                Task.FromResult(new SearchResult(entries, null, null, Array.Empty<Tuple<string, string>>())));
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
+            _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
+
+            _searchParameterOperations
+                .MarkSearchParameterForDeletionAsync(Arg.Any<RawResource>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
+                .Returns(_ => throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict));
+
+            var exception = await Assert.ThrowsAsync<IncompleteOperationException<IDictionary<string, long>>>(async () =>
+                await _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            Assert.Contains(" Deletion.3", exception.InnerException.Message);
+        }
+
+        [Fact]
+        public async Task GivenBulkHardDelete_WhenSearchServiceThrowsConnectionExceptionOnSecondPage_ThenReturnsIncompleteOperationException()
+        {
+            // Arrange
+            var resourceType = "Patient";
+            var parameters = new List<Tuple<string, string>>()
+            {
+                Tuple.Create("_lastUpdated", "2000-01-01T00:00:00Z"),
+            };
+
+            var request = new ConditionalDeleteResourceRequest(
+                resourceType,
+                parameters,
+                DeleteOperation.HardDelete,
+                maxDeleteCount: 10,
+                deleteAll: false);
+
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+
+            // First page of results - returns 5 entries with a continuation token
+            var firstPageEntries = new List<SearchResultEntry>();
+            for (int i = 0; i < 5; i++)
+            {
+                var resource = Samples.GetDefaultPatient().ToPoco<Patient>();
+                resource.Id = $"id-{i}";
+                resource.VersionId = "1";
+
+                var resourceElement = resource.ToResourceElement();
+                var rawResource = new RawResource(resource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
+                var resourceRequest = Substitute.For<ResourceRequest>();
+                var compartmentIndices = Substitute.For<CompartmentIndices>();
+                var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, null, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash");
+                firstPageEntries.Add(new SearchResultEntry(wrapper, SearchEntryMode.Match));
+            }
+
+            var firstPageDeletesStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var hardDeleteCount = 0;
+            var callCount = 0;
+            searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>()).Returns(async callInfo =>
+                {
+                    callCount++;
+                    if (callCount == 1)
+                    {
+                        // First call returns results with continuation token
+                        return new SearchResult(firstPageEntries, "continuation-token-1", null, Array.Empty<Tuple<string, string>>());
+                    }
+                    else
+                    {
+                        // Second call throws a connection exception (simulating network failure)
+                        await firstPageDeletesStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                        throw new InvalidOperationException("A transport-level error has occurred when receiving results from the server.");
+                    }
+                });
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            fhirDataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(_ =>
+                {
+                    if (Interlocked.Increment(ref hardDeleteCount) == firstPageEntries.Count)
+                    {
+                        firstPageDeletesStarted.TrySetResult();
+                    }
+
+                    return Task.CompletedTask;
+                });
+
+            var scopedDataStore = new DeletionServiceScopedDataStore(fhirDataStore);
+            _dataStoreFactory.GetScopedDataStore().Returns(scopedDataStore);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<IncompleteOperationException<IDictionary<string, long>>>(async () =>
+                await _service.DeleteMultipleAsync(request, CancellationToken.None));
+
+            // Assert
+            Assert.NotNull(exception);
+            Assert.NotNull(exception.InnerException);
+            Assert.IsType<AggregateException>(exception.InnerException);
+
+            var aggregateException = (AggregateException)exception.InnerException;
+            Assert.Contains(aggregateException.InnerExceptions, ex => ex is InvalidOperationException);
+
+            // Verify that partial results contain the first page of deleted resources
+            Assert.NotNull(exception.PartialResults);
+            Assert.True(exception.PartialResults.TryGetValue("Patient", out long deletedPatientCount));
+            Assert.Equal(5, deletedPatientCount);
+
+            // Verify search service was called twice (first page succeeded, second page failed)
+            await searchService.Received(2).SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<ResourceVersionType>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>());
+        }
+    }
+}

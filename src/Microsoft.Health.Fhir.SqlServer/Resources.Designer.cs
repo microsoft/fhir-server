@@ -115,6 +115,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to SQL Server has insufficient resources to complete the includes count. Please try again later..
+        /// </summary>
+        internal static string IncludesCountResourceExhausted {
+            get {
+                return ResourceManager.GetString("IncludesCountResourceExhausted", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to The provided continuation token is not valid..
         /// </summary>
         internal static string InvalidContinuationToken {
@@ -147,6 +156,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         internal static string OnlyTypeAndLastUpdatedSupportedForCompoundSort {
             get {
                 return ResourceManager.GetString("OnlyTypeAndLastUpdatedSupportedForCompoundSort", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to One or more resources were attempted to be updated concurrently with the same version, please validate the operations running and avoid duplicated updates.
+        /// </summary>
+        internal static string ResourceConcurrentUpdateConflict {
+            get {
+                return ResourceManager.GetString("ResourceConcurrentUpdateConflict", resourceCulture);
             }
         }
         

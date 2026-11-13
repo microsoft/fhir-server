@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         }
 
         [Fact]
-        public void GivenQuantityCodeExpression_WhenCodeIdNotExists_ThenUsesSubquery()
+        public void GivenQuantityCodeExpression_WhenCodeIdNotExists_ThenUsesScalarSubquery()
         {
             const string codeValue = "custom-unit";
 
@@ -143,10 +143,31 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var sql = context.StringBuilder.ToString();
 
-            Assert.Contains(VLatest.QuantitySearchParam.QuantityCodeId.Metadata.Name, sql);
-            Assert.Contains("IN", sql);
-            Assert.Contains("SELECT", sql);
+            // dbo.QuantityCode has a primary key on Value, so there is always at most one matching
+            // QuantityCodeId — a scalar subquery with = is correct and avoids an unnecessary IN list.
+            Assert.Matches(@"QuantityCodeId\s*=\s*\(\s*SELECT", sql);
+            Assert.DoesNotContain(" IN ", sql);
             Assert.Contains(VLatest.QuantityCode.TableName, sql);
+        }
+
+        [Fact]
+        public void GivenQuantityCodeExpression_WhenCodeIdNotExists_ThenSubqueryFiltersOnValue()
+        {
+            const string codeValue = "custom-unit";
+
+            _model.TryGetQuantityCodeId(codeValue, out Arg.Any<int>())
+                .Returns(false);
+
+            var expression = new StringExpression(StringOperator.Equals, FieldName.QuantityCode, null, codeValue, true);
+            var context = CreateContext();
+
+            QuantityQueryGenerator.Instance.VisitString(expression, context);
+
+            var sql = context.StringBuilder.ToString();
+
+            // The subquery must select QuantityCodeId and filter on Value so the correct row is returned.
+            Assert.Contains(VLatest.QuantityCode.QuantityCodeId.Metadata.Name, sql);
+            Assert.Contains(VLatest.QuantityCode.Value.Metadata.Name, sql);
         }
 
         [Fact]
@@ -174,7 +195,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         }
 
         [Fact]
-        public void GivenQuantitySystemExpression_WhenSystemIdNotExists_ThenUsesSubquery()
+        public void GivenQuantitySystemExpression_WhenSystemIdNotExists_ThenUsesScalarSubquery()
         {
             const string systemValue = "http://custom-system.org";
 
@@ -188,10 +209,31 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var sql = context.StringBuilder.ToString();
 
-            Assert.Contains(VLatest.QuantitySearchParam.SystemId.Metadata.Name, sql);
-            Assert.Contains("IN", sql);
-            Assert.Contains("SELECT", sql);
+            // dbo.System has a primary key on Value, so there is always at most one matching
+            // SystemId — a scalar subquery with = is correct and avoids an unnecessary IN list.
+            Assert.Matches(@"SystemId\s*=\s*\(\s*SELECT", sql);
+            Assert.DoesNotContain(" IN ", sql);
             Assert.Contains(VLatest.System.TableName, sql);
+        }
+
+        [Fact]
+        public void GivenQuantitySystemExpression_WhenSystemIdNotExists_ThenSubqueryFiltersOnValue()
+        {
+            const string systemValue = "http://custom-system.org";
+
+            _model.TryGetSystemId(systemValue, out Arg.Any<int>())
+                .Returns(false);
+
+            var expression = new StringExpression(StringOperator.Equals, FieldName.QuantitySystem, null, systemValue, true);
+            var context = CreateContext();
+
+            QuantityQueryGenerator.Instance.VisitString(expression, context);
+
+            var sql = context.StringBuilder.ToString();
+
+            // The subquery must select SystemId and filter on Value so the correct row is returned.
+            Assert.Contains(VLatest.System.SystemId.Metadata.Name, sql);
+            Assert.Contains(VLatest.System.Value.Metadata.Name, sql);
         }
 
         [Fact]

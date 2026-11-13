@@ -8,13 +8,13 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
-using Microsoft.Health.Core;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Polly;
 using Polly.Retry;
@@ -48,14 +48,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 .WaitAndRetryAsync(retryCount, sleepDurationProvider);
         }
 
-        public async Task<CancelReindexResponse> Handle(CancelReindexRequest request, CancellationToken cancellationToken)
+        public async Task<CancelReindexResponse> HandleAsync(CancelReindexRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Reindex, cancellationToken) != DataActions.Reindex)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(DataActions.Reindex, true, cancellationToken);
 
             return await _retryPolicy.ExecuteAsync(async () =>
             {
@@ -68,13 +65,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         string.Format(Core.Resources.ReindexJobInCompletedState, outcome.JobRecord.Id, outcome.JobRecord.Status));
                 }
 
-                // Try to cancel the job.
-                outcome.JobRecord.Status = OperationStatus.Canceled;
-                outcome.JobRecord.CanceledTime = Clock.UtcNow;
+                var canceledJob = await _fhirOperationDataStore.CancelReindexJobAsync(request.JobId, cancellationToken);
 
-                await _fhirOperationDataStore.UpdateReindexJobAsync(outcome.JobRecord, outcome.ETag, cancellationToken);
-
-                return new CancelReindexResponse(HttpStatusCode.Conflict, outcome);
+                return new CancelReindexResponse(HttpStatusCode.Conflict, canceledJob);
             });
         }
     }

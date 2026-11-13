@@ -13,18 +13,18 @@ using Hl7.Fhir.ElementModel.Types;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
+using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute.Core;
 using Xunit;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 using static Antlr4.Runtime.Atn.SemanticContext;
 using Task = System.Threading.Tasks.Task;
@@ -42,7 +42,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     {
         private readonly FhirStorageTestsFixture _fixture;
         private readonly ITestOutputHelper _output;
-        private string _truncation128code = $"prefix {new string('z', 128)}";
         private string _codeWithOverflow = $"prefix {new string('z', 256)}";
 
         public SqlComplexQueryTests(FhirStorageTestsFixture fixture, ITestOutputHelper output)
@@ -92,10 +91,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await CheckStoredProcedureUsage([Tuple.Create("identifier", "NotExisting|A")], 0, spName);
             //// not existing system plus
             await CheckStoredProcedureUsage([Tuple.Create("identifier", "NotExisting|A,TestSystem|B")], 1, spName);
-            //// truncation
-            await CheckStoredProcedureUsage([Tuple.Create("identifier", _truncation128code)], 2, spName);
-            //// overflow. 1 with exact match + 1 from truncate 128 logic
-            await CheckStoredProcedureUsage([Tuple.Create("identifier", _codeWithOverflow)], 2, spName);
+            //// overflow.
+            await CheckStoredProcedureUsage([Tuple.Create("identifier", _codeWithOverflow)], 1, spName);
         }
 
         private async Task CheckStoredProcedureUsage(IReadOnlyList<Tuple<string, string>> queryParameters, int expectedResources, string spName, bool validateSpIsUsed = true)
@@ -132,9 +129,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 try
                 {
-                    await DisableResuseQueryPlans();
+                    DisableReuseQueryPlans();
                     await ResetQueryStore();
-                    SqlServerSearchService.ResetReuseQueryPlans();
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
                     //// values are different and plans are NOT reused
@@ -146,9 +142,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     //// values are same and plans are reused
                     await CheckQueryStore(2, 1);
 
-                    await EnableResuseQueryPlans(); //// new behavior
+                    EnableReuseQueryPlans(); //// new behavior
                     await ResetQueryStore();
-                    SqlServerSearchService.ResetReuseQueryPlans();
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City1")], CancellationToken.None);
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City2")], CancellationToken.None);
                     await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, [Tuple.Create("address-city", "City3")], CancellationToken.None);
@@ -215,22 +210,14 @@ END CATCH
             cmd.ExecuteNonQuery();
         }
 
-        private async Task DisableResuseQueryPlans()
+        private void DisableReuseQueryPlans()
         {
-            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
-            using var cmd = new SqlCommand("DELETE FROM dbo.Parameters WHERE Id = @Id", conn);
-            cmd.Parameters.AddWithValue("@Id", SqlServerSearchService.ReuseQueryPlansParameterId);
-            conn.Open();
-            cmd.ExecuteNonQuery();
+            ((FhirSqlServerConfiguration)_fixture.Service.GetService(typeof(FhirSqlServerConfiguration))).ReuseQueryPlans = false;
         }
 
-        private async Task EnableResuseQueryPlans()
+        private void EnableReuseQueryPlans()
         {
-            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
-            using var cmd = new SqlCommand("INSERT INTO dbo.Parameters (Id,Number) SELECT @Id, 1", conn);
-            cmd.Parameters.AddWithValue("@Id", SqlServerSearchService.ReuseQueryPlansParameterId);
-            conn.Open();
-            cmd.ExecuteNonQuery();
+            ((FhirSqlServerConfiguration)_fixture.Service.GetService(typeof(FhirSqlServerConfiguration))).ReuseQueryPlans = true;
         }
 
         private async Task SetGranularQueryStore()
@@ -250,14 +237,14 @@ END CATCH
             await Task.Delay(1000);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenASqlQuery_IfAStoredProcExistsWithMatchingHash_ThenStoredProcUsed()
         {
             await ClearProcedureCache();
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             _output.WriteLine($"database={conn.Database}");
 
-            Skip.If(ModelInfoProvider.Instance.Version != FhirSpecification.R4, "This test is only valid for R4");
+            Assert.SkipWhen(ModelInfoProvider.Instance.Version != FhirSpecification.R4, "This test is only valid for R4");
 
             // set the wait time to 1 second
             CustomQueries.WaitTime = 1;
@@ -305,7 +292,9 @@ END CATCH
             CustomQueries.WaitTime = 60;
 
             // drop stored procedure and clear cache, so no other tests use this stored procedure.
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
             _fixture.SqlHelper.ExecuteSqlCmd($"DROP PROCEDURE dbo.[{spName}]").Wait();
+#pragma warning restore xUnit1031
             CustomQueries.QueryStore.Clear();
         }
 
@@ -369,8 +358,6 @@ SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.Resour
             await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(null, new Identifier(null, "A")).ToResourceElement());
             await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(null, new Identifier("TestSystem", "B")).ToResourceElement());
             await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(null, new Identifier(null, "B")).ToResourceElement());
-            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(null, new Identifier(null, _truncation128code[..128])).ToResourceElement());
-            await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(null, new Identifier(null, _truncation128code)).ToResourceElement());
             await _fixture.Mediator.UpsertResourceAsync(CreateTestPatient(null, new Identifier(null, _codeWithOverflow)).ToResourceElement());
             //// search indexes are not calculated for whatever reason, so populating TokenSearchParam manually
             await _fixture.SqlHelper.ExecuteSqlCmd(@$"
@@ -390,11 +377,9 @@ INSERT INTO dbo.TokenSearchParam
         ,Code = CASE 
                   WHEN RowId IN (1,2) THEN 'A' 
                   WHEN RowId IN (3,4) THEN 'B' 
-                  WHEN RowId = 5 THEN '{_truncation128code[..128]}'
-                  WHEN RowId = 6 THEN '{_truncation128code}'
-                  WHEN RowId = 7 THEN '{_codeWithOverflow[..256]}'
+                  WHEN RowId = 5 THEN '{_codeWithOverflow[..256]}'
                 END
-        ,CodeOverflow = CASE WHEN RowId = 7 THEN '{_codeWithOverflow[256..]}' END
+        ,CodeOverflow = CASE WHEN RowId = 5 THEN '{_codeWithOverflow[256..]}' END
     FROM (SELECT RowId = row_number() OVER (ORDER BY ResourceSurrogateId), * FROM dbo.Resource) A
             ");
         }

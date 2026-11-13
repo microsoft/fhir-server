@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -45,6 +46,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
         public IDictionary<string, object> Properties { get; } = new Dictionary<string, object>();
 
         public AccessControlContext AccessControlContext { get; set; } = new AccessControlContext();
+
+        public ActionTimer RequestTimer { get; set; }
 
         public object Clone()
         {

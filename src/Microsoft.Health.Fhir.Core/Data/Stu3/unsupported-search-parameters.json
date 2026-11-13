@@ -15,6 +15,7 @@
         "http://hl7.org/fhir/SearchParameter/Device-udi-carrier",
         "http://hl7.org/fhir/SearchParameter/Group-characteristic-value",
         "http://hl7.org/fhir/SearchParameter/Group-value",
-        "http://hl7.org/fhir/SearchParameter/ProcedureRequest-occurrence"
+        "http://hl7.org/fhir/SearchParameter/ProcedureRequest-occurrence",
+        "https://azurehealthcareapis.com/data-extensions/expiry-date"
     ]
 }

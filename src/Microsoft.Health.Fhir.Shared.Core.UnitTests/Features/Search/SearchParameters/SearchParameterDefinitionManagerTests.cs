@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,13 +8,15 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -82,7 +84,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _searchParameterComparer,
                 mockStatusDataStoreScopeProvider,
                 mockFhirDataStoreProvider,
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
 
             _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
@@ -149,6 +152,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             searchParameterDataStoreValidator.ValidateSearchParameter(Arg.Any<SearchParameterInfo>(), out Arg.Any<string>()).Returns(true, null);
 
             var searchService = Substitute.For<ISearchService>();
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
 
             _searchParameterOperations = new SearchParameterOperations(
                 _manager,
@@ -156,16 +160,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 ModelInfoProvider.Instance,
                 _searchParameterSupportResolver,
                 searchParameterDataStoreValidator,
-                () => searchService.CreateMockScope(),
+                searchService.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
                 NullLogger<SearchParameterOperations>.Instance);
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
         }
 
-        public Task DisposeAsync() => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         [Fact]
         public async Task GivenSupportedParams_WhenGettingSupported_ThenSupportedParamsReturned()
@@ -193,20 +198,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             await _manager.EnsureInitializedAsync(CancellationToken.None);
             var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
-            var paramList = searchableDefinitionManager.AllSearchParameters;
+            var paramList = searchableDefinitionManager.AllSearchParameters.ToList();
 
-            Assert.Collection(
-                paramList,
-                p =>
-                {
-                    Assert.True(p.IsSupported);
-                    Assert.True(p.IsSearchable);
-                },
-                p2 =>
-                {
-                    Assert.True(p2.IsSupported);
-                    Assert.True(p2.IsSearchable);
-                });
+            Assert.Equal(3, paramList.Count);
+            Assert.All(paramList, p =>
+            {
+                Assert.True(p.IsSupported);
+                Assert.True(p.IsSearchable);
+            });
+
+            // _type (ResourceTypeSearchParameter) is always searchable/supported,
+            // even without a status store entry.
+            Assert.Single(paramList, p => p.Code == SearchParameterNames.ResourceType);
         }
 
         [Fact]
@@ -238,6 +241,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 {
                     Assert.True(p4.IsSupported);
                     Assert.False(p4.IsSearchable);
+                },
+                pType =>
+                {
+                    // _type (ResourceTypeSearchParameter) is always searchable/supported.
+                    Assert.Equal("_type", pType.Code);
+                    Assert.True(pType.IsSupported);
+                    Assert.True(pType.IsSearchable);
                 });
 
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = false;
@@ -319,13 +329,51 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
+        public void GivenCaseVariantDefinitionUris_WhenGettingByUrl_ThenExactCaseUriResolvesToMatchingDefinition()
+        {
+            var lowerUri = "http://test.org/SearchParameter/foo-bar";
+            var upperUri = "http://test.org/SearchParameter/Foo-Bar";
+
+            var lowerDefinition = new SearchParameterInfo(
+                name: "foo-bar-lower",
+                code: "foo-bar",
+                searchParamType: SearchParamType.Token,
+                url: new Uri(lowerUri),
+                expression: "Patient.identifier",
+                baseResourceTypes: new List<string> { "Patient" });
+
+            var upperDefinition = new SearchParameterInfo(
+                name: "foo-bar-upper",
+                code: "foo-bar",
+                searchParamType: SearchParamType.Token,
+                url: new Uri(upperUri),
+                expression: "Patient.active",
+                baseResourceTypes: new List<string> { "Patient" });
+
+            _searchParameterDefinitionManager.UrlLookup = new ConcurrentDictionary<string, SearchParameterInfo>(
+                new Dictionary<string, SearchParameterInfo>
+                {
+                    [lowerUri] = lowerDefinition,
+                    [upperUri] = upperDefinition,
+                });
+
+            SearchParameterInfo resolvedLower = _searchParameterDefinitionManager.GetSearchParameter(lowerUri);
+            SearchParameterInfo resolvedUpper = _searchParameterDefinitionManager.GetSearchParameter(upperUri);
+
+            Assert.Same(lowerDefinition, resolvedLower);
+            Assert.Same(upperDefinition, resolvedUpper);
+
+            Assert.False(_searchParameterDefinitionManager.TryGetSearchParameter("http://test.org/SearchParameter/FOO-BAR", out _));
+        }
+
+        [Fact]
         public void GivenASearchParameterDefinitionManager_WhenGettingNonexistentSearchParameterByUrl_ExceptionIsThrown()
         {
             Assert.Throws<SearchParameterNotSupportedException>(() => _searchParameterDefinitionManager.GetSearchParameter(_testSearchParamInfo.Url.OriginalString));
         }
 
         [Fact]
-        public async Task GivenASearchParameterDefinitionManager_WhenGettingSearchParameterHashForExistingResourceType_ThenHashIsReturned()
+        public void GivenASearchParameterDefinitionManager_WhenGettingSearchParameterHashForExistingResourceType_ThenHashIsReturned()
         {
             // Initialize a search parameter
             var searchParam = new SearchParameter()
@@ -342,11 +390,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Code = "test",
             };
 
-            _searchParameterSupportResolver
-                .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(p => p.Name == "test"))
-                .Returns((true, false));
-
-            await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
+            _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam.ToTypedElement() });
 
             var searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient");
             Assert.NotNull(searchParamHash);
@@ -399,10 +443,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(p => p.Name == "test" && p.Component.All(c => c.ResolvedSearchParameter != null)))
                 .Returns((true, false));
 
-            await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
-
-            var addedParam = _searchParameterDefinitionManager.GetSearchParameter("http://test/Patient-test");
-            Assert.NotNull(addedParam);
+            // ValidateSearchParameterAsync only validates; it no longer updates the definition manager cache.
+            // Component resolution is verified implicitly: the support resolver mock above returns (true, false)
+            // only when all components have ResolvedSearchParameter set, so an unresolved component would cause
+            // ValidateSearchParameterAsync to throw SearchParameterNotSupportedException.
+            await _searchParameterOperations.ValidateSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
         }
 
         [Fact]
@@ -415,7 +460,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenASPDefinitionManager_WhenInitialed_ThenSearchParametersHashHasValues()
         {
-            await _searchParameterDefinitionManager.Handle(new Messages.Search.SearchParametersUpdatedNotification(new List<SearchParameterInfo>()), CancellationToken.None);
+            await _searchParameterDefinitionManager.HandleAsync(new Messages.Search.SearchParametersUpdatedNotification(new List<SearchParameterInfo>()), CancellationToken.None);
             var searchParams = _searchParameterDefinitionManager.GetSearchParameters("Patient");
             var patientHash = searchParams.CalculateSearchParameterHash();
 
@@ -423,7 +468,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public async Task GivenASearchParameterDefinitionManager_WhenAddingNewParameter_ThenParameterIsAdded()
+        public void GivenASearchParameterDefinitionManager_WhenAddingNewParameter_ThenParameterIsAdded()
         {
             var patientParams = _searchParameterDefinitionManager.GetSearchParameters("Patient");
             var patientParamCount = patientParams.Count();
@@ -443,11 +488,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Code = "test",
             };
 
-            _searchParameterSupportResolver
-                .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(p => p.Name == "test"))
-                .Returns((true, false));
-
-            await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
+            _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam.ToTypedElement() });
 
             var patientParamsWithNew = _searchParameterDefinitionManager.GetSearchParameters("Patient");
             Assert.Equal(patientParamCount + 1, patientParamsWithNew.Count());
@@ -558,7 +599,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _searchParameterComparer,
                 statusDataStore.CreateMockScopeProvider(),
                 fhirDataStore.CreateMockScopeProvider(),
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
 
             await searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
 
@@ -623,21 +665,55 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchParameterDefinitionManager.UrlLookup = new ConcurrentDictionary<string, SearchParameterInfo>(
                 searchParameters.ToDictionary(x => x.Url.OriginalString));
-            _searchParameterDefinitionManager.TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>>();
+            _searchParameterDefinitionManager.TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>>();
             _searchParameterDefinitionManager.TypeLookup.TryAdd(
                 "Patient",
-                new ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>(searchParameters.GroupBy(x => x.Code).ToDictionary(x => x.Key, x => new ConcurrentQueue<SearchParameterInfo>(x))));
+                new ConcurrentDictionary<string, ConcurrentQueue<string>>(searchParameters.GroupBy(x => x.Code).ToDictionary(x => x.Key, x => new ConcurrentQueue<string>(x.Select(sp => sp.Url.OriginalString)))));
+
             for (int i = searchParameters.Length - 1; i >= 0; i--)
             {
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParameters[i].Url.OriginalString);
                 Assert.DoesNotContain(
                     _searchParameterDefinitionManager.UrlLookup,
                     _ => _searchParameterDefinitionManager.UrlLookup.TryGetValue(searchParameters[i].Url.OriginalString, out var _));
-                Assert.DoesNotContain(
-                    _searchParameterDefinitionManager.TypeLookup["Patient"],
-                    _ => _searchParameterDefinitionManager.TypeLookup["Patient"].TryGetValue(searchParameters[i].Url.OriginalString, out var q)
-                        && !q.Any(x => string.Equals(x.Url.OriginalString, searchParameters[i].Url.OriginalString)));
+
+                if (_searchParameterDefinitionManager.TypeLookup.TryGetValue("Patient", out var patientLookup) &&
+                    patientLookup.TryGetValue(searchParameters[i].Code, out var queue))
+                {
+                    Assert.DoesNotContain(queue, uri => string.Equals(uri, searchParameters[i].Url.OriginalString, StringComparison.OrdinalIgnoreCase));
+                }
             }
+        }
+
+        [Fact]
+        public void GivenTypeLookup_WhenGettingByResourceAndCode_ThenSearchParameterResolvesFromUrlLookup()
+        {
+            var searchParam = new SearchParameterInfo(
+                name: "binding-test",
+                code: "binding-test",
+                searchParamType: SearchParamType.Token,
+                url: new Uri("http://example.org/fhir/SearchParameter/binding-test"),
+                expression: "Patient.identifier",
+                baseResourceTypes: new List<string> { "Patient" });
+
+            _searchParameterDefinitionManager.UrlLookup = new ConcurrentDictionary<string, SearchParameterInfo>(
+                new Dictionary<string, SearchParameterInfo>
+                {
+                    [searchParam.Url.OriginalString] = searchParam,
+                });
+
+            _searchParameterDefinitionManager.TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>>(
+                new Dictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>>
+                {
+                    ["Patient"] = new ConcurrentDictionary<string, ConcurrentQueue<string>>(
+                        new Dictionary<string, ConcurrentQueue<string>>
+                        {
+                            ["binding-test"] = new ConcurrentQueue<string>(new[] { searchParam.Url.OriginalString }),
+                        }),
+                });
+
+            SearchParameterInfo resolved = _searchParameterDefinitionManager.GetSearchParameter("Patient", "binding-test");
+            Assert.Same(searchParam, resolved);
         }
 
         private static void ValidateSearchParam(SearchParameterInfo expectedSearchParam, SearchParameterInfo actualSearchParam)
@@ -667,6 +743,371 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 null);
             var searchEntry = new SearchResultEntry(wrapper);
             return new SearchResult(Enumerable.Repeat(searchEntry, 1), continuationToken, null, new List<Tuple<string, string>>());
+        }
+
+        /// <summary>
+        /// Reproduces the SearchParameterNotSupportedException bug that occurs in production
+        /// when the _type parameter has no entry in the Cosmos status store and a background task
+        /// (no HTTP request context) accesses SearchOptionsFactory.ResourceTypeSearchParameter.
+        ///
+        /// The bug chain:
+        /// 1. Refactor commit (4493ae1f9) registered ResourceTypeSearchParameter in UrlLookup,
+        ///    making _type visible in AllSearchParameters for the first time.
+        /// 2. EnsureInitializedAsync iterates AllSearchParameters, finds no status store entry
+        ///    for _type, enters the else branch, and calls CheckSearchParameterSupport.
+        /// 3. SearchParameterSupportResolver.IsSearchParameterSupported throws
+        ///    "No target resources defined" because _type has no BaseResourceTypes/TargetResourceTypes.
+        /// 4. The exception is caught → IsSearchable is set to false.
+        /// 5. Background task calls SearchableSearchParameterDefinitionManager.GetSearchParameter("Resource", "_type").
+        /// 6. No HTTP request context → UsePartialSearchParams returns false.
+        /// 7. IsSearchable is false AND UsePartialSearchParams is false → throws SearchParameterNotSupportedException.
+        /// </summary>
+        [Fact]
+        public async Task GivenResourceTypeParamWithNoStatusStoreEntry_WhenBackgroundTaskAccessesSearchableManager_ThenShouldNotThrow()
+        {
+            // Arrange: Create a status store that has NO entry for _type (Resource-type),
+            // matching the actual production condition on failing Cosmos/Gen1 accounts.
+            // Only include entries for other parameters — _type is deliberately absent.
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            statusDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>())
+                .Returns(new[]
+                {
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Enabled,
+                        Uri = new Uri(ResourceId),
+                    },
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Enabled,
+                        Uri = new Uri(ResourceLastUpdated),
+                        IsPartiallySupported = true,
+                    },
+
+                    // Note: NO entry for _type (http://hl7.org/fhir/SearchParameter/Resource-type).
+                    // This is the actual production condition — the status store simply doesn't
+                    // have a row for it, so it hits the else branch in EnsureInitializedAsync.
+                });
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var searchService = Substitute.For<ISearchService>();
+            var searchParameterDefinitionManager = new SearchParameterDefinitionManager(
+                ModelInfoProvider.Instance,
+                _mediator,
+                searchService.CreateMockScopeProvider(),
+                _searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
+
+            await searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
+
+            var statusManager = new SearchParameterStatusManager(
+                statusDataStore,
+                searchParameterDefinitionManager,
+                _searchParameterSupportResolver,
+                _mediator,
+                NullLogger<SearchParameterStatusManager>.Instance);
+
+            await statusManager.EnsureInitializedAsync(CancellationToken.None);
+
+            // Verify the fix: _type.IsSearchable should remain true because it is ResourceTypeSearchParameter,
+            // which is a hardcoded parameter with no status store entry and cannot be
+            // validated by SearchParameterSupportResolver (throws "No target resources defined").
+            // Before the fix, EnsureInitializedAsync set IsSearchable = false for any param
+            // not found in the status store (the else branch), which hit _type when the status
+            // store had no entry for it.
+            var resourceTypeParam = searchParameterDefinitionManager.GetSearchParameter("Resource", SearchParameterNames.ResourceType);
+            Assert.True(resourceTypeParam.IsSearchable, "_type should remain searchable even without a status store entry");
+            Assert.True(resourceTypeParam.IsSupported, "_type should remain supported even without a status store entry");
+
+            // Simulate a background task context: RequestContext is null (no HTTP request)
+            var nullContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            nullContextAccessor.RequestContext.Returns((IFhirRequestContext)null);
+
+            var searchableManager = new SearchableSearchParameterDefinitionManager(
+                searchParameterDefinitionManager, nullContextAccessor);
+
+            // Act & Assert: This is the exact call that crashes in production.
+            // SearchOptionsFactory.ResourceTypeSearchParameter calls this with ("Resource", "_type").
+            // Before the fix, this throws SearchParameterNotSupportedException because:
+            //   1. _type has no status store entry → else branch → IsSearchable = false
+            //   2. Background task has no RequestContext → UsePartialSearchParams = false
+            //   3. Both false → SearchableSearchParameterDefinitionManager throws
+            var exception = Record.Exception(() =>
+                searchableManager.GetSearchParameter("Resource", SearchParameterNames.ResourceType));
+
+            Assert.Null(exception);
+        }
+
+        /// <summary>
+        /// Verifies that _type (ResourceTypeSearchParameter) remains searchable and supported
+        /// after multiple calls to EnsureInitializedAsync (simulating pod restarts or repeated
+        /// initialization), even though _type never gets written to the status store.
+        ///
+        /// _type is a hardcoded parameter with no corresponding FHIR SearchParameter resource.
+        /// The refresh loop in SearchParameterOperations explicitly filters out system-defined
+        /// parameters before fetching, so _type is never persisted to the status store.
+        /// This test ensures the fix is stable across repeated initialization cycles.
+        /// </summary>
+        [Fact]
+        public async Task GivenResourceTypeParamWithNoStatusStoreEntry_WhenMultipleInitializationCyclesOccur_ThenRemainsSearchable()
+        {
+            // Arrange: Status store with NO entry for _type.
+            // This matches existing Cosmos/Gen1 accounts whose status store was seeded
+            // BEFORE the refactor commit added _type to AllSearchParameters.
+            // New instances DO have _type in the store (seeded by CosmosDbSearchParameterStatusInitializer
+            // via FilebasedSearchParameterStatusDataStore which iterates AllSearchParameters).
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            statusDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>())
+                .Returns(new[]
+                {
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Enabled,
+                        Uri = new Uri(ResourceId),
+                    },
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Enabled,
+                        Uri = new Uri(ResourceLastUpdated),
+                        IsPartiallySupported = true,
+                    },
+
+                    // _type is deliberately absent from the status store.
+                });
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var searchService = Substitute.For<ISearchService>();
+            var searchParameterDefinitionManager = new SearchParameterDefinitionManager(
+                ModelInfoProvider.Instance,
+                _mediator,
+                searchService.CreateMockScopeProvider(),
+                _searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
+
+            await searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
+
+            var statusManager = new SearchParameterStatusManager(
+                statusDataStore,
+                searchParameterDefinitionManager,
+                _searchParameterSupportResolver,
+                _mediator,
+                NullLogger<SearchParameterStatusManager>.Instance);
+
+            // Act: Run EnsureInitializedAsync multiple times, simulating repeated refresh
+            // cycles where the status store still has no _type entry.
+            for (int i = 0; i < 3; i++)
+            {
+                await statusManager.EnsureInitializedAsync(CancellationToken.None);
+
+                var resourceTypeParam = searchParameterDefinitionManager.GetSearchParameter(
+                    "Resource", SearchParameterNames.ResourceType);
+                Assert.True(resourceTypeParam.IsSearchable, $"_type should remain searchable after initialization cycle {i + 1}");
+                Assert.True(resourceTypeParam.IsSupported, $"_type should remain supported after initialization cycle {i + 1}");
+            }
+
+            // Also verify that ApplySearchParameterStatuses (called during refresh) doesn't
+            // affect _type, since it only processes statuses passed to it and _type has none.
+            await statusManager.ApplySearchParameterStatuses(
+                new[]
+                {
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Enabled,
+                        Uri = new Uri(ResourceId),
+                    },
+                },
+                CancellationToken.None);
+
+            var typeParamAfterApply = searchParameterDefinitionManager.GetSearchParameter(
+                "Resource", SearchParameterNames.ResourceType);
+            Assert.True(typeParamAfterApply.IsSearchable, "_type should remain searchable after ApplySearchParameterStatus");
+            Assert.True(typeParamAfterApply.IsSupported, "_type should remain supported after ApplySearchParameterStatus");
+        }
+
+        /// <summary>
+        /// Validates the new instance path: when the status store DOES contain an Enabled entry
+        /// for _type (as seeded by CosmosDbSearchParameterStatusInitializer on new instances),
+        /// _type should remain searchable and supported through initialization.
+        /// </summary>
+        [Fact]
+        public async Task GivenResourceTypeParamWithEnabledStatusStoreEntry_WhenInitializing_ThenRemainsSearchable()
+        {
+            // Arrange: Status store WITH an Enabled entry for _type, matching new instances
+            // where CosmosDbSearchParameterStatusInitializer seeds all AllSearchParameters.
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            statusDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>())
+                .Returns(new[]
+                {
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Enabled,
+                        Uri = new Uri(ResourceId),
+                    },
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Enabled,
+                        Uri = new Uri(ResourceLastUpdated),
+                        IsPartiallySupported = true,
+                    },
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Enabled,
+                        Uri = SearchParameterNames.ResourceTypeUri,
+                    },
+                });
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var searchService = Substitute.For<ISearchService>();
+            var searchParameterDefinitionManager = new SearchParameterDefinitionManager(
+                ModelInfoProvider.Instance,
+                _mediator,
+                searchService.CreateMockScopeProvider(),
+                _searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
+
+            await searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
+
+            var statusManager = new SearchParameterStatusManager(
+                statusDataStore,
+                searchParameterDefinitionManager,
+                _searchParameterSupportResolver,
+                _mediator,
+                NullLogger<SearchParameterStatusManager>.Instance);
+
+            await statusManager.EnsureInitializedAsync(CancellationToken.None);
+
+            // Verify: _type should be searchable via the normal if-branch (status found, Enabled).
+            var resourceTypeParam = searchParameterDefinitionManager.GetSearchParameter(
+                "Resource", SearchParameterNames.ResourceType);
+            Assert.True(resourceTypeParam.IsSearchable, "_type should be searchable when status store has Enabled entry");
+            Assert.True(resourceTypeParam.IsSupported, "_type should be supported when status store has Enabled entry");
+
+            // Also verify it works from SearchableSearchParameterDefinitionManager in
+            // a background task context (null RequestContext).
+            var nullContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            nullContextAccessor.RequestContext.Returns((IFhirRequestContext)null);
+
+            var searchableManager = new SearchableSearchParameterDefinitionManager(
+                searchParameterDefinitionManager, nullContextAccessor);
+
+            var exception = Record.Exception(() =>
+                searchableManager.GetSearchParameter("Resource", SearchParameterNames.ResourceType));
+
+            Assert.Null(exception);
+        }
+
+        [Fact]
+        public async Task GivenStorageInitializedNotification_WhenHandled_ThenFullChainPublishesSearchParametersInitialized()
+        {
+            // Tests that handling StorageInitializedNotification triggers definition-stage
+            // initialization and publishes SearchParameterDefinitionManagerInitialized.
+            // Note: The remainder of the chain (StatusManager → SearchParametersInitializedNotification)
+            // is not testable here because the mediator is mocked.
+            var notification = new Messages.Storage.StorageInitializedNotification();
+            await _searchParameterDefinitionManager.HandleAsync(notification, CancellationToken.None);
+
+            await _mediator.Received().PublishAsync(
+                Arg.Any<Messages.Search.SearchParameterDefinitionManagerInitialized>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenStorageInitializedNotification_WhenDefinitionStageFails_ThenRetriesTotalThreeTimesAndDoesNotPublish()
+        {
+            // Simulate definition-stage failure by making the search service throw during SearchAsync,
+            // which is called during LoadSearchParamsFromDataStore.
+            // Need a fresh definition manager that hasn't been initialized yet
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var searchService = Substitute.For<ISearchService>();
+            var mediator = Substitute.For<IMediator>();
+
+            searchService.SearchAsync(Arg.Any<SearchOptions>(), Arg.Any<CancellationToken>())
+                .Returns<SearchResult>(_ => throw new InvalidOperationException("Simulated search failure"));
+
+            var definitionManager = new SearchParameterDefinitionManager(
+                ModelInfoProvider.Instance,
+                mediator,
+                searchService.CreateMockScopeProvider(),
+                _searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
+
+            var notification = new Messages.Storage.StorageInitializedNotification();
+            await definitionManager.HandleAsync(notification, CancellationToken.None);
+
+            // Should have retried 3 times total and then given up silently
+            await searchService.Received(3).SearchAsync(Arg.Any<SearchOptions>(), Arg.Any<CancellationToken>());
+
+            // SearchParameterDefinitionManagerInitialized should never have been published
+            await mediator.DidNotReceive().PublishAsync(
+                Arg.Any<Messages.Search.SearchParameterDefinitionManagerInitialized>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenStorageInitializedNotification_WhenStatusStageFails_ThenRetriesTotalThreeTimesAndDoesNotPublishFinalNotification()
+        {
+            // The status manager receives SearchParameterDefinitionManagerInitialized and calls
+            // EnsureInitializedAsync. If it fails, the exception bubbles back to the definition
+            // manager's EnsureInitializedAsync, which resets _initialized and rethrows.
+            // The definition manager Handle() retries the whole thing 3 times.
+            var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            statusDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>(), Arg.Any<DateTimeOffset?>())
+                .Returns(new[]
+                {
+                    new ResourceSearchParameterStatus
+                    {
+                        Status = SearchParameterStatus.Enabled,
+                        Uri = new Uri(ResourceId),
+                    },
+                });
+
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var searchService = Substitute.For<ISearchService>();
+            var mediator = Substitute.For<IMediator>();
+
+            var definitionManager = new SearchParameterDefinitionManager(
+                ModelInfoProvider.Instance,
+                mediator,
+                searchService.CreateMockScopeProvider(),
+                _searchParameterComparer,
+                statusDataStore.CreateMockScopeProvider(),
+                fhirDataStore.CreateMockScopeProvider(),
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
+
+            // When SearchParameterDefinitionManagerInitialized is published, simulate a status-stage failure
+            mediator.PublishAsync(
+                Arg.Any<Messages.Search.SearchParameterDefinitionManagerInitialized>(),
+                Arg.Any<CancellationToken>())
+                .Returns(_ => throw new InvalidOperationException("Simulated status-stage failure"));
+
+            var notification = new Messages.Storage.StorageInitializedNotification();
+            await definitionManager.HandleAsync(notification, CancellationToken.None);
+
+            // The definition manager retries 3 times; each attempt publishes
+            // SearchParameterDefinitionManagerInitialized (which then fails in the status manager)
+            await mediator.Received(3).PublishAsync(
+                Arg.Any<Messages.Search.SearchParameterDefinitionManagerInitialized>(),
+                Arg.Any<CancellationToken>());
+
+            // SearchParametersInitializedNotification should never have been published
+            // because the status manager failed every time
+            await mediator.DidNotReceive().PublishAsync(
+                Arg.Any<Messages.Search.SearchParametersInitializedNotification>(),
+                Arg.Any<CancellationToken>());
         }
     }
 }

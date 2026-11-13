@@ -10,16 +10,19 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
@@ -28,17 +31,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
     [JobTypeId((int)JobType.BulkDeleteProcessing)]
     public class BulkDeleteProcessingJob : IJob
     {
-        private readonly Func<IScoped<IDeletionService>> _deleterFactory;
+        private readonly IScopeProvider<IDeletionService> _deleterFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IMediator _mediator;
-        private readonly Func<IScoped<ISearchService>> _searchService;
+        private readonly IScopeProvider<ISearchService> _searchService;
         private readonly IQueueClient _queueClient;
 
         public BulkDeleteProcessingJob(
-            Func<IScoped<IDeletionService>> deleterFactory,
+            IScopeProvider<IDeletionService> deleterFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IMediator mediator,
-            Func<IScoped<ISearchService>> searchService,
+            IScopeProvider<ISearchService> searchService,
             IQueueClient queueClient)
         {
             _deleterFactory = EnsureArg.IsNotNull(deleterFactory, nameof(deleterFactory));
@@ -53,6 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
             IFhirRequestContext existingFhirRequestContext = _contextAccessor.RequestContext;
+            var result = new BulkDeleteResult();
 
             try
             {
@@ -72,11 +76,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 };
 
                 _contextAccessor.RequestContext = fhirRequestContext;
-                var result = new BulkDeleteResult();
                 IDictionary<string, long> resourcesDeleted = new Dictionary<string, long>();
                 using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
                 Exception exception = null;
+                bool isCustomerCaused = false;
                 List<string> types = definition.Type.SplitByOrSeparator().ToList();
+
+                void OnProfileResourceSkipped(string resourceType, long count)
+                {
+                    result.ResourcesIgnored[resourceType] = result.ResourcesIgnored.TryGetValue(resourceType, out long existing)
+                        ? existing + count
+                        : count;
+                }
 
                 try
                 {
@@ -91,13 +102,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                             allowPartialSuccess: false, // Explicitly setting to call out that this can be changed in the future if we want to. Bulk delete offers the possibility of automatically rerunning the operation until it succeeds, fully automating the process.
                             removeReferences: definition.RemoveReferences),
                         cancellationToken,
-                        definition.ExcludedResourceTypes);
+                        definition.ExcludedResourceTypes,
+                        definition.AllowProfileResourceModification ? null : OnProfileResourceSkipped);
                 }
                 catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {
                     resourcesDeleted = ex.PartialResults;
-                    result.Issues.Add(ex.Message);
+                    foreach (var error in CustomerCausedExceptionExtensions.GetLeaves(ex))
+                    {
+                        result.Issues.Add($"{error.GetType().Name}: {error.Message}");
+                    }
+
+                    if (result.Issues.Count == 0)
+                    {
+                        result.Issues.Add(ex.Message);
+                    }
+
                     exception = ex;
+                    isCustomerCaused = ex.IsCustomerCaused();
+                }
+                catch (Exception ex) when (ex.IsCustomerCaused())
+                {
+                    result.Issues.Add($"{ex.GetType().Name}: {ex.Message}");
+                    exception = ex;
+                    isCustomerCaused = true;
                 }
 
                 foreach (var (key, value) in resourcesDeleted)
@@ -108,18 +136,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     }
                 }
 
-                await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, resourcesDeleted.Sum(resource => resource.Value)), cancellationToken);
+                foreach (var (resourceType, count) in result.ResourcesIgnored)
+                {
+                    result.Issues.Add($"Skipped {count} {resourceType} resource(s) because the submitting caller did not have EditProfileDefinitions permission. The resources were not deleted.");
+                }
+
+                await _mediator.PublishAsync(new BulkDeleteMetricsNotification(jobInfo.Id, resourcesDeleted.Sum(resource => resource.Value)), cancellationToken);
 
                 if (exception != null)
                 {
-                    throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception, false);
+                    throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception, isCustomerCaused);
                 }
 
                 if (types.Count > 1)
                 {
                     types.RemoveAt(0);
                     using var searchService = _searchService.Invoke();
-                    BulkDeleteDefinition processingDefinition = await BulkDeleteOrchestratorJob.CreateProcessingDefinition(definition, searchService.Value, types, cancellationToken);
+                    BulkDeleteDefinition processingDefinition = await BulkDeleteOrchestratorJob.CreateProcessingDefinition(jobInfo, definition, searchService.Value, types, cancellationToken);
 
                     if (processingDefinition != null)
                     {
@@ -128,6 +161,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 }
 
                 return JsonConvert.SerializeObject(result);
+            }
+            catch (Exception ex) when (ex is not JobExecutionException && ex.IsCustomerCaused())
+            {
+                result.Issues.Add($"{ex.GetType().Name}: {ex.Message}");
+                throw new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, ex, true);
             }
             finally
             {

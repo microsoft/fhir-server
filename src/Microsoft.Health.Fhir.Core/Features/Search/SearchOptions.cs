@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -35,6 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             MaxItemCountSpecifiedByClient = other.MaxItemCountSpecifiedByClient;
             Expression = other.Expression;
+            SearchParameters = new List<SearchParameterInfo>(other.SearchParameters);
             UnsupportedSearchParams = new List<Tuple<string, string>>(other.UnsupportedSearchParams);
             Sort = new List<(SearchParameterInfo, SortOrder)>(other.Sort);
 
@@ -55,6 +57,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IncludesOperationSupported = other.IncludesOperationSupported;
             IsAsyncOperation = other.IsAsyncOperation;
             SkipAppendIntersectionWithPredecessor = other.SkipAppendIntersectionWithPredecessor;
+            ContainsIterativeInclude = other.ContainsIterativeInclude;
+            ScopeDataActions = other.ScopeDataActions;
+            NormalizedQueryShape = other.NormalizedQueryShape;
         }
 
         /// <summary>
@@ -141,6 +146,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public Expression Expression { get; internal set; }
 
         /// <summary>
+        /// Gets the collection of search parameters used for filtering and querying resources.
+        /// </summary>
+        public IReadOnlyList<SearchParameterInfo> SearchParameters { get; internal set; } = new List<SearchParameterInfo>();
+
+        /// <summary>
         /// Gets the list of search parameters that were not used in the search.
         /// </summary>
         public IReadOnlyList<Tuple<string, string>> UnsupportedSearchParams { get; internal set; }
@@ -153,6 +163,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public IReadOnlyList<(string Param, string Value)> QueryHints { get; set; }
 
         public bool OnlyIds { get; set; }
+
+        /// <summary>
+        /// Gets the data actions that may contribute SMART scope restrictions to this search.
+        /// </summary>
+        public DataActions ScopeDataActions { get; internal set; } = DataActions.Read | DataActions.Search;
 
         /// <summary>
         /// Flag for async operations.
@@ -179,6 +194,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Specifically used for smart request with ANDed query parameters multiary operation inside the union of all allowed scopes
         /// </summary>
         public bool SkipAppendIntersectionWithPredecessor { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the search contains iterative includes.
+        /// </summary>
+        public bool ContainsIterativeInclude { get; set; }
+
+        internal string NormalizedQueryShape { get; set; }
 
         /// <summary>
         /// Performs a shallow clone of this instance

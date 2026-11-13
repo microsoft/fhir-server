@@ -146,5 +146,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             _inner.UpdateSearchParameterStatus(url, desiredStatus);
         }
+
+        public ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
+        {
+            return _inner.GetDerivedResourceTypes(resourceTypes);
+        }
     }
 }

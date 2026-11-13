@@ -8,16 +8,29 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
+using System.Reflection.Metadata;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
+using Microsoft.AspNetCore.Server.HttpSys;
+using Microsoft.CodeAnalysis;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json;
+using Polly;
 using Xunit;
+using static Hl7.Fhir.Model.Bundle;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
@@ -25,423 +38,754 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
     [CollectionDefinition(Categories.IndexAndReindex, DisableParallelization = true)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.IndexAndReindex)]
+    [Trait(Traits.Category, Categories.ReindexOperation)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class ReindexTests : IClassFixture<ReindexTestFixture>
+    public class ReindexTests : IClassFixture<HttpIntegrationTestFixture>, IAsyncLifetime
     {
-        private readonly ReindexTestFixture _fixture;
+        private readonly HttpIntegrationTestFixture _fixture;
+        private readonly bool _isSql;
+        private readonly ITestOutputHelper _output;
+        private readonly IAsyncPolicy _retries;
 
-        public ReindexTests(ReindexTestFixture fixture)
+        public ReindexTests(HttpIntegrationTestFixture fixture, ITestOutputHelper output)
         {
             _fixture = fixture;
+            _isSql = _fixture.DataStore == DataStore.SqlServer;
+            _output = output;
+            _retries = Policy.Handle<Exception>().RetryAsync(3);
         }
 
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
+        public async ValueTask InitializeAsync()
+        {
+            // delete leftover resources from previous test runs
+            // this guarantees that we start from clean state even on previous hard failures when we cannot rely on finally
+            // we can consider removing finally altogether
+            var sw = Stopwatch.StartNew();
+            _output.WriteLine("ReindexTests.InitializeAsync: Starting...");
+
+            await CancelAnyRunningReindexJobsAsync();
+
+            await DeleteResourcesAsync("Person");
+            await DeleteResourcesAsync("Specimen");
+            await DeleteResourcesAsync("SupplyDelivery");
+            await DeleteResourcesAsync("Immunization");
+            //// delete search param resources
+            var deletedSearchParams = await DeleteResourcesAsync("SearchParameter"); // mark as pending
+            if (deletedSearchParams > 0)
+            {
+                var retries = 0;
+                await _retries.ExecuteAsync(async () =>
+                {
+                    var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] }); // true delete
+                    var status = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(1000));
+                    Assert.True(status.Status == OperationStatus.Completed, $"ReindexTests.InitializeAsync: reindex status=[{status.Status}] retries=[{retries++}] failure=[{status.FailureReason}]");
+                });
+            }
+            else
+            {
+                _output.WriteLine("ReindexTests.InitializeAsync: skipping reindex.");
+            }
+
+            _output.WriteLine($"ReindexTests.InitializeAsync: Completed. Elapsed={(int)sw.Elapsed.TotalMilliseconds} msec.");
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        [Fact]
+        public async Task GivenSequentialBundleSearchParamCreates_ShouldSuceed()
+        {
+            const int numberOfSearchParams = 10;
+            const string urlPrefix = "http://reindex/";
+            var codes = new List<string>();
+            for (var i = 0; i < numberOfSearchParams; i++)
+            {
+                var code = $"c-id-{i}";
+                codes.Add(code);
+            }
+
+            var bundle = await CreatePersonSearchParamsAsync();
+            Assert.Equal(numberOfSearchParams, bundle.Entry.Count);
+            foreach (var entry in bundle.Entry)
+            {
+                Assert.True(entry.Resource as SearchParameter != null, $"actual={JsonConvert.SerializeObject(entry)}");
+            }
+
+            async Task<Bundle> CreatePersonSearchParamsAsync()
+            {
+                var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
+
+                foreach (var code in codes)
+                {
+                    var searchParam = CreatePersonSearchParam(code, $"{urlPrefix}{code}");
+                    bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{code}" }, Resource = searchParam });
+                }
+
+                var result = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Sequential });
+                return result;
+            }
+        }
+
+        [Theory]
+        [InlineData(false, false)] // single creats
+        [InlineData(true, false)] // batch bundle
+        [InlineData(true, true)] // parallel batch bundle
+        public async Task GivenConcurrentSearchParamCreates_SomeShouldFail(bool isBundle, bool isParallel)
+        {
+            const string urlPrefix = "http://reindex/";
+            var codes = new List<string>();
+            var threw = false;
+            await Parallel.ForAsync(0, 40, new ParallelOptions { MaxDegreeOfParallelism = 4 }, async (i, ct) =>
+            {
+                var code = $"c-id-{i}";
+                lock (codes)
+                {
+                    codes.Add(code);
+                }
+
+                try
+                {
+                    var result = await CreatePersonSearchParamAsync(code, isBundle, isParallel);
+                    if (isBundle && result is FhirResponse<Bundle> bundleResponse)
+                    {
+                        Assert.Single(bundleResponse.Resource.Entry);
+
+                        var entry = bundleResponse.Resource.Entry[0];
+                        if (entry.Response != null && entry.Response.Status.StartsWith("4"))
+                        {
+                            if (entry.Response.Outcome is OperationOutcome outcome)
+                            {
+                                var diagnostics = outcome.Issue?.FirstOrDefault()?.Diagnostics;
+                                _output.WriteLine($"Param={code}. Diagnostics={diagnostics}");
+                                var expected = $"{Core.Resources.SearchParameterConcurrencyConflict}{(isParallel ? string.Empty : " Update.3")}";
+                                Assert.True(diagnostics == expected, $"Expected={expected} Actual={diagnostics}");
+                                threw = true;
+
+                                lock (codes)
+                                {
+                                    codes.Remove(code);
+                                }
+
+                                return;
+                            }
+                        }
+                    }
+
+                    _output.WriteLine($"Created search param = {code}");
+                }
+                catch (FhirClientException ex)
+                {
+                    _output.WriteLine($"Param={code}. StatusCode={ex.StatusCode}, Error={ex.Message}");
+
+                    if (ex.StatusCode != HttpStatusCode.InternalServerError) // this can happen because of short wait limit to accquire "lock" in "get and apply" code. testing only.
+                    {
+                        Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+                        var expected = $"BadRequest: {Core.Resources.SearchParameterConcurrencyConflict} {(isBundle ? "Update.3" : "Create.3")}";
+                        Assert.True(ex.Message.StartsWith(expected), $"Expected={expected} Actual={ex.Message}");
+                        threw = true;
+                    }
+
+                    lock (codes)
+                    {
+                        codes.Remove(code);
+                    }
+                }
+            });
+
+            Assert.True(threw || !_isSql, "Expected at least one create to fail due to concurrency for SQL only.");
+
+            async Task<FhirResponse> CreatePersonSearchParamAsync(string code, bool isBundle, bool isParal)
+            {
+                var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
+                var searchParam = CreatePersonSearchParam(code, $"{urlPrefix}{code}");
+
+                if (isBundle)
+                {
+                    bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{code}" }, Resource = searchParam });
+                    var result = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = isParal ? FhirBundleProcessingLogic.Parallel : FhirBundleProcessingLogic.Sequential });
+                    return result;
+                }
+                else
+                {
+                    var result = await _fixture.TestFhirClient.CreateAsync(searchParam);
+                    return result;
+                }
+            }
+        }
+
+        [Fact]
+        public async Task Given500SearchParams_WhenReindexCompletes_ThenSearchParamsAreEnabled()
+        {
+            if (!_isSql) // max(lastUpdated) works only for SQL. For Cosmos - NOOP.
+            {
+                return;
+            }
+
+            const int numberOfSearchParams = 500; // increase to 500 when cache is not updated by API calls and status is saved with resources in a single SQL transaction
+            const string urlPrefix = "http://reindex/";
+            var codes = new List<string>();
+            for (var i = 0; i < numberOfSearchParams; i++)
+            {
+                var code = $"c-id-{i}";
+                codes.Add(code);
+            }
+
+            var bundle = await CreatePersonSearchParamsAsync();
+            Assert.Equal(numberOfSearchParams, bundle.Entry.Count);
+            foreach (var entry in bundle.Entry)
+            {
+                Assert.True(entry.Resource as SearchParameter != null, $"actual={JsonConvert.SerializeObject(entry)}");
+            }
+
+            // check by urls
+            // code works locally for all 500, but in PR it throws - FhirClientException : RequestUriTooLong (NO_FHIR_ACTIVITY_ID_FOR_THIS_TRANSACTION)
+            var total = 0;
+            var chunk = numberOfSearchParams / 10; // assumes there is no remainder.
+            for (var i = 0; i < 10; i++)
+            {
+                var urls = string.Join(",", codes.Skip(i * chunk).Take(chunk).Select(_ => $"{urlPrefix}{_}"));
+                var search = await _fixture.TestFhirClient.SearchAsync($"SearchParameter?_summary=count&url={urls}");
+                total += search.Resource.Total.Value;
+            }
+
+            Assert.True(total == numberOfSearchParams, $"Urls: expected={numberOfSearchParams} actual={total}");
+
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+
+            await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+
+            await Parallel.ForEachAsync(codes, new ParallelOptions { MaxDegreeOfParallelism = 8 }, async (code, cancel) =>
+            {
+                await VerifySearchParameterIsEnabledAsync($"Person?{code}=test", code);
+            });
+
+            async Task<Bundle> CreatePersonSearchParamsAsync()
+            {
+                var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = new List<EntryComponent>() };
+
+                foreach (var code in codes)
+                {
+                    var searchParam = CreatePersonSearchParam(code, $"{urlPrefix}{code}");
+                    bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{code}" }, Resource = searchParam });
+                }
+
+                var result = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+                return result;
+            }
+
+            async Task VerifySearchParameterIsEnabledAsync(string searchQuery, string searchParameterCode)
+            {
+                var response = await _fixture.TestFhirClient.SearchAsync(searchQuery);
+                Assert.NotNull(response);
+                var error = HasNotSupportedError(response.Resource);
+                Assert.False(error, $"Search param {searchParameterCode} is NOT supported after reindex.");
+            }
+        }
+
+        [Fact]
+        public async Task GivenTwoSearchParamsWithCodeConflictOnDerived_ThenBadRequestIsReturned()
+        {
+#if R5
+            var personTypes = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Person };
+            var resourceTypes = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Resource };
+#else
+            var personTypes = new List<ResourceType?>() { ResourceType.Person };
+            var resourceTypes = new List<ResourceType?>() { ResourceType.Resource };
+#endif
+            const string urlPrefix = "http://reindex/";
+            var ids = new List<string> { "c-id-1", "c-id-2" };
+            var code = "same-code";
+            try
+            {
+                var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = [] };
+
+                var id = ids[0];
+                var searchParam = CreatePersonSearchParam(code, $"{urlPrefix}c-1", id);
+                bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
+
+                id = ids[1];
+                searchParam = new SearchParameter
+                {
+                    Id = id,
+                    Url = $"{urlPrefix}c-2",
+                    Name = code,
+                    Code = code,
+                    Status = PublicationStatus.Active,
+                    Type = SearchParamType.Token,
+                    Expression = "Resource.id",
+                    Description = "any",
+                    Base = resourceTypes,
+                };
+
+                bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
+
+                await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+                Assert.Fail("This point should not be reached.");
+            }
+            catch (FhirClientException ex)
+            {
+                Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+                Assert.Contains($"Input search parameters have duplicate codes [(Person, {code})]", ex.Message);
+            }
+        }
+
+        [Fact]
+        public async Task GivenTwoSearchParamsInSequentialBatchBundle_ThenBothCreated()
+        {
+#if R5
+            var personTypes = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Person };
+            var supplyDeliveryTypes = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.SupplyDelivery };
+#else
+            var personTypes = new List<ResourceType?>() { ResourceType.Person };
+            var supplyDeliveryTypes = new List<ResourceType?>() { ResourceType.SupplyDelivery };
+#endif
+            const string urlPrefix = "http://reindex/";
+            var ids = new List<string> { "c-id-1", "c-id-2" };
+            var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = [] };
+
+            var id = ids[0];
+            var searchParam = new SearchParameter
+            {
+                Id = id,
+                Url = $"{urlPrefix}c-1",
+                Name = id,
+                Code = id,
+                Status = PublicationStatus.Active,
+                Type = SearchParamType.Token,
+                Expression = "Person.id",
+                Description = "any",
+                Base = personTypes,
+            };
+
+            bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
+
+            id = ids[1];
+            searchParam = new SearchParameter
+            {
+                Id = id,
+                Url = $"{urlPrefix}c-2",
+                Name = id,
+                Code = id,
+                Status = PublicationStatus.Active,
+                Type = SearchParamType.Token,
+                Expression = "SupplyDelivery.id",
+                Description = "any",
+                Base = supplyDeliveryTypes,
+            };
+
+            bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
+
+            var response = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Sequential });
+            Assert.Equal(2, response.Resource.Entry.Count);
+            Assert.All(response.Resource.Entry, _ => Assert.NotNull(_.Resource as SearchParameter));
+        }
+
+        [Fact]
+        public async Task GivenTwoSearchParamsForDifferentResourceTypesUsingSameCode_ThenBothCreated()
+        {
+#if R5
+            var personTypes = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Person };
+            var supplyDeliveryTypes = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.SupplyDelivery };
+#else
+            var personTypes = new List<ResourceType?>() { ResourceType.Person };
+            var supplyDeliveryTypes = new List<ResourceType?>() { ResourceType.SupplyDelivery };
+#endif
+            const string urlPrefix = "http://reindex/";
+            var ids = new List<string> { "c-id-1", "c-id-2" };
+            var bundle = new Bundle { Type = Bundle.BundleType.Batch, Entry = [] };
+
+            var code = "same-code";
+            var id = ids[0];
+            var searchParam = new SearchParameter
+            {
+                Id = id,
+                Url = $"{urlPrefix}c-1",
+                Name = code,
+                Code = code,
+                Status = PublicationStatus.Active,
+                Type = SearchParamType.Token,
+                Expression = "Person.id",
+                Description = "any",
+                Base = personTypes,
+            };
+
+            bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
+
+            id = ids[1];
+            searchParam = new SearchParameter
+            {
+                Id = id,
+                Url = $"{urlPrefix}c-2",
+                Name = code,
+                Code = code,
+                Status = PublicationStatus.Active,
+                Type = SearchParamType.Token,
+                Expression = "SupplyDelivery.id",
+                Description = "any",
+                Base = supplyDeliveryTypes,
+            };
+
+            bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
+
+            var response = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
+            Assert.Equal(2, response.Resource.Entry.Count);
+            Assert.All(response.Resource.Entry, _ => Assert.NotNull(_.Resource as SearchParameter));
+        }
+
+        [Theory]
+        [InlineData(true, false, true, false)]
+        [InlineData(true, false, false, false)]
+        [InlineData(false, true, true, false)]
+        [InlineData(false, true, false, false)]
+        [InlineData(true, false, true, true)]
+        [InlineData(true, false, false, true)]
+        [InlineData(false, true, true, true)]
+        //// https://microsofthealth.visualstudio.com/Health/_workitems/edit/187119
+        ////[InlineData(false, true, false, true)] // this creates 2 resources for the same url. after fixing this bug - uncomment.
+        ////[InlineData(true, true, false, true)] // this creates 2 resources for the same url. after fixing this bug - uncomment.
+        [InlineData(true, true, false, false)]
+        [InlineData(true, true, true, true)]
+        [InlineData(true, true, true, false)]
+        public async Task GivenTwoPersonSearchParams_ThenBadRequestIsReturnedForConflicts(bool dupCodes, bool dupUrls, bool isParallel, bool isBatch)
+        {
+            if (!_isSql && !isBatch) // cosmos does not support transaction bundles
+            {
+                return;
+            }
+
+            const string urlPrefix = "http://reindex/";
+            var codes = new List<string>();
+            var urls = new List<string>();
+            var ids = new List<string>();
+            try
+            {
+                ids.Add("c-id-x");
+                codes.Add("c-code-x");
+                urls.Add($"{urlPrefix}c-code-x");
+
+                ids.Add("c-id-y");
+                if (dupCodes && dupUrls)
+                {
+                    codes.Add("c-code-x");
+                    urls.Add($"{urlPrefix}c-code-x");
+                }
+                else if (dupCodes)
+                {
+                    codes.Add("c-code-x");
+                    urls.Add($"{urlPrefix}c-code-y");
+                }
+                else if (dupUrls)
+                {
+                    codes.Add("c-code-y");
+                    urls.Add($"{urlPrefix}c-code-x");
+                }
+
+                var response = await CreatePersonSearchParamsAsync();
+                if (!isParallel && isBatch) // sequential batch
+                {
+                    Assert.Equal(2, response.Entry.Count);
+
+                    // both search params ingested. this is not correct, and need to be fixed when dedupping bug is fixed.
+                    Assert.All(response.Entry, _ => Assert.NotNull(_.Resource as SearchParameter));
+                }
+                else
+                {
+                    Assert.Fail("This point should not be reached.");
+                }
+            }
+            catch (FhirClientException ex)
+            {
+                Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+                Assert.Contains("Input search parameters have duplicate", ex.Message);
+                if (dupCodes)
+                {
+                    Assert.Contains("codes", ex.Message);
+                }
+
+                if (dupUrls)
+                {
+                    Assert.Contains("Urls", ex.Message);
+                }
+            }
+
+            async Task<Bundle> CreatePersonSearchParamsAsync()
+            {
+                var bundle = new Bundle { Type = isBatch ? Bundle.BundleType.Batch : Bundle.BundleType.Transaction, Entry = [] };
+                for (var i = 0; i < ids.Count; i++)
+                {
+                    var code = codes[i];
+                    var id = ids[i];
+                    var searchParam = CreatePersonSearchParam(code, urls[i], id);
+                    bundle.Entry.Add(new EntryComponent { Request = new RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{id}" }, Resource = searchParam });
+                }
+
+                var result = await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = isParallel ? FhirBundleProcessingLogic.Parallel : FhirBundleProcessingLogic.Sequential });
+                return result;
+            }
+        }
+
+        [Fact]
+        public async Task GivenReindexJobWithConcurrentUpdates_ThenReportedCountsAreLessThanOriginal()
+        {
+            var testResources = await SetupTestDataAsync("Person", 100, CreatePersonResourceAsync);
+            var searchParam = await CreateCustomSearchParameterAsync("custom-person-name", ["Person"], "Person.name.given", SearchParamType.String);
+            Assert.NotNull(searchParam);
+
+            (FhirResponse<Parameters> response, Uri jobUri) value = default;
+            var parameters = new Parameters
+            {
+                Parameter =
+                [
+                    new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerQuery", Value = new Integer(1) },
+                    new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerWrite", Value = new Integer(1) },
+                ],
+            };
+            value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+            Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
+
+            using var cancel = new CancellationTokenSource();
+            var reindex = WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+            var update = RandomPersonUpdate(testResources, cancel.Token);
+
+            await reindex;
+            await cancel.CancelAsync();
+            var updatedCount = await update;
+            _output.WriteLine($"Successfully performed {updatedCount} Person resource updates.");
+
+            // reported in reindex counts should be less than total resources created
+            await CheckReportedCounts(value.jobUri, testResources.Count, true);
+        }
+
+        [Fact]
         public async Task GivenReindexJobWithMixedZeroAndNonZeroCountResources_WhenReindexCompletes_ThenSearchParametersShouldWork()
         {
-            // Cancel any running reindex jobs before starting this test
-            await CancelAnyRunningReindexJobsAsync();
+            var storageMultiplier = (_isSql || _fixture.IsUsingInProcTestServer) ? 1 : 50; // allows to keep settings for cosmos and optimize sql
 
             // Scenario 1: Test that search parameter status is only updated when ALL jobs complete successfully
             // This tests both zero-count and non-zero-count resource scenarios with multiple resource types
-            var mixedBaseSearchParam = new SearchParameter();
-            var personSearchParam = new SearchParameter();
-            var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
-            var testResources = new List<(string resourceType, string resourceId)>();
-            var supplyDeliveryCount = 2000;
-            var personCount = 1000;
+            var supplyDeliveryCount = 40 * storageMultiplier;
+            var personCount = 20 * storageMultiplier;
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
-            try
+            // Set up test data using the common setup method
+            Debug.WriteLine($"Setting up test data for SupplyDelivery and Person resources...");
+
+            // Setup Persons first, then SupplyDeliveries sequentially (not in parallel)
+            // This ensures Persons are fully created before SupplyDeliveries start
+            var personResources = await SetupTestDataAsync("Person", personCount, CreatePersonResourceAsync);
+            Assert.True(personResources.Count == personCount, $"Failed to create sufficient Person resources. Expected={personCount} Actual={personResources.Count}");
+
+            var supplyDeliveryResources = await SetupTestDataAsync("SupplyDelivery", supplyDeliveryCount, CreateSupplyDeliveryResourceAsync);
+            Assert.True(supplyDeliveryResources.Count == supplyDeliveryCount, $"Failed to create sufficient SupplyDelivery resources. Expected={supplyDeliveryCount} Actual={supplyDeliveryResources.Count}");
+
+            Debug.WriteLine($"Test data setup complete - SupplyDelivery: {supplyDeliveryCount}, Person: {personCount}");
+
+            // Create a single search parameter that applies to BOTH SupplyDelivery and Immunization
+            // This allows us to test the scenario where one resource type has data and another has none
+            var mixedBaseSearchParam = await CreateCustomSearchParameterAsync(
+                "custom-mixed-base",
+                ["SupplyDelivery", "Immunization"],  // Applies to both resource types
+                "SupplyDelivery.status",  // Valid for SupplyDelivery
+                SearchParamType.Token);
+            Assert.NotNull(mixedBaseSearchParam);
+
+            // Create a separate search parameter specifically for Person resources
+            // This will create a separate reindex job for Person resources
+            var personSearchParam = await CreateCustomSearchParameterAsync(
+                "custom-person-name",
+                ["Person"],  // Applies only to Person
+                "Person.name.given",  // Valid for Person name
+                SearchParamType.String);
+            Assert.NotNull(personSearchParam);
+
+            // Create reindex job targeting both search parameters
+            // This will trigger multiple reindex jobs (one for SupplyDelivery/Immunization, one for Person)
+            var parameters = new Parameters
             {
-                // Set up test data using the common setup method
-                System.Diagnostics.Debug.WriteLine($"Setting up test data for SupplyDelivery and Person resources...");
-
-                // Setup Persons first, then SupplyDeliveries sequentially (not in parallel)
-                // This ensures Persons are fully created before SupplyDeliveries start
-                var (personResources, finalPersonCount) = await SetupTestDataAsync("Person", personCount, randomSuffix, CreatePersonResourceAsync);
-                testResources.AddRange(personResources);
-
-                // CRITICAL: Verify we got what we expected
-                Assert.True(
-                    finalPersonCount >= personCount,
-                    $"Failed to create sufficient Person resources. Expected: {personCount}, Got: {finalPersonCount}");
-
-                var (supplyDeliveryResources, finalSupplyDeliveryCount) = await SetupTestDataAsync("SupplyDelivery", supplyDeliveryCount, randomSuffix, CreateSupplyDeliveryResourceAsync);
-                testResources.AddRange(supplyDeliveryResources);
-
-                // CRITICAL: Verify we got what we expected
-                Assert.True(
-                    finalSupplyDeliveryCount >= supplyDeliveryCount,
-                    $"Failed to create sufficient SupplyDelivery resources. Expected: {supplyDeliveryCount}, Got: {finalSupplyDeliveryCount}");
-
-                System.Diagnostics.Debug.WriteLine($"Test data setup complete - SupplyDelivery: {finalSupplyDeliveryCount}, Person: {finalPersonCount}");
-
-                // Create a single search parameter that applies to BOTH SupplyDelivery and Immunization
-                // This allows us to test the scenario where one resource type has data and another has none
-                mixedBaseSearchParam = await CreateCustomSearchParameterAsync(
-                    $"custom-mixed-base-{randomSuffix}",
-                    ["SupplyDelivery", "Immunization"],  // Applies to both resource types
-                    "SupplyDelivery.status",  // Valid for SupplyDelivery
-                    SearchParamType.Token);
-                Assert.NotNull(mixedBaseSearchParam);
-
-                // Create a separate search parameter specifically for Person resources
-                // This will create a separate reindex job for Person resources
-                personSearchParam = await CreateCustomSearchParameterAsync(
-                    $"custom-person-name-{randomSuffix}",
-                    ["Person"],  // Applies only to Person
-                    "Person.name.given",  // Valid for Person name
-                    SearchParamType.String);
-                Assert.NotNull(personSearchParam);
-
-                // Create reindex job targeting both search parameters
-                // This will trigger multiple reindex jobs (one for SupplyDelivery/Immunization, one for Person)
-                var parameters = new Parameters
+                Parameter = new List<Parameters.ParameterComponent>
                 {
-                    Parameter = new List<Parameters.ParameterComponent>
-                    {
-                        new Parameters.ParameterComponent
-                        {
-                            Name = "maximumNumberOfResourcesPerQuery",
-                            Value = new Integer(500),
-                        },
-                        new Parameters.ParameterComponent
-                        {
-                            Name = "maximumNumberOfResourcesPerWrite",
-                            Value = new Integer(500),
-                        },
-                    },
-                };
+                    // do not disturb cosmos as it migh affect its pagination
+                    new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerQuery", Value = new Integer(10 * storageMultiplier) },
+                    new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerWrite", Value = new Integer(10 * storageMultiplier) },
+                },
+            };
 
-                value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+            value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
 
-                Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
-                Assert.NotNull(value.jobUri);
+            Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
+            Assert.NotNull(value.jobUri);
 
-                // Wait for job to complete (this will wait for all sub-jobs to complete)
-                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
-                Assert.True(
-                    jobStatus == OperationStatus.Completed,
-                    $"Expected Completed, got {jobStatus}");
+            // Wait for job to complete (this will wait for all sub-jobs to complete)
+            var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+            Assert.True(
+                jobStatus.Status == OperationStatus.Completed,
+                $"Expected Completed, got {jobStatus.Status}");
 
-                await Task.Delay(TimeSpan.FromMinutes(1));
+            // check that data did not change
+            await SearchCreatedResources("Person", personCount);
+            await SearchCreatedResources("SupplyDelivery", supplyDeliveryCount);
 
-                // Verify search parameter is working for SupplyDelivery (which has data)
-                // Use the ACTUAL count we got, not the desired count
-                await VerifySearchParameterIsWorkingAsync(
-                    $"SupplyDelivery?{mixedBaseSearchParam.Code}=in-progress",
-                    mixedBaseSearchParam.Code,
-                    expectedResourceType: "SupplyDelivery",
-                    shouldFindRecords: true);
+            // check what reindex job reported
+            await CheckReportedCounts(value.jobUri, personResources.Count + supplyDeliveryResources.Count, false);
 
-                // Verify search parameter is working for Immunization (which has no data)
-                // We expect no immunization records to be returned (empty result set)
-                await VerifySearchParameterIsWorkingAsync(
-                    $"Immunization?{mixedBaseSearchParam.Code}=207",
-                    mixedBaseSearchParam.Code,
-                    expectedResourceType: "Immunization",
-                    shouldFindRecords: false);
+            // Verify search parameter is working for SupplyDelivery (which has data)
+            // Use the ACTUAL count we got, not the desired count
+            await VerifySearchParameterIsWorkingAsync(
+                $"SupplyDelivery?{mixedBaseSearchParam.Code}=in-progress",
+                mixedBaseSearchParam.Code,
+                expectedResourceType: "SupplyDelivery",
+                shouldFindRecords: true);
 
-                // Verify search parameter is working for Person (which has data)
-                // Use the ACTUAL count we got, not the desired count
-                await VerifySearchParameterIsWorkingAsync(
-                    $"Person?{personSearchParam.Code}=Test",
-                    personSearchParam.Code,
-                    expectedResourceType: "Person",
-                    shouldFindRecords: true);
-            }
-            finally
-            {
-                // Cleanup all test data including resources and search parameters
-                System.Diagnostics.Debug.WriteLine($"Starting cleanup of {testResources.Count} test resources...");
-                await CleanupTestDataAsync(testResources, mixedBaseSearchParam, personSearchParam);
-                System.Diagnostics.Debug.WriteLine("Cleanup completed");
-            }
+            // Verify search parameter is working for Immunization (which has no data)
+            // We expect no immunization records to be returned (empty result set)
+            await VerifySearchParameterIsWorkingAsync(
+                $"Immunization?{mixedBaseSearchParam.Code}=207",
+                mixedBaseSearchParam.Code,
+                expectedResourceType: "Immunization",
+                shouldFindRecords: false);
+
+            // Verify search parameter is working for Person (which has data)
+            // Use the ACTUAL count we got, not the desired count
+            await VerifySearchParameterIsWorkingAsync(
+                $"Person?{personSearchParam.Code}=Test",
+                personSearchParam.Code,
+                expectedResourceType: "Person",
+                shouldFindRecords: true);
         }
 
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
-        public async Task GivenReindexJobWithResourceAndAddedAfterSingleCustomSearchParameterAndBeforeReindex_WhenReindexCompletes_ThenSearchParameterShouldWork()
+        [Fact]
+        public async Task GivenResourceAddedAfterSingleSearchParamAndBeforeReindex_ThenSearchParamShouldWorkAfterReindex()
         {
-            // Cancel any running reindex jobs before starting this test
-            await CancelAnyRunningReindexJobsAsync();
+            var specimenSearchParam = await CreateCustomSearchParameterAsync("custom-parameter-before-specimen", ["Specimen"], "Specimen.type", SearchParamType.Token);
 
-            // Scenario 2: Test that search parameter with invalid expression fails indexing
-            // This validates that indexing failures prevent status updates
-            var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
-            var specimenSearchParam = new SearchParameter();
-            var immunizationSearchParam = new SearchParameter();
-            var testResources = new List<(string resourceType, string resourceId)>();
+            // wait for several cache refresh cycles to let all VMs get new search param definition. Assume that refresh interval is PaaS 20 sec.
+            await Task.Delay(30000);
+
+            await SetupTestDataAsync("Specimen", 1, CreateSpecimenResourceAsync);
+
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
+            value = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
 
-            try
-            {
-                // Create custom search parameters - one with valid FHIRPath expression
-                specimenSearchParam = await CreateCustomSearchParameterAsync($"custom-parameter-before-specimen-{randomSuffix}", ["Specimen"], "Specimen.type", SearchParamType.Token);
+            Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
+            Assert.NotNull(value.jobUri);
 
-                // Create test resources that will be indexed using SetupTestDataAsync
-                var (specimenResources, finalSpecimenCount) = await SetupTestDataAsync("Specimen", 1, randomSuffix, CreateSpecimenResourceAsync);
-                testResources.AddRange(specimenResources);
+            var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+            Assert.True(jobStatus.Status == OperationStatus.Completed, $"Expected Completed, got {jobStatus.Status}");
 
-                // Create reindex job targeting both search parameters
-                var parameters = new Parameters
-                {
-                    Parameter = new List<Parameters.ParameterComponent>
-                    {
-                        new Parameters.ParameterComponent
-                        {
-                            Name = "maximumNumberOfResourcesPerQuery",
-                            Value = new Integer(10000),
-                        },
-                        new Parameters.ParameterComponent
-                        {
-                            Name = "maximumNumberOfResourcesPerWrite",
-                            Value = new Integer(1000),
-                        },
-                    },
-                };
+            await CheckReportedCounts(value.jobUri, 0, false); // reindex should skip this resource
 
-                value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
-
-                Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
-                Assert.NotNull(value.jobUri);
-
-                // Wait for job to complete
-                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
-                Assert.True(
-                    jobStatus == OperationStatus.Completed,
-                    $"Expected Completed, got {jobStatus}");
-
-                // The valid search parameter should still be usable
-                await VerifySearchParameterIsWorkingAsync(
-                    $"Specimen?{specimenSearchParam.Code}=119295008",
-                    specimenSearchParam.Code,
-                    "Specimen",
-                    true);
-            }
-            finally
-            {
-                // Cleanup all test data including resources and search parameters
-                await CleanupTestDataAsync(testResources, specimenSearchParam, immunizationSearchParam);
-            }
+            await VerifySearchParameterIsWorkingAsync($"Specimen?{specimenSearchParam.Code}=119295008", specimenSearchParam.Code, "Specimen", true);
         }
 
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
-        public async Task GivenReindexJobWithResourceAndAddedAfterMultiCustomSearchParameterAndBeforeReindex_WhenReindexCompletes_ThenSearchParametersShouldWork()
+        [Fact]
+        public async Task GivenResourceAddedAfterMultiSearchParamsAndBeforeReindex_ThenSearchParamShouldWorkAfterReindex()
         {
-            // Cancel any running reindex jobs before starting this test
-            await CancelAnyRunningReindexJobsAsync();
+            var specimenSearchParam = await CreateCustomSearchParameterAsync("custom-parameter-before-specimen", ["Specimen"], "Specimen.type", SearchParamType.Token);
+            await CreateCustomSearchParameterAsync("custom-parameter-before-imm", ["Immunization"], "Immunization.vaccineCode", SearchParamType.Token);
 
-            // Scenario 2: Test that search parameter with invalid expression fails indexing
-            // This validates that indexing failures prevent status updates
-            var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
-            var specimenSearchParam = new SearchParameter();
-            var immunizationSearchParam = new SearchParameter();
-            var testResources = new List<(string resourceType, string resourceId)>();
+            // wait for several cache refresh cycles to let all VMs get new search param definition. Assume that refresh interval is PaaS 20 sec.
+            await Task.Delay(30000);
+
+            await SetupTestDataAsync("Specimen", 1, CreateSpecimenResourceAsync);
+
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
+            value = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
 
-            try
-            {
-                // Create custom search parameters - one with valid FHIRPath expression
-                specimenSearchParam = await CreateCustomSearchParameterAsync($"custom-parameter-before-specimen-{randomSuffix}", ["Specimen"], "Specimen.type", SearchParamType.Token);
-                immunizationSearchParam = await CreateCustomSearchParameterAsync($"custom-parameter-before-imm-{randomSuffix}", ["Immunization"], "Immunization.vaccineCode", SearchParamType.Token);
+            Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
+            Assert.NotNull(value.jobUri);
 
-                // Create test resources that will be indexed using SetupTestDataAsync
-                var (specimenResources, finalSpecimenCount) = await SetupTestDataAsync("Specimen", 1, randomSuffix, CreateSpecimenResourceAsync);
-                testResources.AddRange(specimenResources);
+            var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+            Assert.True(jobStatus.Status == OperationStatus.Completed, $"Expected Completed, got {jobStatus.Status}");
 
-                // Create reindex job targeting both search parameters
-                var parameters = new Parameters
-                {
-                    Parameter = new List<Parameters.ParameterComponent>
-                    {
-                        new Parameters.ParameterComponent
-                        {
-                            Name = "maximumNumberOfResourcesPerQuery",
-                            Value = new Integer(10000),
-                        },
-                        new Parameters.ParameterComponent
-                        {
-                            Name = "maximumNumberOfResourcesPerWrite",
-                            Value = new Integer(1000),
-                        },
-                    },
-                };
+            await CheckReportedCounts(value.jobUri, 0, false); // nothing to reindex
 
-                value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
-
-                Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
-                Assert.NotNull(value.jobUri);
-
-                // Wait for job to complete
-                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
-                Assert.True(
-                    jobStatus == OperationStatus.Completed,
-                    $"Expected Completed, got {jobStatus}");
-
-                // Add delay to allow search parameter cache to refresh
-
-                // The valid search parameter should still be usable
-                await VerifySearchParameterIsWorkingAsync(
-                    $"Specimen?{specimenSearchParam.Code}=119295008",
-                    specimenSearchParam.Code,
-                    "Specimen",
-                    true);
-            }
-            finally
-            {
-                // Cleanup all test data including resources and search parameters
-                await CleanupTestDataAsync(testResources, specimenSearchParam, immunizationSearchParam);
-            }
+            await VerifySearchParameterIsWorkingAsync($"Specimen?{specimenSearchParam.Code}=119295008", specimenSearchParam.Code, "Specimen", true);
         }
 
-        [RetryFact(MaxRetries = 3, RetryOnAssertionFailure = true)]
+        [Fact]
         public async Task GivenReindexWithCaseVariantSearchParameterUrls_WhenBothHaveSameStatus_ThenBothShouldBeProcessedCorrectly()
         {
-            // Cancel any running reindex jobs before starting this test
-            await CancelAnyRunningReindexJobsAsync();
-
             // Scenario 3a: Case variant search parameter URLs with same status (Supported, Supported)
             // Both should be treated as separate entries and processed correctly
-            var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
-            var lowerCaseParam = new SearchParameter();
-            var upperCaseParam = new SearchParameter();
-            var testResources = new List<(string resourceType, string resourceId)>();
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
-            try
-            {
-                // Create test resource using SetupTestDataAsync
-                var (specimenResources, finalSpecimenCount) = await SetupTestDataAsync("Specimen", 1, randomSuffix, CreateSpecimenResourceAsync);
-                testResources.AddRange(specimenResources);
+            // Create test resource using SetupTestDataAsync
+            var testResources = await SetupTestDataAsync("Specimen", 1, CreateSpecimenResourceAsync);
 
-                // Create search parameters with unique codes
-                lowerCaseParam = await CreateCustomSearchParameterAsync($"custom-case-sensitive-{randomSuffix}", ["Specimen"], "Specimen.type", SearchParamType.Token);
-                upperCaseParam = await CreateCustomSearchParameterAsync($"custom-case-Sensitive-{randomSuffix}", ["Specimen"], "Specimen.status", SearchParamType.Token);
-                Assert.NotNull(lowerCaseParam);
-                Assert.NotNull(upperCaseParam);
+            // Create search parameters with unique codes
+            var lowerCaseParam = await CreateCustomSearchParameterAsync("custom-case-sensitive", ["Specimen"], "Specimen.type", SearchParamType.Token);
+            var upperCaseParam = await CreateCustomSearchParameterAsync("custom-case-Sensitive", ["Specimen"], "Specimen.status", SearchParamType.Token);
+            Assert.NotNull(lowerCaseParam);
+            Assert.NotNull(upperCaseParam);
 
-                // Create reindex job targeting both case-variant search parameters
-                var parameters = new Parameters
-                {
-                    Parameter = new List<Parameters.ParameterComponent>
-                    {
-                        new Parameters.ParameterComponent
-                        {
-                            Name = "maximumNumberOfResourcesPerQuery",
-                            Value = new Integer(10000),
-                        },
-                        new Parameters.ParameterComponent
-                        {
-                            Name = "maximumNumberOfResourcesPerWrite",
-                            Value = new Integer(1000),
-                        },
-                    },
-                };
+            // Create reindex job targeting both case-variant search parameters
+            value = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
 
-                value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+            Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
+            Assert.NotNull(value.jobUri);
 
-                Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
-                Assert.NotNull(value.jobUri);
+            // Wait for job completion
+            var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+            Assert.True(
+                jobStatus.Status == OperationStatus.Completed,
+                $"Expected Completed, got {jobStatus.Status}");
 
-                // Wait for job completion
-                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
-                Assert.True(
-                    jobStatus == OperationStatus.Completed,
-                    $"Expected Completed, got {jobStatus}");
+            await CheckReportedCounts(value.jobUri, testResources.Count, false);
 
-                // Verify both search parameters are working after reindex
-                await VerifySearchParameterIsWorkingAsync(
-                    $"Specimen?{lowerCaseParam.Code}=119295008",
-                    lowerCaseParam.Code);
-                await VerifySearchParameterIsWorkingAsync(
-                    $"Specimen?{upperCaseParam.Code}=available",
-                    upperCaseParam.Code);
-            }
-            finally
-            {
-                // Cleanup all test data including resources and search_parameters
-                await CleanupTestDataAsync(testResources, lowerCaseParam, upperCaseParam);
-            }
+            // Verify both search parameters are working after reindex
+            await VerifySearchParameterIsWorkingAsync(
+                $"Specimen?{lowerCaseParam.Code}=119295008",
+                lowerCaseParam.Code);
+            await VerifySearchParameterIsWorkingAsync(
+                $"Specimen?{upperCaseParam.Code}=available",
+                upperCaseParam.Code);
         }
 
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
+        [Fact]
         public async Task GivenReindexWithCaseVariantSearchParameterUrls_WhenHavingDifferentStatuses_ThenBothSearchParametersShouldWork()
         {
-            // Cancel any running reindex jobs before starting this test
-            await CancelAnyRunningReindexJobsAsync();
-
             // Scenario 3b: Case variant search parameter URLs with different statuses
             // Verify both are set to the correct status when all jobs complete
-            var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
-            var specimenTypeParam = new SearchParameter();
-            var specimenStatusParam = new SearchParameter();
-            var testResources = new List<(string resourceType, string resourceId)>();
             (FhirResponse<Parameters> response, Uri jobUri) value = default;
 
-            try
-            {
-                // Create test resource using SetupTestDataAsync
-                var (specimenResources, finalSpecimenCount) = await SetupTestDataAsync("Specimen", 1, randomSuffix, CreateSpecimenResourceAsync);
-                testResources.AddRange(specimenResources);
+            // Create test resource using SetupTestDataAsync
+            var testResources = await SetupTestDataAsync("Specimen", 1, CreateSpecimenResourceAsync);
 
-                // Create custom search parameters with different expressions and unique codes
-                specimenTypeParam = await CreateCustomSearchParameterAsync($"custom-diff-type-{randomSuffix}", ["Specimen"], "Specimen.type", SearchParamType.Token);
-                specimenStatusParam = await CreateCustomSearchParameterAsync($"custom-diff-status-{randomSuffix}", ["Specimen"], "Specimen.status", SearchParamType.Token);
-                Assert.NotNull(specimenTypeParam);
-                Assert.NotNull(specimenStatusParam);
+            // Create custom search parameters with different expressions and unique codes
+            var specimenTypeParam = await CreateCustomSearchParameterAsync("custom-diff-type", ["Specimen"], "Specimen.type", SearchParamType.Token);
+            var specimenStatusParam = await CreateCustomSearchParameterAsync("custom-diff-status", ["Specimen"], "Specimen.status", SearchParamType.Token);
+            Assert.NotNull(specimenTypeParam);
+            Assert.NotNull(specimenStatusParam);
 
-                // Create reindex job
-                var parameters = new Parameters
-                {
-                    Parameter = new List<Parameters.ParameterComponent>
-                    {
-                        new Parameters.ParameterComponent
-                        {
-                            Name = "maximumNumberOfResourcesPerQuery",
-                            Value = new Integer(10000),
-                        },
-                        new Parameters.ParameterComponent
-                        {
-                            Name = "maximumNumberOfResourcesPerWrite",
-                            Value = new Integer(1000),
-                        },
-                    },
-                };
+            // Create reindex job
+            value = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
 
-                value = await _fixture.TestFhirClient.PostReindexJobAsync(parameters);
+            Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
+            Assert.NotNull(value.jobUri);
 
-                Assert.Equal(HttpStatusCode.Created, value.response.Response.StatusCode);
-                Assert.NotNull(value.jobUri);
+            // Wait for job completion
+            var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
+            Assert.True(
+                jobStatus.Status == OperationStatus.Completed,
+                $"Expected Completed, got {jobStatus.Status}");
 
-                // Wait for job completion
-                var jobStatus = await WaitForJobCompletionAsync(value.jobUri, TimeSpan.FromSeconds(300));
-                Assert.True(
-                    jobStatus == OperationStatus.Completed,
-                    $"Expected Completed, got {jobStatus}");
+            await CheckReportedCounts(value.jobUri, testResources.Count, false);
 
-                await Task.Delay(5000); // Wait 5 seconds for cache refresh
-
-                // Verify both search parameters are working after reindex
-                await VerifySearchParameterIsWorkingAsync(
-                    $"Specimen?{specimenTypeParam.Code}=119295008",
-                    specimenTypeParam.Code);
-                await VerifySearchParameterIsWorkingAsync(
-                    $"Specimen?{specimenStatusParam.Code}=available",
-                    specimenStatusParam.Code);
-            }
-            finally
-            {
-                // Cleanup all test data including resources and search parameters
-                await CleanupTestDataAsync(testResources, specimenTypeParam, specimenStatusParam);
-            }
+            // Verify both search parameters are working after reindex
+            await VerifySearchParameterIsWorkingAsync(
+                $"Specimen?{specimenTypeParam.Code}=119295008",
+                specimenTypeParam.Code);
+            await VerifySearchParameterIsWorkingAsync(
+                $"Specimen?{specimenStatusParam.Code}=available",
+                specimenStatusParam.Code);
         }
 
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 30000, RetryOnAssertionFailure = true)]
+        [Fact]
         public async Task GivenSearchParameterAddedAndReindexed_WhenSearchParameterIsDeleted_ThenAfterReindexSearchParameterShouldNotBeSupported()
         {
-            // Cancel any running reindex jobs before starting this test
-            await CancelAnyRunningReindexJobsAsync();
-
             // Comprehensive lifecycle test:
             // 1. Create a Specimen record with specific data
             // 2. Add a custom search parameter
@@ -450,121 +794,542 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             // 5. Delete the search parameter
             // 6. Reindex to remove the search parameter from the index
             // 7. Verify the search parameter is no longer supported (returns not-supported error)
-            var randomSuffix = Guid.NewGuid().ToString("N").Substring(0, 8);
-            var searchParam = new SearchParameter();
             var specimenId = string.Empty;
-            var testResources = new List<(string resourceType, string resourceId)>();
             (FhirResponse<Parameters> response, Uri jobUri) reindexRequest1 = default;
             (FhirResponse<Parameters> response, Uri jobUri) reindexRequest2 = default;
 
-            try
+            // Step 1: Create a Specimen with specific data that matches our search parameter expression
+            var specimenType = "LifecycleTest";
+            var specimenResources = await SetupTestDataAsync("Specimen", 1, CreateSpecimenResourceAsync);
+
+            if (specimenResources.Count > 0)
             {
-                // Step 1: Create a Specimen with specific data that matches our search parameter expression
-                var specimenType = $"LifecycleTest{randomSuffix}";
-                var (specimenResources, finalSpecimenCount) = await SetupTestDataAsync("Specimen", 1, randomSuffix, CreateSpecimenResourceAsync);
-                testResources.AddRange(specimenResources);
-
-                if (specimenResources.Count > 0)
-                {
-                    specimenId = specimenResources[0].resourceId;
-                    System.Diagnostics.Debug.WriteLine($"Created specimen with ID {specimenId} and type {specimenType}");
-                }
-
-                // Step 2: Create a custom search parameter for Specimen.type
-                searchParam = await CreateCustomSearchParameterAsync(
-                    $"custom-lifecycle-{randomSuffix}",
-                    ["Specimen"],
-                    "Specimen.type",
-                    SearchParamType.Token);
-                Assert.NotNull(searchParam);
-                System.Diagnostics.Debug.WriteLine($"Created search parameter with code {searchParam.Code} and ID {searchParam.Id}");
-
-                // Step 3: Reindex to index the newly created search parameter
-                var reindexParams = new Parameters
-                {
-                    Parameter = new List<Parameters.ParameterComponent>
-                    {
-                        new Parameters.ParameterComponent
-                        {
-                            Name = "maximumNumberOfResourcesPerQuery",
-                            Value = new Integer(10000),
-                        },
-                        new Parameters.ParameterComponent
-                        {
-                            Name = "maximumNumberOfResourcesPerWrite",
-                            Value = new Integer(1000),
-                        },
-                    },
-                };
-
-                reindexRequest1 = await _fixture.TestFhirClient.PostReindexJobAsync(reindexParams);
-                Assert.Equal(HttpStatusCode.Created, reindexRequest1.response.Response.StatusCode);
-                Assert.NotNull(reindexRequest1.jobUri);
-                System.Diagnostics.Debug.WriteLine("Started first reindex job to index the new search parameter");
-
-                var jobStatus1 = await WaitForJobCompletionAsync(reindexRequest1.jobUri, TimeSpan.FromSeconds(240));
-                Assert.True(
-                    jobStatus1 == OperationStatus.Completed,
-                    $"First reindex job should complete successfully, but got {jobStatus1}");
-                System.Diagnostics.Debug.WriteLine("First reindex job completed successfully");
-
-                // Step 4: Verify the search parameter works by searching for the specimen
-                var searchQuery = $"Specimen?{searchParam.Code}=119295008";
-                await VerifySearchParameterIsWorkingAsync(
-                    searchQuery,
-                    searchParam.Code,
-                    expectedResourceType: "Specimen",
-                    shouldFindRecords: true);
-
-                // Step 5: Delete the search parameter
-                await _fixture.TestFhirClient.DeleteAsync($"SearchParameter/{searchParam.Id}");
-                System.Diagnostics.Debug.WriteLine($"Deleted search parameter {searchParam.Code} (ID: {searchParam.Id})");
-
-                // Step 6: Reindex to remove the search parameter from the index
-                reindexRequest2 = await _fixture.TestFhirClient.PostReindexJobAsync(reindexParams);
-                Assert.Equal(HttpStatusCode.Created, reindexRequest2.response.Response.StatusCode);
-                Assert.NotNull(reindexRequest2.jobUri);
-                System.Diagnostics.Debug.WriteLine("Started second reindex job to remove the deleted search parameter");
-
-                var jobStatus2 = await WaitForJobCompletionAsync(reindexRequest2.jobUri, TimeSpan.FromSeconds(240));
-                Assert.True(
-                    jobStatus2 == OperationStatus.Completed,
-                    $"Second reindex job should complete successfully, but got {jobStatus2}");
-                System.Diagnostics.Debug.WriteLine("Second reindex job completed successfully");
-
-                // Step 7: Verify the search parameter is no longer supported
-                var postDeleteSearchResponse = await _fixture.TestFhirClient.SearchAsync(searchQuery);
-                Assert.NotNull(postDeleteSearchResponse);
-                System.Diagnostics.Debug.WriteLine($"Executed search query after deletion: {searchQuery}");
-
-                // Verify that a "NotSupported" error is now present
-                var hasNotSupportedErrorAfterDelete = HasNotSupportedError(postDeleteSearchResponse.Resource);
-
-                Assert.True(
-                    hasNotSupportedErrorAfterDelete,
-                    $"Search parameter {searchParam.Code} should NOT be supported after deletion and reindex. Got 'NotSupported' error in response.");
-                System.Diagnostics.Debug.WriteLine($"Search parameter {searchParam.Code} correctly returns 'NotSupported' error after deletion");
+                specimenId = specimenResources[0].resourceId;
+                _output.WriteLine($"Created specimen with ID {specimenId} and type {specimenType}");
             }
-            finally
+
+            // Step 2: Create a custom search parameter for Specimen.type
+            var searchParam = await CreateCustomSearchParameterAsync(
+                "custom-lifecycle",
+                ["Specimen"],
+                "Specimen.type",
+                SearchParamType.Token);
+            Assert.NotNull(searchParam);
+            _output.WriteLine($"Created search parameter with code {searchParam.Code} and ID {searchParam.Id}");
+
+            // Step 3: Reindex to index the newly created search parameter
+            reindexRequest1 = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindexRequest1.response.Response.StatusCode);
+            Assert.NotNull(reindexRequest1.jobUri);
+            _output.WriteLine("Started first reindex job to index the new search parameter");
+
+            var jobStatus1 = await WaitForJobCompletionAsync(reindexRequest1.jobUri, TimeSpan.FromSeconds(240));
+            Assert.True(
+                jobStatus1.Status == OperationStatus.Completed,
+                $"First reindex job should complete successfully, but got {jobStatus1.Status}");
+            _output.WriteLine("First reindex job completed successfully");
+
+            await CheckReportedCounts(reindexRequest1.jobUri, specimenResources.Count, false);
+
+            // Step 4: Verify the search parameter works by searching for the specimen
+            var searchQuery = $"Specimen?{searchParam.Code}=119295008";
+            await VerifySearchParameterIsWorkingAsync(
+                searchQuery,
+                searchParam.Code,
+                expectedResourceType: "Specimen",
+                shouldFindRecords: true);
+
+            // Step 5: Delete the search parameter
+            await _fixture.TestFhirClient.DeleteAsync($"SearchParameter/{searchParam.Id}");
+            _output.WriteLine($"Deleted search parameter {searchParam.Code} (ID: {searchParam.Id})");
+
+            // Step 6: Reindex to remove the search parameter from the index
+            reindexRequest2 = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindexRequest2.response.Response.StatusCode);
+            Assert.NotNull(reindexRequest2.jobUri);
+            _output.WriteLine("Started second reindex job to remove the deleted search parameter");
+
+            var jobStatus2 = await WaitForJobCompletionAsync(reindexRequest2.jobUri, TimeSpan.FromSeconds(240));
+            Assert.True(
+                jobStatus2.Status == OperationStatus.Completed,
+                $"Second reindex job should complete successfully, but got {jobStatus2.Status}");
+            _output.WriteLine("Second reindex job completed successfully");
+
+            // Step 7: Verify the search parameter is no longer supported
+            var postDeleteSearchResponse = await _fixture.TestFhirClient.SearchAsync(searchQuery);
+            Assert.NotNull(postDeleteSearchResponse);
+            _output.WriteLine($"Executed search query after deletion: {searchQuery}");
+
+            // Verify that a "NotSupported" error is now present
+            var hasNotSupportedErrorAfterDelete = HasNotSupportedError(postDeleteSearchResponse.Resource);
+
+            Assert.True(
+                hasNotSupportedErrorAfterDelete,
+                $"Search parameter {searchParam.Code} should NOT be supported after deletion and reindex. Got 'NotSupported' error in response.");
+            _output.WriteLine($"Search parameter {searchParam.Code} correctly returns 'NotSupported' error after deletion");
+        }
+
+        [Fact]
+        public async Task GivenSearchParamCreate_ThenConflictWhenReindexAndSuccessAfter()
+        {
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+
+            var code = "conflict-test";
+            var searchParam = CreatePersonSearchParam(code, $"http://reindex/{code}");
+
+            var exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.UpdateAsync(searchParam)); // use PUT to retain id
+            Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
+            Assert.Contains("reindex", exception.Message, StringComparison.OrdinalIgnoreCase);
+
+            var reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, reindexStatus.Status);
+
+            var create = await _fixture.TestFhirClient.UpdateAsync(searchParam); // use PUT to retain id
+            Assert.True(create.StatusCode == HttpStatusCode.OK || create.StatusCode == HttpStatusCode.Created);
+            Assert.Equal(code, create.Resource.Id);
+        }
+
+        [Fact]
+        public async Task GivenExistingSearchParam_WhenUpdatingWithDifferentUrl_ThenOldUrlDeletedNewUrlSupported()
+        {
+            var oldUrl = "http://my.org/old";
+            var param = CreatePersonSearchParam("diff-url-test", oldUrl);
+            var create = await _fixture.TestFhirClient.UpdateAsync(param);
+            Assert.True(create.StatusCode == HttpStatusCode.OK || create.StatusCode == HttpStatusCode.Created);
+
+            var newUrl = "http://my.org/new";
+            param.Url = newUrl;
+            var update = await _fixture.TestFhirClient.UpdateAsync(param);
+            Assert.True(update.StatusCode == HttpStatusCode.OK);
+
+            if (!_isSql) // status works only for SQL
             {
-                // Cleanup any remaining resources
-                await CleanupTestDataAsync(testResources, searchParam);
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(30)); // Should work for PaaS with default 20 seconds refresh period and PR/CI with 1.
+
+            var oldUrlResponse = await _fixture.TestFhirClient.ReadAsync<Parameters>($"SearchParameter/$status?url={oldUrl}");
+            Assert.Equal(HttpStatusCode.OK, oldUrlResponse.StatusCode);
+            Assert.True(oldUrlResponse.Resource.Parameter.Count == 0, "Expected Deleted not found");
+
+            var newUrlResponse = await _fixture.TestFhirClient.ReadAsync<Parameters>($"SearchParameter/$status?url={newUrl}");
+            Assert.Equal(HttpStatusCode.OK, newUrlResponse.StatusCode);
+            Assert.True(newUrlResponse.Resource.Parameter.Count == 1, "Expected supported param found");
+            var actualStatus = newUrlResponse.Resource.Parameter[0].Part[1].Value.ToString();
+            Assert.True(actualStatus == SearchParameterStatus.Supported.ToString(), $"Expected Supported but found {actualStatus}");
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenSearchParamDelete_ThenConflictWhenReindexAndSuccessOnNext(bool hardDelete)
+        {
+            var code = hardDelete ? "hard-delete-conflict-test" : "soft-delete-conflict-test";
+            var searchParam = CreatePersonSearchParam(code, $"http://reindex/{code}");
+            var create = await _fixture.TestFhirClient.UpdateAsync(searchParam); // use PUT to retain id
+            Assert.True(create.StatusCode == HttpStatusCode.OK || create.StatusCode == HttpStatusCode.Created);
+            Assert.Equal(code, create.Resource.Id);
+
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+
+            // conflict
+            var exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.DeleteAsync($"SearchParameter/{code}?hardDelete={hardDelete}"));
+            Assert.Equal(HttpStatusCode.Conflict, exception.StatusCode);
+            Assert.Contains("reindex", exception.Message, StringComparison.OrdinalIgnoreCase);
+
+            var reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, reindexStatus.Status);
+
+            // success
+            var delete = await _fixture.TestFhirClient.DeleteAsync($"SearchParameter/{code}?hardDelete={hardDelete}");
+            Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+
+            // resource is still there
+            var resource = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}");
+            Assert.NotNull(resource?.Resource);
+
+            reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+            reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, reindexStatus.Status);
+
+            // reindex deleted resource
+            var notFoundEx = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}"));
+            Assert.Equal(hardDelete ? HttpStatusCode.NotFound : HttpStatusCode.Gone, notFoundEx.StatusCode);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenSearchParamConditionalDeleteByUrl_ThenSuccessAndDeletedAfterReindex(bool hardDelete)
+        {
+            var code = $"conditional-delete-by-url-{(hardDelete ? "hard" : "soft")}";
+            var searchParam = CreatePersonSearchParam(code, $"http://reindex/{code}");
+            var create = await _fixture.TestFhirClient.UpdateAsync(searchParam);
+            Assert.True(create.StatusCode == HttpStatusCode.OK || create.StatusCode == HttpStatusCode.Created);
+            Assert.Equal(code, create.Resource.Id);
+
+            var delete = await _fixture.TestFhirClient.DeleteAsync($"SearchParameter?url={searchParam.Url}&hardDelete={hardDelete}");
+            Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+
+            var resource = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}");
+            Assert.NotNull(resource?.Resource);
+
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+            var reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, reindexStatus.Status);
+
+            var notFoundEx = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}"));
+            Assert.Equal(hardDelete ? HttpStatusCode.NotFound : HttpStatusCode.Gone, notFoundEx.StatusCode);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenSearchParamConditionalDeleteByMultipleUrlsWithCount_ThenSuccessAndDeletedAfterReindex(bool hardDelete)
+        {
+            var code1 = $"conditional-delete-by-url-1-{(hardDelete ? "hard" : "soft")}";
+            var searchParam1 = CreatePersonSearchParam(code1, $"http://reindex/{code1}");
+            var create1 = await _fixture.TestFhirClient.UpdateAsync(searchParam1);
+            Assert.True(create1.StatusCode == HttpStatusCode.OK || create1.StatusCode == HttpStatusCode.Created);
+            Assert.Equal(code1, create1.Resource.Id);
+
+            var code2 = $"conditional-delete-by-url-2-{(hardDelete ? "hard" : "soft")}";
+            var searchParam2 = CreatePersonSearchParam(code2, $"http://reindex/{code2}");
+            var create2 = await _fixture.TestFhirClient.UpdateAsync(searchParam2);
+            Assert.True(create2.StatusCode == HttpStatusCode.OK || create2.StatusCode == HttpStatusCode.Created);
+            Assert.Equal(code2, create2.Resource.Id);
+
+            var delete = await _fixture.TestFhirClient.DeleteAsync($"SearchParameter?url={searchParam1.Url},{searchParam2.Url}&_count=2&hardDelete={hardDelete}");
+            Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+
+            var resource1 = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code1}");
+            Assert.NotNull(resource1?.Resource);
+
+            var resource2 = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code2}");
+            Assert.NotNull(resource2?.Resource);
+
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+            var reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, reindexStatus.Status);
+
+            var expectedStatusCode = hardDelete ? HttpStatusCode.NotFound : HttpStatusCode.Gone;
+
+            var notFoundEx1 = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code1}"));
+            Assert.Equal(expectedStatusCode, notFoundEx1.StatusCode);
+
+            var notFoundEx2 = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code2}"));
+            Assert.Equal(expectedStatusCode, notFoundEx2.StatusCode);
+        }
+
+        [Theory]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        public async Task GivenSearchParamBundleDelete_ThenConflictWhenReindexAndSuccessOnNext(bool isBatch, bool isParallel)
+        {
+            if (!_isSql && !isBatch) // cosmos does not support transaction bundles
+            {
+                return;
+            }
+
+            var codePrefix = $"soft-delete-{(isBatch ? "batch" : "transaction")}-{(isParallel ? "parallel" : "sequential")}-bundle-conflict-test";
+            var codes = new[] { $"{codePrefix}-1", $"{codePrefix}-2" };
+
+            foreach (var code in codes)
+            {
+                var searchParam = CreatePersonSearchParam(code, $"http://reindex/{code}");
+                var create = await _fixture.TestFhirClient.UpdateAsync(searchParam); // use PUT to retain id
+                Assert.True(create.StatusCode == HttpStatusCode.OK || create.StatusCode == HttpStatusCode.Created);
+                Assert.Equal(code, create.Resource.Id);
+            }
+
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+
+            var bundle = new Bundle
+            {
+                Type = isBatch ? BundleType.Batch : BundleType.Transaction,
+                Entry =
+                [
+                    new() { Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"SearchParameter/{codes[0]}" } },
+                    new() { Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"SearchParameter/{codes[1]}" } },
+                ],
+            };
+            var bundleOptions = new FhirBundleOptions { BundleProcessingLogic = isParallel ? FhirBundleProcessingLogic.Parallel : FhirBundleProcessingLogic.Sequential };
+
+            if (isBatch)
+            {
+                // conflict - batch bundle returns entry-level conflicts while reindex is running
+                var bundleConflict = await _fixture.TestFhirClient.PostBundleAsync(bundle, bundleOptions);
+                Assert.Equal(HttpStatusCode.OK, bundleConflict.Response.StatusCode);
+                Assert.NotNull(bundleConflict.Resource?.Entry);
+                Assert.Equal(2, bundleConflict.Resource.Entry.Count);
+                foreach (var entry in bundleConflict.Resource.Entry)
+                {
+                    Assert.Equal(((int)HttpStatusCode.Conflict).ToString(), entry.Response.Status);
+                    Assert.Contains("reindex", entry.Response.Outcome?.ToString() ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            else
+            {
+                // conflict - transaction bundle fails the whole request while reindex is running
+                var transactionConflict = await Assert.ThrowsAsync<FhirClientException>(async () =>
+                    await _fixture.TestFhirClient.PostBundleAsync(bundle, bundleOptions));
+                Assert.Equal(HttpStatusCode.Conflict, transactionConflict.StatusCode);
+                Assert.Contains("reindex", transactionConflict.Message, StringComparison.OrdinalIgnoreCase);
+            }
+
+            var reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, reindexStatus.Status);
+
+            // success - bundle delete should succeed after reindex completes
+            var bundleResponse = await _fixture.TestFhirClient.PostBundleAsync(bundle, bundleOptions);
+            Assert.Equal(HttpStatusCode.OK, bundleResponse.Response.StatusCode);
+            Assert.NotNull(bundleResponse.Resource?.Entry);
+            Assert.Equal(2, bundleResponse.Resource.Entry.Count);
+            foreach (var entry in bundleResponse.Resource.Entry)
+            {
+                Assert.Equal(((int)HttpStatusCode.NoContent).ToString(), entry.Response.Status);
+            }
+
+            // resources are still there (soft-deleted)
+            foreach (var code in codes)
+            {
+                var resource = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}");
+                Assert.NotNull(resource?.Resource);
+            }
+
+            reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+            reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, reindexStatus.Status);
+
+            foreach (var code in codes)
+            {
+                // reindex deleted resources - should now be gone
+                var notFoundEx = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}"));
+                Assert.Equal(HttpStatusCode.Gone, notFoundEx.StatusCode);
+
+                // verify history is preserved
+                var history = await _fixture.TestFhirClient.ReadHistoryAsync(ResourceType.SearchParameter, code);
+                Assert.NotNull(history.Resource);
+                Assert.NotEmpty(history.Resource.Entry);
+                Assert.True(history.Resource.Entry.Count >= 2, "History should contain at least 2 versions (create + delete)");
+
+                // verify last version is soft-deleted (check request method is DELETE)
+                var lastEntry = history.Resource.Entry.First();
+                Assert.NotNull(lastEntry.Request);
+                Assert.Equal(Bundle.HTTPVerb.DELETE, lastEntry.Request.Method);
+                Assert.NotNull(lastEntry.Resource);
+                Assert.Equal(code, lastEntry.Resource.Id);
             }
         }
 
+        [Theory]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        public async Task GivenSearchParamBundleCreate_ThenConflictWhenReindexAndSuccessOnNext(bool isBatch, bool isParallel)
+        {
+            if (!_isSql && !isBatch) // cosmos does not support transaction bundles
+            {
+                return;
+            }
+
+            var codePrefix = $"create-{(isBatch ? "batch" : "transaction")}-{(isParallel ? "parallel" : "sequential")}-bundle-conflict-test";
+            var codes = new[] { $"{codePrefix}-1", $"{codePrefix}-2" };
+            var searchParams = codes.Select(code => CreatePersonSearchParam(code, $"http://reindex/{code}")).ToArray();
+
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+
+            var bundle = new Bundle
+            {
+                Type = isBatch ? BundleType.Batch : BundleType.Transaction,
+                Entry =
+                [
+                    new()
+                    {
+                        Resource = searchParams[0],
+                        Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{codes[0]}" },
+                    },
+                    new()
+                    {
+                        Resource = searchParams[1],
+                        Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.PUT, Url = $"SearchParameter/{codes[1]}" },
+                    },
+                ],
+            };
+            var bundleOptions = new FhirBundleOptions { BundleProcessingLogic = isParallel ? FhirBundleProcessingLogic.Parallel : FhirBundleProcessingLogic.Sequential };
+
+            if (isBatch)
+            {
+                // conflict - batch bundle returns entry-level conflicts while reindex is running
+                var bundleConflict = await _fixture.TestFhirClient.PostBundleAsync(bundle, bundleOptions);
+                Assert.Equal(HttpStatusCode.OK, bundleConflict.Response.StatusCode);
+                Assert.NotNull(bundleConflict.Resource?.Entry);
+                Assert.Equal(2, bundleConflict.Resource.Entry.Count);
+                foreach (var entry in bundleConflict.Resource.Entry)
+                {
+                    Assert.Equal(((int)HttpStatusCode.Conflict).ToString(), entry.Response.Status);
+                    Assert.Contains("reindex", entry.Response.Outcome?.ToString() ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            else
+            {
+                // conflict - transaction bundle fails the whole request while reindex is running
+                var transactionConflict = await Assert.ThrowsAsync<FhirClientException>(async () =>
+                    await _fixture.TestFhirClient.PostBundleAsync(bundle, bundleOptions));
+                Assert.Equal(HttpStatusCode.Conflict, transactionConflict.StatusCode);
+                Assert.Contains("reindex", transactionConflict.Message, StringComparison.OrdinalIgnoreCase);
+            }
+
+            var reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, reindexStatus.Status);
+
+            // success - bundle create should succeed after reindex completes
+            var bundleResponse = await _fixture.TestFhirClient.PostBundleAsync(bundle, bundleOptions);
+            Assert.Equal(HttpStatusCode.OK, bundleResponse.Response.StatusCode);
+            Assert.NotNull(bundleResponse.Resource?.Entry);
+            Assert.Equal(2, bundleResponse.Resource.Entry.Count);
+            foreach (var entry in bundleResponse.Resource.Entry)
+            {
+                Assert.True(
+                    entry.Response.Status == ((int)HttpStatusCode.Created).ToString() || entry.Response.Status == ((int)HttpStatusCode.OK).ToString(),
+                    $"Unexpected status code '{entry.Response.Status}' for bundle create entry.");
+            }
+
+            foreach (var code in codes)
+            {
+                var resource = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}");
+                Assert.NotNull(resource?.Resource);
+                Assert.Equal(code, resource.Resource.Id);
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenSearchParamBulkDelete_ThenConflictWhenReindexAndSuccessOnNext(bool hardDelete)
+        {
+            var code = hardDelete ? "bulk-hard-delete-conflict-test" : "bulk-soft-delete-conflict-test";
+            var searchParam = CreatePersonSearchParam(code, $"http://reindex/{code}");
+            var created = await _fixture.TestFhirClient.UpdateAsync(searchParam);
+            Assert.NotNull(created.Resource);
+
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+
+            var deleteUrl = $"SearchParameter/$bulk-delete?url={searchParam.Url}{(hardDelete ? "&_hardDelete=true" : string.Empty)}";
+            using var bulkDeleteRequest = new HttpRequestMessage(HttpMethod.Delete, deleteUrl);
+            bulkDeleteRequest.Headers.Add("Prefer", "respond-async");
+            var response = await _fixture.HttpClient.SendAsync(bulkDeleteRequest);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+            var location = response.Content.Headers.ContentLocation;
+            Assert.NotNull(location);
+
+            // Wait for bulk delete job to complete - it should fail due to reindex conflict during execution
+            var jobResult = await _fixture.TestFhirClient.WaitForBulkJobStatus("Bulk delete", location);
+            Assert.Equal(HttpStatusCode.Conflict, jobResult.Response.StatusCode);
+
+            var reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, reindexStatus.Status);
+
+            // resource not touched
+            var resource = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}");
+            Assert.NotNull(resource?.Resource);
+
+            using var bulkDeleteRequest2 = new HttpRequestMessage(HttpMethod.Delete, deleteUrl);
+            bulkDeleteRequest2.Headers.Add("Prefer", "respond-async");
+            response = await _fixture.HttpClient.SendAsync(bulkDeleteRequest2);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+            var location2 = response.Content.Headers.ContentLocation;
+            Assert.NotNull(location2);
+
+            var jobResult2 = await _fixture.TestFhirClient.WaitForBulkJobStatus("Bulk delete", location2);
+            Assert.Equal(HttpStatusCode.OK, jobResult2.Response.StatusCode);
+
+            // resource not touched
+            resource = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}");
+            Assert.NotNull(resource?.Resource);
+
+            reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+            reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, reindexStatus.Status);
+
+            // resource gone after reindex
+            var notFoundEx = await Assert.ThrowsAsync<FhirClientException>(async () => await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}"));
+            Assert.Equal(hardDelete ? HttpStatusCode.NotFound : HttpStatusCode.Gone, notFoundEx.StatusCode);
+        }
+
+        [Fact]
+        public async Task GivenSearchParamBulkDelete_WithPurgeHistory_ThenCurrentVersionKeptAndHistoryDeleted()
+        {
+            var code = "purge-history-bulk-test";
+            var searchParam = CreatePersonSearchParam(code, $"http://reindex/{code}");
+
+            var created = await _fixture.TestFhirClient.UpdateAsync(searchParam);
+            Assert.NotNull(created.Resource);
+            var initialVersion = created.Resource.VersionId;
+
+            searchParam.Description = "Updated description";
+            var updated = await _fixture.TestFhirClient.UpdateAsync(searchParam);
+            Assert.NotNull(updated.Resource);
+            var currentVersion = updated.Resource.VersionId;
+            Assert.NotEqual(initialVersion, currentVersion);
+
+            var historyBefore = await _fixture.TestFhirClient.ReadHistoryAsync(ResourceType.SearchParameter, code);
+            Assert.NotNull(historyBefore.Resource);
+            Assert.True(historyBefore.Resource.Entry.Count >= 2, $"Expected at least 2 history entries, found {historyBefore.Resource.Entry.Count}");
+
+            var deleteUrl = $"SearchParameter/$bulk-delete?url={searchParam.Url}&_purgeHistory=true";
+            using var bulkDeleteRequest = new HttpRequestMessage(HttpMethod.Delete, deleteUrl);
+            bulkDeleteRequest.Headers.Add("Prefer", "respond-async");
+            var response = await _fixture.HttpClient.SendAsync(bulkDeleteRequest);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+            var location = response.Content.Headers.ContentLocation;
+            Assert.NotNull(location);
+
+            var jobResult = await _fixture.TestFhirClient.WaitForBulkJobStatus("Bulk delete", location);
+            Assert.Equal(HttpStatusCode.OK, jobResult.Response.StatusCode);
+
+            var resource = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}");
+            Assert.NotNull(resource?.Resource);
+            Assert.Equal(currentVersion, resource.Resource.VersionId);
+
+            var historyAfter = await _fixture.TestFhirClient.ReadHistoryAsync(ResourceType.SearchParameter, code);
+            Assert.NotNull(historyAfter.Resource);
+            Assert.Single(historyAfter.Resource.Entry);
+            Assert.Equal(currentVersion, historyAfter.Resource.Entry[0].Resource.VersionId);
+
+            var reindex = await _fixture.TestFhirClient.PostReindexJobAsync(new Parameters { Parameter = [] });
+            Assert.Equal(HttpStatusCode.Created, reindex.reponse.Response.StatusCode);
+            var reindexStatus = await WaitForJobCompletionAsync(reindex.uri, TimeSpan.FromSeconds(300));
+            Assert.Equal(OperationStatus.Completed, reindexStatus.Status);
+
+            var resourceAfterReindex = await _fixture.TestFhirClient.ReadAsync<SearchParameter>($"SearchParameter/{code}");
+            Assert.NotNull(resourceAfterReindex?.Resource);
+            Assert.Equal(currentVersion, resourceAfterReindex.Resource.VersionId);
+        }
+
+        // left as async to minimize changes
         private async Task<Person> CreatePersonResourceAsync(string id, string name)
         {
-            var person = new Person
-            {
-                Id = id,
-                Name = new List<HumanName>
-                {
-                    new HumanName { Given = new[] { name } },
-                },
-            };
+            return await Task.FromResult(CreatePersonResource(id, name));
+        }
 
-            // Return the person object without posting - will be posted in parallel batches
-            return await Task.FromResult(person);
+        private Person CreatePersonResource(string id, string name)
+        {
+            return new Person { Id = id, Name = [new() { Given = [name] }] };
         }
 
         /// <summary>
@@ -583,38 +1348,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 if (response?.Resource != null && !string.IsNullOrEmpty(response.Resource.Id))
                 {
-                    System.Diagnostics.Debug.WriteLine($"Successfully created {typeof(T).Name}/{response.Resource.Id}");
                     return (true, response.Resource, response.Resource.Id);
                 }
 
-                System.Diagnostics.Debug.WriteLine($"Failed to create resource {id}: Response was null or had no ID");
+                _output.WriteLine($"Failed to create resource {id}: Response was null or had no ID");
                 return (false, resource, id);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to create resource {id}: {ex.Message}");
+                _output.WriteLine($"Failed to create resource {id}: {ex.Message}");
                 return (false, null, id);
-            }
-        }
-
-        /// <summary>
-        /// Helper method to create and post a resource in a single operation
-        /// </summary>
-        private async Task<T> CreateAndPostResourceAsync<T>(string id, string name, Func<string, string, Task<T>> createResourceFunc)
-            where T : Resource
-        {
-            var resource = await createResourceFunc(id, name);
-
-            try
-            {
-                // Post the resource using the client's CreateAsync method
-                var response = await _fixture.TestFhirClient.CreateAsync(resource);
-                return response;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to create resource {id}: {ex.Message}");
-                return resource; // Return the original resource even on failure so ID can be tracked
             }
         }
 
@@ -662,30 +1405,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             catch (Exception ex)
             {
                 // Log the exception for debugging
-                System.Diagnostics.Debug.WriteLine($"Failed to create search parameter: {ex.Message}");
+                _output.WriteLine($"Failed to create search parameter: {ex.Message}");
                 throw;
             }
         }
 
-        private async Task<Observation> CreateObservationResourceAsync(string id, string personId)
+        private SearchParameter CreatePersonSearchParam(string code, string url, string id = null)
         {
-            var observation = new Observation
-            {
-                Id = id,
-                Status = ObservationStatus.Final,
-                Code = new CodeableConcept("http://loinc.org", "1234-5"),
-                Subject = new ResourceReference($"Person/{personId}"),
-            };
+#if R5
+            var resourceTypes = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Person };
+#else
+            var resourceTypes = new List<ResourceType?> { ResourceType.Person };
+#endif
 
-            try
+            return new SearchParameter
             {
-                var result = await _fixture.TestFhirClient.CreateAsync(observation);
-                return result;
-            }
-            catch
-            {
-                return observation;
-            }
+                Id = id ?? code,
+                Url = url,
+                Name = code,
+                Code = code,
+                Status = PublicationStatus.Active,
+                Type = SearchParamType.Token,
+                Expression = "Person.id",
+                Description = "any",
+                Base = resourceTypes,
+            };
         }
 
         private async Task<Specimen> CreateSpecimenResourceAsync(string id, string name)
@@ -715,120 +1459,43 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             return await Task.FromResult(supplyDelivery);
         }
 
-        /// <summary>
-        /// Cleanup method that handles both test data resources (Person, Observation, etc.) and search parameters.
-        /// Ensures all created resources are properly deleted using parallel batch processing for improved performance.
-        /// </summary>
-        private async Task CleanupTestDataAsync(List<(string resourceType, string resourceId)> testResources, params SearchParameter[] searchParameters)
+        private async Task<int> DeleteResourcesAsync(string resourceType)
         {
-            // Delete test data resources (Person, Observation, etc.) in parallel batches
-            if (testResources != null && testResources.Count > 0)
+            var deleted = 0;
+            await _retries.ExecuteAsync(async () =>
             {
-                System.Diagnostics.Debug.WriteLine($"Starting cleanup of {testResources.Count} test resources...");
-
-                const int batchSize = 500; // Process 500 resources at a time in parallel
-                int totalDeleted = 0;
-                int totalFailed = 0;
-
-                for (int batchStart = 0; batchStart < testResources.Count; batchStart += batchSize)
+                const int pageSize = 100;
+                var nextUrl = $"{resourceType}?_count={pageSize}";
+                deleted = 0;
+                do
                 {
-                    int currentBatchSize = Math.Min(batchSize, testResources.Count - batchStart);
-                    var batchTasks = new List<Task>();
-
-                    // Create deletion tasks for this batch
-                    for (int i = 0; i < currentBatchSize; i++)
+                    var searchResponse = await _fixture.TestFhirClient.SearchAsync(nextUrl);
+                    var bundle = new Bundle { Type = _isSql ? Bundle.BundleType.Transaction : Bundle.BundleType.Batch };
+                    foreach (var entry in searchResponse.Resource.Entry)
                     {
-                        var (resourceType, resourceId) = testResources[batchStart + i];
-
-                        if (!string.IsNullOrEmpty(resourceId))
-                        {
-                            batchTasks.Add(DeleteResourceAsync(resourceType, resourceId));
-                        }
+                        bundle.Entry.Add(new Bundle.EntryComponent { Request = new Bundle.RequestComponent { Method = Bundle.HTTPVerb.DELETE, Url = $"{resourceType}/{entry.Resource.Id}" } });
                     }
 
-                    try
+                    if (bundle.Entry.Count > 0)
                     {
-                        // Execute all deletes in parallel
-                        await Task.WhenAll(batchTasks);
-                        totalDeleted += currentBatchSize;
-
-                        System.Diagnostics.Debug.WriteLine($"Deleted batch {(batchStart / batchSize) + 1}: {currentBatchSize} resources (total: {totalDeleted}/{testResources.Count})");
+                        await _fixture.TestFhirClient.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
                     }
-                    catch (Exception ex)
-                    {
-                        totalFailed += currentBatchSize;
-                        System.Diagnostics.Debug.WriteLine($"Failed to delete batch at offset {batchStart}: {ex.Message}");
 
-                        // Continue with next batch instead of failing completely
-                    }
+                    deleted += bundle.Entry.Count;
+                    _output.WriteLine($"{resourceType} deleted={bundle.Entry.Count}");
+                    nextUrl = searchResponse.Resource.Link?.FirstOrDefault(l => l.Relation == "next")?.Url;
                 }
+                while (!string.IsNullOrEmpty(nextUrl));
+            });
 
-                System.Diagnostics.Debug.WriteLine($"Cleanup completed: {totalDeleted} deleted successfully, {totalFailed} failed");
-            }
-
-            await Task.Delay(TimeSpan.FromSeconds(3));
-
-            // Delete search parameters (soft delete with reindex finalization)
-            await CleanupSearchParametersAsync(searchParameters);
+            return deleted;
         }
 
-        /// <summary>
-        /// Helper method to delete a single resource with error handling
-        /// </summary>
-        private async Task DeleteResourceAsync(string resourceType, string resourceId)
-        {
-            try
-            {
-                await _fixture.TestFhirClient.DeleteAsync($"{resourceType}/{resourceId}");
-                System.Diagnostics.Debug.WriteLine($"Deleted {resourceType}/{resourceId}");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to delete {resourceType}/{resourceId}: {ex.Message}");
-
-                // Don't throw - allow other deletions to continue
-            }
-        }
-
-        private async Task CleanupSearchParametersAsync(params SearchParameter[] searchParameters)
-        {
-            // Validate input
-            if (searchParameters == null || searchParameters.Length == 0)
-            {
-                return;
-            }
-
-            // Delete created search parameters
-            foreach (var param in searchParameters)
-            {
-                try
-                {
-                    if (param != null && !string.IsNullOrEmpty(param.Id))
-                    {
-                        // Attempt to delete the search parameter
-                        // Note: This performs a soft delete, the parameter may be in PendingDelete status
-                        await _fixture.TestFhirClient.DeleteAsync($"SearchParameter/{param.Id}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // Log but continue cleanup even if delete fails
-                    System.Diagnostics.Debug.WriteLine($"Failed to delete SearchParameter/{param?.Id}: {ex.Message}");
-                }
-            }
-
-            // Allow time for soft deletes to be processed
-            await Task.Delay(500);
-
-            // Note: Final reindex is handled by ReindexTestFixture.OnDisposedAsync() which runs
-            // once at the very end after all tests complete. This eliminates the need to reindex
-            // after each individual test cleanup.
-        }
-
-        private async Task<OperationStatus> WaitForJobCompletionAsync(Uri jobUri, TimeSpan timeout)
+        private async Task<(OperationStatus Status, string FailureReason)> WaitForJobCompletionAsync(Uri jobUri, TimeSpan timeout)
         {
             var stopwatch = Stopwatch.StartNew();
             OperationStatus lastStatus = OperationStatus.Queued;
+            string failureReason = null;
 
             while (stopwatch.Elapsed < timeout)
             {
@@ -864,7 +1531,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                                     status == OperationStatus.Failed ||
                                     status == OperationStatus.Canceled)
                                 {
-                                    return status;
+                                    if (status == OperationStatus.Failed || status == OperationStatus.Canceled)
+                                    {
+                                        var failureParam = jobResponse.Resource.Parameter.FirstOrDefault(p => p.Name == "failureDetails");
+                                        failureReason = failureParam?.Value is FhirString fs ? fs.Value : failureParam?.Value?.ToString();
+                                        _output.WriteLine($"Reindex job reached terminal status: {status}. Failure reason: {failureReason ?? "N/A"}");
+
+                                        foreach (var param in jobResponse.Resource.Parameter)
+                                        {
+                                            _output.WriteLine($"  Parameter: {param.Name} = {param.Value}");
+                                        }
+                                    }
+
+                                    _output.WriteLine($"Reindex job reached terminal status: {status}. Elapsed={stopwatch.ElapsedMilliseconds} msec.");
+                                    return (status, failureReason);
                                 }
                             }
                         }
@@ -878,7 +1558,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 await Task.Delay(1000);
             }
 
-            return lastStatus;
+            _output.WriteLine($"Reindex job timed out waiting for completion. Last status: {lastStatus}. Elapsed={stopwatch.ElapsedMilliseconds} msec.");
+            return (lastStatus, failureReason);
         }
 
         /// <summary>
@@ -907,18 +1588,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         /// <param name="searchParameterCode">The search parameter code for error messaging</param>
         /// <param name="expectedResourceType">The resource type being searched for (e.g., "Patient")</param>
         /// <param name="shouldFindRecords">Whether we expect to find records. True if data should be returned, false if expecting empty result</param>
-        /// <param name="maxRetries">Maximum number of retry attempts if the search parameter is not ready</param>
-        /// <param name="retryDelayMs">Delay in milliseconds between retry attempts</param>
         private async Task VerifySearchParameterIsWorkingAsync(
             string searchQuery,
             string searchParameterCode,
             string expectedResourceType = null,
-            bool shouldFindRecords = true,
-            int maxRetries = 9,
-            int retryDelayMs = 20000)
+            bool shouldFindRecords = true)
         {
             Exception lastException = null;
 
+            var maxRetries = _isSql ? 1 : 25;
+            var retryDelayMs = 1000;
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
                 try
@@ -936,14 +1615,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     int pageCount = 0;
                     int totalEntriesRetrieved = 0;
 
-                    System.Diagnostics.Debug.WriteLine(
+                    _output.WriteLine(
                         $"Search parameter {searchParameterCode} - attempt {attempt} of {maxRetries}, starting search with page size {pageSize}.");
 
                     // Follow pagination until we get all results
                     while (!string.IsNullOrEmpty(nextLink))
                     {
                         pageCount++;
-                        System.Diagnostics.Debug.WriteLine($"Search parameter {searchParameterCode} - fetching page {pageCount}");
+                        _output.WriteLine($"Search parameter {searchParameterCode} - fetching page {pageCount}");
 
                         var searchResponse = await _fixture.TestFhirClient.SearchAsync(nextLink);
                         Assert.NotNull(searchResponse);
@@ -964,11 +1643,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                         // Check if there's a next link for pagination
                         nextLink = searchResponse.Resource?.NextLink?.OriginalString;
-                        System.Diagnostics.Debug.WriteLine(
+                        _output.WriteLine(
                             $"Search parameter {searchParameterCode} - page {pageCount} returned {searchResponse.Resource?.Entry?.Count ?? 0} entries (total so far: {totalEntriesRetrieved}). Next link: {(string.IsNullOrEmpty(nextLink) ? "none" : "present")}");
                     }
 
-                    System.Diagnostics.Debug.WriteLine(
+                    _output.WriteLine(
                         $"Search parameter {searchParameterCode} is working - search executed successfully without 'NotSupported' error on attempt {attempt}. Total pages fetched: {pageCount}, Total entries retrieved: {totalEntriesRetrieved}");
 
                     // Validate record expectations if specified
@@ -985,7 +1664,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                                 resourcesFound.Count > 0,
                                 $"Expected to find {expectedResourceType} records for search parameter {searchParameterCode}, but none were returned.");
 
-                            System.Diagnostics.Debug.WriteLine(
+                            _output.WriteLine(
                                 $"Search parameter {searchParameterCode} correctly returned {resourcesFound.Count} {expectedResourceType} record(s) across {pageCount} page(s)");
                         }
                         else
@@ -994,13 +1673,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                             Assert.True(
                                 resourcesFound.Count == 0,
                                 $"Expected no {expectedResourceType} records for search parameter {searchParameterCode}, but found {resourcesFound.Count}.");
-                            System.Diagnostics.Debug.WriteLine(
+                            _output.WriteLine(
                                 $"Search parameter {searchParameterCode} correctly returned no {expectedResourceType} records");
                         }
                     }
 
                     // Log the successful search query for reference
-                    System.Diagnostics.Debug.WriteLine($"Search query: {searchQuery} executed successfully on attempt {attempt} across {pageCount} page(s).");
+                    _output.WriteLine($"Search query: {searchQuery} executed successfully on attempt {attempt} across {pageCount} page(s).");
 
                     // Success - return without retrying
                     return;
@@ -1011,7 +1690,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                     if (attempt < maxRetries)
                     {
-                        System.Diagnostics.Debug.WriteLine(
+                        _output.WriteLine(
                             $"Search parameter {searchParameterCode} verification failed on attempt {attempt} of {maxRetries}. " +
                             $"Retrying in {retryDelayMs}ms. Error: {ex.Message}");
 
@@ -1027,162 +1706,97 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         }
 
         /// <summary>
-        /// Gets the current count of resources for a specific resource type.
-        /// </summary>
-        /// <param name="resourceType">The FHIR resource type to count (e.g., "Person", "Specimen")</param>
-        /// <returns>The total count of resources matching the criteria</returns>
-        private async Task<int> GetResourceCountAsync(string resourceType)
-        {
-            string query = $"{resourceType}?_summary=count";
-
-            Bundle bundle = await _fixture.TestFhirClient.SearchAsync(query);
-            return bundle.Total ?? 0;
-        }
-
-        /// <summary>
         /// Sets up test data by creating the specified number of resources.
         /// Returns the list of created resource IDs for cleanup.
-        /// Uses parallel individual creates for improved performance with retry logic.
+        /// Creates resources with at most four concurrent requests.
         /// </summary>
-        /// <param name="resourceType">The FHIR resource type to create (e.g., "Person", "Specimen")</param>
-        /// <param name="desiredCount">The number of resources to create</param>
-        /// <param name="randomSuffix">Random suffix for unique resource IDs</param>
-        /// <param name="createResourceFunc">Function to create a single resource given an ID and name</param>
-        /// <returns>A tuple containing the list of created resource IDs and the count of successfully created resources</returns>
-        private async Task<(List<(string resourceType, string resourceId)> createdResources, int finalCount)> SetupTestDataAsync<T>(
+        private async Task<List<(string resourceType, string resourceId)>> SetupTestDataAsync<T>(
             string resourceType,
             int desiredCount,
-            string randomSuffix,
             Func<string, string, Task<T>> createResourceFunc)
             where T : Resource
         {
+            var sw = Stopwatch.StartNew();
             var createdResources = new List<(string resourceType, string resourceId)>();
 
-            System.Diagnostics.Debug.WriteLine($"Creating {desiredCount} new {resourceType} resources...");
+            _output.WriteLine($"Creating {desiredCount} new {resourceType} resources...");
 
-            // Create resources in batches using parallel individual creates for better performance
-            const int batchSize = 500; // Process 500 resources at a time in parallel
-            const int maxCreateRetries = 3; // Retry failed creates up to 3 times
-            int totalCreated = 0;
-            var failedIds = new List<string>();
-
-            for (int batchStart = 0; batchStart < desiredCount; batchStart += batchSize)
+            await Parallel.ForAsync(0, desiredCount, new ParallelOptions { MaxDegreeOfParallelism = 4 }, async (i, ct) =>
             {
-                int currentBatchSize = Math.Min(batchSize, desiredCount - batchStart);
-
-                // Track which resources in this batch need to be created/retried
-                var resourcesToCreateInBatch = new List<(int index, string id, string name)>();
-                for (int i = 0; i < currentBatchSize; i++)
+                var id = $"{resourceType.ToLowerInvariant()}-{i}";
+                var (success, resource, _) = await CreateAndPostResourceWithStatusAsync(id, $"Test {resourceType} {i}", createResourceFunc);
+                if (success)
                 {
-                    int index = batchStart + i;
-                    string id = $"{resourceType.ToLowerInvariant()}-{randomSuffix}-{index}";
-                    string name = $"Test {resourceType} {index}";
-                    resourcesToCreateInBatch.Add((index, id, name));
-                }
-
-                // Retry failed creates up to maxCreateRetries times
-                for (int retryAttempt = 0; retryAttempt < maxCreateRetries && resourcesToCreateInBatch.Any(); retryAttempt++)
-                {
-                    if (retryAttempt > 0)
+                    lock (createdResources)
                     {
-                        // Exponential backoff for retries
-                        var delayMs = 1000 * (int)Math.Pow(2, retryAttempt - 1); // 1s, 2s, 4s
-                        System.Diagnostics.Debug.WriteLine($"Retrying {resourcesToCreateInBatch.Count} failed resources after {delayMs}ms delay (attempt {retryAttempt + 1}/{maxCreateRetries})");
-                        await Task.Delay(delayMs);
-                    }
-
-                    var batchTasks = resourcesToCreateInBatch
-                        .Select(r => CreateAndPostResourceWithStatusAsync(r.id, r.name, createResourceFunc))
-                        .ToList();
-
-                    try
-                    {
-                        // Execute all creates in parallel
-                        var results = await Task.WhenAll(batchTasks);
-
-                        // Track successes and failures
-                        var nextRetryBatch = new List<(int index, string id, string name)>();
-                        for (int i = 0; i < results.Length; i++)
-                        {
-                            var (success, resource, id) = results[i];
-                            var originalResource = resourcesToCreateInBatch[i];
-
-                            if (success && resource != null && !string.IsNullOrEmpty(resource.Id))
-                            {
-                                createdResources.Add((resourceType, resource.Id));
-                                totalCreated++;
-                            }
-                            else
-                            {
-                                // Queue for retry if we haven't exhausted retries
-                                if (retryAttempt < maxCreateRetries - 1)
-                                {
-                                    nextRetryBatch.Add(originalResource);
-                                }
-                                else
-                                {
-                                    // Final failure after all retries
-                                    failedIds.Add(id);
-                                }
-                            }
-                        }
-
-                        resourcesToCreateInBatch = nextRetryBatch;
-
-                        System.Diagnostics.Debug.WriteLine(
-                            $"Batch {(batchStart / batchSize) + 1} attempt {retryAttempt + 1}: " +
-                            $"{totalCreated} total created, {resourcesToCreateInBatch.Count} pending retry, " +
-                            $"{failedIds.Count} permanently failed");
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Failed to create batch at offset {batchStart}: {ex.Message}");
-                        if (retryAttempt == maxCreateRetries - 1)
-                        {
-                            // Add all remaining to failed list
-                            failedIds.AddRange(resourcesToCreateInBatch.Select(r => r.id));
-                        }
+                        createdResources.Add((resourceType, resource.Id));
                     }
                 }
+            });
 
-                // Delay between batches to avoid overwhelming the server
-                if (batchStart + batchSize < desiredCount)
+            _output.WriteLine($"Created {createdResources.Count} new {resourceType} resources. Elapsed={sw.ElapsedMilliseconds} msec.");
+
+            Assert.Equal(desiredCount, createdResources.Count);
+
+            return createdResources;
+        }
+
+        private async Task SearchCreatedResources(string resourceType, int expectedCount)
+        {
+            var response = await _fixture.TestFhirClient.SearchAsync($"{resourceType}?_summary=count");
+            Assert.True(response.Resource.Total >= expectedCount, $"Expected>={expectedCount} Actual={response.Resource.Total}");
+        }
+
+        private async Task<int> RandomPersonUpdate(IList<(string resourceType, string resourceId)> resources, CancellationToken cancellationToken = default)
+        {
+            var updatedCount = 0;
+            while (resources.Count > 0 && !cancellationToken.IsCancellationRequested)
+            {
+                try
                 {
-                    await Task.Delay(500);
+                    await Task.Delay(50, cancellationToken);
+                    var resource = resources[RandomNumberGenerator.GetInt32(resources.Count)];
+                    await _fixture.TestFhirClient.UpdateAsync(CreatePersonResource(resource.resourceId, Guid.NewGuid().ToString()));
+                    updatedCount++;
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch
+                {
+                    // do nothing
                 }
             }
 
-            // Report on any failures
-            if (failedIds.Any())
+            return updatedCount;
+        }
+
+        private async Task CheckReportedCounts(Uri jobUri, long expected, bool lessThan)
+        {
+            if (!_isSql)
             {
-                System.Diagnostics.Debug.WriteLine($"WARNING: {failedIds.Count} resources failed to create after {maxCreateRetries} retries");
-                System.Diagnostics.Debug.WriteLine($"Failed IDs (first 10): {string.Join(", ", failedIds.Take(10))}");
+                return;
             }
 
-            // Calculate acceptable threshold (allow 5% failure rate for transient issues)
-            var acceptableMinimum = (int)(desiredCount * 0.95);
+            var response = await _fixture.TestFhirClient.HttpClient.GetAsync(jobUri, CancellationToken.None);
+            var content = await response.Content.ReadAsStringAsync();
+            var parameters = new Hl7.Fhir.Serialization.FhirJsonParser().Parse<Parameters>(content);
+            var total = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "totalResourcesToReindex").Value).Value;
+            var successes = (long)((FhirDecimal)parameters.Parameter.FirstOrDefault(p => p.Name == "resourcesSuccessfullyReindexed").Value).Value;
 
-            // Assert that we created enough resources
-            if (totalCreated < acceptableMinimum)
+            _output.WriteLine($"CheckReportedCounts: totalResourcesToReindex={total}, resourcesSuccessfullyReindexed={successes}, expected={expected}, lessThan={lessThan}");
+
+            if (lessThan)
             {
-                var errorMsg = $"CRITICAL: Failed to create sufficient {resourceType} resources. " +
-                              $"Desired: {desiredCount}, Acceptable minimum: {acceptableMinimum}, " +
-                              $"Successfully created: {totalCreated}, Failed: {failedIds.Count}";
-                System.Diagnostics.Debug.WriteLine(errorMsg);
-                Assert.Fail(errorMsg);
+                Assert.True(total < expected, $"total={total} < expected={expected}");
             }
-            else if (totalCreated < desiredCount)
+            else
             {
-                // Log warning but don't fail
-                System.Diagnostics.Debug.WriteLine(
-                    $"WARNING: Created {totalCreated}/{desiredCount} {resourceType} resources " +
-                    $"(within acceptable threshold of {acceptableMinimum})");
+                Assert.True(total >= expected, $"total={total} >= expected={expected}"); // some of resources might come for not completed retries
             }
 
-            System.Diagnostics.Debug.WriteLine($"Successfully created {totalCreated} new {resourceType} resources.");
-
-            // Return the ACTUAL count of resources we created and have IDs for
-            return (createdResources, totalCreated);
+            Assert.True(total == successes, $"total={total} == successes={successes}");
         }
 
         /// <summary>
@@ -1195,14 +1809,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("Checking for any running reindex jobs via GET $reindex...");
+                _output.WriteLine("Checking for any running reindex jobs via GET $reindex...");
 
                 // Use GET to $reindex to check for active jobs
                 var response = await _fixture.TestFhirClient.HttpClient.GetAsync("$reindex", cancellationToken);
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    System.Diagnostics.Debug.WriteLine($"GET $reindex returned non-success status: {response.StatusCode}. No active jobs to cancel.");
+                    _output.WriteLine($"GET $reindex returned non-success status: {response.StatusCode}. No active jobs to cancel.");
                     return;
                 }
 
@@ -1219,13 +1833,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 }
                 catch (Exception parseEx)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Failed to parse $reindex response as Parameters: {parseEx.Message}");
+                    _output.WriteLine($"Failed to parse $reindex response as Parameters: {parseEx.Message}");
                     return;
                 }
 
                 if (parameters?.Parameter == null || !parameters.Parameter.Any())
                 {
-                    System.Diagnostics.Debug.WriteLine("No parameters found in $reindex response. No active jobs to cancel.");
+                    _output.WriteLine("No parameters found in $reindex response. No active jobs to cancel.");
                     return;
                 }
 
@@ -1235,7 +1849,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 if (idParam?.Value == null)
                 {
-                    System.Diagnostics.Debug.WriteLine("No job ID found in $reindex response. No active jobs to cancel.");
+                    _output.WriteLine("No job ID found in $reindex response. No active jobs to cancel.");
                     return;
                 }
 
@@ -1256,12 +1870,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
 
                 if (string.IsNullOrEmpty(jobId))
                 {
-                    System.Diagnostics.Debug.WriteLine("Job ID is empty. No active jobs to cancel.");
+                    _output.WriteLine("Job ID is empty. No active jobs to cancel.");
                     return;
                 }
 
                 // Job is active (Running or Queued), cancel it
-                System.Diagnostics.Debug.WriteLine($"Job {jobId} is active. Attempting to cancel...");
+                _output.WriteLine($"Job {jobId} is active. Attempting to cancel...");
 
                 // Use the correct URI format: /_operations/reindex/{jobId}
                 var jobUri = new Uri($"{_fixture.TestFhirClient.HttpClient.BaseAddress}_operations/reindex/{jobId}");
@@ -1274,25 +1888,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 };
 
                 var cancelResponse = await _fixture.TestFhirClient.HttpClient.SendAsync(deleteRequest, cancellationToken);
-                System.Diagnostics.Debug.WriteLine($"Cancel request for job {jobId} completed with status: {cancelResponse.StatusCode}");
+                _output.WriteLine($"Cancel request for job {jobId} completed with status: {cancelResponse.StatusCode}");
 
                 // Wait for the job to reach a terminal status
                 if (cancelResponse.IsSuccessStatusCode)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Waiting for job {jobId} to reach terminal state...");
+                    _output.WriteLine($"Waiting for job {jobId} to reach terminal state...");
                     var finalStatus = await WaitForJobCompletionAsync(jobUri, TimeSpan.FromSeconds(120));
-                    System.Diagnostics.Debug.WriteLine($"Job {jobId} reached final status: {finalStatus}");
+                    _output.WriteLine($"Job {jobId} reached final status: {finalStatus}");
 
                     // Add a small delay to ensure system is ready
                     await Task.Delay(2000, cancellationToken);
                 }
 
-                System.Diagnostics.Debug.WriteLine("Completed checking and canceling running reindex jobs");
+                _output.WriteLine("Completed checking and canceling running reindex jobs");
             }
             catch (Exception ex)
             {
                 // Log but don't fail - this is a cleanup/safety check
-                System.Diagnostics.Debug.WriteLine($"Error in CancelAnyRunningReindexJobsAsync: {ex.Message}");
+                _output.WriteLine($"Error in CancelAnyRunningReindexJobsAsync: {ex.Message}");
             }
         }
     }

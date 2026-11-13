@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -44,7 +43,41 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         {
             _queueClient = Substitute.For<IQueueClient>();
             _searchService = Substitute.For<ISearchService>();
-            _orchestratorJob = new BulkUpdateOrchestratorJob(_queueClient, Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), _searchService.CreateMockScopeFactory(), Substitute.For<ILogger<BulkUpdateOrchestratorJob>>());
+            _orchestratorJob = new BulkUpdateOrchestratorJob(_queueClient, Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), _searchService.CreateMockScopeProvider(), Substitute.For<ILogger<BulkUpdateOrchestratorJob>>());
+        }
+
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.OrchestratorFailureCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenOrchestrationFailure_WhenExecuted_ThenClassificationIsPreserved(string scenario, bool expectedCustomerCaused, string stage)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>())
+                .Returns(_ => stage == "discovery" ? Task.FromException<IReadOnlyList<string>>(failure) : Task.FromResult<IReadOnlyList<string>>(new[] { "Patient" }));
+            _searchService.GetSurrogateIdRanges(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(_ => stage == "search"
+                    ? Task.FromException<IReadOnlyList<(long, long, int)>>(failure)
+                    : Task.FromResult<IReadOnlyList<(long, long, int)>>(new[] { (1L, 2L, 2) }));
+            _queueClient.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns<Task<IReadOnlyList<JobInfo>>>(_ => throw failure);
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, null, null, "test", "test", "test", null, isParallel: true);
+            var jobInfo = new JobInfo { GroupId = 1, Definition = JsonConvert.SerializeObject(definition), CreateDate = DateTime.UtcNow };
+
+            // Act
+            var exception = await Record.ExceptionAsync(() => _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            if (expectedCustomerCaused)
+            {
+                var jobException = Assert.IsType<JobExecutionException>(exception);
+                Assert.True(jobException.IsCustomerCaused);
+                Assert.Same(failure, jobException.InnerException);
+                Assert.Contains(failure.Message, Assert.IsType<BulkUpdateResult>(jobException.Error).Issues);
+            }
+            else
+            {
+                Assert.Same(failure, exception);
+            }
         }
 
         [Theory]
@@ -67,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -95,6 +128,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             }
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenSystemBulkUpdate_WhenCreatingProcessingJobs_ThenSearchParameterIsExcludedAndProfileResourcesAreIncluded(bool allowProfileResourceModification)
+        {
+            SetupMockQueue(1);
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>())
+                .Returns(new List<string> { "SearchParameter", "StructureDefinition" });
+
+            var definition = new BulkUpdateDefinition(
+                JobType.BulkUpdateOrchestrator,
+                null,
+                new List<Tuple<string, string>>(),
+                "test",
+                "test",
+                "test",
+                null,
+                isParallel: true,
+                allowProfileResourceModification: allowProfileResourceModification);
+            var jobInfo = new JobInfo
+            {
+                GroupId = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+                CreateDate = DateTime.UtcNow,
+            };
+
+            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+
+            BulkUpdateDefinition[] queuedDefinitions = _queueClient.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name == nameof(IQueueClient.EnqueueAsync))
+                .SelectMany(call => call.GetArguments().OfType<string[]>().Single())
+                .Select(JsonConvert.DeserializeObject<BulkUpdateDefinition>)
+                .ToArray();
+
+            Assert.NotEmpty(queuedDefinitions);
+            Assert.All(queuedDefinitions, queued => Assert.Equal("StructureDefinition", queued.Type));
+            Assert.All(queuedDefinitions, queued => Assert.Equal(allowProfileResourceModification, queued.AllowProfileResourceModification));
+        }
+
         [Fact]
         public async Task GivenBulkUpdateJob_WhenSearchParameterIsNotGivenOrAreAllowedAndIsParallelIsTrueAndExistingEnqueuedJobs_ThenProcessingJobsForAllTypesAreCreatedBasedOnSurrogateIdRanges()
         {
@@ -104,7 +176,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             var searchParams = new List<Tuple<string, string>>()
             {
-                new Tuple<string, string>("_lastUpdated", "value"),
+                new Tuple<string, string>(KnownQueryParameterNames.MaxCount, "100"),
             };
 
             var resourceTypes = new HashSet<string> { "Patient", "Observation" };
@@ -149,7 +221,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -199,7 +271,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -283,7 +355,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 GroupId = 1,
                 Id = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -371,7 +443,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 GroupId = 1,
                 Id = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -417,7 +489,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -489,7 +561,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var orchestratorJobWithTruncatedIssue = new TestBulkUpdateOrchestratorJob(
                 _queueClient,
                 Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
-                _searchService.CreateMockScopeFactory(),
+                _searchService.CreateMockScopeProvider(),
                 Substitute.For<ILogger<BulkUpdateOrchestratorJob>>(),
                 testContext);
 
@@ -502,7 +574,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await orchestratorJobWithTruncatedIssue.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -562,7 +634,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var orchestratorJobWithTruncatedIssue = new TestBulkUpdateOrchestratorJob(
                 _queueClient,
                 Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
-                _searchService.CreateMockScopeFactory(),
+                _searchService.CreateMockScopeProvider(),
                 Substitute.For<ILogger<BulkUpdateOrchestratorJob>>(),
                 testContext);
 
@@ -575,7 +647,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await orchestratorJobWithTruncatedIssue.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -654,7 +726,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -704,7 +776,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
@@ -736,7 +808,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             // Act
@@ -769,7 +841,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             // Act
@@ -797,7 +869,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await Assert.ThrowsAsync<InvalidOperationException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
@@ -817,7 +889,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = JsonConvert.SerializeObject(definition),
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await Assert.ThrowsAsync<InvalidOperationException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
@@ -836,10 +908,69 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 GroupId = 1,
                 Definition = "not a valid json",
-                CreateDate = DateTime.Now,
+                CreateDate = DateTime.UtcNow,
             };
 
             await Assert.ThrowsAsync<JsonReaderException>(async () => await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
+        }
+
+        [Theory]
+        [InlineData("gt2026-07-06")]
+        [InlineData("ge2026-07-06")]
+        [InlineData("lt2026-07-06")]
+        [InlineData("le2026-07-06")]
+        [InlineData("sa2026-07-06")]
+        [InlineData("eb2026-07-06")]
+        public async Task GivenBulkUpdateJob_WhenLastUpdatedFilterIsGivenAndIsParallelIsTrue_ThenProcessingJobsUseCtPathNotSurrogateIdRanges(string lastUpdatedValue)
+        {
+            _queueClient.ClearReceivedCalls();
+            _searchService.ClearReceivedCalls();
+
+            _searchService
+                .SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), Arg.Any<bool>())
+                .Returns(_ => Task.FromResult(GenerateSearchResult(2, null)));
+
+            var searchParams = new List<Tuple<string, string>>
+            {
+                new Tuple<string, string>(KnownQueryParameterNames.LastUpdated, lastUpdatedValue),
+            };
+
+            var definition = new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, "Patient", searchParams, "test", "test", "test", null, isParallel: true);
+            var jobInfo = new JobInfo()
+            {
+                GroupId = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+                CreateDate = DateTime.UtcNow,
+            };
+
+            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
+
+            // CT path: SearchAsync is called, GetUsedResourceTypes is NOT called (that is the surrogateId path)
+            await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
+            await _searchService.Received(1).SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), Arg.Any<bool>());
+
+            // Exactly one processing job queued
+            await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+
+            var calls = _queueClient.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name == nameof(IQueueClient.EnqueueAsync))
+                .ToList();
+            var definitions = calls
+                .Select(call => (string[])call.GetArguments()[1])
+                .SelectMany(defs => defs)
+                .ToArray();
+
+            Assert.Single(definitions);
+            var actualDefinition = JsonConvert.DeserializeObject<BulkUpdateDefinition>(definitions[0]);
+
+            // Processing job must NOT have surrogate-id range bounds (proves CT path was taken)
+            Assert.Null(actualDefinition.StartSurrogateId);
+            Assert.Null(actualDefinition.EndSurrogateId);
+
+            // The _lastUpdated filter must be forwarded to the processing job so the SQL layer applies it
+            Assert.Contains(actualDefinition.SearchParameters, p =>
+                p.Item1.Equals(KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(p.Item2, lastUpdatedValue, StringComparison.OrdinalIgnoreCase));
         }
 
         public static IEnumerable<object[]> GetAllowedSearchParameters()
@@ -852,31 +983,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 new List<Tuple<string, string>>
                 {
-                    new Tuple<string, string>("_lastUpdated", "value"),
-                },
-            };
-            yield return new object[]
-            {
-                new List<Tuple<string, string>>
-                {
                     new Tuple<string, string>("_maxCount", "value"),
-                },
-            };
-            yield return new object[]
-            {
-                new List<Tuple<string, string>>
-                {
-                    new Tuple<string, string>("_lastUpdated", "value"),
-                    new Tuple<string, string>("_maxCount", "value"),
-                },
-            };
-            yield return new object[]
-            {
-                new List<Tuple<string, string>>
-                {
-                    new Tuple<string, string>("_lastUpdated", "value1"),
-                    new Tuple<string, string>("_lastUpdated", "value2"),
-                    new Tuple<string, string>("_lastUpdated", "value3"),
                 },
             };
         }

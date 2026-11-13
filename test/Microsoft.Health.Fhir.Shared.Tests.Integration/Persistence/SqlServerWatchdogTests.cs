@@ -1,17 +1,19 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Serialization;
-using MediatR;
-using Microsoft.Azure.Cosmos.Spatial;
+using Medino;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
@@ -19,6 +21,8 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -30,11 +34,10 @@ using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
-using Microsoft.SqlServer.Dac.Model;
 using NSubstitute;
 using Xunit;
-using Xunit.Abstractions;
 
 #pragma warning disable SA1116 // Split parameters should start on line after declaration
 
@@ -52,6 +55,35 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             _fixture = fixture;
             _testOutputHelper = testOutputHelper;
+        }
+
+        [Fact]
+        public void DateTimeOffsetRoundTrip()
+        {
+            ExecuteSql("IF object_id('DateTimeOffsetRoundTripProcedure') IS NOT NULL DROP PROCEDURE DateTimeOffsetRoundTripProcedure");
+            ExecuteSql(@"
+CREATE PROCEDURE DateTimeOffsetRoundTripProcedure @Date datetimeoffset(7)
+AS
+set nocount on
+SELECT @Date
+            ");
+
+            for (var i = 0; i < 2000; i++)
+            {
+                var input = DateTimeOffset.UtcNow;
+                var output = ExecuteDateTimeOffsetRoundTripProcedure(input);
+                Assert.Equal(input, output);
+            }
+        }
+
+        private DateTimeOffset ExecuteDateTimeOffsetRoundTripProcedure(DateTimeOffset date)
+        {
+            using var conn = new SqlConnection(_fixture.TestConnectionString);
+            conn.Open();
+            using var cmd = new SqlCommand("dbo.DateTimeOffsetRoundTripProcedure", conn);
+            cmd.CommandType = System.Data.CommandType.StoredProcedure;
+            cmd.Parameters.AddWithValue("@Date", date);
+            return (DateTimeOffset)cmd.ExecuteScalar();
         }
 
         [Fact]
@@ -293,18 +325,6 @@ END
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));
 
-            // TODO: Temp code to test database stats
-            var factory = CreateResourceWrapperFactory();
-            var tran = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(-1)); // register timed out
-            var patient = (Hl7.Fhir.Model.Patient)Samples.GetJsonSample("Patient").ToPoco();
-            patient.Id = Guid.NewGuid().ToString();
-            var wrapper = factory.Create(patient.ToResourceElement(), false, true);
-            wrapper.ResourceSurrogateId = tran.TransactionId;
-            var mergeWrapper = new MergeResourceWrapper(wrapper, true, true);
-            await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, [mergeWrapper], false, 0, cts.Token);
-            var typeId = _fixture.SqlServerFhirModel.GetResourceTypeId("Patient");
-            ExecuteSql($"IF NOT EXISTS (SELECT * FROM dbo.Resource WHERE ResourceTypeId = {typeId} AND ResourceId = '{patient.Id}') RAISERROR('Resource is not created',18,127)");
-
             var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
 
             Task wdTask = wd.ExecuteAsync(cts.Token);
@@ -326,15 +346,6 @@ END
 
             _testOutputHelper.WriteLine($"EventLog.Count={GetCount("EventLog")}.");
             Assert.True(GetCount("EventLog") <= 2000, "Count is high");
-
-            // TODO: Temp code to test database stats
-            startTime = DateTime.UtcNow;
-            while ((GetEventLogCount("DatabaseStats.SearchParamCount") == 0) && (DateTime.UtcNow - startTime).TotalSeconds < 120)
-            {
-                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
-            }
-
-            Assert.True((DateTime.UtcNow - startTime).TotalSeconds < 120, "DatabaseStats.SearchParamCount message is not found");
 
             await cts.CancelAsync();
             await wdTask;
@@ -368,7 +379,7 @@ RAISERROR('Test',18,127)
             try
             {
                 // no eventual consistency
-                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, true, [mergeWrapper], false, 0, cts.Token);
+                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, true, [mergeWrapper], false, 0, null, cts.Token);
             }
             catch (SqlException e)
             {
@@ -380,7 +391,7 @@ RAISERROR('Test',18,127)
             try
             {
                 // eventual consistency
-                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, [mergeWrapper], false, 0, cts.Token);
+                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, [mergeWrapper], false, 0, null, cts.Token);
             }
             catch (SqlException e)
             {
@@ -392,7 +403,10 @@ RAISERROR('Test',18,127)
 
             ExecuteSql("DROP TRIGGER dbo.tmp_NumberSearchParam");
 
-            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, factory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper))
+            var indexingFactory = Substitute.For<IResourceWrapperFactory>();
+            indexingFactory.UpdateAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>())
+                .Returns(call => factory.UpdateAsync(call.Arg<IReadOnlyCollection<ResourceWrapper>>(), call.Arg<CancellationToken>()));
+            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, indexingFactory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper))
             {
                 AllowRebalance = true,
                 PeriodSec = 1,
@@ -419,6 +433,11 @@ RAISERROR('Test',18,127)
 
             await cts.CancelAsync();
             await wdTask;
+
+            await indexingFactory.Received(1).UpdateAsync(
+                Arg.Is<IReadOnlyCollection<ResourceWrapper>>(resources => resources.Count == 1 && resources.Single().ResourceId == patient.Id),
+                cts.Token);
+            indexingFactory.DidNotReceive().Update(Arg.Any<ResourceWrapper>());
         }
 
         [Fact]
@@ -511,8 +530,8 @@ RAISERROR('Test',18,127)
             // Initialize watchdog parameters
             var geoWatchdog = new GeoReplicationLagWatchdog();
             ExecuteSql($"DELETE FROM dbo.Parameters WHERE Id IN ('{geoWatchdog.PeriodSecId}', '{geoWatchdog.LeasePeriodSecId}')");
-            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) VALUES ('{geoWatchdog.PeriodSecId}', 1)");
-            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) VALUES ('{geoWatchdog.LeasePeriodSecId}', 2)");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{geoWatchdog.PeriodSecId}', 1");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{geoWatchdog.LeasePeriodSecId}', 2");
 
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(2));
@@ -548,6 +567,50 @@ RAISERROR('Test',18,127)
             await wdTask;
 
             _testOutputHelper.WriteLine("Watchdog executed successfully");
+        }
+
+        [Fact]
+        public async Task PeriodsLongerThanLeasesAreHonored()
+        {
+            const string watchdog = nameof(TestPeriodWatchdog);
+            const int periodSec = 3;
+            const int leasePeriodSec = 1;
+            ExecuteSql($"DELETE FROM dbo.Parameters WHERE Id IN ('{watchdog}.PeriodSec', '{watchdog}.LeasePeriodSec')");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{watchdog}.PeriodSec', {periodSec}");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{watchdog}.LeasePeriodSec', {leasePeriodSec}");
+
+            ExecuteSql($"DELETE FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
+            var pastDate = DateTime.UtcNow.AddDays(-1);
+            ExecuteSql($@"
+INSERT INTO dbo.WatchdogLeases 
+    (        Watchdog,  LeaseHolder, LeaseEndTime,  LastRunTime)
+  SELECT '{watchdog}', 'old-worker', '{pastDate}', '{pastDate}'
+            ");
+
+            var executionTimes = new List<DateTime>();
+            var wd = new TestPeriodWatchdog(_fixture.SqlRetryService, XUnitLogger<TestPeriodWatchdog>.Create(_testOutputHelper), executionTimes);
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            var watchdogTask = wd.ExecuteAsync(cts.Token);
+
+            var start = DateTime.UtcNow;
+            const int executions = 3;
+            const double tolerance = 0.5; // seconds
+            while (executionTimes.Count < executions && (DateTime.UtcNow - start) < TimeSpan.FromSeconds(periodSec * executions * 2))
+            {
+                await Task.Delay(TimeSpan.FromSeconds(0.1), cts.Token);
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(0.5), cts.Token); // Allow the last-run timestamp write to finish before cancellation.
+            await cts.CancelAsync();
+            await watchdogTask;
+
+            Assert.True(executionTimes.Count >= executions, "The watchdog did not execute at least 3 times within the test window.");
+
+            Assert.InRange((executionTimes[executions - 1] - executionTimes[0]).TotalSeconds, periodSec * (executions - 1), ((periodSec + leasePeriodSec) * (executions - 1)) + tolerance);
+
+            var lastRunTime = (DateTime)ExecuteSql($"SELECT LastRunTime FROM dbo.WatchdogLeases WHERE Watchdog = '{watchdog}'");
+            Assert.True(Math.Abs((lastRunTime - executionTimes[executions - 1]).TotalSeconds) < tolerance, $"LastRunTime {lastRunTime:yyyy-MM-dd HH:mm:ss.fff} should advance after the watchdog run at {executionTimes[executions - 1]:yyyy-MM-dd HH:mm:ss.fff}.");
         }
 
         private ResourceWrapperFactory CreateResourceWrapperFactory()
@@ -677,6 +740,261 @@ RAISERROR('Test',18,127)
             }
 
             return coordCompleted && coordArchived && workArchived;
+        }
+
+        [Fact]
+        public async Task JobMonitorWatchdog_WhenQueueIsEmpty_PublishesNotificationWithAllQueueTypes()
+        {
+            ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+
+            var mediator = Substitute.For<IMediator>();
+            JobMonitorMetricsNotification captured = null;
+            mediator.When(x => x.PublishAsync(Arg.Any<JobMonitorMetricsNotification>(), Arg.Any<CancellationToken>()))
+                    .Do(info => captured = (JobMonitorMetricsNotification)info[0]);
+
+            await RunJobMonitorWatchdogUntilPublishAsync(mediator, () => captured != null);
+
+            Assert.NotNull(captured);
+            foreach (var queueType in Enum.GetValues<QueueType>().Where(q => q != QueueType.Unknown))
+            {
+                Assert.True(captured.QueueAges.TryGetValue(queueType, out var age), $"Missing queue type in QueueAges: {queueType}");
+                Assert.Equal(0, age);
+
+                Assert.True(captured.QueueDepths.TryGetValue(queueType, out var depth), $"Missing queue type in QueueDepths: {queueType}");
+                Assert.Equal(0, depth.Pending);
+                Assert.Equal(0, depth.Running);
+            }
+        }
+
+        [Fact]
+        public async Task JobMonitorWatchdog_WhenQueueHasPendingJob_ReportsDepthAndAgeForThatQueueOnly()
+        {
+            ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+
+            var sqlQueueClient = new SqlQueueClient(
+                _fixture.SchemaInformation,
+                _fixture.SqlRetryService,
+                XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
+
+            await sqlQueueClient.EnqueueAsync((byte)QueueType.Export, new[] { "job1" }, null, false, CancellationToken.None);
+
+            var mediator = Substitute.For<IMediator>();
+            JobMonitorMetricsNotification captured = null;
+            mediator.When(x => x.PublishAsync(Arg.Any<JobMonitorMetricsNotification>(), Arg.Any<CancellationToken>()))
+                    .Do(info => captured = (JobMonitorMetricsNotification)info[0]);
+
+            await RunJobMonitorWatchdogUntilPublishAsync(mediator, () => captured != null);
+
+            Assert.NotNull(captured);
+
+            // The Export queue has one pending (Created) job.
+            Assert.Equal(1, captured.QueueDepths[QueueType.Export].Pending);
+            Assert.Equal(0, captured.QueueDepths[QueueType.Export].Running);
+            var exportAge = captured.QueueAges[QueueType.Export];
+            Assert.InRange(exportAge, 0, 120); // enqueued moments ago, so the age must be near zero
+
+            // Another queue type must still report empty.
+            Assert.Equal(0, captured.QueueDepths[QueueType.Import].Pending);
+            Assert.Equal(0, captured.QueueDepths[QueueType.Import].Running);
+            Assert.Equal(0, captured.QueueAges[QueueType.Import]);
+        }
+
+        [Fact]
+        public async Task JobMonitorWatchdog_RunningJobInOneQueue_DoesNotZeroStaleCreatedJobInAnotherQueue()
+        {
+            ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+
+            var sqlQueueClient = new SqlQueueClient(
+                _fixture.SchemaInformation,
+                _fixture.SqlRetryService,
+                XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
+
+            // Queue A (Export): a Running job that is recent.
+            await sqlQueueClient.EnqueueAsync((byte)QueueType.Export, new[] { "running-job" }, null, false, CancellationToken.None);
+            ExecuteSql($"UPDATE dbo.JobQueue SET Status = 1 WHERE QueueType = {(byte)QueueType.Export}");
+
+            // Queue B (Import): a Created job stamped 900 seconds in the past.
+            await sqlQueueClient.EnqueueAsync((byte)QueueType.Import, new[] { "stale-job" }, null, false, CancellationToken.None);
+            ExecuteSql($"UPDATE dbo.JobQueue SET CreateDate = DATEADD(SECOND, -900, SYSUTCDATETIME()) WHERE QueueType = {(byte)QueueType.Import}");
+
+            var mediator = Substitute.For<IMediator>();
+            JobMonitorMetricsNotification captured = null;
+            mediator.When(x => x.PublishAsync(Arg.Any<JobMonitorMetricsNotification>(), Arg.Any<CancellationToken>()))
+                    .Do(info => captured = (JobMonitorMetricsNotification)info[0]);
+
+            await RunJobMonitorWatchdogUntilPublishAsync(mediator, () => captured != null);
+
+            Assert.NotNull(captured);
+
+            // Export has no Created jobs (its only job is Running) ⇒ age 0.
+            Assert.Equal(0, captured.QueueAges[QueueType.Export]);
+            Assert.Equal(1, captured.QueueDepths[QueueType.Export].Running);
+
+            // The stale Created job in Import must still surface a non-trivial age (cross-queue isolation).
+            var importAge = captured.QueueAges[QueueType.Import];
+            Assert.True(importAge >= 800, $"Stale Import job age was suppressed: {importAge}");
+            Assert.Equal(1, captured.QueueDepths[QueueType.Import].Pending);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(2)]
+        public async Task JobMonitorWatchdog_WhenReadingActiveJobs_ReturnsEquivalentAggregates(int scenario)
+        {
+            // Arrange
+            ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+            if (scenario > 0)
+            {
+                ExecuteSql($@"
+INSERT INTO dbo.JobQueue (QueueType, GroupId, JobId, Definition, DefinitionHash, Status, CreateDate)
+SELECT Q.QueueType, D.Duplicate + 1, P.PartitionId + 16 * (S.Status + 7 * D.Duplicate), 'job', 0x00, S.Status,
+       dateadd(second, -(P.PartitionId + S.Status * 100 + D.Duplicate * 1000), convert(datetime, '20260101', 112))
+FROM (VALUES (0),(1),(2),(3),(4),(5),(6),(255)) Q(QueueType)
+CROSS JOIN (VALUES (0),(1),(2),(3),(4),(5),(6),(7),(8),(9),(10),(11),(12),(13),(14),(15)) P(PartitionId)
+CROSS JOIN (VALUES (0),(1),(2),(3),(4),(5),(6)) S(Status)
+CROSS JOIN (VALUES (0),(1)) D(Duplicate)
+WHERE S.Status >= {(scenario == 2 ? 2 : 0)}");
+            }
+
+            using var expectedCommand = new SqlCommand(@"
+SELECT QueueType, Status, min(CreateDate), count(*)
+FROM dbo.JobQueue
+WHERE Status IN (0,1) AND QueueType IN (1,2,3,4,5,6)
+GROUP BY QueueType, Status");
+            var expected = await _fixture.SqlRetryService.ExecuteReaderAsync(
+                expectedCommand,
+                reader => new JobMonitorWatchdog.QueueStatusAggregate(
+                    (QueueType)reader.GetByte(0),
+                    (JobStatus)reader.GetByte(1),
+                    reader.GetDateTime(2),
+                    reader.GetInt32(3)),
+                XUnitLogger<JobMonitorWatchdog>.Create(_testOutputHelper),
+                "Failed to read expected queue aggregates",
+                CancellationToken.None);
+            var watchdog = new JobMonitorWatchdog(
+                _fixture.SqlRetryService,
+                XUnitLogger<JobMonitorWatchdog>.Create(_testOutputHelper),
+                Substitute.For<IMediator>(),
+                new SqlQueueClient(_fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper)));
+
+            // Act
+            var actual = await watchdog.GetQueueStatusAggregatesAsync(CancellationToken.None);
+
+            // Assert
+            Assert.Equal(scenario == 1 ? 12 : 0, actual.Count);
+            Assert.Equal(
+                expected.OrderBy(a => a.QueueType).ThenBy(a => a.Status),
+                actual.OrderBy(a => a.QueueType).ThenBy(a => a.Status));
+            if (scenario == 1)
+            {
+                Assert.All(actual, aggregate => Assert.Equal(32, aggregate.Count));
+            }
+        }
+
+        [Theory]
+        [InlineData(null, false)]
+        [InlineData(true, false)]
+        [InlineData(false, false)]
+        [InlineData(null, true)]
+        [InlineData(true, true)]
+        [InlineData(false, true)]
+        public async Task GetActiveJobs_WhenReturnDefinitionIsSpecified_PreservesJobMetadata(bool? returnDefinition, bool returnParentOnly)
+        {
+            // Arrange
+            ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+            ExecuteSql(@"
+INSERT INTO dbo.JobQueue (QueueType, GroupId, JobId, Definition, DefinitionHash, Status, CreateDate)
+SELECT 1, 0, P.PartitionId + 16 * S.Status, 'job', 0x00, S.Status, convert(datetime, '20260101', 112)
+FROM (VALUES (0),(1),(2),(3),(4),(5),(6),(7),(8),(9),(10),(11),(12),(13),(14),(15)) P(PartitionId)
+CROSS JOIN (VALUES (0),(1)) S(Status)");
+            using var command = new SqlCommand("dbo.GetActiveJobs") { CommandType = CommandType.StoredProcedure };
+            command.Parameters.Add("@QueueType", SqlDbType.TinyInt).Value = 1;
+            command.Parameters.Add("@ReturnParentOnly", SqlDbType.Bit).Value = returnParentOnly;
+            if (returnDefinition.HasValue)
+            {
+                command.Parameters.Add("@ReturnDefinition", SqlDbType.Bit).Value = returnDefinition.Value;
+            }
+
+            // Act
+            var jobs = await _fixture.SqlRetryService.ExecuteReaderAsync(
+                command,
+                reader => (
+                    Id: reader.GetInt64(reader.GetOrdinal("JobId")),
+                    GroupId: reader.GetInt64(reader.GetOrdinal("GroupId")),
+                    Status: reader.GetByte(reader.GetOrdinal("Status")),
+                    CreateDate: reader.GetDateTime(reader.GetOrdinal("CreateDate")),
+                    Definition: reader.IsDBNull(reader.GetOrdinal("Definition")) ? null : reader.GetString(reader.GetOrdinal("Definition"))),
+                XUnitLogger<SqlQueueClient>.Create(_testOutputHelper),
+                "Failed to read active jobs",
+                CancellationToken.None);
+
+            // Assert
+            Assert.Equal(returnParentOnly ? 1 : 32, jobs.Count);
+            Assert.Equal(
+                Enumerable.Range(0, returnParentOnly ? 1 : 32).Select(id => (long)id),
+                jobs.Select(job => job.Id).OrderBy(id => id));
+            Assert.All(jobs, job =>
+            {
+                Assert.Equal(0, job.GroupId);
+                Assert.Equal((byte)(job.Id / 16), job.Status);
+                Assert.Equal(new DateTime(2026, 1, 1), job.CreateDate);
+                Assert.Equal(returnDefinition == false ? null : "job", job.Definition);
+            });
+        }
+
+        private async Task RunJobMonitorWatchdogUntilPublishAsync(IMediator mediator, Func<bool> isPublished)
+        {
+            var wd = new JobMonitorWatchdog(
+                _fixture.SqlRetryService,
+                XUnitLogger<JobMonitorWatchdog>.Create(_testOutputHelper),
+                mediator,
+                new SqlQueueClient(_fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper)))
+            {
+                PeriodSec = 1,
+                LeasePeriodSec = 2,
+                AllowRebalance = true,
+            };
+
+            ExecuteSql($"DELETE FROM dbo.Parameters WHERE Id IN ('{wd.PeriodSecId}', '{wd.LeasePeriodSecId}')");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{wd.PeriodSecId}', 1");
+            ExecuteSql($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{wd.LeasePeriodSecId}', 2");
+
+            using var cts = new CancellationTokenSource();
+            cts.CancelAfter(TimeSpan.FromSeconds(30));
+            Task wdTask = wd.ExecuteAsync(cts.Token);
+
+            var startTime = DateTime.UtcNow;
+            while (!isPublished() && (DateTime.UtcNow - startTime).TotalSeconds < 20)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(500), cts.Token);
+            }
+
+            await cts.CancelAsync();
+            await wdTask;
+        }
+
+        private sealed class TestPeriodWatchdog : Watchdog<TestPeriodWatchdog>
+        {
+            private readonly IList<DateTime> _executionTimes;
+
+            public TestPeriodWatchdog(ISqlRetryService sqlRetryService, ILogger<TestPeriodWatchdog> logger, IList<DateTime> executionTimes)
+                : base(sqlRetryService, logger)
+            {
+                _executionTimes = executionTimes;
+            }
+
+            public override double LeasePeriodSec { get; internal set; } = 200; // value is not relevant
+
+            public override bool AllowRebalance { get; internal set; } = false;
+
+            public override double PeriodSec { get; internal set; } = 200; // value is not relevant
+
+            protected override Task RunWorkAsync(CancellationToken cancellationToken)
+            {
+                _executionTimes.Add(DateTime.UtcNow);
+                return Task.CompletedTask;
+            }
         }
     }
 }

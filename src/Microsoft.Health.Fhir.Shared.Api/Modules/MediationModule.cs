@@ -6,11 +6,14 @@
 using System;
 using System.Linq;
 using EnsureThat;
-using MediatR;
-using MediatR.Pipeline;
+using Medino;
+using Medino.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Search.Behavior;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 
@@ -26,15 +29,19 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            services.AddMediatR(cfg =>
+            services.AddMedino(cfg =>
             {
-                cfg.RegisterServicesFromAssemblies(KnownAssemblies.All);
-                cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestExceptionActionProcessorBehavior<,>));
-                cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestExceptionProcessorBehavior<,>));
-                cfg.AddRequestPreProcessor(typeof(IRequestPreProcessor<>), typeof(ValidateRequestPreProcessor<>));
-                cfg.AddRequestPreProcessor(typeof(IRequestPreProcessor<BundleRequest>), typeof(ValidateBundlePreProcessor));
-                cfg.AddRequestPreProcessor(typeof(IRequestPreProcessor<>), typeof(ValidateCapabilityPreProcessor<>));
+               cfg.RegisterServicesFromAssemblies(KnownAssemblies.All);
             });
+
+            RemovePipelineBehaviorRegistrations<ProvenanceHeaderBehavior>(services);
+            RemovePipelineBehaviorRegistrations<ProfileResourcesBehaviour>(services);
+            RemovePipelineBehaviorRegistrations<ListSearchPipeBehavior>(services);
+
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidateRequestPreProcessor<,>));
+            services.RemoveAll<IPipelineBehavior<BundleRequest, BundleResponse>>();
+            services.AddTransient<IPipelineBehavior<BundleRequest, BundleResponse>, ValidateBundlePreProcessor>();
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidateCapabilityPreProcessor<,>));
 
             // Allows handlers to provide capabilities
             var openRequestInterfaces = new[]
@@ -47,6 +54,28 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Where(y => y.Type.IsGenericType && openRequestInterfaces.Contains(y.Type.GetGenericTypeDefinition()))
                 .Transient()
                 .AsImplementedInterfaces(x => x == typeof(IProvideCapability));
+        }
+
+        private static void RemovePipelineBehaviorRegistrations<TBehavior>(IServiceCollection services)
+        {
+            Type behaviorType = typeof(TBehavior);
+
+            foreach (Type serviceType in behaviorType.GetInterfaces().Where(IsPipelineBehavior))
+            {
+                for (int i = services.Count - 1; i >= 0; i--)
+                {
+                    ServiceDescriptor descriptor = services[i];
+                    if (descriptor.ServiceType == serviceType && descriptor.ImplementationType == behaviorType)
+                    {
+                        services.RemoveAt(i);
+                    }
+                }
+            }
+        }
+
+        private static bool IsPipelineBehavior(Type type)
+        {
+            return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IPipelineBehavior<,>);
         }
     }
 }

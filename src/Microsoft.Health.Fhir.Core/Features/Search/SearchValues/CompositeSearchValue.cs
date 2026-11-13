@@ -70,7 +70,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <inheritdoc />
         public override int GetHashCode()
         {
-            return HashCode.Combine(Components.Select(x => x.GetHashCode()));
+            var hash = default(HashCode);
+            foreach (var component in Components)
+            {
+                // Match SequenceEqual's component-list equality, not equality of the list's elements.
+                hash.Add(component);
+            }
+
+            return hash.ToHashCode();
         }
     }
 }

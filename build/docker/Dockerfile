@@ -1,8 +1,12 @@
 # --platform tells docker to always use the host platform for the build not the target platform. Runtime container will use target platform.
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0.310-azurelinux3.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/runtime:10.0.14-azurelinux3.0 AS sql-tools-runtime
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0.100-azurelinux3.0 AS build
 ARG TARGETARCH
 ARG FHIR_VERSION
 ARG ASSEMBLY_VER
+
+# Healthcare shared package 12's SQL generators run on .NET 10.
+COPY --from=sql-tools-runtime /usr/share/dotnet/shared/Microsoft.NETCore.App /usr/share/dotnet/shared/Microsoft.NETCore.App
 
 WORKDIR /repo
 
@@ -53,6 +57,12 @@ COPY ./src/Microsoft.Health.Fhir.CosmosDb.Initialization/Microsoft.Health.Fhir.C
 COPY ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Core/Microsoft.Health.Fhir.${FHIR_VERSION}.Core.csproj \
      ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Core/Microsoft.Health.Fhir.${FHIR_VERSION}.Core.csproj
 
+COPY ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.FirelySdk/Microsoft.Health.Fhir.${FHIR_VERSION}.FirelySdk.csproj \
+     ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.FirelySdk/Microsoft.Health.Fhir.${FHIR_VERSION}.FirelySdk.csproj
+
+COPY ./src/Microsoft.Health.Fhir.Ignixa/Microsoft.Health.Fhir.Ignixa.csproj \
+     ./src/Microsoft.Health.Fhir.Ignixa/Microsoft.Health.Fhir.Ignixa.csproj
+
 COPY ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Api/Microsoft.Health.Fhir.${FHIR_VERSION}.Api.csproj \
      ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Api/Microsoft.Health.Fhir.${FHIR_VERSION}.Api.csproj
 
@@ -77,10 +87,10 @@ RUN dotnet restore ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Hea
 
 COPY . .
 
-RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}" -p:Version="${ASSEMBLY_VER}" -f net9.0 -a $TARGETARCH
+RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}" -p:Version="${ASSEMBLY_VER}" -f net11.0 -a $TARGETARCH
 
 # Implicitly uses the target platform for the runtime image.
-FROM mcr.microsoft.com/dotnet/aspnet:9.0.12-azurelinux3.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0.0-azurelinux3.0 AS runtime
 
 ARG FHIR_VERSION
 

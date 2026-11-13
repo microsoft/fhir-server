@@ -1,14 +1,9 @@
 parameters:
 - name: version
   type: string
-- name: sql
-  type: boolean
-  default: false
 - name: webAppName
   type: string
-- name: appServicePlanName
-  type: string
-- name: appServicePlanResourceGroup
+- name: acaEnvironmentName
   type: string
 - name: subscription
   type: string
@@ -18,183 +13,75 @@ parameters:
   type: string
 - name: imageTag
   type: string
+- name: dataStore
+  type: string
+  # Accepted values: 'sql' or 'cosmos'
 - name: schemaAutomaticUpdatesEnabled
   type: string
-  default: 'tool'
+  default: 'auto'
 - name: sqlServerName
   type: string
   default: ''
 - name: sqlComputeTier
   type: string
-  default: 'Standard'
+  default: ''
 - name: reindexEnabled
   type: boolean
   default: true
-- name: keyVaultName
+- name: sqlElasticPoolName
   type: string
   default: ''
+- name: keyVaultName
+  type: string
 
 jobs:
 - job: provisionEnvironment
   pool:
-    name: '$(SharedLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   steps:
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: resolute-oss-tenant-info'
     inputs:
-      azureSubscription: $(ConnectedServiceName)
+      azureSubscription: ${{ parameters.subscription }}
       KeyVaultName: 'resolute-oss-tenant-info'
 
   - task: AzurePowerShell@5
-    displayName: 'Azure PowerShell script: InlineScript'
+    name: SetAcaOutputs
+    displayName: 'Deploy ACA (${{ parameters.dataStore }}) and emit test URL'
     retryCountOnTaskFailure: 1
     inputs:
-      azureSubscription: $(ConnectedServiceName)
+      azureSubscription: ${{ parameters.subscription }}
       azurePowerShellVersion: latestVersion
       pwsh: true
-      ScriptType: inlineScript
-      Inline: |
-        Add-Type -AssemblyName System.Web
-
-        # Import retry helper for transient error handling
-        . $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/Invoke-WithRetry.ps1
-
-        $deployPath = "$(System.DefaultWorkingDirectory)/test/Configuration"
-
-        $testConfig = (ConvertFrom-Json (Get-Content -Raw "$deployPath/testconfiguration.json"))
-        $flattenedTestConfig = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $testConfig
-
-        $additionalProperties = $flattenedTestConfig
-
-        $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
-        $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
-        $additionalProperties["CosmosDb__InitialDatabaseThroughput"] = 1500
-        $additionalProperties["TaskHosting__PollingFrequencyInSeconds"] = 2
-        $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
-
-        $webAppName = "${{ parameters.webAppName }}".ToLower()
-        Write-Host "Web App Name: $webAppName"
-        $templateParameters = @{
-            fhirVersion = "${{ parameters.version }}"
-            appServicePlanName = "${{ parameters.appServicePlanName }}"
-            appServicePlanSku = "P2V3"
-            numberOfInstances = 2
-            serviceName = $webAppName
-            keyVaultName = "${{ parameters.keyVaultName }}".ToLower()
-            securityAuthenticationAuthority = "https://sts.windows.net/$(tenant-id-guid)"
-            securityAuthenticationAudience = "${{ parameters.testEnvironmentUrl }}"
-            additionalFhirServerConfigProperties = $additionalProperties
-            enableAadSmartOnFhirProxy = $true
-            enableExport = $true
-            enableConvertData = $true
-            enableImport = $true
-            backgroundTaskCount = 4
-            enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
-            registryName = '$(azureContainerRegistry)'
-            imageTag = '${{ parameters.imageTag }}'
-            acrPullUserAssignedManagedIdentityResourceId = '/subscriptions/a1766500-6fd5-4f5c-8515-607798271014/resourceGroups/HealthPlatformRG/providers/Microsoft.ManagedIdentity/userAssignedIdentities/acr-pull-uami'
-            acrPullUserAssignedManagedIdentityClientId = 'e4acf07d-0124-4373-9ea4-bf5c53af647d'
-            isNspExisting = $true
-        }
-
-        if("${{ parameters.sql }}" -eq "true"){
-            # Set SQL Variables
-            $templateParameters["solutionType"] = "FhirServerSqlServer"
-            $templateParameters["sqlServerName"] = "${{parameters.sqlServerName}}".ToLower()
-            $templateParameters["sqlServerNewOrExisting"] = "existing"
-            $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = "${{parameters.schemaAutomaticUpdatesEnabled}}"
-            $templateParameters["sqlDatabaseComputeTier"] = "${{parameters.sqlComputeTier}}"
-        }
-
-        $deploymentName = $webAppName
-        $resourceGroupName = "${{ parameters.resourceGroup }}"
-
-        Write-Host "Provisioning Resource Group"
-        Write-Host "ResourceGroupName: ${{ parameters.resourceGroup }}"
-
-        # Set NSP name to match ARM template convention
-        $nspName = "nsp-$resourceGroupName"
-        $templateParameters["networkSecurityPerimeterName"] = $nspName
-
-        # Check if a deployment with the specified name already exists
-        $existingDeployment = Get-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -ErrorAction SilentlyContinue
-
-        # If the deployment exists and is ongoing, wait for it to complete
-        if ($existingDeployment -and ($existingDeployment.ProvisioningState -eq "Running" -or $existingDeployment.ProvisioningState -eq "Accepted")) {
-            Write-Host "Waiting for existing deployment '$deploymentName' to complete..."
-            do {
-                Start-Sleep -Seconds 10
-                $existingDeployment = Get-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName
-            } while ($existingDeployment.ProvisioningState -eq "Running" -or $existingDeployment.ProvisioningState -eq "Accepted")
-            Write-Host "Existing deployment completed."
-        }
-        else
-        {
-          try {
-            New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
-          } catch {
-            if ("${{ parameters.sql }}" -eq "true") {
-              $templateParameters["sqlServerNewOrExisting"] = "new"
-              New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
-            }
-          }
-        }
-
-        if("${{ parameters.sql }}" -eq "false"){
-            Write-Host "Add DevOps MI permission to Cosmos database"
-
-            $account = Get-AzContext
-
-            # Retry Get-AzADServicePrincipal for AAD replication delays
-            $principalId = Invoke-WithRetry -OperationName "Get Service Principal" -ScriptBlock {
-                (Get-AzADServicePrincipal -ApplicationId $account.Account.Id -ErrorAction Stop).Id
-            }
-
-            # Retry CosmosDB role assignment for resource propagation delays
-            Invoke-WithRetry -OperationName "CosmosDB Role Assignment" -ScriptBlock {
-                New-AzCosmosDBSqlRoleAssignment `
-                  -AccountName $webAppName `
-                  -ResourceGroupName $resourceGroupName `
-                  -Scope "/" `
-                  -PrincipalId $principalId `
-                  -RoleDefinitionId "00000000-0000-0000-0000-000000000002" `
-                  -ErrorAction Stop
-            }
-
-            # Associate CosmosDB with Network Security Perimeter using external template
-            Write-Host "Associating CosmosDB with Network Security Perimeter: $nspName"
-            
-            $associationName = "cosmosdb-$webAppName-association"
-                
-            Write-Host "Creating NSP association using external ARM template..."
-            Write-Host "NSP Name: $nspName"
-            Write-Host "CosmosDB Account: $webAppName"
-            Write-Host "Association Name: $associationName"
-                
-            $nspTemplateParameters = @{
-                'nspName' = $nspName
-                'resourceName' = $webAppName
-                'resourceType' = 'Microsoft.DocumentDB/databaseAccounts'
-                'associationName' = $associationName
-                'accessMode' = 'Learning'
-                'nspProfile' = 'default'
-            }
-                
-            # Retry NSP association deployment for resource propagation delays
-            $nspDeploymentResult = Invoke-WithRetry -OperationName "NSP Association Deployment" -ScriptBlock {
-                New-AzResourceGroupDeployment `
-                  -ResourceGroupName $resourceGroupName `
-                  -Name "$webAppName-cosmosdb-nsp-association" `
-                  -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/nsp-resource-association.json `
-                  -TemplateParameterObject $nspTemplateParameters `
-                  -Verbose `
-                  -ErrorAction Stop
-            }
-                
-            Write-Host "Successfully associated CosmosDB with NSP using external ARM template"
-            Write-Host "Association Resource ID: $($nspDeploymentResult.Outputs.associationResourceId.Value)"
-        }
-  - template: ./provision-healthcheck.yml
-    parameters:
-      webAppName: ${{ parameters.webAppName }}
+      ScriptType: FilePath
+      ScriptPath: '$(System.DefaultWorkingDirectory)/build/jobs/scripts/Provision-AcaDeploy.ps1'
+      ScriptArguments: >-
+        -DataStore "${{ parameters.dataStore }}"
+        -Version "${{ parameters.version }}"
+        -WebAppName "${{ parameters.webAppName }}"
+        -AcaEnvironmentName "${{ parameters.acaEnvironmentName }}"
+        -ResourceGroup "${{ parameters.resourceGroup }}"
+        -KeyVaultName "${{ parameters.keyVaultName }}"
+        -ImageTag "${{ parameters.imageTag }}"
+        -TestEnvironmentUrl "${{ parameters.testEnvironmentUrl }}"
+        -WorkingDirectory "$(System.DefaultWorkingDirectory)"
+        -AzureContainerRegistry "$(azureContainerRegistry)"
+        -TenantIdGuid "$(tenant-id-guid)"
+        -SqlServerName "${{ parameters.sqlServerName }}"
+        -SqlElasticPoolName "${{ parameters.sqlElasticPoolName }}"
+        -SchemaAutomaticUpdatesEnabled "${{ parameters.schemaAutomaticUpdatesEnabled }}"
+        -ReindexEnabled "${{ parameters.reindexEnabled }}"
+        -ImportInMemoryTestEnabled "$(importInMemoryTestEnabled)"
+        -MinReplicas $(minReplicas)
+        -MaxReplicas $(maxReplicas)
+        -ContainerCpu "$(containerCpu)"
+        -ContainerMemory "$(containerMemory)"
+        -CosmosAutoscaleMaxThroughput $(cosmosAutoscaleMaxThroughput)
+        -TaskHostingPollingFrequencyInSeconds $(taskHostingPollingFrequencyInSeconds)
+        -TaskHostingMaxRunningTaskCount $(taskHostingMaxRunningTaskCount)
+        -SearchParameterCacheRefreshIntervalSeconds $(searchParameterCacheRefreshIntervalSeconds)
+        -SystemConformanceProviderRefreshIntervalSeconds $(systemConformanceProviderRefreshIntervalSeconds)
+        -ReindexCacheRefreshWaitMultiplier $(reindexCacheRefreshWaitMultiplier)
+        -ReindexJobsPollingIntervalSec $(reindexJobsPollingIntervalSec)

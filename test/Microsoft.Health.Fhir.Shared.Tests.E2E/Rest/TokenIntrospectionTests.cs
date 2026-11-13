@@ -10,9 +10,11 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Smart.Tests.E2E
@@ -20,6 +22,8 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
     /// <summary>
     /// E2E tests for RFC 7662 Token Introspection endpoint using real OpenIddict tokens.
     /// </summary>
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Authorization)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class TokenIntrospectionTests : IClassFixture<HttpIntegrationTestFixture>
     {
@@ -32,7 +36,7 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
         {
             _fixture = fixture;
             _httpClient = fixture.TestFhirClient.HttpClient;
-            _tokenUri = fixture.TestFhirServer.TokenUri;
+            _tokenUri = fixture.TestFhirServer.ClientCredentialTokenUri;
             _introspectionUri = new Uri(fixture.TestFhirServer.BaseAddress, "/connect/introspect");
         }
 
@@ -64,7 +68,8 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             Assert.True(response.TryGetValue("iss", out _), $"Response missing 'iss' claim. Response: {responseJson}");
             Assert.True(response.TryGetValue("aud", out _), $"Response missing 'aud' claim. Response: {responseJson}");
             Assert.True(response.TryGetValue("exp", out JsonElement expirationElement), $"Response missing 'exp' claim. Response: {responseJson}");
-            Assert.True(response.TryGetValue("client_id", out _), $"Response missing 'client_id' claim. Response: {responseJson}");
+            Assert.True(response.TryGetValue("client_id", out JsonElement clientIdElement), $"Response missing 'client_id' claim. Response: {responseJson}");
+            Assert.Equal(TestApplications.GlobalAdminServicePrincipal.ClientId, clientIdElement.GetString());
 
             // Verify timestamps are Unix timestamps (positive numbers)
             Assert.True(expirationElement.GetInt64() > 0);
@@ -257,6 +262,8 @@ namespace Microsoft.Health.Fhir.Smart.Tests.E2E
             Assert.True(readerResponse.TryGetValue("client_id", out JsonElement readerClientIdElement), $"Reader response missing 'client_id'. Response: {readerResponseJson}");
             var adminClientId = adminClientIdElement.GetString();
             var readerClientId = readerClientIdElement.GetString();
+            Assert.Equal(TestApplications.GlobalAdminServicePrincipal.ClientId, adminClientId);
+            Assert.Equal(TestApplications.ReadOnlyUser.ClientId, readerClientId);
             Assert.NotEqual(adminClientId, readerClientId);
         }
 

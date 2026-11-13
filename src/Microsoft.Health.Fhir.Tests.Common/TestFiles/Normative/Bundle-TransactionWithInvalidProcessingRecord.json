@@ -1,0 +1,178 @@
+{
+    "resourceType": "Bundle",
+    "id": "bundle-transaction",
+    "meta": {
+        "lastUpdated": "2026-05-01T00:00:00Z"
+    },
+    "type": "transaction",
+    "entry": [
+        {
+            "resource": {
+                "resourceType": "Encounter",
+                "status": "finished",
+                "class": {
+                    "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                    "code": "AMB"
+                },
+                "type": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "11111",
+                                "display": "Encounter for check-up (procedure)"
+                            }
+                        ]
+                    }
+                ],
+                "subject": {
+                    "reference": "urn:uuid:patient-001"
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "Encounter"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Encounter",
+                "status": "finished",
+                "class": {
+                    "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                    "code": "AMB"
+                },
+                "type": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "22222",
+                                "display": "Encounter for check-up (procedure)"
+                            }
+                        ]
+                    }
+                ],
+                "subject": {
+                    "reference": "urn:uuid:patient-001"
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "Encounter"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Encounter",
+                "status": "finished",
+                "class": {
+                    "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                    "code": "AMB"
+                },
+                "type": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "33333",
+                                "display": "Encounter for check-up (procedure)"
+                            }
+                        ]
+                    }
+                ],
+                "subject": {
+                    "reference": "urn:uuid:patient-001"
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "Encounter"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Encounter",
+                "status": "finished",
+                "class": {
+                    "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                    "code": "AMB"
+                },
+                "type": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "44444",
+                                "display": "Encounter for check-up (procedure)"
+                            }
+                        ]
+                    }
+                ],
+                "subject": {
+                    "reference": "urn:uuid:patient-001"
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "Encounter"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Encounter",
+                "status": "finished",
+                "class": {
+                    "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                    "code": "AMB"
+                },
+                "type": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://snomed.info/sct",
+                                "code": "55555",
+                                "display": "Encounter for check-up (procedure)"
+                            }
+                        ]
+                    }
+                ],
+                "subject": {
+                    "reference": "urn:uuid:patient-001"
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "Encounter"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Binary",
+                "contentType": "text/plain",
+                "data": "SGVsbG8gd29ybGQ="
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Binary/null"
+            }
+        },
+        {
+            "fullUrl": "urn:uuid:patient-001",
+            "resource": {
+                "resourceType": "Patient",
+                "id": "patient-001",
+                "identifier": [
+                    {
+                        "system": "http://hospital.example.org/mrn",
+                        "value": "MRN-12345"
+                    }
+                ]
+            },
+            "request": {
+                "method": "POST",
+                "url": "Patient"
+            }
+        }
+    ]
+}

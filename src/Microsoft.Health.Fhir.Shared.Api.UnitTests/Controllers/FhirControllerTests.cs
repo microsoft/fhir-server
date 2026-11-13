@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,13 +12,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
@@ -36,6 +37,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
@@ -67,6 +69,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private readonly IUrlResolver _urlResolver;
         private readonly IOptions<FeatureConfiguration> _configuration;
         private readonly IAuthorizationService _authorizationService;
+        private readonly ISearchParameterOperations _searchParameterOperations;
 
         public FhirControllerTests()
         {
@@ -76,12 +79,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _configuration = Substitute.For<IOptions<FeatureConfiguration>>();
             _configuration.Value.Returns(new FeatureConfiguration());
             _authorizationService = Substitute.For<IAuthorizationService>();
+            _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
 
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Any<DeleteResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new DeleteResourceResponse(new ResourceKey(KnownResourceTypes.Patient, Guid.NewGuid().ToString()))));
-            _mediator.Send(
+            _mediator.SendAsync(
                 Arg.Any<ConditionalDeleteResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new DeleteResourceResponse(new ResourceKey(KnownResourceTypes.Patient, Guid.NewGuid().ToString()))));
@@ -90,7 +94,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 _requestContextAccessor,
                 _urlResolver,
                 _configuration,
-                _authorizationService);
+                _authorizationService,
+                _searchParameterOperations,
+                NullLogger<FhirController>.Instance);
             _fhirController.ControllerContext = new ControllerContext(
                 new ActionContext(
                     Substitute.For<HttpContext>(),
@@ -130,14 +136,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void WhenProvidedAFhirController_CheckIfTheBundleEndpointHasTheLatencyMetricFilter()
-        {
-            Type expectedCustomAttribute = typeof(BundleEndpointMetricEmitterAttribute);
-
-            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "BatchAndTransactions", _targetFhirControllerClass);
-        }
-
-        [Fact]
         public void WhenProvidedAFhirController_CheckIfTheSearchEndpointsHaveTheLatencyMetricFilter()
         {
             Type expectedCustomAttribute = typeof(SearchEndpointMetricEmitterAttribute);
@@ -148,6 +146,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SearchCompartmentByResourceType", _targetFhirControllerClass);
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SystemHistory", _targetFhirControllerClass);
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "TypeHistory", _targetFhirControllerClass);
+
+            // Controllers outside FhirController that should also have the search metric emitter.
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "PatientEverythingById", typeof(EverythingController));
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "Search", typeof(IncludesController));
+
+            // DocRefController GET Search only (POST overload does not emit search latency).
+            var docRefGetSearch = typeof(DocRefController).GetMethod("Search", Type.EmptyTypes);
+            Assert.True(docRefGetSearch != null, "DocRefController.Search() (GET) method not found.");
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, docRefGetSearch);
         }
 
         [Fact]
@@ -177,7 +184,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             };
 
             await _fhirController.ConditionalDelete(KnownResourceTypes.Patient, hardDeleteModel, null);
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync(
                 Arg.Is<ConditionalDeleteResourceRequest>(x => x.DeleteOperation == operation),
                 Arg.Any<CancellationToken>());
         }
@@ -197,7 +204,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             };
 
             await _fhirController.Delete(KnownResourceTypes.Patient, Guid.NewGuid().ToString(), hardDeleteModel, false);
-            await _mediator.Received(1).Send(
+            await _mediator.Received(1).SendAsync(
                 Arg.Is<DeleteResourceRequest>(x => x.DeleteOperation == operation),
                 Arg.Any<CancellationToken>());
         }
@@ -235,14 +242,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             }
 
             _fhirController.ControllerContext.HttpContext = httpContext;
-            _mediator.Send<UpsertResourceResponse>(
+            _mediator.SendAsync(
                 Arg.Any<ConditionalCreateResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(saveOutcome == null ? null : new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), saveOutcome.Value)));
 
             var request = default(ConditionalCreateResourceRequest);
             _mediator.When(
-                x => x.Send<UpsertResourceResponse>(
+                x => x.SendAsync(
                     Arg.Any<ConditionalCreateResourceRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<ConditionalCreateResourceRequest>());
@@ -275,7 +282,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                         });
                 });
 
-            await _mediator.Received(1).Send<UpsertResourceResponse>(
+            await _mediator.Received(1).SendAsync(
                 Arg.Any<ConditionalCreateResourceRequest>(),
                 Arg.Any<CancellationToken>());
             _requestContextAccessor.RequestContext.Properties
@@ -345,14 +352,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 null);
             var httpContext = new DefaultHttpContext();
             _fhirController.ControllerContext.HttpContext = httpContext;
-            _mediator.Send<UpsertResourceResponse>(
+            _mediator.SendAsync<UpsertResourceResponse>(
                 Arg.Any<CreateResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created)));
 
             var request = default(CreateResourceRequest);
             _mediator.When(
-                x => x.Send<UpsertResourceResponse>(
+                x => x.SendAsync<UpsertResourceResponse>(
                     Arg.Any<CreateResourceRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<CreateResourceRequest>());
@@ -369,7 +376,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(resource.Id, request.Resource.Id);
             Assert.Equal(resource.VersionId, request.Resource.VersionId);
 
-            await _mediator.Received(1).Send<UpsertResourceResponse>(
+            await _mediator.Received(1).SendAsync<UpsertResourceResponse>(
                 Arg.Any<CreateResourceRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -399,14 +406,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 null);
             var httpContext = new DefaultHttpContext();
             _fhirController.ControllerContext.HttpContext = httpContext;
-            _mediator.Send<UpsertResourceResponse>(
+            _mediator.SendAsync<UpsertResourceResponse>(
                 Arg.Any<UpsertResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Updated)));
 
             var request = default(UpsertResourceRequest);
             _mediator.When(
-                x => x.Send<UpsertResourceResponse>(
+                x => x.SendAsync<UpsertResourceResponse>(
                     Arg.Any<UpsertResourceRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<UpsertResourceRequest>());
@@ -428,7 +435,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(versionId, request.WeakETag?.VersionId);
             Assert.Equal(metaHistory, request.MetaHistory);
 
-            await _mediator.Received(1).Send<UpsertResourceResponse>(
+            await _mediator.Received(1).SendAsync<UpsertResourceResponse>(
                 Arg.Any<UpsertResourceRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -475,14 +482,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             }
 
             _fhirController.ControllerContext.HttpContext = httpContext;
-            _mediator.Send<UpsertResourceResponse>(
+            _mediator.SendAsync<UpsertResourceResponse>(
                 Arg.Any<ConditionalUpsertResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), saveOutcome)));
 
             var request = default(ConditionalUpsertResourceRequest);
             _mediator.When(
-                x => x.Send<UpsertResourceResponse>(
+                x => x.SendAsync<UpsertResourceResponse>(
                     Arg.Any<ConditionalUpsertResourceRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<ConditionalUpsertResourceRequest>());
@@ -506,12 +513,66 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                         });
                 });
 
-            await _mediator.Received(1).Send<UpsertResourceResponse>(
+            await _mediator.Received(1).SendAsync<UpsertResourceResponse>(
                 Arg.Any<ConditionalUpsertResourceRequest>(),
                 Arg.Any<CancellationToken>());
             _requestContextAccessor.RequestContext.Properties
                 .Received(queryProcessingLogic.HasValue && queryProcessingLogic.Value == ConditionalQueryProcessingLogic.Parallel ? 1 : 0)
                 .TryAdd(KnownQueryParameterNames.OptimizeConcurrency, true);
+        }
+
+        [Theory]
+        [InlineData(null, ConditionalUpdateNoMatchBehavior.Upsert)]
+        [InlineData("upsert", ConditionalUpdateNoMatchBehavior.Upsert)]
+        [InlineData("create", ConditionalUpdateNoMatchBehavior.Create)]
+        public async Task GivenConditionalUpdateRequest_WhenNoMatchHeaderIsSpecified_ThenRequestCarriesTheBehavior(string headerValue, ConditionalUpdateNoMatchBehavior expectedBehavior)
+        {
+            var resource = new Patient()
+            {
+                Id = Guid.NewGuid().ToString(),
+                VersionId = Guid.NewGuid().ToString(),
+            };
+
+            var wrapper = new ResourceWrapper(
+                resource.ToResourceElement(),
+                new RawResource(resource.ToJson(), FhirResourceFormat.Json, false),
+                null,
+                false,
+                null,
+                null,
+                null);
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.QueryString = new QueryString("?_lastUpdated=le2020-01-01");
+            if (headerValue != null)
+            {
+                httpContext.Request.Headers[KnownHeaders.ConditionalUpdateNoMatch] = headerValue;
+            }
+
+            _fhirController.ControllerContext.HttpContext = httpContext;
+
+            var request = default(ConditionalUpsertResourceRequest);
+            _mediator.SendAsync<UpsertResourceResponse>(
+                Arg.Do<ConditionalUpsertResourceRequest>(x => request = x),
+                Arg.Any<CancellationToken>())
+                .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created)));
+
+            await _fhirController.ConditionalUpdate(resource);
+
+            Assert.NotNull(request);
+            Assert.Equal(expectedBehavior, request.NoMatchBehavior);
+        }
+
+        [Fact]
+        public async Task GivenConditionalUpdateRequest_WhenNoMatchHeaderIsInvalid_ThenBadRequestIsThrownBeforeDispatch()
+        {
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.QueryString = new QueryString("?_lastUpdated=le2020-01-01");
+            httpContext.Request.Headers[KnownHeaders.ConditionalUpdateNoMatch] = "true";
+            _fhirController.ControllerContext.HttpContext = httpContext;
+
+            await Assert.ThrowsAsync<BadRequestException>(() => _fhirController.ConditionalUpdate(new Patient { Id = Guid.NewGuid().ToString() }));
+
+            Assert.Empty(_mediator.ReceivedCalls());
         }
 
         [Fact]
@@ -533,14 +594,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 null);
             var httpContext = new DefaultHttpContext();
             _fhirController.ControllerContext.HttpContext = httpContext;
-            _mediator.Send<GetResourceResponse>(
+            _mediator.SendAsync<GetResourceResponse>(
                 Arg.Any<GetResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new GetResourceResponse(new RawResourceElement(wrapper)));
 
             var request = default(GetResourceRequest);
             _mediator.When(
-                x => x.Send<GetResourceResponse>(
+                x => x.SendAsync<GetResourceResponse>(
                     Arg.Any<GetResourceRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<GetResourceRequest>());
@@ -559,7 +620,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             // NOTE: commenting out version check as Read ignores version id.
             Assert.Null(request.ResourceKey.VersionId);
 
-            await _mediator.Received(1).Send<GetResourceResponse>(
+            await _mediator.Received(1).SendAsync<GetResourceResponse>(
                 Arg.Any<GetResourceRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -606,14 +667,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 null);
             var httpContext = new DefaultHttpContext();
             _fhirController.ControllerContext.HttpContext = httpContext;
-            _mediator.Send<GetResourceResponse>(
+            _mediator.SendAsync<GetResourceResponse>(
                 Arg.Any<GetResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new GetResourceResponse(new RawResourceElement(wrapper)));
 
             var request = default(GetResourceRequest);
             _mediator.When(
-                x => x.Send<GetResourceResponse>(
+                x => x.SendAsync<GetResourceResponse>(
                     Arg.Any<GetResourceRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<GetResourceRequest>());
@@ -633,7 +694,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(resource.Id, request.ResourceKey.Id);
             Assert.Equal(resource.VersionId, request.ResourceKey.VersionId);
 
-            await _mediator.Received(1).Send<GetResourceResponse>(
+            await _mediator.Received(1).SendAsync<GetResourceResponse>(
                 Arg.Any<GetResourceRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -648,14 +709,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var etag = WeakETag.FromVersionId("ver0");
             var httpContext = new DefaultHttpContext();
             _fhirController.ControllerContext.HttpContext = httpContext;
-            _mediator.Send<DeleteResourceResponse>(
+            _mediator.SendAsync<DeleteResourceResponse>(
                 Arg.Any<DeleteResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new DeleteResourceResponse(resourceKey, 1, etag));
 
             var request = default(DeleteResourceRequest);
             _mediator.When(
-                x => x.Send<DeleteResourceResponse>(
+                x => x.SendAsync<DeleteResourceResponse>(
                     Arg.Any<DeleteResourceRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<DeleteResourceRequest>());
@@ -685,7 +746,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             // NOTE: commenting out version check as PurgeHistory ignores version id.
             Assert.Null(request.ResourceKey.VersionId);
 
-            await _mediator.Received(1).Send<DeleteResourceResponse>(
+            await _mediator.Received(1).SendAsync<DeleteResourceResponse>(
                 Arg.Any<DeleteResourceRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -715,14 +776,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 null);
             var httpContext = new DefaultHttpContext();
             _fhirController.ControllerContext.HttpContext = httpContext;
-            _mediator.Send<UpsertResourceResponse>(
+            _mediator.SendAsync<UpsertResourceResponse>(
                 Arg.Any<PatchResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Updated)));
 
             var request = default(PatchResourceRequest);
             _mediator.When(
-                x => x.Send<UpsertResourceResponse>(
+                x => x.SendAsync<UpsertResourceResponse>(
                     Arg.Any<PatchResourceRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<PatchResourceRequest>());
@@ -749,7 +810,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             // NOTE: commenting out version check as Patch ignores version id.
             Assert.Null(request.ResourceKey.VersionId);
 
-            await _mediator.Received(1).Send<UpsertResourceResponse>(
+            await _mediator.Received(1).SendAsync<UpsertResourceResponse>(
                 Arg.Any<PatchResourceRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -787,14 +848,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             _fhirController.ControllerContext.HttpContext = httpContext;
 
-            _mediator.Send<UpsertResourceResponse>(
+            _mediator.SendAsync<UpsertResourceResponse>(
                 Arg.Any<ConditionalPatchResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Updated)));
 
             var request = default(ConditionalPatchResourceRequest);
             _mediator.When(
-                x => x.Send<UpsertResourceResponse>(
+                x => x.SendAsync<UpsertResourceResponse>(
                     Arg.Any<ConditionalPatchResourceRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<ConditionalPatchResourceRequest>());
@@ -831,7 +892,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                         });
                 });
 
-            await _mediator.Received(1).Send<UpsertResourceResponse>(
+            await _mediator.Received(1).SendAsync<UpsertResourceResponse>(
                 Arg.Any<ConditionalPatchResourceRequest>(),
                 Arg.Any<CancellationToken>());
             _requestContextAccessor.RequestContext.Properties
@@ -864,14 +925,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 null);
             var httpContext = new DefaultHttpContext();
             _fhirController.ControllerContext.HttpContext = httpContext;
-            _mediator.Send<UpsertResourceResponse>(
+            _mediator.SendAsync<UpsertResourceResponse>(
                 Arg.Any<PatchResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Updated)));
 
             var request = default(PatchResourceRequest);
             _mediator.When(
-                x => x.Send<UpsertResourceResponse>(
+                x => x.SendAsync<UpsertResourceResponse>(
                     Arg.Any<PatchResourceRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<PatchResourceRequest>());
@@ -898,7 +959,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             // NOTE: commenting out version check as Patch ignores version id.
             Assert.Null(request.ResourceKey.VersionId);
 
-            await _mediator.Received(1).Send<UpsertResourceResponse>(
+            await _mediator.Received(1).SendAsync<UpsertResourceResponse>(
                 Arg.Any<PatchResourceRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -936,14 +997,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             _fhirController.ControllerContext.HttpContext = httpContext;
 
-            _mediator.Send<UpsertResourceResponse>(
+            _mediator.SendAsync<UpsertResourceResponse>(
                 Arg.Any<ConditionalPatchResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Updated)));
 
             var request = default(ConditionalPatchResourceRequest);
             _mediator.When(
-                x => x.Send<UpsertResourceResponse>(
+                x => x.SendAsync<UpsertResourceResponse>(
                     Arg.Any<ConditionalPatchResourceRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<ConditionalPatchResourceRequest>());
@@ -980,7 +1041,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                         });
                 });
 
-            await _mediator.Received(1).Send<UpsertResourceResponse>(
+            await _mediator.Received(1).SendAsync<UpsertResourceResponse>(
                 Arg.Any<ConditionalPatchResourceRequest>(),
                 Arg.Any<CancellationToken>());
             _requestContextAccessor.RequestContext.Properties
@@ -1035,14 +1096,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             httpContext.Request.QueryString = new QueryString(query);
             _fhirController.ControllerContext.HttpContext = httpContext;
 
-            _mediator.Send<SearchCompartmentResponse>(
+            _mediator.SendAsync<SearchCompartmentResponse>(
                 Arg.Any<SearchCompartmentRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new SearchCompartmentResponse(resource.ToResourceElement()));
 
             var request = default(SearchCompartmentRequest);
             _mediator.When(
-                x => x.Send<SearchCompartmentResponse>(
+                x => x.SendAsync<SearchCompartmentResponse>(
                     Arg.Any<SearchCompartmentRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<SearchCompartmentRequest>());
@@ -1077,7 +1138,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                         });
                 });
 
-            await _mediator.Received(1).Send<SearchCompartmentResponse>(
+            await _mediator.Received(1).SendAsync<SearchCompartmentResponse>(
                 Arg.Any<SearchCompartmentRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -1093,14 +1154,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var httpContext = new DefaultHttpContext();
             _fhirController.ControllerContext.HttpContext = httpContext;
-            _mediator.Send<GetCapabilitiesResponse>(
+            _mediator.SendAsync<GetCapabilitiesResponse>(
                 Arg.Any<GetCapabilitiesRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new GetCapabilitiesResponse(resource.ToResourceElement()));
 
             var request = default(GetCapabilitiesRequest);
             _mediator.When(
-                x => x.Send<GetCapabilitiesResponse>(
+                x => x.SendAsync<GetCapabilitiesResponse>(
                     Arg.Any<GetCapabilitiesRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<GetCapabilitiesRequest>());
@@ -1115,7 +1176,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.NotNull(request);
             Assert.IsType<GetCapabilitiesRequest>(request);
 
-            await _mediator.Received(1).Send<GetCapabilitiesResponse>(
+            await _mediator.Received(1).SendAsync<GetCapabilitiesResponse>(
                 Arg.Any<GetCapabilitiesRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -1136,7 +1197,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var tokenUri = new Uri("https://smart.healthit.gov/token");
             var httpContext = new DefaultHttpContext();
             _fhirController.ControllerContext.HttpContext = httpContext;
-            _mediator.Send<GetSmartConfigurationResponse>(
+            _mediator.SendAsync<GetSmartConfigurationResponse>(
                 Arg.Any<GetSmartConfigurationRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new GetSmartConfigurationResponse(
@@ -1146,7 +1207,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var request = default(GetSmartConfigurationRequest);
             _mediator.When(
-                x => x.Send<GetSmartConfigurationResponse>(
+                x => x.SendAsync<GetSmartConfigurationResponse>(
                     Arg.Any<GetSmartConfigurationRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<GetSmartConfigurationRequest>());
@@ -1161,7 +1222,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.NotNull(request);
             Assert.Equal(baseUri, request.BaseUri);
 
-            await _mediator.Received(1).Send<GetSmartConfigurationResponse>(
+            await _mediator.Received(1).SendAsync<GetSmartConfigurationResponse>(
                 Arg.Any<GetSmartConfigurationRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -1179,14 +1240,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var defaultVersion = "4.0.1";
             var httpContext = new DefaultHttpContext();
             _fhirController.ControllerContext.HttpContext = httpContext;
-            _mediator.Send<GetOperationVersionsResponse>(
+            _mediator.SendAsync<GetOperationVersionsResponse>(
                 Arg.Any<GetOperationVersionsRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new GetOperationVersionsResponse(supportedVersions, defaultVersion));
 
             var request = default(GetOperationVersionsRequest);
             _mediator.When(
-                x => x.Send<GetOperationVersionsResponse>(
+                x => x.SendAsync<GetOperationVersionsResponse>(
                     Arg.Any<GetOperationVersionsRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<GetOperationVersionsRequest>());
@@ -1205,7 +1266,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.NotNull(request);
             Assert.IsType<GetOperationVersionsRequest>(request);
 
-            await _mediator.Received(1).Send<GetOperationVersionsResponse>(
+            await _mediator.Received(1).SendAsync<GetOperationVersionsResponse>(
                 Arg.Any<GetOperationVersionsRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -1222,17 +1283,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var responseInfo = new BundleResponseInfo(
                 TimeSpan.FromSeconds(60),
                 BundleType.BatchResponse,
-                BundleProcessingLogic.Parallel);
-            var httpContext = new DefaultHttpContext();
-            _fhirController.ControllerContext.HttpContext = httpContext;
-            _mediator.Send<BundleResponse>(
+                BundleProcessingLogic.Parallel,
+                BundleComplexity.Low);
+
+            _fhirController.ControllerContext.HttpContext = new DefaultHttpContext();
+
+            _mediator.SendAsync<BundleResponse>(
                 Arg.Any<BundleRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new BundleResponse(resource.ToResourceElement(), responseInfo));
 
             var request = default(BundleRequest);
             _mediator.When(
-                x => x.Send<BundleResponse>(
+                x => x.SendAsync<BundleResponse>(
                     Arg.Any<BundleRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<BundleRequest>());
@@ -1249,16 +1312,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(resource.Id, request.Bundle.Id);
             Assert.Equal(resource.VersionId, request.Bundle.VersionId);
 
-            await _mediator.Received(1).Send<BundleResponse>(
+            await _mediator.Received(1).SendAsync<BundleResponse>(
                 Arg.Any<BundleRequest>(),
                 Arg.Any<CancellationToken>());
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task GivenCreateRequest_WhenHttpBundleInnerRequestExecutionContextIsSpecified_ThenBundleResourceContextShouldBeAddedToRequest(
-            bool addHttpBundleInnerRequestExecutionContextHeader)
+        [Trait(Traits.Category, Categories.Bundle)]
+        [InlineData(true, null)]
+        [InlineData(false, null)]
+        [InlineData(true, "not-json")]
+        [InlineData(false, "not-json")]
+        [InlineData(true, "{\"HttpVerb\":\"PUT\"}")]
+        [InlineData(false, "{\"HttpVerb\":\"PUT\"}")]
+        public async Task GivenCreateRequest_WhenBundleResourceContextIsSpecified_ThenOnlyFhirRequestContextPropertiesAreUsed(
+            bool addBundleResourceContextProperty,
+            string headerValue)
         {
             var resource = new Patient()
             {
@@ -1275,27 +1344,45 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 null,
                 null);
             var httpContext = new DefaultHttpContext();
+            httpContext.Request.Method = "POST";
+            var fhirRequestContext = new FhirRequestContext(
+                httpContext.Request.Method,
+                "https://localhost/Patient",
+                "https://localhost/",
+                Guid.NewGuid().ToString(),
+                httpContext.Request.Headers,
+                httpContext.Response.Headers)
+            {
+                ExecutingBatchOrTransaction = addBundleResourceContextProperty,
+            };
+            _requestContextAccessor.RequestContext = fhirRequestContext;
             var bundleResourceContext = new BundleResourceContext(
                 Bundle.BundleType.Batch,
                 BundleProcessingLogic.Parallel,
-                Bundle.HTTPVerb.HEAD,
+                Bundle.HTTPVerb.POST,
                 Guid.NewGuid().ToString(),
                 Guid.NewGuid());
-            if (addHttpBundleInnerRequestExecutionContextHeader)
+            if (addBundleResourceContextProperty)
             {
-                httpContext.Request.Headers[BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext] =
-                    JsonConvert.SerializeObject(bundleResourceContext);
+                fhirRequestContext.Properties.Add(
+                    BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext,
+                    bundleResourceContext);
+            }
+
+            if (headerValue != null)
+            {
+                httpContext.Request.Headers[BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext] = headerValue;
             }
 
             _fhirController.ControllerContext.HttpContext = httpContext;
-            _mediator.Send<UpsertResourceResponse>(
+            _mediator.SendAsync<UpsertResourceResponse>(
                 Arg.Any<CreateResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created)));
 
             var request = default(CreateResourceRequest);
             _mediator.When(
-                x => x.Send<UpsertResourceResponse>(
+                x => x.SendAsync<UpsertResourceResponse>(
                     Arg.Any<CreateResourceRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<CreateResourceRequest>());
@@ -1306,14 +1393,83 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(resource.TypeName, request.Resource.InstanceType);
             Assert.Equal(resource.Id, request.Resource.Id);
             Assert.Equal(resource.VersionId, request.Resource.VersionId);
-            if (addHttpBundleInnerRequestExecutionContextHeader)
+            if (addBundleResourceContextProperty)
             {
-                Assert.NotNull(request.BundleResourceContext);
-                Assert.Equal(bundleResourceContext.BundleType, request.BundleResourceContext.BundleType);
-                Assert.Equal(bundleResourceContext.ProcessingLogic, request.BundleResourceContext.ProcessingLogic);
-                Assert.Equal(bundleResourceContext.HttpVerb, request.BundleResourceContext.HttpVerb);
-                Assert.Equal(bundleResourceContext.PersistedId, request.BundleResourceContext.PersistedId);
-                Assert.Equal(bundleResourceContext.BundleOperationId, request.BundleResourceContext.BundleOperationId);
+                Assert.Same(bundleResourceContext, request.BundleResourceContext);
+            }
+            else
+            {
+                Assert.Null(request.BundleResourceContext);
+            }
+        }
+
+        [Theory]
+        [Trait(Traits.Category, Categories.Bundle)]
+        [InlineData(false, null)]
+        [InlineData(false, "not-json")]
+        [InlineData(false, "{\"HttpVerb\":\"POST\"}")]
+        [InlineData(true, null)]
+        [InlineData(true, "not-json")]
+        [InlineData(true, "{\"HttpVerb\":\"POST\"}")]
+        public async Task GivenUpdateRequest_WhenBundleResourceContextIsSpecified_ThenOnlyFhirRequestContextPropertiesAreUsed(
+            bool addBundleResourceContextProperty,
+            string headerValue)
+        {
+            var resource = new Patient
+            {
+                Id = Guid.NewGuid().ToString(),
+                VersionId = Guid.NewGuid().ToString(),
+            };
+            var wrapper = new ResourceWrapper(
+                resource.ToResourceElement(),
+                new RawResource(resource.ToJson(), FhirResourceFormat.Json, false),
+                null,
+                false,
+                null,
+                null,
+                null);
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.Method = "PUT";
+            _fhirController.ControllerContext.HttpContext = httpContext;
+            var requestContext = new FhirRequestContext(
+                "PUT",
+                "https://localhost/Patient/" + resource.Id,
+                "https://localhost/",
+                Guid.NewGuid().ToString(),
+                httpContext.Request.Headers,
+                httpContext.Response.Headers);
+            _requestContextAccessor.RequestContext = requestContext;
+            var bundleResourceContext = new BundleResourceContext(
+                Bundle.BundleType.Batch,
+                BundleProcessingLogic.Parallel,
+                Bundle.HTTPVerb.PUT,
+                resource.Id,
+                Guid.NewGuid());
+            if (addBundleResourceContextProperty)
+            {
+                requestContext.Properties.Add(
+                    BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext,
+                    bundleResourceContext);
+            }
+
+            if (headerValue != null)
+            {
+                httpContext.Request.Headers[BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext] = headerValue;
+            }
+
+            var request = default(UpsertResourceRequest);
+            _mediator.SendAsync<UpsertResourceResponse>(
+                Arg.Do<UpsertResourceRequest>(value => request = value),
+                Arg.Any<CancellationToken>())
+                .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Updated)));
+
+            await _fhirController.Update(resource, null, false);
+
+            Assert.NotNull(request);
+            Assert.Equal(resource.Id, request.Resource.Id);
+            if (addBundleResourceContextProperty)
+            {
+                Assert.Same(bundleResourceContext, request.BundleResourceContext);
             }
             else
             {
@@ -1334,14 +1490,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var httpContext = new DefaultHttpContext();
             _fhirController.ControllerContext.HttpContext = httpContext;
-            _mediator.Send<SearchResourceHistoryResponse>(
+            _mediator.SendAsync<SearchResourceHistoryResponse>(
                 Arg.Any<SearchResourceHistoryRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new SearchResourceHistoryResponse(resource.ToResourceElement()));
 
             var request = default(SearchResourceHistoryRequest);
             _mediator.When(
-                x => x.Send<SearchResourceHistoryResponse>(
+                x => x.SendAsync<SearchResourceHistoryResponse>(
                     Arg.Any<SearchResourceHistoryRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<SearchResourceHistoryRequest>());
@@ -1378,7 +1534,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Assert.Equal(historyModel.ContinuationToken, request.ContinuationToken);
             Assert.Equal(historyModel.Sort, request.Sort);
 
-            await _mediator.Received(1).Send<SearchResourceHistoryResponse>(
+            await _mediator.Received(1).SendAsync<SearchResourceHistoryResponse>(
                 Arg.Any<SearchResourceHistoryRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -1398,14 +1554,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             httpContext.Request.QueryString = new QueryString(query);
             _fhirController.ControllerContext.HttpContext = httpContext;
 
-            _mediator.Send<SearchResourceResponse>(
+            _mediator.SendAsync<SearchResourceResponse>(
                 Arg.Any<SearchResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new SearchResourceResponse(resource.ToResourceElement()));
 
             var request = default(SearchResourceRequest);
             _mediator.When(
-                x => x.Send<SearchResourceResponse>(
+                x => x.SendAsync<SearchResourceResponse>(
                     Arg.Any<SearchResourceRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<SearchResourceRequest>());
@@ -1435,7 +1591,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                         });
                 });
 
-            await _mediator.Received(1).Send<SearchResourceResponse>(
+            await _mediator.Received(1).SendAsync<SearchResourceResponse>(
                 Arg.Any<SearchResourceRequest>(),
                 Arg.Any<CancellationToken>());
         }
@@ -1445,12 +1601,220 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             MethodInfo bundleMethodInfo = targetClassType.GetMethod(methodName);
             Assert.True(bundleMethodInfo != null, $"The method '{methodName}' was not found in '{targetClassType.Name}'. Was it renamed or removed?");
 
-            TypeFilterAttribute latencyFilter = Attribute.GetCustomAttributes(bundleMethodInfo, typeof(TypeFilterAttribute))
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttributeType, bundleMethodInfo);
+        }
+
+        private static void TestIfTargetMethodContainsCustomAttribute(Type expectedCustomAttributeType, MethodInfo methodInfo)
+        {
+            TypeFilterAttribute latencyFilter = Attribute.GetCustomAttributes(methodInfo, typeof(TypeFilterAttribute))
                 .Select(a => a as TypeFilterAttribute)
                 .Where(a => a.ImplementationType == expectedCustomAttributeType)
                 .SingleOrDefault();
 
-            Assert.True(latencyFilter != null, $"The expected filter '{expectedCustomAttributeType.Name}' was not found in the method '{methodName}' from '{targetClassType.Name}'.");
+            Assert.True(latencyFilter != null, $"The expected filter '{expectedCustomAttributeType.Name}' was not found in the method '{methodInfo.Name}' from '{methodInfo.DeclaringType?.Name}'.");
+        }
+
+        [Fact]
+        public async Task GivenSearchParameterCreate_WhenConcurrencyConflictOccurs_ThenRetriesAndSucceeds()
+        {
+            var searchParameter = new SearchParameter { Id = "test", Url = "http://test.com/param", VersionId = Guid.NewGuid().ToString() };
+            var wrapper = CreateMockResourceWrapper(searchParameter);
+
+            var attemptCount = 0;
+            _searchParameterOperations
+                .GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(true));
+            _searchParameterOperations.SearchParamLastUpdated.Returns(DateTimeOffset.UtcNow);
+
+            _mediator.SendAsync<UpsertResourceResponse>(
+                Arg.Any<CreateResourceRequest>(),
+                Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    attemptCount++;
+                    if (attemptCount < 3)
+                    {
+                        throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
+                    }
+
+                    return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
+                });
+
+            var response = await _fhirController.Create(searchParameter);
+
+            Assert.Equal(3, attemptCount);
+            Assert.IsType<FhirResult>(response);
+        }
+
+        [Fact]
+        public async Task GivenSearchParameterUpdate_WhenConcurrencyConflictOccurs_ThenRetriesAndSucceeds()
+        {
+            var searchParameter = new SearchParameter { Id = "test", Url = "http://test.com/param", VersionId = Guid.NewGuid().ToString() };
+            var wrapper = CreateMockResourceWrapper(searchParameter);
+
+            var attemptCount = 0;
+            _searchParameterOperations
+                .GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(true));
+            _searchParameterOperations.SearchParamLastUpdated.Returns(DateTimeOffset.UtcNow);
+
+            _mediator.SendAsync<UpsertResourceResponse>(
+                Arg.Any<UpsertResourceRequest>(),
+                Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    attemptCount++;
+                    if (attemptCount < 2)
+                    {
+                        throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
+                    }
+
+                    return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Updated));
+                });
+
+            var response = await _fhirController.Update(searchParameter, null, true);
+
+            Assert.Equal(2, attemptCount);
+            Assert.IsType<FhirResult>(response);
+        }
+
+        [Fact]
+        public async Task GivenSearchParameterDelete_WhenConcurrencyConflictOccurs_ThenRetriesAndSucceeds()
+        {
+            var key = new ResourceKey("SearchParameter", "test");
+
+            var attemptCount = 0;
+            _searchParameterOperations
+                .GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(true));
+            _searchParameterOperations.SearchParamLastUpdated.Returns(DateTimeOffset.UtcNow);
+
+            _mediator.SendAsync<DeleteResourceResponse>(
+                Arg.Any<DeleteResourceRequest>(),
+                Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    attemptCount++;
+                    if (attemptCount < 2)
+                    {
+                        throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
+                    }
+
+                    return new DeleteResourceResponse(key);
+                });
+
+            var response = await _fhirController.Delete("SearchParameter", "test", new HardDeleteModel { HardDelete = false }, false);
+
+            Assert.Equal(2, attemptCount);
+            Assert.IsType<FhirResult>(response);
+        }
+
+        [Fact]
+        public async Task GivenSearchParameterConditionalCreate_WhenConcurrencyConflictOccurs_ThenRetriesAndSucceeds()
+        {
+            var searchParameter = new SearchParameter { Id = "test", Url = "http://test.com/param", VersionId = Guid.NewGuid().ToString() };
+            var wrapper = CreateMockResourceWrapper(searchParameter);
+
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.Headers[KnownHeaders.IfNoneExist] = "url=http://test.com/param";
+            _fhirController.ControllerContext.HttpContext = httpContext;
+
+            var attemptCount = 0;
+            _searchParameterOperations
+                .GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(true));
+            _searchParameterOperations.SearchParamLastUpdated.Returns(DateTimeOffset.UtcNow);
+
+            _mediator.SendAsync<UpsertResourceResponse>(
+                Arg.Any<ConditionalCreateResourceRequest>(),
+                Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    attemptCount++;
+                    if (attemptCount < 3)
+                    {
+                        throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
+                    }
+
+                    return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
+                });
+
+            var response = await _fhirController.ConditionalCreate(searchParameter);
+
+            Assert.Equal(3, attemptCount);
+            Assert.IsType<FhirResult>(response);
+        }
+
+        [Fact]
+        public async Task GivenSearchParameterConditionalUpdate_WhenConcurrencyConflictOccurs_ThenRetriesAndSucceeds()
+        {
+            var searchParameter = new SearchParameter { Id = "test", Url = "http://test.com/param", VersionId = Guid.NewGuid().ToString() };
+            var wrapper = CreateMockResourceWrapper(searchParameter);
+
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.QueryString = new QueryString("?url=http://test.com/param");
+            _fhirController.ControllerContext.HttpContext = httpContext;
+
+            var attemptCount = 0;
+            _searchParameterOperations
+                .GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(true));
+            _searchParameterOperations.SearchParamLastUpdated.Returns(DateTimeOffset.UtcNow);
+
+            _mediator.SendAsync<UpsertResourceResponse>(
+                Arg.Any<ConditionalUpsertResourceRequest>(),
+                Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    attemptCount++;
+                    if (attemptCount < 2)
+                    {
+                        throw new BadRequestException(Core.Resources.SearchParameterConcurrencyConflict);
+                    }
+
+                    return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Updated));
+                });
+
+            var response = await _fhirController.ConditionalUpdate(searchParameter);
+
+            Assert.Equal(2, attemptCount);
+            Assert.IsType<FhirResult>(response);
+        }
+
+        [Fact]
+        public async Task GivenNonSearchParameterResource_WhenOperationExecuted_ThenNoRetry()
+        {
+            var patient = new Patient { Id = "test", VersionId = Guid.NewGuid().ToString() };
+            var wrapper = CreateMockResourceWrapper(patient);
+
+            var attemptCount = 0;
+            _mediator.SendAsync<UpsertResourceResponse>(
+                Arg.Any<CreateResourceRequest>(),
+                Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    attemptCount++;
+                    return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
+                });
+
+            var response = await _fhirController.Create(patient);
+
+            Assert.Equal(1, attemptCount);
+            Assert.IsType<FhirResult>(response);
+            await _searchParameterOperations.DidNotReceive().GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>());
+        }
+
+        private ResourceWrapper CreateMockResourceWrapper(Resource resource)
+        {
+            var rawJson = new FhirJsonSerializer().SerializeToString(resource);
+            return new ResourceWrapper(
+                resource.ToResourceElement(),
+                new RawResource(rawJson, FhirResourceFormat.Json, isMetaSet: false),
+                null,
+                false,
+                null,
+                null,
+                null);
         }
     }
 }

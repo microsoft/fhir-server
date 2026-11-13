@@ -10,9 +10,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.FhirPath;
 using Hl7.FhirPath;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -21,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Test.Utilities;
@@ -73,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var requestContextAccessor = new FhirRequestContextAccessor();
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             instanceConfig.BaseUri.Returns(new Uri("https://localhost/"));
-            var referenceSearchValueParser = new ReferenceSearchValueParser(requestContextAccessor, instanceConfig);
+            var referenceSearchValueParser = new ReferenceSearchValueParser(requestContextAccessor, instanceConfig, ResourceIdPolicy.Standard);
             var codeSystemResolver = new CodeSystemResolver(ModelInfoProvider.Instance);
             await codeSystemResolver.StartAsync(CancellationToken.None);
 
@@ -105,7 +108,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 searchParameterComparer,
                 statusDataStore.CreateMockScopeProvider(),
                 fhirDataStore.CreateMockScopeProvider(),
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
             await definitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var statusRegistry = new FilebasedSearchParameterStatusDataStore(
@@ -135,7 +139,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 searchParameterComparer,
                 statusDataStore.CreateMockScopeProvider(),
                 fhirDataStore.CreateMockScopeProvider(),
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
             await definitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var statusRegistry = new FilebasedSearchParameterStatusDataStore(

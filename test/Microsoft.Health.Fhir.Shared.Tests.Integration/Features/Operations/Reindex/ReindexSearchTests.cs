@@ -8,14 +8,16 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
@@ -28,21 +30,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.IndexAndReindex)]
-    [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
+    [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
 
     public class ReindexSearchTests : IClassFixture<FhirStorageTestsFixture>
     {
         private readonly IScoped<IFhirDataStore> _scopedDataStore;
         private readonly IScoped<ISearchService> _searchService;
-        private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
-
-        private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
 
         public ReindexSearchTests(FhirStorageTestsFixture fixture)
         {
             _scopedDataStore = fixture.DataStore.CreateMockScope();
             _searchService = fixture.SearchService.CreateMockScope();
-            _searchParameterDefinitionManager = fixture.SearchParameterDefinitionManager;
+            _contextAccessor = fixture.FhirRequestContextAccessor;
         }
 
         [Fact]
@@ -63,11 +63,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     Tuple.Create(KnownQueryParameterNames.Type, "Patient"),
                     Tuple.Create(KnownQueryParameterNames.EndSurrogateId, long.MaxValue.ToString()),
                     Tuple.Create(KnownQueryParameterNames.StartSurrogateId, "0"),
-                    Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
                 };
 
                 // Pass in the same hash value
-                SearchResult searchResult = await _searchService.Value.SearchForReindexAsync(queryParametersList, patientHash, false, CancellationToken.None);
+                SearchResult searchResult = await BackgroundTaskRequestContext.RunAsync(_contextAccessor, () => _searchService.Value.SearchForReindexAsync(queryParametersList, patientHash, false, CancellationToken.None));
 
                 // A reindex search should return all the resources that have a different hash value than the one specified
                 Assert.Empty(searchResult.Results);
@@ -97,11 +96,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     Tuple.Create(KnownQueryParameterNames.Type, "Patient"),
                     Tuple.Create(KnownQueryParameterNames.EndSurrogateId, long.MaxValue.ToString()),
                     Tuple.Create(KnownQueryParameterNames.StartSurrogateId, "0"),
-                    Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
+                    Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
                 };
 
                 // Pass in a different hash value
-                SearchResult searchResult = await _searchService.Value.SearchForReindexAsync(queryParametersList, "differentHash", false, CancellationToken.None);
+                SearchResult searchResult = await BackgroundTaskRequestContext.RunAsync(_contextAccessor, () => _searchService.Value.SearchForReindexAsync(queryParametersList, "differentHash", false, CancellationToken.None));
 
                 // A reindex search should return all the resources that have a different hash value than the one specified.
                 Assert.Single(searchResult.Results);
@@ -135,11 +134,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     Tuple.Create(KnownQueryParameterNames.Type, "Patient"),
                     Tuple.Create(KnownQueryParameterNames.EndSurrogateId, long.MaxValue.ToString()),
                     Tuple.Create(KnownQueryParameterNames.StartSurrogateId, "0"),
-                    Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
+                    Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"),
                 };
 
                 // Pass in a different hash value
-                SearchResult searchResult = await _searchService.Value.SearchForReindexAsync(queryParametersList, "fakehash", false, CancellationToken.None);
+                SearchResult searchResult = await BackgroundTaskRequestContext.RunAsync(_contextAccessor, () => _searchService.Value.SearchForReindexAsync(queryParametersList, "fakehash", false, CancellationToken.None));
 
                 Assert.Equal("14", testPatient.Version);
 
@@ -171,8 +170,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 searchIndices,
                 compartmentIndices,
                 new List<KeyValuePair<string, string>>(),
-                _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
-            wrapper.SearchParameterHash = "hash";
+                "hash");
 
             return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
         }
@@ -195,8 +193,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 searchIndices,
                 compartmentIndices,
                 new List<KeyValuePair<string, string>>(),
-                _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
-            wrapper.SearchParameterHash = "hash";
+                "hash");
 
             return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, true, bundleResourceContext: null), CancellationToken.None);
         }

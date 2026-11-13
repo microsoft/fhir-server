@@ -24,61 +24,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// </summary>
     public class ReindexJobRecord : JobRecord, IJobData
     {
-        public const uint MaxMaximumNumberOfResourcesPerQuery = 10000;
-        public const uint MinMaximumNumberOfResourcesPerQuery = 1;
+        public const int MaxMaximumNumberOfResourcesPerQuery = 10000;
+        public const int MinMaximumNumberOfResourcesPerQuery = 1;
 
-        public const uint MaxMaximumNumberOfResourcesPerWrite = 10000;
-        public const uint MinMaximumNumberOfResourcesPerWrite = 1;
+        public const int MaxMaximumNumberOfResourcesPerWrite = 10000;
+        public const int MinMaximumNumberOfResourcesPerWrite = 1;
 
         public ReindexJobRecord(
-            IReadOnlyDictionary<string, string> searchParametersHash,
-            IReadOnlyCollection<string> targetResourceTypes,
-            IReadOnlyCollection<string> targetSearchParameterTypes,
-            IReadOnlyCollection<string> searchParameterResourceTypes,
-            uint maxResourcesPerQuery = 100,
-            uint maxResourcesPerWrite = 1000,
-            int queryDelayIntervalInMilliseconds = 500,
-            int typeId = (int)JobType.ReindexOrchestrator,
-            ushort? targetDataStoreUsagePercentage = null)
+            int maxResourcesPerQuery = MaxMaximumNumberOfResourcesPerQuery,
+            int maxResourcesPerWrite = MaxMaximumNumberOfResourcesPerWrite,
+            int typeId = (int)JobType.ReindexOrchestrator)
         {
-            ResourceTypeSearchParameterHashMap = EnsureArg.IsNotNull(searchParametersHash, nameof(searchParametersHash));
-            TargetResourceTypes = EnsureArg.IsNotNull(targetResourceTypes, nameof(targetResourceTypes));
-            TargetSearchParameterTypes = EnsureArg.IsNotNull(targetSearchParameterTypes, nameof(targetSearchParameterTypes));
-            SearchParameterResourceTypes = EnsureArg.IsNotNull(searchParameterResourceTypes, nameof(searchParameterResourceTypes));
             TypeId = typeId;
 
-            // Default values
-            SchemaVersion = 1;
             Id = Guid.NewGuid().ToString();
-            Status = OperationStatus.Queued;
 
-            QueuedTime = Clock.UtcNow;
-            LastModified = Clock.UtcNow;
-
-            // check for MaximumNumberOfResourcesPerQuery boundary
             if (maxResourcesPerQuery < MinMaximumNumberOfResourcesPerQuery || maxResourcesPerQuery > MaxMaximumNumberOfResourcesPerQuery)
             {
                 throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumNumberOfResourcesPerQuery), MinMaximumNumberOfResourcesPerQuery.ToString(), MaxMaximumNumberOfResourcesPerQuery.ToString()));
             }
             else
             {
-                MaximumNumberOfResourcesPerQuery = maxResourcesPerQuery;
+                MaximumNumberOfResourcesPerQuery = (uint)maxResourcesPerQuery;
             }
 
-            // check for MaximumNumberOfResourcesPerWrite boundary
             if (maxResourcesPerWrite < MinMaximumNumberOfResourcesPerWrite || maxResourcesPerWrite > MaxMaximumNumberOfResourcesPerWrite)
             {
                 throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumNumberOfResourcesPerWrite), MinMaximumNumberOfResourcesPerWrite.ToString(), MaxMaximumNumberOfResourcesPerWrite.ToString()));
             }
             else
             {
-                MaximumNumberOfResourcesPerWrite = maxResourcesPerWrite;
-            }
-
-            // check for TargetResourceTypes boundary
-            foreach (var type in targetResourceTypes)
-            {
-                ModelInfoProvider.EnsureValidResourceType(type, nameof(type));
+                MaximumNumberOfResourcesPerWrite = (uint)maxResourcesPerWrite;
             }
         }
 
@@ -87,27 +63,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         {
         }
 
-        /// <summary>
-        /// Use Concurrent dictionary to allow access to specific items in the list
-        /// Ignore the byte value field, effective using the dictionary as a hashset
-        /// </summary>
-        [JsonProperty(JobRecordProperties.QueryList)]
-        [JsonConverter(typeof(ReindexJobQueryStatusConverter))]
-
-        public ConcurrentDictionary<ReindexJobQueryStatus, byte> QueryList { get; private set; } = new ConcurrentDictionary<ReindexJobQueryStatus, byte>();
-
         [JsonProperty(JobRecordProperties.ResourceCounts)]
-        [JsonConverter(typeof(ReindexJobQueryResourceCountsConverter))]
         public ConcurrentDictionary<string, SearchResultReindex> ResourceCounts { get; private set; } = new ConcurrentDictionary<string, SearchResultReindex>();
 
         [JsonProperty(JobRecordProperties.Count)]
         public long Count { get; set; }
-
-        [JsonProperty(JobRecordProperties.Progress)]
-        public long Progress { get; set; }
-
-        [JsonProperty(JobRecordProperties.ResourceTypeSearchParameterHashMap)]
-        public IReadOnlyDictionary<string, string> ResourceTypeSearchParameterHashMap { get; internal set; }
 
         [JsonProperty(JobRecordProperties.LastModified)]
         public DateTimeOffset LastModified { get; set; }
@@ -127,25 +87,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.MaximumNumberOfResourcesPerWrite)]
         public uint MaximumNumberOfResourcesPerWrite { get; private set; }
 
-        /// <summary>
-        /// A user can optionally limit the scope of the Reindex job to specific
-        /// resource types
-        /// </summary>
-        [JsonProperty(JobRecordProperties.TargetResourceTypes)]
-        public IReadOnlyCollection<string> TargetResourceTypes { get; private set; } = new List<string>();
-
-        /// <summary>
-        /// A user can supply a list of search params to force a reindex job even though the status is Enabled
-        /// </summary>
-        [JsonProperty(JobRecordProperties.TargetSearchParameterTypes)]
-        public IReadOnlyCollection<string> TargetSearchParameterTypes { get; private set; } = new List<string>();
-
-        /// <summary>
-        /// This will be the base resource types from the <see cref="TargetSearchParameterTypes"/>
-        /// </summary>
-        [JsonProperty(JobRecordProperties.SearchParameterResourceTypes)]
-        public IReadOnlyCollection<string> SearchParameterResourceTypes { get; private set; } = new List<string>();
-
         [JsonIgnore]
         public string ResourceList
         {
@@ -158,23 +99,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             get { return string.Join(",", SearchParams); }
         }
 
-        [JsonIgnore]
-        public string TargetResourceTypeList
-        {
-            get { return string.Join(",", TargetResourceTypes); }
-        }
-
-        [JsonIgnore]
-        public string TargetSearchParameterTypeList
-        {
-            get { return string.Join(",", TargetSearchParameterTypes); }
-        }
-
         [JsonProperty(JobRecordProperties.TypeId)]
         public int TypeId { get; internal set; }
-
-        [JsonProperty(JobRecordProperties.GroupId)]
-        public long GroupId { get; set; }
 
         internal ReindexJobRecord Clone()
         {

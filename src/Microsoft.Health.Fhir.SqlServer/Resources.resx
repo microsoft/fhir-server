@@ -157,6 +157,9 @@
   <data name="ExecutionTimeoutExpired" xml:space="preserve">
     <value>The execution timeout expired from SQL Server.</value>
   </data>
+  <data name="IncludesCountResourceExhausted" xml:space="preserve">
+    <value>SQL Server has insufficient resources to complete the includes count. Please try again later.</value>
+  </data>
   <data name="GetRecordsAsyncOperationIsCanceled" xml:space="preserve">
     <value>The operation to get resource changes has been canceled.</value>
   </data>
@@ -172,5 +175,8 @@
   </data>
   <data name="InvalidIncludesContinuationToken" xml:space="preserve">
     <value>The provided continuation token for $includes operation is not valid.</value>
+  </data>
+  <data name="ResourceConcurrentUpdateConflict" xml:space="preserve">
+    <value>One or more resources were attempted to be updated concurrently with the same version, please validate the operations running and avoid duplicated updates.</value>
   </data>
 </root>

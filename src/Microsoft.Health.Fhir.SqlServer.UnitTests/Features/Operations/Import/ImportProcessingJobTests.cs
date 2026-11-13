@@ -4,24 +4,27 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
@@ -151,44 +154,238 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
         }
 
-        [Fact]
-        public async Task GivenImportInput_WhenOperationWasCancelledExceptionThrow_ThenJobShouldFailed()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenUnrelatedCancellation_WhenProcessingExecutes_ThenFailureIsSystemCaused(bool fromLoadTask)
         {
-            ImportProcessingJobDefinition inputData = GetInputData();
-            ImportProcessingJobResult result = new ImportProcessingJobResult();
-
-            IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
-            IImporter importer = Substitute.For<IImporter>();
-            IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
-            IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
-            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            ILoggerFactory loggerFactory = new NullLoggerFactory();
-            IMediator mediator = Substitute.For<IMediator>();
-            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
-            IQueueClient queueClient = Substitute.For<IQueueClient>();
-
+            // Arrange
+            var canceled = new OperationCanceledException(CancellationToken.None);
+            var loader = Substitute.For<IImportResourceLoader>();
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+                .Returns((Channel.CreateUnbounded<ImportResource>(), fromLoadTask ? Task.FromException(canceled) : Task.CompletedTask));
+            var importer = Substitute.For<IImporter>();
             importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    if (callInfo[2] != null) // always true
+                .Returns(_ => fromLoadTask ? Task.FromResult(new ImportProcessingProgress()) : Task.FromException<ImportProcessingProgress>(canceled));
+            var job = CreateProcessingJob(loader, importer);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(GetInputData(), null), CancellationToken.None));
+
+            // Assert
+            Assert.False(exception.IsCustomerCaused);
+            Assert.Same(canceled, exception.InnerException);
+            Assert.IsType<ImportJobErrorResult>(exception.Error);
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("not a blob URI")]
+        public async Task GivenMissingOrInvalidBlobUri_WhenProcessingExecutes_ThenFailureIsCustomerCaused(string resourceLocation)
+        {
+            // Arrange
+            var input = GetInputData();
+            input.ResourceLocation = resourceLocation;
+            var job = CreateProcessingJob();
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(input, null), CancellationToken.None));
+
+            // Assert
+            Assert.True(exception.IsCustomerCaused);
+            Assert.Equal(HttpStatusCode.BadRequest, Assert.IsType<ImportJobErrorResult>(exception.Error).HttpStatusCode);
+        }
+
+        [Theory]
+        [InlineData(SqlErrorCodes.Conflict, "duplicate resource keys")]
+        [InlineData(FhirSqlErrorCodes.SurrogateIdCollision, "lastUpdated")]
+        public async Task GivenDuplicateResourceConflict_WhenProcessingExecutes_ThenFailureIsCustomerCaused(int errorCode, string expectedGuidance)
+        {
+            // Arrange
+            var importer = Substitute.For<IImporter>();
+            var conflict = SqlExceptionFactory.GetSqlException(errorCode, "Duplicate resource keys.");
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns<Task<ImportProcessingProgress>>(_ => throw conflict);
+            var job = CreateProcessingJob(importer: importer);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(GetInputData(), null), CancellationToken.None));
+
+            // Assert
+            Assert.True(exception.IsCustomerCaused);
+            Assert.Same(conflict, exception.InnerException);
+            var error = Assert.IsType<ImportJobErrorResult>(exception.Error);
+            Assert.Equal(HttpStatusCode.BadRequest, error.HttpStatusCode);
+            Assert.Contains(expectedGuidance, error.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenCancellation_WhenProcessingExecutes_ThenCancellationIsPropagated(bool cancelBeforeExecution)
+        {
+            // Arrange
+            using var cancellationSource = new CancellationTokenSource();
+            var loader = Substitute.For<IImportResourceLoader>();
+            var canceled = new OperationCanceledException(cancellationSource.Token);
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+                .Returns(_ =>
                     {
-                        throw new OperationCanceledException();
-                    }
+                        cancellationSource.Cancel();
+                        return (Channel.CreateUnbounded<ImportResource>(), Task.FromException(canceled));
+                    });
+            var job = CreateProcessingJob(loader);
+            if (cancelBeforeExecution)
+            {
+                cancellationSource.Cancel();
+            }
 
-                    return new ImportProcessingProgress();
-                });
+            // Act
+            var exception = await Assert.ThrowsAsync<OperationCanceledException>(() => job.ExecuteAsync(GetJobInfo(GetInputData(), null), cancellationSource.Token));
 
-            ImportProcessingJob job = new ImportProcessingJob(
-                                    mediator,
-                                    queueClient,
-                                    loader,
-                                    importer,
-                                    importErrorStoreFactory,
-                                    contextAccessor,
-                                    loggerFactory,
-                                    auditLogger);
+            // Assert
+            Assert.Equal(cancellationSource.Token, exception.CancellationToken);
+        }
 
-            await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.ClassificationCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenImporterFailure_WhenProcessingExecutes_ThenUnderlyingErrorsDetermineClassification(string scenario, bool expectedCustomerCaused)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            var importer = Substitute.For<IImporter>();
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns<Task<ImportProcessingProgress>>(_ => throw failure);
+            var job = CreateProcessingJob(importer: importer);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(GetInputData(), null), CancellationToken.None));
+
+            // Assert
+            Assert.Equal(expectedCustomerCaused, exception.IsCustomerCaused);
+            Assert.Same(failure, exception.InnerException);
+            Assert.Contains(failure.Message, Assert.IsType<ImportJobErrorResult>(exception.Error).ErrorDetails);
+        }
+
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.ClassificationCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenLoaderFailure_WhenProcessingExecutes_ThenUnderlyingErrorsDetermineClassification(string scenario, bool expectedCustomerCaused)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            var loader = Substitute.For<IImportResourceLoader>();
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+                .Returns((Channel.CreateUnbounded<ImportResource>(), Task.FromException(failure)));
+            var job = CreateProcessingJob(loader);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(GetInputData(), null), CancellationToken.None));
+
+            // Assert
+            Assert.Equal(expectedCustomerCaused, exception.IsCustomerCaused);
+            Assert.Same(failure, exception.InnerException);
+        }
+
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.FailureStatusCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenProcessingFailure_WhenExecuted_ThenCustomerErrorsKeepTheirMessageAndAreNotLoggedAsErrors(string scenario, HttpStatusCode expectedStatus)
+        {
+            foreach (bool fromLoadTask in new[] { false, true })
+            {
+                // Arrange
+                var failure = JobFailureTestData.CreateException(scenario);
+                var loader = Substitute.For<IImportResourceLoader>();
+                loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+                    .Returns((Channel.CreateUnbounded<ImportResource>(), fromLoadTask ? Task.FromException(failure) : Task.CompletedTask));
+                var importer = Substitute.For<IImporter>();
+                importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                    .Returns(_ => fromLoadTask ? Task.FromResult(new ImportProcessingProgress()) : Task.FromException<ImportProcessingProgress>(failure));
+                var logger = Substitute.For<ILogger>();
+                var loggerFactory = Substitute.For<ILoggerFactory>();
+                loggerFactory.CreateLogger(Arg.Any<string>()).Returns(logger);
+                var job = CreateProcessingJob(loader, importer, loggerFactory);
+
+                // Act
+                var exception = await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(GetInputData(), null), CancellationToken.None));
+
+                // Assert
+                var error = Assert.IsType<ImportJobErrorResult>(exception.Error);
+                Assert.Equal(expectedStatus, error.HttpStatusCode);
+                var errorLogs = logger.ReceivedCalls().Where(call => call.GetMethodInfo().Name == nameof(ILogger.Log) && (LogLevel)call.GetArguments()[0] == LogLevel.Error);
+                if (expectedStatus != HttpStatusCode.InternalServerError)
+                {
+                    Assert.Equal(failure.Message, error.ErrorMessage);
+                    Assert.Empty(errorLogs);
+                    Assert.Contains(logger.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(ILogger.Log) && (LogLevel)call.GetArguments()[0] == LogLevel.Warning);
+                }
+                else
+                {
+                    Assert.NotEmpty(errorLogs);
+                }
+            }
+        }
+
+        private static ImportProcessingJob CreateProcessingJob(IImportResourceLoader loader = null, IImporter importer = null, ILoggerFactory loggerFactory = null)
+        {
+            var errorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
+            errorStoreFactory.InitializeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Substitute.For<IImportErrorStore>());
+            if (importer == null)
+            {
+                importer = Substitute.For<IImporter>();
+                importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                    .Returns(new ImportProcessingProgress());
+            }
+
+            return new ImportProcessingJob(
+                Substitute.For<IMediator>(),
+                Substitute.For<IQueueClient>(),
+                loader ?? Substitute.For<IImportResourceLoader>(),
+                importer,
+                errorStoreFactory,
+                Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
+                loggerFactory ?? NullLoggerFactory.Instance,
+                Substitute.For<IAuditLogger>());
+        }
+
+        [Fact]
+        public async Task GivenImportInput_WhenImporterThrowsBadRequestException_ThenJobShouldFailWithBadRequest()
+        {
+            // Arrange
+            var badRequestException = new BadRequestException("Invalid import input.");
+            var inputData = GetInputData();
+            var loader = Substitute.For<IImportResourceLoader>();
+            var importer = Substitute.For<IImporter>();
+            var importErrorStore = Substitute.For<IImportErrorStore>();
+            var importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
+            var resourceChannel = Channel.CreateUnbounded<ImportResource>();
+            resourceChannel.Writer.Complete();
+
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+                .Returns((resourceChannel, Task.CompletedTask));
+            importErrorStoreFactory.InitializeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns(importErrorStore);
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromException<ImportProcessingProgress>(badRequestException));
+
+            var job = new ImportProcessingJob(
+                Substitute.For<IMediator>(),
+                Substitute.For<IQueueClient>(),
+                loader,
+                importer,
+                importErrorStoreFactory,
+                Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
+                NullLoggerFactory.Instance,
+                Substitute.For<IAuditLogger>());
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(
+                () => job.ExecuteAsync(GetJobInfo(inputData, null), CancellationToken.None));
+
+            // Assert
+            var error = Assert.IsType<ImportJobErrorResult>(exception.Error);
+            Assert.Equal(HttpStatusCode.BadRequest, error.HttpStatusCode);
+            Assert.Same(badRequestException, exception.InnerException);
         }
 
         [Fact]
@@ -364,7 +561,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 .Returns(async callInfo =>
                 {
                     Channel<ImportResource> resourceChannel = (Channel<ImportResource>)callInfo[0];
-                    var progress = new ImportProcessingProgress();
+                    var progress = new ImportProcessingProgress
+                    {
+                        DatabaseMilliseconds = 303,
+                    };
                     await foreach (var resource in resourceChannel.Reader.ReadAllAsync())
                     {
                         if (string.IsNullOrEmpty(resource.ImportError))
@@ -386,6 +586,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             ImportProcessingJobResult result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(resultString);
             Assert.Equal(1 + failedCountFromProgress, result.FailedResources);
             Assert.Equal(1 + succeedCountFromProgress, result.SucceededResources);
+            Assert.True(result.ClockMilliseconds >= 0);
+            Assert.Equal(303, result.DatabaseMilliseconds);
         }
 
         private ImportProcessingJobDefinition GetInputData()

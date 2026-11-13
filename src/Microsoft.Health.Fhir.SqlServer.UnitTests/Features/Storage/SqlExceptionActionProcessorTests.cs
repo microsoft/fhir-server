@@ -12,6 +12,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Antlr4.Runtime.Tree;
+using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -36,6 +37,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         }
 
         [Fact]
+        public void GivenSqlExceptionActionProcessor_WhenChecked_ThenImplementsMedinoExceptionAction()
+        {
+            Assert.True(typeof(IRequestExceptionAction<string, SqlException>).IsAssignableFrom(typeof(SqlExceptionActionProcessor<string, SqlException>)));
+        }
+
+        [Fact]
         public async Task GivenSqlTruncateException_WhenExecuting_ThenResourceSqlTruncateExceptionIsThrown()
         {
             // Arrange
@@ -45,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             // Act & Assert
             var exception = await Assert.ThrowsAsync<ResourceSqlTruncateException>(() =>
-                processor.Execute("test-request", sqlTruncateException, CancellationToken.None));
+                processor.ExecuteAsync("test-request", sqlTruncateException, CancellationToken.None));
 
             Assert.Equal("Truncate error", exception.Message);
 
@@ -69,7 +76,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             // Act & Assert
             await Assert.ThrowsAsync(expectedExceptionType, () =>
-                processor.Execute("test-request", sqlException, CancellationToken.None));
+                processor.ExecuteAsync("test-request", sqlException, CancellationToken.None));
 
             // Verify logger
             _mockLogger.Received(1).LogError(
@@ -90,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             // Act & Assert
             var exception = await Assert.ThrowsAsync<CustomerManagedKeyException>(() =>
-                processor.Execute("test-request", sqlException, CancellationToken.None));
+                processor.ExecuteAsync("test-request", sqlException, CancellationToken.None));
 
             Assert.Equal(Core.Resources.OperationFailedForCustomerManagedKey, exception.Message);
 
@@ -109,7 +116,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             // Act & Assert
             var exception = await Assert.ThrowsAsync<ResourceSqlException>(() =>
-                processor.Execute("test-request", sqlException, CancellationToken.None));
+                processor.ExecuteAsync("test-request", sqlException, CancellationToken.None));
 
             Assert.Equal(Core.Resources.InternalServerError, exception.Message);
 

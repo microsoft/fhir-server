@@ -1,7 +1,7 @@
 parameters:
 - name: version
   type: string
-- name: appServiceName
+- name: containerAppName
   type: string
 - name: appServiceType
   type: string
@@ -19,7 +19,9 @@ steps:
 
   - template: ../tasks/e2e-set-variables.yml
     parameters:
-      appServiceName: ${{ parameters.appServiceName }}
+      containerAppName: ${{ parameters.containerAppName }}
+      version: ${{ parameters.version }}
+      appServiceType: ${{ parameters.appServiceType }}
 
   - task: PowerShell@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
@@ -35,24 +37,36 @@ steps:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $filter = "FullyQualifiedName~${{ parameters.appServiceType }}&${{ parameters.categoryFilter }}"
-        $args = @('--filter', $filter, '--retry-failed-tests', '3', '--report-trx')
+        $categoryPredicates = "${{ parameters.categoryFilter }}".Split('&') | ForEach-Object { "($_)" }
+        $query = "/[(DataStore=${{ parameters.appServiceType }})&$($categoryPredicates -join '&')]"
+        $args = @('--filter-query', $query, '--retry-failed-tests', '3', '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', '${{ parameters.version }} ${{ parameters.appServiceType }}${{ parameters.testRunTitleSuffix }}')
 
         Write-Host "Running dotnet $($dll.FullName)"
         & dotnet $dll.FullName @args
+        $testExitCode = $LASTEXITCODE
 
-        if ($LASTEXITCODE -ne 0) {
-          throw "E2E tests failed with exit code $LASTEXITCODE"
+        Get-ChildItem -Path $env:platformOptions__resultDirectory -Recurse -Filter '*.trx' -ErrorAction SilentlyContinue | ForEach-Object {
+          [xml] $trx = Get-Content -Raw $_.FullName
+          $trx.SelectNodes("//*[local-name()='UnitTestResult'][contains(@testName, 'GivenIncrementalLoad_WithInMemorySource')]/*[local-name()='Output']/*[local-name()='StdOut']") | ForEach-Object {
+            Write-Host "In-memory import execution stats:"
+            Write-Host $_.InnerText
+          }
+        }
+
+        if ($testExitCode -ne 0) {
+          throw "E2E tests failed with exit code $testExitCode"
         }
     env:
       'TestEnvironmentUrl': $(TestEnvironmentUrl)
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
       'TestEnvironmentUrl_Sql': $(TestEnvironmentUrl_Sql)
       'TestEnvironmentUrl_${{ parameters.version }}_Sql': $(TestEnvironmentUrl_${{ parameters.version }}_Sql)
+      'TestTokenEndpoint': $(TestTokenEndpoint)
       'Resource': $(Resource)
       'AllStorageAccounts': $(AllStorageAccounts)
       'TestExportStoreUri': $(TestExportStoreUri)
       'TestIntegrationStoreUri': $(TestIntegrationStoreUri)
+      'TestContainerRegistryServer': $(TestContainerRegistryServer)
       'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
       'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
       'tenant-admin-user-name': $(tenant-admin-user-name)
@@ -84,13 +98,3 @@ steps:
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/testresults'
 
-  - task: PublishTestResults@2
-    displayName: 'Publish test results'
-    inputs:
-      testResultsFormat: 'VSTest'
-      testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
-      mergeTestResults: true
-      testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
-      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
-      failTaskOnFailedTests: false
-    condition: succeededOrFailed()

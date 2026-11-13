@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Hl7.FhirPath.Expressions;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
@@ -20,7 +20,6 @@ using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
@@ -88,19 +87,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             foreach (var searchParameterRow in resourceAndSearchParameters)
             {
-                foreach (SearchParameterInfo parameterInfo in searchParameterRow.parameters)
+                foreach (SearchParameterInfo parameterInfo in searchParameterRow.parameters.Where(p => p.Code != "_type" && p.VectorConfig == null))
                 {
-                    if (parameterInfo.Code != "_type")
+                    var converters = await GetConvertsForSearchParameters(searchParameterRow.resourceType, parameterInfo);
+                    if (converters.All(x => !x.hasConverter))
                     {
-                        var converters = await GetConvertsForSearchParameters(searchParameterRow.resourceType, parameterInfo);
-                        if (converters.All(x => x.hasConverter == false))
-                        {
-                            unsupported.Unsupported.Add(parameterInfo.Url);
-                        }
-                        else if (converters.Any(x => x.hasConverter == false))
-                        {
-                            unsupported.PartialSupport.Add(parameterInfo.Url);
-                        }
+                        unsupported.Unsupported.Add(parameterInfo.Url);
+                    }
+                    else if (converters.Any(x => !x.hasConverter))
+                    {
+                        unsupported.PartialSupport.Add(parameterInfo.Url);
                     }
                 }
             }
@@ -116,6 +112,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var systemUnsupported = new UnsupportedSearchParameters();
             foreach (var searchParameter in resourceAndSearchParameters.SelectMany(x => x.parameters))
             {
+                if (searchParameter.Code == "_type" || searchParameter.VectorConfig != null)
+                {
+                    continue;
+                }
+
                 if (!searchParameter.IsSupported)
                 {
                     systemUnsupported.Unsupported.Add(searchParameter.Url);
@@ -140,9 +141,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             SearchParameterDefinitionManager searchParameterDefinitionManager = await _fixture.GetSearchDefinitionManagerAsync();
 
             (SearchParamType Type, Expression, Uri DefinitionUrl)[] componentExpressions = parameterInfo.Component
-                .Select(x => (searchParameterDefinitionManager.UrlLookup[x.DefinitionUrl.OriginalString].Type,
-                    SearchParameterFixtureData.Compiler.Parse(x.Expression),
-                    x.DefinitionUrl))
+                .Select(x =>
+                {
+                    SearchParameterInfo componentParameter = searchParameterDefinitionManager.GetSearchParameter(x.DefinitionUrl.OriginalString);
+
+                    return (componentParameter.Type,
+                        SearchParameterFixtureData.Compiler.Parse(x.Expression),
+                        x.DefinitionUrl);
+                })
                 .ToArray();
 
             SearchParameterTypeResult[] results = SearchParameterToTypeResolver.Resolve(
@@ -183,7 +189,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             foreach ((string resourceType, IEnumerable<SearchParameterInfo> parameters) row in values)
             {
-                yield return new object[] { row.resourceType, row.parameters.Where(x => x.Code != "_type" && x.IsSupported) };
+                yield return new object[] { row.resourceType, row.parameters.Where(x => x.Code != "_type" && x.IsSupported && x.VectorConfig == null) };
             }
         }
     }

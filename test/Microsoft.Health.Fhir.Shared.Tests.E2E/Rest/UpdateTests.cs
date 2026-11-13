@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
@@ -121,7 +122,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             practitionerToCreate.Identifier = new List<Identifier> { new Identifier(practitionerIdentifierSystem, practitionerIdentifierValue) };
 
             using FhirResponse<Practitioner> createdPractitionerResponse = await _client.UpdateAsync(practitionerToCreate);
-            ValidateUpdateResponse(practitionerToCreate, createdPractitionerResponse, false, HttpStatusCode.Created);
+            ValidateUpdateCreateResponse(practitionerToCreate, createdPractitionerResponse);
 
             // Step 2 - Create the Patient.
             var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
@@ -129,7 +130,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             patient.GeneralPractitioner = new List<ResourceReference> { new ResourceReference($"Practitioner?identifier={practitionerIdentifierSystem}|{practitionerIdentifierValue}") };
 
             using FhirResponse<Patient> createdPatientResponse = await _client.UpdateAsync(patient);
-            ValidateUpdateResponse(patient, createdPatientResponse, false, HttpStatusCode.Created);
+            ValidateUpdateCreateResponse(patient, createdPatientResponse);
 
             // Step 3 - Validate that the Patient's GeneralPractitioner reference is correctly resolved.
             string expectedPractitionerReference = $"Practitioner/{practitionerToCreate.Id}";
@@ -396,6 +397,77 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(2, historyResponse.Resource.Entry.Count);
         }
 
+        [Theory]
+        [Trait(Traits.Priority, Priority.One)]
+        [InlineData("John Doe")]
+        [InlineData("\u5C71\u7530 \u592A\u90CE")]
+        public async Task GivenAPatientName_WhenUpdatingRepeatedlyWithNoDataChange_ThenServerShouldNotCreateANewVersion(string name)
+        {
+            await SimulateCreationOfMultipleVersionsWithChangesOnPatientNameAsync(name);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]
+        public async Task GivenAPatientNameWithJapanaseFullWidthSpace_WhenUpdatingRepeatedlyWithNoDataChange_ThenServerShouldNotCreateANewVersion()
+        {
+            // Arrange: Create a patient with a name that contains a Japanese full-width space character (U+3000).
+            // This test ensures that the FHIR server correctly handles names with full-width spaces (and other non-ASCII characters) and does not create unnecessary new versions when the name is updated with the same value.
+            // Regressions in this test could indicate issues with string normalization, encoding, or comparison logic in the FHIR server's update handling, that affect the best effort in detecting differences between resource versions.
+            // And that would cause unnecessary version creation in a FHIR server that is expected to handle internationalized patient names correctly.
+
+            string name = "山田　 太郎"; // Name with Japanese full-width space character (U+3000).
+            await SimulateCreationOfMultipleVersionsWithChangesOnPatientNameAsync(name);
+        }
+
+        private async Task SimulateCreationOfMultipleVersionsWithChangesOnPatientNameAsync(string name)
+        {
+            // 1. Create a new patient with an original name.
+            var patient = new Patient
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = new List<HumanName> { new HumanName { Text = "Test" } },
+            };
+
+            // 2. Submit the patient to create the first version.
+            using FhirResponse<Patient> createResponse = await _client.UpdateAsync(patient);
+            ValidateUpdateCreateResponse(patient, createResponse);
+            Patient createdPatient = createResponse.Resource;
+            Assert.NotNull(createdPatient.Meta.LastUpdated);
+            Assert.NotEqual(name, Assert.Single(createdPatient.Name).Text);
+
+            // 3. Update the patient with a new name, and then repeatedly update it with the same name to validate the creation of new versions.
+            //    At the end of all updates, the patient should have the new name, and only two versions should exist: the original creation and the first update with the new name.
+            patient.Name = new List<HumanName> { new HumanName { Text = name } };
+            Patient mostRecentPatientVersionInMemory = createdPatient;
+            for (int i = 0; i < 15; i++)
+            {
+                Assert.Equal(name, Assert.Single(patient.Name).Text);
+                using FhirResponse<Patient> updateResponse = await _client.UpdateAsync(patient);
+
+                bool same = i != 0; // The first update should create a new version, subsequent updates should not.
+                ValidateUpdateResponse(mostRecentPatientVersionInMemory, updateResponse, same, HttpStatusCode.OK);
+                Assert.Equal(name, Assert.Single(updateResponse.Resource.Name).Text);
+                mostRecentPatientVersionInMemory = updateResponse.Resource;
+            }
+
+            // 4. After all updates, ensures the service is at the right state:
+            //   - The most recent version of the patient has the new name.
+            //   - The history of the patient contains only two versions: the original creation and the first update with the new name.
+            using FhirResponse<Patient> readResponse = await _client.ReadAsync<Patient>($"Patient/{patient.Id}");
+            ValidateUpdateResponse(mostRecentPatientVersionInMemory, readResponse, true, HttpStatusCode.OK);
+            Assert.Equal(name, Assert.Single(readResponse.Resource.Name).Text);
+
+            using FhirResponse<Bundle> historyResponse = await _client.ReadHistoryAsync(ResourceType.Patient, patient.Id);
+            Assert.Equal(HttpStatusCode.OK, historyResponse.StatusCode);
+            Assert.Equal(2, historyResponse.Resource.Entry.Count); // Two versions are expected: the original creation and the first update with the new name.
+
+            Resource mostRecentResource = historyResponse.Resource.Entry.OrderByDescending(x => x.Resource.Meta.VersionId).First().Resource;
+            Patient historicalPatient = Assert.IsType<Patient>(mostRecentResource);
+            Assert.Equal("2", historicalPatient.Meta.VersionId); // Two versions are expected: the original creation and the first update with the new name.
+            Assert.Equal(name, Assert.Single(historicalPatient.Name).Text);
+        }
+
         private static void ValidateUpdateResponse<T>(T oldResource, FhirResponse<T> newResponse, bool same, HttpStatusCode expectedStatusCode)
             where T : DomainResource
         {
@@ -418,6 +490,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Assert.NotEqual(oldResource.Meta?.VersionId, newResource.Meta.VersionId);
                 Assert.NotEqual(oldResource.Meta?.LastUpdated, newResource.Meta.LastUpdated);
             }
+        }
+
+        private static void ValidateUpdateCreateResponse<T>(T expectedResource, FhirResponse<T> actualResponse)
+            where T : DomainResource
+        {
+            Assert.Equal(HttpStatusCode.Created, actualResponse.StatusCode);
+
+            var newResource = actualResponse.Resource;
+            Assert.True(newResource != null, "New response's resource is never expected to be null.");
+            Assert.True(newResource.Meta != null, "New resource's meta is never expected to be null.");
+            Assert.True(expectedResource.Id == newResource.Id, "Old and new resource are expected to have the same id.");
+
+            Assert.Equal("1", newResource.Meta.VersionId);
         }
 
         private static void UpdateObservation(Observation observationResource)

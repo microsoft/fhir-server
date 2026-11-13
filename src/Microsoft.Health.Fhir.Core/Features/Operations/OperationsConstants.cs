@@ -59,6 +59,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string ValueSetExpand = $"valueset-expand";
 
+        public const string ExpiredResourceCleanup = "expired-resource-cleanup";
+
+        public static readonly ReadOnlyCollection<string> ProtectedProfileResourceTypes = new ReadOnlyCollection<string>(new[] { "StructureDefinition", "ValueSet", "CodeSystem" });
+
         public const string Jobs = "jobs";
 
         public static readonly ReadOnlyCollection<string> ExcludedResourceTypesForBulkUpdate = new ReadOnlyCollection<string>(new[] { "SearchParameter", "StructureDefinition" });

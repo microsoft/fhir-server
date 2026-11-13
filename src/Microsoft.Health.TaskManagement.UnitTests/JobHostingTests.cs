@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
@@ -19,6 +20,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.AnonymizedExport)]
+    [Trait(Traits.Category, Categories.BackgroundJobs)]
     public class JobHostingTests
     {
         private ILogger<JobHosting> _logger;
@@ -54,7 +56,9 @@ namespace Microsoft.Health.JobManagement.UnitTests
                     });
             });
 
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            IJobMetricFactory metricFactory = new TestJobMetricFactory();
+
+            JobHosting jobHosting = new JobHosting(queueClient, factory, metricFactory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
@@ -118,7 +122,9 @@ namespace Microsoft.Health.JobManagement.UnitTests
                 }
             });
 
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            IJobMetricFactory metricFactory = new TestJobMetricFactory();
+
+            JobHosting jobHosting = new JobHosting(queueClient, factory, metricFactory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
@@ -155,11 +161,13 @@ namespace Microsoft.Health.JobManagement.UnitTests
                         });
             });
 
+            IJobMetricFactory metricFactory = new TestJobMetricFactory();
+
             JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "job1" }, null, false, CancellationToken.None)).First();
             job1.Status = JobStatus.Running;
             job1.HeartbeatDateTime = DateTime.Now.AddSeconds(-3);
 
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            JobHosting jobHosting = new JobHosting(queueClient, factory, metricFactory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
             jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 1;
 
@@ -191,9 +199,11 @@ namespace Microsoft.Health.JobManagement.UnitTests
                         });
             });
 
+            IJobMetricFactory metricFactory = new TestJobMetricFactory();
+
             TestQueueClient queueClient = new TestQueueClient();
             JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "job1" }, null, false, CancellationToken.None)).First();
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            JobHosting jobHosting = new JobHosting(queueClient, factory, metricFactory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
             jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 1;
 
@@ -229,10 +239,12 @@ namespace Microsoft.Health.JobManagement.UnitTests
                     });
             });
 
+            IJobMetricFactory metricFactory = new TestJobMetricFactory();
+
             TestQueueClient queueClient = new TestQueueClient();
             JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, CancellationToken.None)).First();
 
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            JobHosting jobHosting = new JobHosting(queueClient, factory, metricFactory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
             jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 1;
 
@@ -266,10 +278,12 @@ namespace Microsoft.Health.JobManagement.UnitTests
                     });
             });
 
+            IJobMetricFactory metricFactory = new TestJobMetricFactory();
+
             TestQueueClient queueClient = new TestQueueClient();
             JobInfo job1 = (await queueClient.EnqueueAsync(0, ["task1"], null, false, CancellationToken.None)).First();
 
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            JobHosting jobHosting = new JobHosting(queueClient, factory, metricFactory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
             jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 15;
 
@@ -301,10 +315,12 @@ namespace Microsoft.Health.JobManagement.UnitTests
                         });
             });
 
+            IJobMetricFactory metricFactory = new TestJobMetricFactory();
+
             TestQueueClient queueClient = new TestQueueClient();
             JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, CancellationToken.None)).First();
 
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            JobHosting jobHosting = new JobHosting(queueClient, factory, metricFactory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
             jobHosting.JobHeartbeatIntervalInSeconds = 1;
 
@@ -332,6 +348,8 @@ namespace Microsoft.Health.JobManagement.UnitTests
                             return t.Definition;
                         });
             });
+
+            IJobMetricFactory metricFactory = new TestJobMetricFactory();
 
             var queueClient = new TestQueueClient();
             var randomNumber = 0;
@@ -383,7 +401,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             Assert.Equal(numberOfJobs, jobs.Count);
             Assert.True(jobs.All(t => t.Status == JobStatus.Created));
 
-            var jobHosting = new JobHosting(queueClient, factory, _logger);
+            var jobHosting = new JobHosting(queueClient, factory, metricFactory, _logger);
             jobHosting.PollingFrequencyInSeconds = 0;
             jobHosting.JobHeartbeatIntervalInSeconds = 0.001;
             jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 1;
@@ -403,6 +421,91 @@ namespace Microsoft.Health.JobManagement.UnitTests
             Assert.True(completeErrorNumber > 5, $"completeErrorNumber={completeErrorNumber} > 5");
             Assert.True(dequeueErrorNumber > 5, $"dequeueErrorNumber={dequeueErrorNumber} > 5");
             Assert.True(heartbeatErrorNumber > 5, $"heartbeatErrorNumber={heartbeatErrorNumber} > 5");
+        }
+
+        [Theory]
+        [InlineData("success", JobStatus.Completed)]
+        [InlineData("failure", JobStatus.Failed)]
+        [InlineData("cancellation", JobStatus.Cancelled)]
+        public async Task GivenJobExecutionIsAsync_WhenExecutionEnds_ThenJobHandleLivesUntilCompletionAndIsDisposed(string outcome, JobStatus expectedStatus)
+        {
+            // Arrange
+            var queueClient = new TestQueueClient();
+            JobInfo jobInfo = (await queueClient.EnqueueAsync(0, ["job"], null, false, CancellationToken.None)).Single();
+            var continueExecution = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            int disposeCountSeenOnResume = -1;
+            int disposeCountSeenOnStart = -1;
+            CountingJobFactory factory = null;
+            factory = new CountingJobFactory(async _ =>
+            {
+                disposeCountSeenOnStart = factory.Handle.DisposeCount;
+                await continueExecution.Task;
+                disposeCountSeenOnResume = factory.Handle.DisposeCount;
+                return outcome switch
+                {
+                    "success" => "Done",
+                    "failure" => throw new InvalidOperationException("Job failed."),
+                    "cancellation" => throw new OperationCanceledException("Job cancelled."),
+                    _ => throw new ArgumentOutOfRangeException(nameof(outcome)),
+                };
+            });
+            var jobHosting = new JobHosting(queueClient, factory, new TestJobMetricFactory(), _logger)
+            {
+                PollingFrequencyInSeconds = 0,
+                JobHeartbeatIntervalInSeconds = 60,
+            };
+
+            // Invoke synchronously to reach the execution await before resuming the job, without racing a worker thread.
+            var executeJob = typeof(JobHosting).GetMethod("ExecuteJobAsync", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Task execution = Assert.IsAssignableFrom<Task>(executeJob.Invoke(jobHosting, new object[] { jobInfo }));
+
+            // Act
+            Assert.False(execution.IsCompleted);
+            Assert.Equal(0, disposeCountSeenOnStart);
+            continueExecution.SetResult();
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
+
+            // Assert
+            Assert.Equal(expectedStatus, jobInfo.Status);
+            Assert.Equal(0, disposeCountSeenOnResume);
+            Assert.Equal(1, factory.Handle.DisposeCount);
+        }
+
+        private sealed class CountingJobFactory : IJobFactory
+        {
+            private readonly Func<CancellationToken, Task<string>> _execute;
+
+            public CountingJobFactory(Func<CancellationToken, Task<string>> execute)
+            {
+                _execute = execute;
+            }
+
+            public CountingJobHandle Handle { get; private set; }
+
+            public IScoped<IJob> Create(JobInfo jobInfo)
+            {
+                Handle = new CountingJobHandle(new TestJob(_execute));
+                return Handle;
+            }
+        }
+
+        private sealed class CountingJobHandle : IScoped<IJob>
+        {
+            private int _disposeCount;
+
+            public CountingJobHandle(IJob value)
+            {
+                Value = value;
+            }
+
+            public IJob Value { get; }
+
+            public int DisposeCount => Volatile.Read(ref _disposeCount);
+
+            public void Dispose()
+            {
+                Interlocked.Increment(ref _disposeCount);
+            }
         }
     }
 }

@@ -8,8 +8,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Threading;
+using System.Threading.Tasks;
 using Azure.Identity;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -38,6 +40,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
+using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
@@ -62,14 +65,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly IOptions<CoreFeatureConfiguration> _options;
         private readonly int _maximumSupportedSchemaVersion;
         private readonly string _databaseName;
-        private readonly IMediator _mediator = Substitute.For<IMediator>();
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
+        private IMediator _mediator;
         private SqlServerFhirDataStore _fhirDataStore;
         private IFhirOperationDataStore _fhirOperationDataStore;
         private SqlServerFhirOperationDataStore _sqlServerFhirOperationDataStore;
+        private SqlServerFhirOperationDataStore _testSqlServerFhirOperationDataStore;
         private SqlServerFhirStorageTestHelper _testHelper;
-        private SchemaInitializer _schemaInitializer;
         private SchemaUpgradeRunner _schemaUpgradeRunner;
         private FilebasedSearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private ISearchService _searchService;
@@ -77,6 +80,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private SearchParameterStatusManager _searchParameterStatusManager;
         private SqlQueueClient _sqlQueueClient;
+        private TestQueueClient _testQueueClient;
+        private FhirSqlServerConfiguration _fhirSqlConfiguration;
 
         public SqlServerFhirStorageTestsFixture()
             : this(SchemaVersionConstants.Max, GetDatabaseName())
@@ -102,10 +107,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SchemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maximumSupportedSchemaVersion);
 
-            _options = coreFeatures ?? Options.Create(new CoreFeatureConfiguration());
+            // SupportsIncludes matches the production SQL configuration and enables the $includes continuation
+            // path (IncludesContinuationToken); without it, include-paging tests can never receive a token.
+            _options = coreFeatures ?? Options.Create(new CoreFeatureConfiguration { SupportsIncludes = true });
         }
 
         public string TestConnectionString { get; private set; }
+
+        internal SqlServerFhirOperationDataStore SqlServerOperationDataStore => _sqlServerFhirOperationDataStore;
+
+        internal SqlServerFhirOperationDataStore TestSqlServerOperationDataStore => _testSqlServerFhirOperationDataStore;
 
         internal SqlTransactionHandler SqlTransactionHandler { get; private set; }
 
@@ -121,6 +132,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal SqlServerSearchParameterStatusDataStore SqlServerSearchParameterStatusDataStore { get; private set; }
 
+        internal FilebasedSearchParameterStatusDataStore FilebasedSearchParameterStatusDataStore => _filebasedSearchParameterStatusDataStore;
+
         internal SqlServerFhirModel SqlServerFhirModel { get; private set; }
 
         internal SchemaInformation SchemaInformation { get; private set; }
@@ -132,11 +145,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return $"{ModelInfoProvider.Version}{(test == null ? string.Empty : $"_{test}")}_{DateTimeOffset.UtcNow.ToString("s").Replace("-", string.Empty).Replace(":", string.Empty)}_{Guid.NewGuid().ToString().Replace("-", string.Empty)}";
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
+            _mediator = Substitute.For<IMediator>();
+
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
-            var mediator = Substitute.For<IMediator>();
             var sqlSortingValidator = new SqlServerSortingValidator(SchemaInformation);
             SqlRetryLogicBaseProvider sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings);
 
@@ -149,17 +163,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionWrapperFactory, SqlServerDataStoreConfiguration, NullLogger<SchemaManagerDataStore>.Instance);
             _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionWrapperFactory, schemaManagerDataStore);
 
-            Func<IServiceProvider, SchemaUpgradeRunner> schemaUpgradeRunnerFactory = p => _schemaUpgradeRunner;
-            Func<IServiceProvider, IReadOnlySchemaManagerDataStore> schemaManagerDataStoreFactory = p => schemaManagerDataStore;
-            Func<IServiceProvider, SqlConnectionWrapperFactory> sqlConnectionWrapperFactoryFunc = p => sqlConnectionWrapperFactory;
-
-            var collection = new ServiceCollection();
-            collection.AddScoped(sqlConnectionWrapperFactoryFunc);
-            collection.AddScoped(schemaUpgradeRunnerFactory);
-            collection.AddScoped(schemaManagerDataStoreFactory);
-            var serviceProviderSchemaInitializer = collection.BuildServiceProvider();
-            _schemaInitializer = new SchemaInitializer(serviceProviderSchemaInitializer, SqlServerDataStoreConfiguration, SchemaInformation, mediator, NullLogger<SchemaInitializer>.Instance);
-
             var searchParameterComparer = Substitute.For<ISearchParameterComparer<SearchParameterInfo>>();
             var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
             var fhirDataStore = Substitute.For<IFhirDataStore>();
@@ -170,7 +173,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchParameterComparer,
                 statusDataStore.CreateMockScopeProvider(),
                 fhirDataStore.CreateMockScopeProvider(),
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                _options);
 
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(_searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
@@ -178,6 +182,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SqlTransactionHandler = new SqlTransactionHandler();
             SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, SqlConnectionBuilder, sqlRetryLogicBaseProvider, SqlServerDataStoreConfiguration);
+            SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()));
 
             var sqlServerFhirModel = new SqlServerFhirModel(
                 SchemaInformation,
@@ -186,11 +191,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Options.Create(securityConfiguration),
                 SqlConnectionWrapperFactory.CreateMockScopeProvider(),
                 Substitute.For<IMediator>(),
+                SqlRetryService,
+                ResourceIdPolicy.Standard,
                 NullLogger<SqlServerFhirModel>.Instance);
             SqlServerFhirModel = sqlServerFhirModel;
 
-            // the test queue client may not be enough for these tests. will need to look back into this.
-            var queueClient = new TestQueueClient();
+            // Create the real SqlQueueClient to use throughout the fixture
+            var sqlQueueClient = new SqlQueueClient(SchemaInformation, SqlRetryService, NullLogger<SqlQueueClient>.Instance);
+            _sqlQueueClient = sqlQueueClient;
+
+            // TestQueueClient is still used by export tests
+            _testQueueClient = new TestQueueClient();
 
             // Add custom logic to set up the AzurePipelinesCredential if we are running in Azure Pipelines
             string federatedClientID = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionClientId);
@@ -204,8 +215,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlAuthenticationProvider.SetProvider(SqlAuthenticationMethod.ActiveDirectoryWorkloadIdentity, new SqlAzurePipelinesWorkloadIdentityAuthenticationProvider(azurePipelinesCredential));
             }
 
-            _testHelper = new SqlServerFhirStorageTestHelper(_initialConnectionString, MasterDatabaseName, sqlServerFhirModel, SqlConnectionBuilder, queueClient);
-            await _testHelper.CreateAndInitializeDatabase(_databaseName, _maximumSupportedSchemaVersion, forceIncrementalSchemaUpgrade: false, _schemaInitializer, CancellationToken.None);
+            _testHelper = new SqlServerFhirStorageTestHelper(_initialConnectionString, MasterDatabaseName, sqlServerFhirModel, SqlConnectionBuilder, _testQueueClient, SchemaInformation);
+            await _testHelper.CreateAndInitializeDatabase(_databaseName, _maximumSupportedSchemaVersion, CancellationToken.None);
 
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap();
 
@@ -219,18 +230,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 
-            var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
-            var upsertSearchParamsWithOptimisticConcurrencyTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsWithOptimisticConcurrencyTvpGenerator<List<ResourceSearchParameterStatus>>>();
-
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
 
             SqlServerSearchParameterStatusDataStore = new SqlServerSearchParameterStatusDataStore(
-                SqlConnectionWrapperFactory.CreateMockScopeProvider(),
-                upsertSearchParamsTvpGenerator,
-                upsertSearchParamsWithOptimisticConcurrencyTvpGenerator,
-                () => _filebasedSearchParameterStatusDataStore,
+                SqlRetryService,
                 SchemaInformation,
-                sqlSortingValidator,
                 sqlServerFhirModel,
                 _searchParameterDefinitionManager,
                 NullLogger<SqlServerSearchParameterStatusDataStore>.Instance);
@@ -240,8 +244,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             bundleOptions.Value.Returns(bundleConfiguration);
 
             var bundleOrchestrator = new BundleOrchestrator(bundleOptions, NullLogger<BundleOrchestrator>.Instance);
-
-            SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()));
 
             var importErrorSerializer = new Shared.Core.Features.Operations.Import.ImportErrorSerializer(new Hl7.Fhir.Serialization.FhirJsonSerializer());
 
@@ -259,19 +261,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ModelInfoProvider.Instance,
                 _fhirRequestContextAccessor,
                 importErrorSerializer,
-                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, SchemaInformation));
+                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, SchemaInformation),
+                Substitute.For<IResourceWrapperFactory>());
 
-            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, queueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
+            // Create operation data store with real SqlQueueClient for reindex tests
+            _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(sqlQueueClient, NullLoggerFactory.Instance);
 
-            var sqlQueueClient = new SqlQueueClient(SchemaInformation, SqlRetryService, NullLogger<SqlQueueClient>.Instance);
-            _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, sqlQueueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
+            // Create operation data store with TestQueueClient for export tests
+            _testSqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(_testQueueClient, NullLoggerFactory.Instance);
+
+            // Use the real SqlQueueClient for IFhirOperationDataStore
+            _fhirOperationDataStore = _sqlServerFhirOperationDataStore;
 
             _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
             _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");
 
             var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
             var instanceConfiguration = new FhirServerInstanceConfiguration();
-            var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor, instanceConfiguration));
+            var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor, instanceConfiguration, ResourceIdPolicy.Standard));
             var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
 
             var searchOptionsFactory = new SearchOptionsFactory(
@@ -291,7 +298,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var compartmentDefinitionManager = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
             compartmentDefinitionManager.StartAsync(CancellationToken.None).Wait();
             var compartmentSearchRewriter = new SqlCompartmentSearchRewriter(new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager), new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
-            var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(compartmentSearchRewriter, new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
+            var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(compartmentSearchRewriter, new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager), Options.Create(new CoreFeatureConfiguration()));
+
+            _fhirSqlConfiguration = new FhirSqlServerConfiguration();
+            var queryPlanReuseChecker = new QueryPlanReuseChecker(SqlRetryService, _fhirSqlConfiguration, NullLogger<QueryPlanReuseChecker>.Instance);
 
             SqlQueryHashCalculator = new TestSqlHashCalculator();
 
@@ -300,6 +310,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirDataStore,
                 sqlServerFhirModel,
                 sqlRootExpressionRewriter,
+                new InstantDateTimeRewriter(),
                 chainFlatteningRewriter,
                 sortRewriter,
                 partitionEliminationRewriter,
@@ -308,10 +319,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchParamTableExpressionQueryGeneratorFactory,
                 SqlRetryService,
                 SqlServerDataStoreConfiguration,
+                _fhirSqlConfiguration,
                 SchemaInformation,
                 _fhirRequestContextAccessor,
                 new CompressedRawResourceConverter(),
                 SqlQueryHashCalculator,
+                queryPlanReuseChecker,
+                _options,
                 NullLogger<SqlServerSearchService>.Instance);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
@@ -321,15 +335,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlServerSearchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
                 searchParameterSupportResolver,
-                mediator,
+                _mediator,
                 NullLogger<SearchParameterStatusManager>.Instance);
 
             _sqlQueueClient = new SqlQueueClient(SchemaInformation, SqlRetryService, NullLogger<SqlQueueClient>.Instance);
 
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
+            await _searchParameterStatusManager.EnsureInitializedAsync(CancellationToken.None);
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
         }
@@ -398,11 +413,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 return _supportedSearchParameterDefinitionManager;
             }
 
-            if (serviceType == typeof(SchemaInitializer))
-            {
-                return _schemaInitializer;
-            }
-
             if (serviceType == typeof(SchemaUpgradeRunner))
             {
                 return _schemaUpgradeRunner;
@@ -423,9 +433,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 return _sqlQueueClient;
             }
 
+            if (serviceType == typeof(TestQueueClient))
+            {
+                return _testQueueClient;
+            }
+
             if (serviceType == typeof(TestSqlHashCalculator))
             {
                 return SqlQueryHashCalculator as TestSqlHashCalculator;
+            }
+
+            if (serviceType == typeof(FhirSqlServerConfiguration))
+            {
+                return _fhirSqlConfiguration;
             }
 
             return null;

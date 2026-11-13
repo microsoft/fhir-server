@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
                 null,
                 null);
             _mediator = Substitute.For<IMediator>();
-            _mediator.Send<UpsertResourceResponse>(
+            _mediator.SendAsync<UpsertResourceResponse>(
                 Arg.Any<CreateResourceRequest>(),
                 Arg.Any<CancellationToken>())
                 .Returns(new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created)));
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
                 addValidHeaderValue,
                 addTarget,
                 returnResponse,
-                (next, token) => _behavior.Handle((ConditionalUpsertResourceRequest)null, next, token));
+                (next, token) => _behavior.HandleAsync((ConditionalUpsertResourceRequest)null, next, token));
         }
 
         [Theory]
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
                 addValidHeaderValue,
                 addTarget,
                 returnResponse,
-                (next, token) => _behavior.Handle((ConditionalCreateResourceRequest)null, next, token));
+                (next, token) => _behavior.HandleAsync((ConditionalCreateResourceRequest)null, next, token));
         }
 
         [Theory]
@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
                 addValidHeaderValue,
                 addTarget,
                 returnResponse,
-                (next, token) => _behavior.Handle((UpsertResourceRequest)null, next, token));
+                (next, token) => _behavior.HandleAsync((UpsertResourceRequest)null, next, token));
         }
 
         [Theory]
@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
                 addValidHeaderValue,
                 addTarget,
                 returnResponse,
-                (next, token) => _behavior.Handle((CreateResourceRequest)null, next, token));
+                (next, token) => _behavior.HandleAsync((CreateResourceRequest)null, next, token));
         }
 
         private async Task Run(
@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
             };
 
             var reference = $"{resource.TypeName}/{resource.Id}/_history/{resource.VersionId}";
-            RequestHandlerDelegate<UpsertResourceResponse> next = (token) =>
+            RequestHandlerDelegate<UpsertResourceResponse> next = () =>
             {
                 if (!returnResponse)
                 {
@@ -221,7 +221,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
 
             var request = default(CreateResourceRequest);
             _mediator
-                .When(x => x.Send<UpsertResourceResponse>(
+                .When(x => x.SendAsync<UpsertResourceResponse>(
                         Arg.Any<CreateResourceRequest>(),
                         Arg.Any<CancellationToken>()))
                 .Do(x => request = x.Arg<CreateResourceRequest>());
@@ -258,7 +258,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
                     });
             }
 
-            await _mediator.Received(shouldCreateProvenance ? 1 : 0).Send<UpsertResourceResponse>(
+            await _mediator.Received(shouldCreateProvenance ? 1 : 0).SendAsync<UpsertResourceResponse>(
                 Arg.Any<CreateResourceRequest>(),
                 Arg.Any<CancellationToken>());
         }

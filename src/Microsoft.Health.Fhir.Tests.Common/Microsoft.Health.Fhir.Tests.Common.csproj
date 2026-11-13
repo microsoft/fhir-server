@@ -14,6 +14,8 @@
   </PropertyGroup>
   <ItemGroup>
     <None Remove="TestFiles\Normative\Bundle-BatchWithConditionalUpdateByIdentifier.json" />
+    <None Remove="TestFiles\Normative\Bundle-InvalidBundleType.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionWithInvalidProcessingRecord.json" />
     <None Remove="TestFiles\Normative\capabilitystatement-example.json" />
     <None Remove="TestFiles\Normative\codesystem-abstract-types.json" />
     <None Remove="TestFiles\Normative\MemberMatch.json" />
@@ -164,12 +166,16 @@
     <None Remove="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
     <None Remove="TestFiles\R5\Bundle-TransactionWithMetaHistory.json" />
     <None Remove="TestFiles\Normative\Bundle-TransactionWithMetaHistory.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionWithResourcelessEntry.json" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-InvalidBundleType.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithInvalidProcessingRecord.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithMetaHistory.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithConditionalUpdateByIdentifier.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionForRollBackWithDelete.json" />
+	  <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithResourcelessEntry.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\capabilitystatement-example.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\codesystem-abstract-types.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\Flag.json" />
@@ -249,6 +255,10 @@
     <EmbeddedResource Include="TestFiles\R4B\binary-example.json" />
     <EmbeddedResource Include="TestFiles\R4B\CommunicationAttachment.json" />
     <EmbeddedResource Include="TestFiles\R4B\DocumentReference-example-with-base64.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\FhirPackage-SearchParameters.tgz" />
+    <EmbeddedResource Include="TestFiles\R4\FhirPackage-SearchParameters.tgz" />
+    <EmbeddedResource Include="TestFiles\R4B\FhirPackage-SearchParameters.tgz" />
+    <EmbeddedResource Include="TestFiles\R5\FhirPackage-SearchParameters.tgz" />
     <EmbeddedResource Include="TestFiles\R4\account-example.json" />
     <EmbeddedResource Include="TestFiles\R4\activitydefinition-example.json" />
     <EmbeddedResource Include="TestFiles\R4\adverseevent-example.json" />
@@ -438,6 +448,7 @@
     <EmbeddedResource Include="TestFiles\R4\servicerequest-example.json" />
     <EmbeddedResource Include="TestFiles\R4\slot-example.json" />
     <EmbeddedResource Include="TestFiles\R4\SmartCommon.json" />
+    <EmbeddedResource Include="TestFiles\R4\SmartCompartmentLeak.json" />
     <EmbeddedResource Include="TestFiles\R4\SmartPatientA.json" />
     <EmbeddedResource Include="TestFiles\R4\SmartPatientB.json" />
     <EmbeddedResource Include="TestFiles\R4\SmartPatientD.json" />
@@ -620,13 +631,8 @@
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="Microsoft.Health.Abstractions" />
     <PackageReference Include="Microsoft.Health.Test.Utilities" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NSubstitute" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
+    <PackageReference Include="xunit.v3.mtp-v2" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />

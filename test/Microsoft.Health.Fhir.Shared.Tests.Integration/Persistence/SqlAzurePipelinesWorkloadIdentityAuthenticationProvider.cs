@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Azure.Core;
 using Azure.Identity;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Identity.Client;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence;
@@ -20,6 +21,22 @@ public class SqlAzurePipelinesWorkloadIdentityAuthenticationProvider : SqlAuthen
     public SqlAzurePipelinesWorkloadIdentityAuthenticationProvider(AzurePipelinesCredential azurePipelinesCredential)
     {
         _azurePipelinesCredential = azurePipelinesCredential;
+    }
+
+    internal static void ConfigureFromEnvironment()
+    {
+        string clientId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionClientId);
+        string tenantId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionTenantId);
+        string serviceConnectionId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionServiceConnectionId);
+        string systemAccessToken = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SystemAccessToken);
+
+        if (!string.IsNullOrEmpty(clientId) && !string.IsNullOrEmpty(tenantId) && !string.IsNullOrEmpty(serviceConnectionId) && !string.IsNullOrEmpty(systemAccessToken))
+        {
+            var credential = new AzurePipelinesCredential(tenantId, clientId, serviceConnectionId, systemAccessToken);
+            SetProvider(
+                SqlAuthenticationMethod.ActiveDirectoryWorkloadIdentity,
+                new SqlAzurePipelinesWorkloadIdentityAuthenticationProvider(credential));
+        }
     }
 
     public override async Task<SqlAuthenticationToken> AcquireTokenAsync(SqlAuthenticationParameters parameters)

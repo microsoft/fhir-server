@@ -102,5 +102,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         internal const string ExpandDefinition = nameof(ExpandDefinition);
 
         internal const string GetAllJobStatus = nameof(GetAllJobStatus);
+
+        internal const string ExpiredResourceCleanupDefinition = nameof(ExpiredResourceCleanupDefinition);
     }
 }

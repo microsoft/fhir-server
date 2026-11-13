@@ -14,8 +14,9 @@ stages:
   jobs:
   - job: Semver
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/update-semver.yml  
     - powershell: |
@@ -25,6 +26,28 @@ stages:
         Write-Host "##vso[build.updatebuildnumber]$buildNumber" 
         Write-Host "Updated  build number to '$buildNumber"
       name: SetBuildVersion
+
+- stage: ValidateDependabotDiscovery
+  displayName: 'Validate Dependabot discovery project'
+  dependsOn: []
+  jobs:
+  - job: Validate
+    pool:
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET SDK'
+      inputs:
+        useGlobalJson: true
+    # Checks that the discovery project's package list still matches Directory.Packages.props, that
+    # every version resolves, that the solution has not claimed the project, and that dependabot.yml
+    # still points at it. Each of those failing silently stops Dependabot updating NuGet packages.
+    # This only evaluates the project, so it needs no package feeds and takes about a second.
+    # See build/DependabotDiscovery/README.md.
+    - script: dotnet msbuild build/DependabotDiscovery -t:ValidateDependabotCoverage
+      displayName: 'Validate Dependabot discovery project'
 
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
@@ -37,25 +60,27 @@ stages:
     majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
     nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
   jobs:
-  - job: Windows_dotnet9
+  - job: Windows_dotnet11
     pool:
-      name: '$(DefaultWindowsPool)'
+      name: '$(InternalPool)'
       demands:
-        - ImageOverride -equals $(DefaultWindowsImage)
+        - ImageOverride -equals $(InternalWindowsImage)
     steps:
     - template: ./jobs/build.yml
       parameters:
         targetBuildFramework: $(defaultBuildFramework)
         unitTest: false
         codeCoverage: true
-  - job: Linux_dotnet8
+
+  - job: Windows_dotnet10
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalWindowsImage)
     steps:
     - template: ./jobs/build.yml
       parameters:
-        targetBuildFramework: 'net8.0'
+        targetBuildFramework: 'net10.0'
 
 - stage: BuildArtifacts
   displayName: 'Build artifacts'
@@ -70,8 +95,9 @@ stages:
   jobs:
   - job: Linux_BuildAndPackage
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/build.yml
       parameters:
@@ -89,9 +115,9 @@ stages:
   jobs:
   - job: Guardian
     pool:
-      name: '$(DefaultWindowsPool)'
+      name: '$(InternalPool)'
       demands:
-        - ImageOverride -equals $(DefaultWindowsImage)
+        - ImageOverride -equals $(InternalWindowsImage)
     steps:
     - template: ./jobs/analyze.yml
 
@@ -115,8 +141,9 @@ stages:
   - job: deleteOldResourceGroups
     displayName: 'Delete Old Resource Groups'
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./tasks/delete-resource-groups.yml
 
@@ -127,8 +154,9 @@ stages:
   - job: provision
     displayName: 'Create Resource Group'
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - task: AzurePowerShell@5
       displayName: Provision Resource Group
@@ -168,8 +196,9 @@ stages:
   - job: deleteKeyVaults
     displayName: 'Delete and Purge Key Vaults'
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./tasks/delete-keyvaults.yml
   - job: setup
@@ -178,9 +207,48 @@ stages:
     - cleanupAad
     - deleteKeyVaults
     pool:
+      name: '$(AzurePipelinesPool)'
       vmImage: '$(WindowsVmImage)'
     steps:
     - template: ./jobs/add-aad-test-environment.yml
+  - job: createAcaEnvironment
+    displayName: 'Create ACA Managed Environment'
+    pool:
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
+    steps:
+    - task: AzurePowerShell@5
+      displayName: 'Create ACA Managed Environment'
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        pwsh: true
+        ScriptType: inlineScript
+        Inline: |
+          $envName = '$(AcaEnvironmentName)'.ToLowerInvariant()
+          $rgName = '$(UniqueResourceGroupName)'
+          $location = '$(ResourceGroupRegion)'
+
+          if ($envName.Length -gt 32) {
+              $envName = $envName.Substring(0, 32).TrimEnd('-')
+          }
+
+          $existing = Get-AzResource -ResourceGroupName $rgName -ResourceType 'Microsoft.App/managedEnvironments' -Name $envName -ErrorAction SilentlyContinue
+          if ($null -ne $existing) {
+              Write-Host "ACA managed environment '$envName' already exists."
+              return
+          }
+
+          Write-Host "Creating ACA managed environment '$envName' in '$rgName'..."
+          New-AzResourceGroupDeployment `
+              -Name "aca-env-$envName" `
+              -ResourceGroupName $rgName `
+              -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/aca/aca-environment.bicep `
+              -environmentName $envName `
+              -location $location `
+              -Verbose -ErrorAction Stop
+          Write-Host "ACA managed environment '$envName' created successfully."
 
 - stage: createNsp
   displayName: 'Create Network Security Perimeter'
@@ -237,11 +305,11 @@ stages:
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: cosmos
       version: Stu3
       webAppName: $(DeploymentEnvironmentName)
+      acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultBaseName)
-      appServicePlanName: '$(appServicePlanName)-cosmos'
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
@@ -257,19 +325,17 @@ stages:
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: sql
       version: Stu3
-      sql: true
       webAppName: $(DeploymentEnvironmentNameSql)
+      acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultNameSql)
-      appServicePlanName: '$(appServicePlanName)-sql'
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
-      sqlComputeTier: 'Standard'
       reindexEnabled: true
 
 - stage: deployR4
@@ -281,11 +347,11 @@ stages:
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: cosmos
       version: R4
       webAppName: $(DeploymentEnvironmentNameR4)
+      acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultNameR4)
-      appServicePlanName: '$(appServicePlanName)-cosmos'
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
@@ -301,83 +367,17 @@ stages:
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: sql
       version: R4
-      sql: true
       webAppName: $(DeploymentEnvironmentNameR4Sql)
+      acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultNameR4Sql)
-      appServicePlanName: '$(appServicePlanName)-sql'
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
-      sqlComputeTier: 'Standard'
-      reindexEnabled: true
-
-- stage: deployR4B
-  displayName: 'Deploy R4B CosmosDB Site'
-  dependsOn:
-  - DockerBuild
-  - setupEnvironment
-  - createNsp
-  jobs:
-  - template: ./jobs/provision-deploy.yml
-    parameters: 
-      version: R4B
-      webAppName: $(DeploymentEnvironmentNameR4B)
-      keyVaultName: $(KeyVaultNameR4B)
-      appServicePlanName: '$(appServicePlanName)-cosmos'
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
-      subscription: $(ConnectedServiceName)
-      resourceGroup: $(UniqueResourceGroupName)
-      testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
-      reindexEnabled: true
-
-- stage: deployR4BSql
-  displayName: 'Deploy R4B SQL Site'
-  dependsOn:
-  - DockerBuild
-  - setupEnvironment
-  - deploySqlServer
-  jobs:
-  - template: ./jobs/provision-deploy.yml
-    parameters: 
-      version: R4B
-      sql: true
-      webAppName: $(DeploymentEnvironmentNameR4BSql)
-      keyVaultName: $(KeyVaultNameR4BSql)
-      appServicePlanName: '$(appServicePlanName)-sql'
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
-      subscription: $(ConnectedServiceName)
-      resourceGroup: $(UniqueResourceGroupName)
-      testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
-      schemaAutomaticUpdatesEnabled: 'auto'
-      sqlServerName: $(DeploymentEnvironmentName)
-      sqlComputeTier: 'Standard'
-      reindexEnabled: true
-
-- stage: deployR5
-  displayName: 'Deploy R5 CosmosDB Site'
-  dependsOn:
-  - DockerBuild
-  - setupEnvironment
-  - createNsp
-  jobs:
-  - template: ./jobs/provision-deploy.yml
-    parameters: 
-      version: R5
-      webAppName: $(DeploymentEnvironmentNameR5)
-      keyVaultName: $(KeyVaultNameR5)
-      appServicePlanName: '$(appServicePlanName)-cosmos'
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
-      subscription: $(ConnectedServiceName)
-      resourceGroup: $(UniqueResourceGroupName)
-      testEnvironmentUrl: $(TestApplicationResource)
-      imageTag: $(ImageTag)
       reindexEnabled: true
 
 - stage: deployR5Sql
@@ -389,19 +389,17 @@ stages:
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
+      dataStore: sql
       version: R5
-      sql: true
       webAppName: $(DeploymentEnvironmentNameR5Sql)
+      acaEnvironmentName: $(AcaEnvironmentName)
       keyVaultName: $(KeyVaultNameR5Sql)
-      appServicePlanName: '$(appServicePlanName)-sql'
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(UniqueResourceGroupName)
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
-      sqlComputeTier: 'Standard'
       reindexEnabled: true
 
 - stage: testStu3Cosmos
@@ -410,12 +408,15 @@ stages:
   - BuildArtifacts
   - setupEnvironment
   - deployStu3
+  variables:
+    TestEnvironmentUrl_Stu3: $[stageDependencies.deployStu3.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Stu3']]
+    TestEnvironmentUrl: $[stageDependencies.deployStu3.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl']]
   jobs:
   - template: ./jobs/run-cosmos-tests.yml
     parameters:
       version: Stu3
       keyVaultName: $(KeyVaultBaseName)
-      appServiceName: $(DeploymentEnvironmentName)
+      containerAppName: $(DeploymentEnvironmentName)
 
 - stage: testStu3Sql
   displayName: 'Run Stu3 SQL Tests'
@@ -423,12 +424,15 @@ stages:
   - BuildArtifacts
   - setupEnvironment
   - deployStu3Sql
+  variables:
+    TestEnvironmentUrl_Stu3_Sql: $[stageDependencies.deployStu3Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Stu3_Sql']]
+    TestEnvironmentUrl_Sql: $[stageDependencies.deployStu3Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
   jobs:
   - template: ./jobs/run-sql-tests.yml
     parameters:
       version: Stu3
-      keyVaultName: $(KeyVaultBaseName)
-      appServiceName: $(DeploymentEnvironmentName)
+      keyVaultName: $(KeyVaultNameSql)
+      containerAppName: $(DeploymentEnvironmentNameSql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
 - stage: testR4Cosmos
@@ -437,12 +441,15 @@ stages:
   - BuildArtifacts
   - setupEnvironment
   - deployR4
+  variables:
+    TestEnvironmentUrl_R4: $[stageDependencies.deployR4.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R4']]
+    TestEnvironmentUrl: $[stageDependencies.deployR4.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl']]
   jobs:
   - template: ./jobs/run-cosmos-tests.yml
     parameters:
       version: R4
       keyVaultName: $(KeyVaultNameR4)
-      appServiceName: $(DeploymentEnvironmentNameR4)
+      containerAppName: $(DeploymentEnvironmentNameR4)
 
 - stage: testR4Sql
   displayName: 'Run R4 SQL Tests'
@@ -450,53 +457,16 @@ stages:
   - BuildArtifacts
   - setupEnvironment
   - deployR4Sql
+  variables:
+    TestEnvironmentUrl_R4_Sql: $[stageDependencies.deployR4Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R4_Sql']]
+    TestEnvironmentUrl_Sql: $[stageDependencies.deployR4Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
   jobs:
   - template: ./jobs/run-sql-tests.yml
     parameters:
       version: R4
-      keyVaultName: $(KeyVaultNameR4)
-      appServiceName: $(DeploymentEnvironmentNameR4)
+      keyVaultName: $(KeyVaultNameR4Sql)
+      containerAppName: $(DeploymentEnvironmentNameR4Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
-
-- stage: testR4BCosmos
-  displayName: 'Run R4B Cosmos Tests'
-  dependsOn:
-  - BuildArtifacts
-  - setupEnvironment
-  - deployR4B
-  jobs:
-  - template: ./jobs/run-cosmos-tests.yml
-    parameters:
-      version: R4B
-      keyVaultName: $(KeyVaultNameR4B)
-      appServiceName: $(DeploymentEnvironmentNameR4B)
-
-- stage: testR4BSql
-  displayName: 'Run R4B SQL Tests'
-  dependsOn:
-  - BuildArtifacts
-  - setupEnvironment
-  - deployR4BSql
-  jobs:
-  - template: ./jobs/run-sql-tests.yml
-    parameters:
-      version: R4B
-      keyVaultName: $(KeyVaultNameR4B)
-      appServiceName: $(DeploymentEnvironmentNameR4B)
-      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
-
-- stage: testR5Cosmos
-  displayName: 'Run R5 Cosmos Tests'
-  dependsOn:
-  - BuildArtifacts
-  - setupEnvironment
-  - deployR5
-  jobs:
-  - template: ./jobs/run-cosmos-tests.yml
-    parameters:
-      version: R5
-      keyVaultName: $(KeyVaultNameR5)
-      appServiceName: $(DeploymentEnvironmentNameR5)
 
 - stage: testR5Sql
   displayName: 'Run R5 SQL Tests'
@@ -504,13 +474,31 @@ stages:
   - BuildArtifacts
   - setupEnvironment
   - deployR5Sql
+  variables:
+    TestEnvironmentUrl_R5_Sql: $[stageDependencies.deployR5Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_R5_Sql']]
+    TestEnvironmentUrl_Sql: $[stageDependencies.deployR5Sql.provisionEnvironment.outputs['SetAcaOutputs.TestEnvironmentUrl_Sql']]
   jobs:
   - template: ./jobs/run-sql-tests.yml
     parameters:
       version: R5
-      keyVaultName: $(KeyVaultNameR5)
-      appServiceName: $(DeploymentEnvironmentNameR5)
+      keyVaultName: $(KeyVaultNameR5Sql)
+      containerAppName: $(DeploymentEnvironmentNameR5Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+
+- template: ./stages/cleanup-pr-test-resources.yml
+  parameters:
+    testStage: testStu3Sql
+    version: Stu3
+
+- template: ./stages/cleanup-pr-test-resources.yml
+  parameters:
+    testStage: testR4Sql
+    version: R4
+
+- template: ./stages/cleanup-pr-test-resources.yml
+  parameters:
+    testStage: testR5Sql
+    version: R5
 
 - stage: aggregateCoverage
   displayName: 'Aggregate All Coverage Reports'
@@ -520,16 +508,13 @@ stages:
   - testStu3Sql
   - testR4Cosmos
   - testR4Sql
-  - testR4BCosmos
-  - testR4BSql
-  - testR5Cosmos
   - testR5Sql
-  condition: succeeded()
   jobs:
   - job: AggregateCoverage
     displayName: 'Aggregate coverage from all test types and versions'
     pool:
-      name: '$(DefaultLinuxPool)'
-      vmImage: '$(LinuxVmImage)'
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalLinuxImage)
     steps:
     - template: ./jobs/aggregate-coverage.yml

@@ -3,18 +3,42 @@ parameters:
   type: string
 - name: keyVaultName
   type: string
+- name: cosmosContainerAppName
+  type: string
+- name: sqlContainerAppName
+  type: string
 
 jobs:
 - job: 'cosmosE2eTests'
   dependsOn: []
   pool:
-    name: '$(DefaultLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   steps:
   - template: e2e-setup.yml
   - template: e2e-tests-extract.yml
     parameters:
       version: ${{parameters.version}}
+
+  - task: AzurePowerShell@5
+    displayName: 'Resolve ACA FQDN (Cosmos)'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      pwsh: true
+      ScriptType: inlineScript
+      Inline: |
+        $containerAppName = "${{ parameters.cosmosContainerAppName }}".ToLowerInvariant()
+        $containerApp = Get-AzResource -ResourceGroupName $(ResourceGroupName) -ResourceType "Microsoft.App/containerApps" -Name $containerAppName -ApiVersion "2023-05-01" -ExpandProperties
+        if ($null -eq $containerApp) {
+            throw "Container App '$containerAppName' not found in resource group '$(ResourceGroupName)'"
+        }
+        $fqdn = $containerApp.Properties.configuration.ingress.fqdn
+        $url = "https://$fqdn"
+        Write-Host "Resolved Cosmos ACA URL: $url"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl]$url"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_${{ parameters.version }}]$url"
 
   - task: AzurePowerShell@5
     displayName: 'Set Variables'
@@ -77,7 +101,7 @@ jobs:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $args = @('--filter', 'FullyQualifiedName~CosmosDb&Category=ExportLongRunning', '--retry-failed-tests', '3', '--report-trx')
+        $args = @('--filter-query', '/[(DataStore=CosmosDb)&(Category=ExportLongRunning)]', '--retry-failed-tests', '3', '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', 'Export ${{ parameters.version }} CosmosDB')
 
         Write-Host "Running dotnet $($dll.FullName)"
         & dotnet $dll.FullName @args
@@ -112,30 +136,40 @@ jobs:
       'app_globalReaderUserApp_id': $(app_globalReaderUserApp_id)
       'app_globalReaderUserApp_secret': $(app_globalReaderUserApp_secret)
       'app_globalWriterUserApp_id': $(app_globalWriterUserApp_id)
-      'app_globalWriterUserApp_secret': $(app_globalWriterUserApp_secret)    
+      'app_globalWriterUserApp_secret': $(app_globalWriterUserApp_secret)
+      'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/testresults'
-
-  - task: PublishTestResults@2
-    displayName: 'Publish test results'
-    inputs:
-      testResultsFormat: 'VSTest'
-      testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
-      mergeTestResults: true
-      testRunTitle: 'Export ${{ parameters.version }} CosmosDB'
-      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
-      failTaskOnFailedTests: false
-    condition: succeededOrFailed()
 
 - job: 'sqlE2eTests'
   dependsOn: []
   pool:
-    name: '$(DefaultLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
   steps:
   - template: e2e-setup.yml
   - template: e2e-tests-extract.yml
     parameters:
       version: ${{parameters.version}}
+
+  - task: AzurePowerShell@5
+    displayName: 'Resolve ACA FQDN (SQL)'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      pwsh: true
+      ScriptType: inlineScript
+      Inline: |
+        $containerAppName = "${{ parameters.sqlContainerAppName }}".ToLowerInvariant()
+        $containerApp = Get-AzResource -ResourceGroupName $(ResourceGroupName) -ResourceType "Microsoft.App/containerApps" -Name $containerAppName -ApiVersion "2023-05-01" -ExpandProperties
+        if ($null -eq $containerApp) {
+            throw "Container App '$containerAppName' not found in resource group '$(ResourceGroupName)'"
+        }
+        $fqdn = $containerApp.Properties.configuration.ingress.fqdn
+        $url = "https://$fqdn"
+        Write-Host "Resolved SQL ACA URL: $url"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_Sql]$url"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_${{ parameters.version }}_Sql]$url"
   
   - task: AzurePowerShell@5
     displayName: 'Set Variables'
@@ -198,7 +232,7 @@ jobs:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $args = @('--filter', 'FullyQualifiedName~SqlServer&Category=ExportLongRunning', '--retry-failed-tests', '3', '--report-trx')
+        $args = @('--filter-query', '/[(DataStore=SqlServer)&(Category=ExportLongRunning)]', '--retry-failed-tests', '3', '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', 'Export ${{ parameters.version }} SQL')
 
         Write-Host "Running dotnet $($dll.FullName)"
         & dotnet $dll.FullName @args
@@ -234,16 +268,6 @@ jobs:
       'app_globalReaderUserApp_secret': $(app_globalReaderUserApp_secret)
       'app_globalWriterUserApp_id': $(app_globalWriterUserApp_id)
       'app_globalWriterUserApp_secret': $(app_globalWriterUserApp_secret)
+      'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/testresults'
   
-  - task: PublishTestResults@2
-    displayName: 'Publish test results'
-    inputs:
-      testResultsFormat: 'VSTest'
-      testResultsFiles: '$(Agent.TempDirectory)/testresults/**/*.trx'
-      mergeTestResults: true
-      testRunTitle: 'Export ${{ parameters.version }} SQL'
-      # TODO: Re-enable when https://github.com/microsoft/testfx/issues/7167 is fixed
-      failTaskOnFailedTests: false
-    condition: succeededOrFailed()
-      

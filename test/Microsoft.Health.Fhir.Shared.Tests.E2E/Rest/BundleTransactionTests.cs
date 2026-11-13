@@ -8,13 +8,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading;
-using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Resources;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -104,7 +104,87 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
         }
 
-        [RetryTheory]
+        [Theory]
+        [Trait(Traits.Priority, Priority.One)]
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        public async Task GivenATransactionBundleWithAnOutOfRangeIndexedQuantity_WhenTransactionExecutionFails_ThenTransactionIsRolledBackAndNoResourcesArePersisted(FhirBundleProcessingLogic processingLogic)
+        {
+            var patientId = Guid.NewGuid().ToString();
+            var validObservationId = Guid.NewGuid().ToString();
+            var invalidObservationId = Guid.NewGuid().ToString();
+            var bundle = new Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry =
+                {
+                    new EntryComponent
+                    {
+                        Resource = new Patient
+                        {
+                            Id = patientId,
+                            Identifier = new List<Identifier>
+                            {
+                                new Identifier { System = "http://example.org/fhir/ids", Value = patientId },
+                            },
+                            Name = new List<HumanName>
+                            {
+                                new HumanName { Family = "Transaction" },
+                            },
+                        },
+                        Request = new RequestComponent { Method = HTTPVerb.POST, Url = "Patient" },
+                    },
+                    new EntryComponent
+                    {
+                        Resource = new Observation
+                        {
+                            Id = validObservationId,
+                            Status = ObservationStatus.Final,
+                            Code = new CodeableConcept("http://loinc.org", "29463-7"),
+                            Identifier = new List<Identifier>
+                            {
+                                new Identifier { System = "http://example.org/fhir/ids", Value = validObservationId },
+                            },
+                            Value = new Quantity(10m, "mg"),
+                        },
+                        Request = new RequestComponent { Method = HTTPVerb.POST, Url = "Observation" },
+                    },
+                    new EntryComponent
+                    {
+                        Resource = new Observation
+                        {
+                            Id = invalidObservationId,
+                            Status = ObservationStatus.Final,
+                            Code = new CodeableConcept("http://loinc.org", "29463-7"),
+                            Identifier = new List<Identifier>
+                            {
+                                new Identifier { System = "http://example.org/fhir/ids", Value = invalidObservationId },
+                            },
+                            Value = new Quantity(1000000000000000000m, "mg"),
+                        },
+                        Request = new RequestComponent { Method = HTTPVerb.POST, Url = "Observation" },
+                    },
+                },
+            };
+
+            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleAsync(bundle, new FhirBundleOptions { BundleProcessingLogic = processingLogic }));
+            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+            Assert.NotNull(fhirException.OperationOutcome);
+            Assert.Contains(fhirException.OperationOutcome.Issue, i => i.Code == OperationOutcome.IssueType.Invalid);
+            Assert.Contains(fhirException.OperationOutcome.Issue, i =>
+                i.Diagnostics != null && i.Diagnostics.Contains("DECIMAL(36,18)", StringComparison.OrdinalIgnoreCase));
+
+            Bundle patientSearch = await _client.SearchAsync(ResourceType.Patient, $"identifier=http://example.org/fhir/ids|{patientId}");
+            Assert.Empty(patientSearch.Entry);
+
+            Bundle validObservationSearch = await _client.SearchAsync(ResourceType.Observation, $"identifier=http://example.org/fhir/ids|{validObservationId}");
+            Assert.Empty(validObservationSearch.Entry);
+
+            Bundle invalidObservationSearch = await _client.SearchAsync(ResourceType.Observation, $"identifier=http://example.org/fhir/ids|{invalidObservationId}");
+            Assert.Empty(invalidObservationSearch.Entry);
+        }
+
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
@@ -130,7 +210,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Empty(bundle.Entry);
         }
 
-        [RetryTheory]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
@@ -618,6 +698,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             FhirResponse<Bundle> bundleResponse = await _client.PostBundleAsync(bundle, new FhirBundleOptions() { BundleProcessingLogic = processingLogic });
 
+            Assert.True(bundleResponse.StatusCode == HttpStatusCode.OK, "HTTP Status code is different than HTTP200.");
+
             Assert.True(bundleResponse.Resource.Entry[0].Resource.TypeName == ResourceType.Patient.GetLiteral(), "First entry should be a Patient resource.");
             Assert.True(bundleResponse.Resource.Entry[1].Resource.TypeName == ResourceType.Consent.GetLiteral(), "Second entry should be a Consent resource.");
             Assert.True(bundleResponse.Resource.Entry[2].Resource.TypeName == ResourceType.Observation.GetLiteral(), "Third entry should be an Observation resource.");
@@ -734,6 +816,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     Assert.Equal("urn:uuid:4a089b8a-b0a0-46a9-92da-c8b653aa2e73", reference.Reference);
                 }
             }
+        }
+
+        [Theory]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenABundleWithAnInvalidReference_WhenSubmittingATransaction_ThenReturnsHttp400(FhirBundleProcessingLogic processingLogic)
+        {
+            Assert.SkipWhen(ModelInfoProvider.Version == FhirSpecification.Stu3 || ModelInfoProvider.Version == FhirSpecification.R5, "Some of the entities in 'Bundle-TransactionWithInvalidProcessingRecord' are not supported in this FHIR version. Test is focused on the overall handling logic.");
+
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithInvalidProcessingRecord");
+
+            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(
+                async () => await _client.PostBundleAsync(
+                    requestBundle.ToPoco<Bundle>(),
+                    new FhirBundleOptions() { BundleProcessingLogic = processingLogic }));
+
+            Assert.True(fhirException.StatusCode == HttpStatusCode.BadRequest, "Expected HTTP 400 Bad Request response.");
+            Assert.True(fhirException.OperationOutcome.Issue.Count == 2, "Two issues are expected to be returned.");
+            Assert.True(fhirException.OperationOutcome.Issue[1].Diagnostics.Equals("Id must be specified in the resource.", StringComparison.OrdinalIgnoreCase), "The expected error message is 'Id must be specified in the resource.'.");
         }
 
         [Fact]

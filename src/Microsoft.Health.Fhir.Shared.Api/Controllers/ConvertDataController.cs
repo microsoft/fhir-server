@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.InvalidTemplateCollectionReference, templateCollectionReference));
             }
 
-            // Validate if template has been configured.
+            // Validate custom template configuration before access so configuration errors retain their specific response.
             bool isDefaultTemplateReference = ImageInfo.IsDefaultTemplateImageReference(templateCollectionReference);
             string registryServer = ExtractRegistryServer(templateCollectionReference);
             if (isDefaultTemplateReference)
@@ -96,12 +96,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             else
             {
-                _containerRegistryAccessValidator.CheckContainerRegistryAccess();
                 CheckIfCustomTemplateIsConfigured(registryServer, templateCollectionReference);
+                _containerRegistryAccessValidator.CheckContainerRegistryAccess();
             }
 
             var convertDataRequest = new ConvertDataRequest(inputData, inputDataType, registryServer, isDefaultTemplateReference, templateCollectionReference, rootTemplate, treatDatesAsStrings);
-            ConvertDataResponse response = await _mediator.Send(convertDataRequest, cancellationToken: default);
+            ConvertDataResponse response = await _mediator.SendAsync(convertDataRequest, cancellationToken: default);
 
             return new ContentResult
             {

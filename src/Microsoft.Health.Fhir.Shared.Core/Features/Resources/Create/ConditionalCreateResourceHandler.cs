@@ -7,7 +7,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
         public override async Task<UpsertResourceResponse> HandleNoMatch(ConditionalCreateResourceRequest request, CancellationToken cancellationToken)
         {
-            return await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(request.Resource, request.BundleResourceContext), cancellationToken);
+            return await _mediator.SendAsync<UpsertResourceResponse>(new CreateResourceRequest(request.Resource, request.BundleResourceContext), cancellationToken);
         }
 
         public override Task<UpsertResourceResponse> HandleSingleMatch(ConditionalCreateResourceRequest request, SearchResultEntry match, CancellationToken cancellationToken)
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             return Task.FromResult<UpsertResourceResponse>(new UpsertResourceResponse(saveOutcome));
         }
 
-        public override Task<DataActions> CheckAccess(CancellationToken cancellationToken)
+        public override Task<bool> CheckAccess(CancellationToken cancellationToken)
         {
             return AuthorizationService.CheckConditionalCreateAccess(cancellationToken);
         }

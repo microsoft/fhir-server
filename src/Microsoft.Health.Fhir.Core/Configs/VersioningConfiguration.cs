@@ -5,14 +5,37 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class VersioningConfiguration
     {
-        public string Default { get; set; } = ResourceVersionPolicy.Versioned;
+        private string _default = ResourceVersionPolicy.Versioned;
+
+        public string Default
+        {
+            get => _default;
+
+            // If null is provided, use "versioned" as the default value.
+            set => _default = (value ?? ResourceVersionPolicy.Versioned).ToLowerInvariant();
+        }
 
         public Dictionary<string, string> ResourceTypeOverrides { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Normalizes all <see cref="ResourceTypeOverrides"/> values to lowercase.
+        /// </summary>
+        public void NormalizeOverrideValues()
+        {
+            foreach (string key in ResourceTypeOverrides.Keys.ToList())
+            {
+                if (ResourceTypeOverrides[key] != null)
+                {
+                    ResourceTypeOverrides[key] = ResourceTypeOverrides[key].ToLowerInvariant();
+                }
+            }
+        }
     }
 }

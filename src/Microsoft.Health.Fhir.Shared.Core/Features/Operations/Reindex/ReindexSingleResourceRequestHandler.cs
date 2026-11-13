@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -57,14 +58,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }
 
-        public async Task<ReindexSingleResourceResponse> Handle(ReindexSingleResourceRequest request, CancellationToken cancellationToken)
+        public async Task<ReindexSingleResourceResponse> HandleAsync(ReindexSingleResourceRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Reindex, cancellationToken) != DataActions.Reindex)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(
+                DataActions.Reindex | DataActions.Read | DataActions.ReadById,
+                grantedActions =>
+                    (grantedActions & DataActions.Reindex) == DataActions.Reindex &&
+                    (grantedActions & (DataActions.Read | DataActions.ReadById)) != DataActions.None,
+                true,
+                cancellationToken);
 
             var key = new ResourceKey(request.ResourceType, request.ResourceId);
             ResourceWrapper storedResource = await _fhirDataStore.GetAsync(key, cancellationToken);

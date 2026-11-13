@@ -20,6 +20,7 @@ CREATE PROCEDURE dbo.MergeResources
    ,@NumberSearchParams dbo.NumberSearchParamList READONLY
    ,@QuantitySearchParams dbo.QuantitySearchParamList READONLY
    ,@DateTimeSearchParms dbo.DateTimeSearchParamList READONLY
+   ,@VectorSearchParams dbo.VectorSearchParamList READONLY
    ,@ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY
    ,@TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY
    ,@TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY
@@ -143,6 +144,8 @@ BEGIN TRY
       SET @AffectedRows += @@rowcount
       DELETE FROM dbo.DateTimeSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
+      DELETE FROM dbo.VectorSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      SET @AffectedRows += @@rowcount
       DELETE FROM dbo.ReferenceTokenCompositeSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
       DELETE FROM dbo.TokenTokenCompositeSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
@@ -217,6 +220,12 @@ BEGIN TRY
            ( ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsMin, IsMax )
       SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsMin, IsMax
         FROM @DateTimeSearchParms
+    SET @AffectedRows += @@rowcount
+
+    INSERT INTO dbo.VectorSearchParam
+           ( ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, SourceTextHash, SourceTextCompressed, Embedding )
+      SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, SourceTextHash, SourceTextCompressed, CAST(Embedding AS vector(1536))
+        FROM @VectorSearchParams
     SET @AffectedRows += @@rowcount
 
     INSERT INTO dbo.ReferenceTokenCompositeSearchParam 
@@ -338,6 +347,15 @@ BEGIN TRY
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
 
+    INSERT INTO dbo.VectorSearchParam
+           ( ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, SourceTextHash, SourceTextCompressed, Embedding )
+      SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, ChunkOrdinal, EmbeddingModelId, SourceTextHash, SourceTextCompressed, CAST(Embedding AS vector(1536))
+        FROM (SELECT TOP (@DummyTop) * FROM @VectorSearchParams) A
+        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
+          AND NOT EXISTS (SELECT * FROM dbo.VectorSearchParam C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+        OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+    SET @AffectedRows += @@rowcount
+
     INSERT INTO dbo.ReferenceTokenCompositeSearchParam 
            ( ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2 )
       SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2
@@ -409,9 +427,16 @@ BEGIN CATCH
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
 
-  IF @RaiseExceptionOnConflict = 1 AND error_number() IN (2601, 2627) AND error_message() LIKE '%''dbo.Resource''%'
-    THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
+  IF @RaiseExceptionOnConflict = 1 AND error_message() LIKE '%''dbo.Resource''%'
+  BEGIN
+    IF error_number() = 2601
+      THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates.', 1;
+    ELSE IF error_number() = 2627
+      THROW 50424, 'Cannot persit resource due to a conflict with duplicated keys. Check the volume of resource being submited for ingestion.', 1;
+    ELSE
+      THROW;
+  END
   ELSE
-    THROW
+    THROW;
 END CATCH
 GO

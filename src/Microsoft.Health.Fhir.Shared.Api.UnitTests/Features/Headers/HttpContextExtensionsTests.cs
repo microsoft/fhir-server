@@ -11,7 +11,9 @@ using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
+using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -34,6 +36,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
 
             bool isLatencyOverEfficiencyEnabled = httpContext.IsLatencyOverEfficiencyEnabled();
             Assert.False(isLatencyOverEfficiencyEnabled);
+
+            bool isHighLatencyEnabled = httpContext.IsExpandedBundleEnabled();
+            Assert.False(isHighLatencyEnabled);
+
+            Assert.Equal(ConditionalUpdateNoMatchBehavior.Upsert, httpContext.GetConditionalUpdateNoMatchBehavior());
 
             // Given different default values for the bundle processing logic, we expect the same value to be returned.
             BundleProcessingLogic bundleProcessingLogic = httpContext.GetBundleProcessingLogic(
@@ -69,6 +76,116 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             bool isLatencyOverEfficiencyEnabled = httpContext.IsLatencyOverEfficiencyEnabled();
 
             Assert.Equal(isEnabled, isLatencyOverEfficiencyEnabled);
+        }
+
+        [Theory]
+        [InlineData("", false)]
+        [InlineData(null, false)]
+        [InlineData("false", false)]
+        [InlineData("falsE", false)]
+        [InlineData("FALSE", false)]
+        [InlineData("2112", false)]
+        [InlineData("true", true)]
+        [InlineData("true ", true)]
+        [InlineData("TRUE", true)]
+        [InlineData(" TRUE ", true)]
+        [InlineData("   tRuE   ", true)]
+        public void WhenHttpContextHasHighLatencyHeader_ReturnIfHighLatencyIsEnabled(string value, bool isEnabled)
+        {
+            // Arrange
+            var httpHeaders = new Dictionary<string, string>() { { KnownHeaders.ExpandedBundle, value } };
+            HttpContext httpContext = GetFakeHttpContext(httpHeaders);
+
+            // Act
+            bool isHighLatencyEnabled = httpContext.IsExpandedBundleEnabled();
+
+            // Assert
+            Assert.Equal(isEnabled, isHighLatencyEnabled);
+        }
+
+        [Fact]
+        public void WhenHttpContextHasMultipleHighLatencyHeaderValues_AndFirstValueIsTrue_ReturnsTrue()
+        {
+            // Arrange
+            HttpContext httpContext = new DefaultHttpContext();
+            httpContext.Request.Headers.Append(KnownHeaders.ExpandedBundle, new StringValues(new[] { "true", "false" }));
+
+            // Act
+            bool isHighLatencyEnabled = httpContext.IsExpandedBundleEnabled();
+
+            // Assert
+            Assert.True(isHighLatencyEnabled);
+        }
+
+        [Theory]
+        [InlineData("", ConditionalUpdateNoMatchBehavior.Upsert)]
+        [InlineData(null, ConditionalUpdateNoMatchBehavior.Upsert)]
+        [InlineData("   ", ConditionalUpdateNoMatchBehavior.Upsert)]
+        [InlineData("upsert", ConditionalUpdateNoMatchBehavior.Upsert)]
+        [InlineData(" UPSERT ", ConditionalUpdateNoMatchBehavior.Upsert)]
+        [InlineData("create", ConditionalUpdateNoMatchBehavior.Create)]
+        [InlineData("   CrEaTe   ", ConditionalUpdateNoMatchBehavior.Create)]
+        public void WhenHttpContextHasConditionalUpdateNoMatchHeader_ReturnTheRequestedBehavior(string value, ConditionalUpdateNoMatchBehavior expected)
+        {
+            // Arrange
+            var httpHeaders = new Dictionary<string, string>() { { KnownHeaders.ConditionalUpdateNoMatch, value } };
+            HttpContext httpContext = GetFakeHttpContext(httpHeaders);
+
+            // Act
+            ConditionalUpdateNoMatchBehavior behavior = httpContext.GetConditionalUpdateNoMatchBehavior();
+
+            // Assert
+            Assert.Equal(expected, behavior);
+        }
+
+        [Theory]
+        [InlineData("true")]
+        [InlineData("creat")]
+        [InlineData("0")]
+        [InlineData("1")]
+        public void WhenHttpContextHasInvalidConditionalUpdateNoMatchHeader_ThenBadRequestIsThrown(string value)
+        {
+            // Arrange
+            var httpHeaders = new Dictionary<string, string>() { { KnownHeaders.ConditionalUpdateNoMatch, value } };
+            HttpContext httpContext = GetFakeHttpContext(httpHeaders);
+
+            // Act & Assert
+            BadRequestException exception = Assert.Throws<BadRequestException>(() => httpContext.GetConditionalUpdateNoMatchBehavior());
+            Assert.Contains(KnownHeaders.ConditionalUpdateNoMatch, exception.Message);
+        }
+
+        [Theory]
+        [InlineData("upsert", "creat")]
+        [InlineData("", "create")]
+        public void WhenHttpContextHasMultipleConditionalUpdateNoMatchHeaderValues_ThenBadRequestIsThrown(string firstValue, string secondValue)
+        {
+            // Arrange
+            HttpContext httpContext = new DefaultHttpContext();
+            httpContext.Request.Headers.Append(KnownHeaders.ConditionalUpdateNoMatch, new StringValues(new[] { firstValue, secondValue }));
+
+            // Act & Assert
+            BadRequestException exception = Assert.Throws<BadRequestException>(() => httpContext.GetConditionalUpdateNoMatchBehavior());
+            Assert.Contains(KnownHeaders.ConditionalUpdateNoMatch, exception.Message);
+        }
+
+        [Fact]
+        public void WhenHttpContextIsNull_ThenConditionalUpdateNoMatchBehaviorIsUpsert()
+        {
+            Assert.Equal(ConditionalUpdateNoMatchBehavior.Upsert, HttpContextExtensions.GetConditionalUpdateNoMatchBehavior(null));
+        }
+
+        [Fact]
+        public void WhenHttpContextHasMultipleHighLatencyHeaderValues_AndFirstValueIsFalse_ReturnsFalse()
+        {
+            // Arrange
+            HttpContext httpContext = new DefaultHttpContext();
+            httpContext.Request.Headers.Append(KnownHeaders.ExpandedBundle, new StringValues(new[] { "false", "true" }));
+
+            // Act
+            bool isHighLatencyEnabled = httpContext.IsExpandedBundleEnabled();
+
+            // Assert
+            Assert.False(isHighLatencyEnabled);
         }
 
         [Theory]

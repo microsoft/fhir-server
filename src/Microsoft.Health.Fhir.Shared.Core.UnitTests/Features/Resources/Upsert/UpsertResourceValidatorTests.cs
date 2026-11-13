@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -43,10 +44,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
             contextAccessor.RequestContext.RequestHeaders.Returns(new Dictionary<string, StringValues>());
             var validator = new UpsertResourceValidator(
                 new ModelAttributeValidator(),
-                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
+                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance, Options.Create(new CoreFeatureConfiguration())),
                 profileValidator,
                 contextAccessor,
-                config);
+                config,
+                ResourceIdPolicy.Standard);
             var resource = Samples.GetDefaultObservation()
                 .UpdateId(id);
 
@@ -77,10 +79,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
             contextAccessor.RequestContext.RequestHeaders.Returns(headers);
             var validator = new UpsertResourceValidator(
                 new ModelAttributeValidator(),
-                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
+                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance, Options.Create(new CoreFeatureConfiguration())),
                 profileValidator,
                 contextAccessor,
-                config);
+                config,
+                ResourceIdPolicy.Standard);
             var resource = Samples.GetDefaultObservation();
 
             var upsertResourceRequest = new UpsertResourceRequest(resource, bundleResourceContext: null);

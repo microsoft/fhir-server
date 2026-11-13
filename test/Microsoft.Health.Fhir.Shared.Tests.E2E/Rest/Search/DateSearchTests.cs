@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
@@ -235,6 +236,113 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
             }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientsWithPartialBirthdates_WhenSearchedByEquality_ThenCurrentOverlapBehaviorIsPreserved()
+        {
+            string tag = Guid.NewGuid().ToString();
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientBirthDate(p, "2000", tag),
+                p => SetPatientBirthDate(p, "2000-03", tag),
+                p => SetPatientBirthDate(p, "2000-03-03", tag),
+                p => SetPatientBirthDate(p, "1999-12-31", tag),
+                p => SetPatientBirthDate(p, "2000-04-01", tag),
+                p => SetPatientBirthDate(p, "2000-12", tag),
+                p => SetPatientBirthDate(p, "2000-03-31", tag),
+                p => SetPatientBirthDate(p, "2001", tag),
+                p => SetPatientBirthDate(p, "2001-11-30", tag),
+                p => SetPatientBirthDate(p, "2001-12", tag),
+                p => SetPatientBirthDate(p, "2001-12-31", tag),
+                p => SetPatientBirthDate(p, "2002-01-01", tag));
+            Patient patient2000 = patients[0];
+            Patient patient2000March = patients[1];
+            Patient patient2000March03 = patients[2];
+            Patient patient2000April01 = patients[4];
+            Patient patient2000December = patients[5];
+            Patient patient2000March31 = patients[6];
+            Patient patient2001 = patients[7];
+            Patient patient2001December = patients[9];
+            Patient patient2001December31 = patients[10];
+
+            try
+            {
+                // FHIR R4 search prefixes define equality for ranges as: "the range of the search value fully contains
+                // the range of the target value." See https://hl7.org/fhir/R4/search.html#prefix.
+                // Tracked by AB#191826. The current default implementation instead matches partial birthdates using range overlap. For example,
+                // birthdate=2000-03 currently returns a Patient with birthDate "2000" because the whole-year range
+                // overlaps March 2000, but that Patient should not match under the R4 equality containment rule.
+                // Spec-compliant containment is available behind the EnableFhirDateContainment flag (default off); this test asserts the shipped default (overlap) behavior.
+                Bundle yearBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000&_tag={tag}");
+                ValidateBundle(yearBundle, patient2000, patient2000March, patient2000March03, patient2000April01, patient2000December, patient2000March31);
+
+                Bundle monthBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03&_tag={tag}");
+                ValidateBundle(monthBundle, patient2000, patient2000March, patient2000March03, patient2000March31);
+
+                Bundle dayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-03&_tag={tag}");
+                ValidateBundle(dayBundle, patient2000, patient2000March, patient2000March03);
+
+                Bundle decemberEdgeBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2001-12&_tag={tag}");
+                ValidateBundle(decemberEdgeBundle, patient2001, patient2001December, patient2001December31);
+
+                Bundle lastDayBundle = await Client.SearchAsync(ResourceType.Patient, $"birthdate=2000-03-31&_tag={tag}");
+                ValidateBundle(lastDayBundle, patient2000, patient2000March, patient2000March31);
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
+            }
+        }
+
+        [Theory]
+        [InlineData("lt9999-12-31", true)]
+        [InlineData("le9999-12-31", true)]
+        [InlineData("gt9999-12-31", false)]
+        [InlineData("ge9999-12-31", false)]
+        [InlineData("lt9999-12-31T23:59:59.999Z", true)]
+        [InlineData("le9999-12-31T23:59:59.999Z", true)]
+        [InlineData("gt9999-12-31T23:59:59.999Z", false)]
+        [InlineData("ge9999-12-31T23:59:59.999Z", false)]
+        [InlineData("lt3654-06-18T21:21:00.6839999Z", true)]
+        [InlineData("le3654-06-18T21:21:00.6839999Z", true)]
+        [InlineData("gt3654-06-18T21:21:00.6839999Z", false)]
+        [InlineData("ge3654-06-18T21:21:00.6839999Z", false)]
+        [InlineData("ge1970-01-01T00:00:00Z", true)]
+        [InlineData("lt1970-01-01T00:00:00Z", false)]
+        public async Task GivenALargeLastUpdatedSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, bool resourceSearched)
+        {
+            try
+            {
+                Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"_lastUpdated={queryValue}&code={Fixture.Coding.Code}");
+
+                if (resourceSearched)
+                {
+                    ValidateBundle(bundle, Fixture.Observations.ToArray());
+                }
+                else
+                {
+                    Assert.Empty(bundle.Entry);
+                }
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
+            }
+        }
+
+        private static void SetPatientBirthDate(Patient patient, string birthDate, string tag)
+        {
+            patient.Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) } };
+            patient.BirthDate = birthDate;
         }
     }
 }

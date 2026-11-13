@@ -7,7 +7,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Models;
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                                 anonymizationConfigurationLocation: anonymizationConfigLocation,
                                 anonymizationConfigurationFileETag: anonymizationConfigFileETag);
 
-            CreateExportResponse response = await mediator.Send(request, cancellationToken);
+            CreateExportResponse response = await mediator.SendAsync(request, cancellationToken);
             return response;
         }
 
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var request = new GetExportRequest(requestUri, jobId);
 
-            GetExportResponse response = await mediator.Send(request, cancellationToken);
+            GetExportResponse response = await mediator.SendAsync(request, cancellationToken);
             return response;
         }
 
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var request = new CancelExportRequest(jobId);
 
-            return await mediator.Send(request, cancellationToken);
+            return await mediator.SendAsync(request, cancellationToken);
         }
     }
 }

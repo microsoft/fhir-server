@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -6,10 +6,11 @@
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
@@ -23,7 +24,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
         IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>,
         IPipelineBehavior<ConditionalCreateResourceRequest, UpsertResourceResponse>,
         IPipelineBehavior<ConditionalUpsertResourceRequest, UpsertResourceResponse>,
-        IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>
+        IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>,
+        IPipelineBehavior<ConditionalDeleteResourceRequest, DeleteResourceResponse>
     {
         private IAuthorizationService<DataActions> _authorizationService;
         private IProvideProfilesForValidation _profilesResolver;
@@ -37,20 +39,28 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
             _profilesResolver = profilesResolver;
         }
 
-        public async Task<UpsertResourceResponse> Handle(ConditionalUpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(ConditionalUpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
 
-        public async Task<UpsertResourceResponse> Handle(ConditionalCreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(ConditionalCreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
 
-        public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
 
-        public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(request.Resource.InstanceType, request.IsBundleInnerRequest, next, cancellationToken);
 
-        public async Task<DeleteResourceResponse> Handle(DeleteResourceRequest request, RequestHandlerDelegate<DeleteResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<DeleteResourceResponse> HandleAsync(DeleteResourceRequest request, RequestHandlerDelegate<DeleteResourceResponse> next, CancellationToken cancellationToken)
             => await GenericHandle(request.ResourceKey.ResourceType, request.IsBundleInnerRequest, next, cancellationToken);
+
+        /// <summary>
+        /// Enforces <see cref="DataActions.EditProfileDefinitions"/> for conditional deletes targeting a profile resource type.
+        /// The check runs before the handler executes, so the conditional search and any delete are never reached by an unauthorized caller.
+        /// This covers soft and hard deletes, single and multiple matches, and both top level and bundle inner requests.
+        /// </summary>
+        public async Task<DeleteResourceResponse> HandleAsync(ConditionalDeleteResourceRequest request, RequestHandlerDelegate<DeleteResourceResponse> next, CancellationToken cancellationToken)
+            => await GenericHandle(request.ResourceType, request.IsBundleInnerRequest, next, cancellationToken);
 
         private async Task<TResponse> GenericHandle<TResponse>(
             string resourceType,
@@ -61,12 +71,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
             var resources = _profilesResolver.GetProfilesTypes();
             if (resources.Contains(resourceType))
             {
-                if (await _authorizationService.CheckAccess(DataActions.EditProfileDefinitions, cancellationToken) != DataActions.EditProfileDefinitions)
-                {
-                    throw new UnauthorizedFhirActionException();
-                }
+                await _authorizationService.CheckAccess(DataActions.EditProfileDefinitions, true, cancellationToken);
 
-                var result = await next(cancellationToken);
+                var result = await next();
 
                 // If the requests is part of a bundle, as an inner request, then profiles are not refreshed.
                 // This is because the bundle can contain multiple profile changes and the refresh should only happen once, at the end of the bundle, to avoid performance degradation.
@@ -79,7 +86,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
             }
             else
             {
-                return await next(cancellationToken);
+                return await next();
             }
         }
     }

@@ -288,10 +288,28 @@ To use the `$export` operation, the FHIR server must be configured with a [pod i
 
     ```bash
     STORAGE_ACCOUNT_NAME="myfhirstorage"
-    az storage account create -g $RESOURCE_GROUP -n $STORAGE_ACCOUNT_NAME
+    az storage account create -g $RESOURCE_GROUP -n $STORAGE_ACCOUNT_NAME --tags "nsp-managed=true"
     STORAGE_ACCOUNT_ID=$(az storage account show -g $RESOURCE_GROUP -n $STORAGE_ACCOUNT_NAME | jq -r .id)
     BLOB_URI=$(az storage account show -g $RESOURCE_GROUP -n $STORAGE_ACCOUNT_NAME | jq -r .primaryEndpoints.blob)
     az role assignment create --role "Storage Blob Data Contributor" --assignee $IDENTITY_CLIENT_ID --scope $STORAGE_ACCOUNT_ID
+    ```
+
+    If you have an NSP (Network Security Perimeter) policy, first create the NSP (if it doesn't exist), then associate the storage account:
+
+    ```bash
+    # Create NSP (skip if NSP already exists)
+    NSP_NAME="my-fhir-nsp"
+    az deployment group create -g $RESOURCE_GROUP \
+      --template-file samples/templates/nsp-template.json \
+      --parameters nspName=$NSP_NAME
+
+    # Associate storage account with NSP
+    az deployment group create -g $RESOURCE_GROUP \
+      --template-file samples/templates/nsp-resource-association.json \
+      --parameters nspName=$NSP_NAME \
+                   resourceName=$STORAGE_ACCOUNT_NAME \
+                   resourceType="Microsoft.Storage/storageAccounts" \
+                   associationName="storage-$STORAGE_ACCOUNT_NAME-association"
     ```      
 
 4. Provision FHIR server:

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -13,9 +13,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
@@ -30,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Scoping;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
@@ -56,7 +58,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             IScopeProvider<ISearchParameterStatusDataStore> searchParameterStatusDataStoreFactory,
             IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
-            ILogger<SearchParameterDefinitionManager> logger)
+            ILogger<SearchParameterDefinitionManager> logger,
+            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -65,11 +68,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             EnsureArg.IsNotNull(searchParameterStatusDataStoreFactory, nameof(searchParameterStatusDataStoreFactory));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(coreFeatureConfiguration, nameof(coreFeatureConfiguration));
 
             _modelInfoProvider = modelInfoProvider;
             _mediator = mediator;
             _resourceTypeSearchParameterHashMap = new ConcurrentDictionary<string, string>();
-            TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>>();
+            TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>>();
             UrlLookup = new ConcurrentDictionary<string, SearchParameterInfo>();
             _searchServiceFactory = searchServiceFactory;
             _searchParameterComparer = searchParameterComparer;
@@ -78,21 +82,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _logger = logger;
 
             var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("search-parameters.json", _modelInfoProvider);
+            var msBundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("ms-search-parameters.json", _modelInfoProvider);
+
+            var searchParamResources = bundle.Entries.Select(e => e.Resource).ToList();
+            searchParamResources.AddRange(msBundle.Entries.Select(e => e.Resource));
 
             SearchParameterDefinitionBuilder.Build(
-                bundle.Entries.Select(e => e.Resource).ToList(),
+                searchParamResources,
                 UrlLookup,
                 TypeLookup,
                 _modelInfoProvider,
                 _searchParameterComparer,
                 _logger,
-                isSystemDefined: true);
+                isSystemDefined: true,
+                enableTemporalClassification: coreFeatureConfiguration.Value.EnableSearchParameterTemporalClassification);
         }
 
         internal ConcurrentDictionary<string, SearchParameterInfo> UrlLookup { get; set; }
 
-        // TypeLookup key is: Resource type, the inner dictionary key is the Search Parameter code.
-        internal ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>> TypeLookup { get; set; }
+        // TypeLookup: Resource type -> code -> ordered queue of definition URLs.
+        internal ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>> TypeLookup { get; set; }
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => UrlLookup.Values;
 
@@ -108,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 _initialized = true;
                 await LoadSearchParamsFromDataStore(cancellationToken);
 
-                await _mediator.Publish(new SearchParameterDefinitionManagerInitialized(), cancellationToken);
+                await _mediator.PublishAsync(new SearchParameterDefinitionManagerInitialized(), cancellationToken);
             }
             catch
             {
@@ -131,9 +140,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             EnsureInitialized();
 
-            if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>> value))
+            if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, ConcurrentQueue<string>> value))
             {
-                return value.Values.SelectMany(x => x).ToList();
+                return value.Values
+                    .SelectMany(x => x)
+                    .Where(uri => UrlLookup.TryGetValue(uri, out _))
+                    .Select(uri => UrlLookup[uri])
+                    .ToList();
             }
 
             throw new ResourceNotSupportedException(resourceType);
@@ -143,9 +156,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             EnsureInitialized();
 
-            if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>> lookup) &&
-                lookup.TryGetValue(code, out ConcurrentQueue<SearchParameterInfo> q) &&
-                q.TryPeek(out var searchParameter))
+            if (TryGetFromTypeLookup(resourceType, code, out SearchParameterInfo searchParameter))
             {
                 return searchParameter;
             }
@@ -156,26 +167,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public bool TryGetSearchParameter(string resourceType, string code, out SearchParameterInfo searchParameter)
         {
             EnsureInitialized();
-            searchParameter = null;
 
-            if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>> lookup) &&
-                lookup.TryGetValue(code, out ConcurrentQueue<SearchParameterInfo> q) &&
-                q.TryPeek(out searchParameter))
-            {
-                return true;
-            }
-
-            return false;
+            return TryGetFromTypeLookup(resourceType, code, out searchParameter);
         }
 
         public bool TryGetSearchParameter(string resourceType, string code, bool excludePendingDelete, out SearchParameterInfo searchParameter)
         {
             EnsureInitialized();
-            searchParameter = null;
 
-            if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>> lookup) &&
-                lookup.TryGetValue(code, out ConcurrentQueue<SearchParameterInfo> q) &&
-                q.TryPeek(out searchParameter))
+            if (TryGetFromTypeLookup(resourceType, code, out searchParameter))
             {
                 if (excludePendingDelete && searchParameter.SearchParameterStatus == SearchParameterStatus.PendingDelete)
                 {
@@ -269,7 +269,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             foreach (string resourceName in TypeLookup.Keys)
             {
-                var searchParameters = TypeLookup[resourceName].Values.SelectMany(x => x);
+                var searchParameters = GetSearchParameters(resourceName);
                 if (searchParameters.Any())
                 {
                     string searchParamHash = searchParameters.CalculateSearchParameterHash();
@@ -289,9 +289,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public void DeleteSearchParameter(string url, bool calculateHash = true)
         {
-            SearchParameterInfo searchParameterInfo = null;
-
-            if (!UrlLookup.TryRemove(url, out searchParameterInfo))
+            if (!UrlLookup.TryRemove(url, out SearchParameterInfo searchParameterInfo))
             {
                 throw new ResourceNotFoundException(string.Format(Core.Resources.CustomSearchParameterNotfound, url));
             }
@@ -303,9 +301,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             {
                 if (TypeLookup.TryGetValue(resourceType, out var lookup) &&
                     lookup.TryGetValue(searchParameterInfo.Code, out var q) &&
-                    q.Any(x => string.Equals(x.Url.OriginalString, url, StringComparison.OrdinalIgnoreCase)))
+                    q.Any(x => string.Equals(x, url, StringComparison.Ordinal)))
                 {
-                    var newq = new ConcurrentQueue<SearchParameterInfo>(q.Where(x => !string.Equals(x.Url.OriginalString, url, StringComparison.OrdinalIgnoreCase)));
+                    var newq = new ConcurrentQueue<string>(q.Where(x => !string.Equals(x, url, StringComparison.Ordinal)));
                     if (lookup.TryUpdate(searchParameterInfo.Code, newq, q))
                     {
                         updated = true;
@@ -331,7 +329,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        public async Task Handle(SearchParametersUpdatedNotification notification, CancellationToken cancellationToken)
+        public async Task HandleAsync(SearchParametersUpdatedNotification notification, CancellationToken cancellationToken)
         {
             var retry = 0;
             while (retry < 3)
@@ -340,7 +338,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 {
                     _logger.LogInformation("SearchParameterDefinitionManager: Search parameters updated");
                     CalculateSearchParameterHash();
-                    await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
+                    await _mediator.PublishAsync(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
                     return;
                 }
                 catch (Exception ex)
@@ -351,10 +349,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
 
             // Not reporting notification while we investigate why this could happen
-            // await _mediator.Publish(new ImproperBehaviorNotification("Error calculating search parameter hash"), cancellationToken);
+            // await _mediator.PublishAsync(new ImproperBehaviorNotification("Error calculating search parameter hash"), cancellationToken);
         }
 
-        public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
+        public async Task HandleAsync(StorageInitializedNotification notification, CancellationToken cancellationToken)
         {
             var retry = 0;
             while (retry < 3)
@@ -373,7 +371,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
 
             // Not reporting notification while we investigate why this could happen
-            // await _mediator.Publish(new ImproperBehaviorNotification("Error initializing search parameters"), cancellationToken);
+            // await _mediator.PublishAsync(new ImproperBehaviorNotification("Error initializing search parameters"), cancellationToken);
         }
 
         private async Task LoadSearchParamsFromDataStore(CancellationToken cancellationToken)
@@ -385,33 +383,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             string continuationToken = null;
             int totalLoaded = 0;
-            int totalPendingDelete = 0;
-
-            // Get all PendingDelete search parameters from the status store
-            var allStatuses = await statusDataStore.Value.GetSearchParameterStatuses(cancellationToken);
-            var pendingDeleteUrls = new HashSet<string>(
-                allStatuses
-                    .Where(s => s.Status == SearchParameterStatus.PendingDelete)
-                    .Select(s => s.Uri.OriginalString),
-                StringComparer.OrdinalIgnoreCase);
-
-            _logger.LogInformation(
-                "Found {PendingDeleteCount} search parameters with PendingDelete status in the status store",
-                pendingDeleteUrls.Count);
 
             do
             {
                 var searchOptions = new SearchOptions();
                 searchOptions.Sort = new List<(SearchParameterInfo, SortOrder)>();
                 searchOptions.UnsupportedSearchParams = new List<Tuple<string, string>>();
-                searchOptions.Expression = Expression.SearchParameter(
-                    SearchParameterInfo.ResourceTypeSearchParameter,
-                    Expression.StringEquals(FieldName.TokenCode, null, KnownResourceTypes.SearchParameter, false));
+                searchOptions.Expression = Expression.SearchParameter(SearchParameterInfo.ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, KnownResourceTypes.SearchParameter, false));
                 searchOptions.MaxItemCount = 10;
-
-                // ✅ Include soft-deleted resources to find PendingDelete search parameters
-                searchOptions.ResourceVersionTypes = ResourceVersionType.Latest | ResourceVersionType.SoftDeleted;
-
+                searchOptions.ResourceVersionTypes = ResourceVersionType.Latest;
                 if (continuationToken != null)
                 {
                     searchOptions.ContinuationToken = continuationToken;
@@ -420,148 +400,68 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 var result = await search.Value.SearchAsync(searchOptions, cancellationToken);
                 continuationToken = result?.ContinuationToken;
 
-                if (result?.Results != null && result.Results.Any())
+                if (result?.Results != null)
                 {
-                    foreach (var searchResult in result.Results)
+                    foreach (var searchParam in result.Results.Select(_ => _.Resource.RawResource.ToITypedElement(_modelInfoProvider)))
                     {
-                        var isDeleted = searchResult.Resource.IsDeleted;
-
-                        // For soft-deleted resources, check if they are in PendingDelete status
-                        if (isDeleted)
+                        try
                         {
-                            try
-                            {
-                                // Get the resource ID to fetch its last version before deletion
-                                var resourceId = searchResult.Resource.ResourceId;
+                            SearchParameterDefinitionBuilder.Build(
+                                new List<ITypedElement>() { searchParam },
+                                UrlLookup,
+                                TypeLookup,
+                                _modelInfoProvider,
+                                _searchParameterComparer,
+                                _logger);
 
-                                // Parse the current version and calculate the previous version
-                                if (int.TryParse(searchResult.Resource.Version, out int currentVersion) && currentVersion > 1)
-                                {
-                                    var previousVersion = (currentVersion - 1).ToString();
-                                    var resourceKey = new ResourceKey(KnownResourceTypes.SearchParameter, resourceId, previousVersion);
-                                    var lastVersion = await fhirDataStore.Value.GetAsync(resourceKey, cancellationToken);
-
-                                    if (lastVersion?.RawResource != null)
-                                    {
-                                        var searchParam = lastVersion.RawResource.ToITypedElement(_modelInfoProvider);
-                                        var urlScalar = searchParam.GetStringScalar("url");
-
-                                        // Only load if this URL is marked as PendingDelete in the status store
-                                        if (!string.IsNullOrEmpty(urlScalar) && pendingDeleteUrls.Contains(urlScalar))
-                                        {
-                                            // Build the search parameter using the last version before deletion
-                                            SearchParameterDefinitionBuilder.Build(
-                                                new List<ITypedElement>() { searchParam },
-                                                UrlLookup,
-                                                TypeLookup,
-                                                _modelInfoProvider,
-                                                _searchParameterComparer,
-                                                _logger);
-
-                                            totalLoaded++;
-
-                                            // Update the status to PendingDelete since the resource is soft-deleted
-                                            if (UrlLookup.TryGetValue(urlScalar, out var loadedParam))
-                                            {
-                                                loadedParam.SearchParameterStatus = SearchParameterStatus.PendingDelete;
-                                                totalPendingDelete++;
-                                                _logger.LogInformation(
-                                                    "Loaded PendingDelete search parameter from last version before deletion: {Url}",
-                                                    urlScalar);
-                                            }
-                                        }
-                                        else if (!string.IsNullOrEmpty(urlScalar))
-                                        {
-                                            _logger.LogDebug(
-                                                "Skipping soft-deleted SearchParameter {ResourceId} with URL {Url} - not in PendingDelete status",
-                                                resourceId,
-                                                urlScalar);
-                                        }
-                                        else
-                                        {
-                                            _logger.LogWarning(
-                                                "Could not retrieve valid URL for soft-deleted SearchParameter {ResourceId}",
-                                                resourceId);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        _logger.LogWarning(
-                                            "Could not retrieve last version for soft-deleted SearchParameter {ResourceId}",
-                                            resourceId);
-                                    }
-                                }
-                                else
-                                {
-                                    _logger.LogWarning(
-                                        "Could not parse version or version is 1 for soft-deleted SearchParameter {ResourceId}, version: {Version}",
-                                        resourceId,
-                                        searchResult.Resource.Version);
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(
-                                    ex,
-                                    "Error loading last version of soft-deleted SearchParameter {ResourceId}",
-                                    searchResult.Resource.ResourceId);
-                            }
+                            totalLoaded++;
                         }
-                        else
+                        catch (FhirException ex)
                         {
-                            // Normal processing for active resources
-                            var searchParam = searchResult.Resource.RawResource.ToITypedElement(_modelInfoProvider);
-
-                            try
+                            var issueDetails = new StringBuilder();
+                            foreach (OperationOutcomeIssue issue in ex.Issues)
                             {
-                                SearchParameterDefinitionBuilder.Build(
-                                    new List<ITypedElement>() { searchParam },
-                                    UrlLookup,
-                                    TypeLookup,
-                                    _modelInfoProvider,
-                                    _searchParameterComparer,
-                                    _logger);
+                                issueDetails.Append(issue.Diagnostics).Append("; ");
+                            }
 
-                                totalLoaded++;
-                            }
-                            catch (FhirException ex)
-                            {
-                                StringBuilder issueDetails = new StringBuilder();
-                                foreach (OperationOutcomeIssue issue in ex.Issues)
-                                {
-                                    issueDetails.Append(issue.Diagnostics).Append("; ");
-                                }
-
-                                _logger.LogWarning(
-                                    ex,
-                                    "Error loading search parameter {Url} from data store. Issues: {Issues}",
-                                    searchParam.GetStringScalar("url"),
-                                    issueDetails.ToString());
-                            }
-                            catch (Exception ex) when (
-                                !(ex is OutOfMemoryException
-                                || ex is StackOverflowException
-                                || ex is ThreadAbortException))
-                            {
-                                _logger.LogError(
-                                    ex,
-                                    "Error loading search parameter {Url} from data store.",
-                                    searchParam.GetStringScalar("url"));
-                            }
+                            _logger.LogWarning(ex, "LoadSearchParamsFromDataStore: Error loading search parameter {Url} from data store. Issues: {Issues}", searchParam.GetStringScalar("url"), issueDetails.ToString());
+                        }
+                        catch (Exception ex) when (!(ex is OutOfMemoryException || ex is StackOverflowException || ex is ThreadAbortException))
+                        {
+                            _logger.LogError(ex, "LoadSearchParamsFromDataStore: Error loading search parameter {Url} from data store.", searchParam.GetStringScalar("url"));
                         }
                     }
                 }
             }
             while (continuationToken != null);
 
-            _logger.LogInformation(
-                "Loaded {TotalLoaded} active and {TotalPendingDelete} PendingDelete search parameters from data store",
-                totalLoaded,
-                totalPendingDelete);
+            _logger.LogInformation($"LoadSearchParamsFromDataStore: Total search parameters loaded = {totalLoaded}");
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "Collection defined on model")]
-        private ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
+        private bool TryGetFromTypeLookup(string resourceType, string code, out SearchParameterInfo searchParameter)
+        {
+            searchParameter = null;
+
+            if (!TypeLookup.TryGetValue(resourceType, out var lookup) ||
+                !lookup.TryGetValue(code, out var queue))
+            {
+                return false;
+            }
+
+            searchParameter = queue
+                .Where(uri => UrlLookup.ContainsKey(uri))
+                .Select(uri => UrlLookup[uri])
+                .FirstOrDefault();
+
+            return searchParameter != null;
+        }
+
+        public ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
+        {
+            return GetDerivedResourceTypes(_modelInfoProvider, resourceTypes);
+        }
+
+        public static ICollection<string> GetDerivedResourceTypes(IModelInfoProvider modelInfoProvider,  IReadOnlyCollection<string> resourceTypes)
         {
             var completeResourceList = new HashSet<string>(resourceTypes);
 
@@ -569,7 +469,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             {
                 if (baseResourceType == KnownResourceTypes.Resource)
                 {
-                    completeResourceList.UnionWith(_modelInfoProvider.GetResourceTypeNames().ToHashSet());
+                    completeResourceList.UnionWith(modelInfoProvider.GetResourceTypeNames().ToHashSet());
 
                     // We added all possible resource types, so no need to continue
                     break;
@@ -577,7 +477,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
                 if (baseResourceType == KnownResourceTypes.DomainResource)
                 {
-                    var domainResourceChildResourceTypes = _modelInfoProvider.GetResourceTypeNames().ToHashSet();
+                    var domainResourceChildResourceTypes = modelInfoProvider.GetResourceTypeNames().ToHashSet();
 
                     // Remove types that inherit from Resource directly
                     domainResourceChildResourceTypes.Remove(KnownResourceTypes.Binary);

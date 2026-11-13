@@ -36,6 +36,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<IBundleHttpContextAccessor, BundleHttpContextAccessor>();
 
+            // Register shared OIDC discovery service (used by SecurityProvider and GetSmartConfigurationHandler)
+            services.AddSingleton<IOidcDiscoveryService, OidcDiscoveryService>();
+
             // Register named HttpClient for OIDC configuration retrieval
             // This client is used by ConfigurationManager to fetch .well-known/openid-configuration
             services.AddHttpClient(DefaultTokenIntrospectionService.OidcConfigurationHttpClientName);

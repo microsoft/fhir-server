@@ -13,10 +13,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
     internal class DateTimeSearchParamListRowGenerator : MergeSearchParameterRowGenerator<DateTimeSearchValue, DateTimeSearchParamListRow>
     {
+        private static readonly IEqualityComparer<DateTimeSearchParamListRow> RowComparer = EqualityComparer<DateTimeSearchParamListRow>.Create(
+            (left, right) =>
+                left.ResourceTypeId == right.ResourceTypeId &&
+                left.ResourceSurrogateId == right.ResourceSurrogateId &&
+                left.SearchParamId == right.SearchParamId &&
+                left.StartDateTime == right.StartDateTime &&
+                left.EndDateTime == right.EndDateTime &&
+                left.IsLongerThanADay == right.IsLongerThanADay &&
+                left.IsMin == right.IsMin &&
+                left.IsMax == right.IsMax,
+            row => HashCode.Combine(row.ResourceTypeId, row.ResourceSurrogateId, row.SearchParamId, row.StartDateTime, row.EndDateTime, row.IsLongerThanADay, row.IsMin, row.IsMax));
+
         private short _lastUpdatedSearchParamId;
 
         public DateTimeSearchParamListRowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
-            : base(model, searchParameterTypeMap)
+            : base(model, searchParameterTypeMap, RowComparer)
         {
         }
 

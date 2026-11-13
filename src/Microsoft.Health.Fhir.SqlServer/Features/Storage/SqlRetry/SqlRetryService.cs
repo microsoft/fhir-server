@@ -15,8 +15,10 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -25,6 +27,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// <para>This class implements ISqlRetryService interface that is used to execute retriable SQL commands. If SQL command fails
     /// either because of a connection error or SQL error and the error is determined to be retriable, then methods in this class
     /// will retry the command.</para>
+    /// <para>After retries end, customer-managed key SQL errors are translated to <see cref="CustomerManagedKeyException"/>
+    /// and SQL parameter-limit errors to <see cref="RequestNotValidException"/>.
+    /// Other exceptions are rethrown unchanged.</para>
     /// <para>This class is designed to operate as .NET service and should be initialized as such in a standard .NET way, for
     /// example in Startup.cs or equivalent source file.</para>
     /// <para>This class does not support Microsoft.Data.SqlClient.SqlTransaction class used to execute SQL transactions. However,
@@ -33,6 +38,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// </summary>
     public class SqlRetryService : ISqlRetryService
     {
+        /// <summary>
+        /// Smallest accepted <see cref="SqlServerDataStoreConfiguration.MaxPoolSize"/>. Some operations, such as search include
+        /// expansion and event logging, open a second pooled connection while holding the first, so a request can need up to
+        /// three connections from the same pool. Very small pools would time out even under light load.
+        /// </summary>
+        internal const int MinimumMaxPoolSize = 10;
+
         private ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly IsExceptionRetriable _defaultIsExceptionRetriable = DefaultIsExceptionRetriable;
         private readonly bool _defaultIsExceptionRetriableOff;
@@ -41,6 +53,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private int _maxRetries;
         private int _retryMillisecondsDelay;
         private int _commandTimeout;
+        private readonly int? _maxPoolSize;
         private static ReplicaHandler _replicaHandler;
         private static object _initLocker = new object();
         private static EventLogHandler _eventLogHandler;
@@ -67,7 +80,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(sqlRetryServiceOptions?.Value, nameof(sqlRetryServiceOptions));
             EnsureArg.IsNotNull(sqlRetryServiceDelegateOptions, nameof(sqlRetryServiceDelegateOptions));
             EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
-            _commandTimeout = (int)EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration)).CommandTimeout.TotalSeconds;
+            SqlServerDataStoreConfiguration storeConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
+            _commandTimeout = (int)storeConfiguration.CommandTimeout.TotalSeconds;
+
+            _maxPoolSize = storeConfiguration.MaxPoolSize;
+            if (_maxPoolSize.HasValue)
+            {
+                EnsureArg.IsGte(_maxPoolSize.Value, MinimumMaxPoolSize, nameof(SqlServerDataStoreConfiguration.MaxPoolSize));
+                EnsureArg.IsLt(_maxPoolSize.Value, SqlConstants.MaxPoolSizeLimit, nameof(SqlServerDataStoreConfiguration.MaxPoolSize));
+            }
 
             _sqlConnectionBuilder = sqlConnectionBuilder;
             _coreFeatureConfiguration = coreFeatureConfiguration.Value;
@@ -151,9 +172,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return false;
         }
 
-        private bool IsRetriable(Exception ex)
+        private bool IsRetriable(Exception ex, Func<SqlException, bool> shouldNotRetry = null)
         {
-            if (ex is SqlException sqlEx && sqlEx.IsSqlTransientException(_transientErrors))
+            if (ex is SqlException sqlEx && shouldNotRetry?.Invoke(sqlEx) == true)
+            {
+                return false;
+            }
+
+            if (ex is SqlException sqlException && sqlException.IsSqlTransientException(_transientErrors))
             {
                 return true;
             }
@@ -178,15 +204,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         /// <summary>
         /// Executes delegate <paramref name="action"/> and retries it's execution if retriable error is encountered error.
-        /// In the case if non-retriable exception or if the last retry failed tha same exception is thrown.
+        /// Non-retriable exceptions and exhausted retries are rethrown, with customer-managed key and parameter-limit errors translated to FHIR exceptions.
         /// </summary>
         /// <param name="action">Delegate to be executed.</param>
         /// <param name="logger">Logger used on first try error (or retry error) and connection open.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <param name="isReadOnly">"Flag indicating whether connection to read only replica can be used."</param>
+        /// <param name="shouldNotRetry">A SQL exception predicate that can prevent retrying selected errors.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
+        /// <exception cref="CustomerManagedKeyException">The SQL operation failed due to a customer-managed key error after retries ended.</exception>
+        /// <exception cref="RequestNotValidException">The SQL operation exceeded the parameter limit after retries ended.</exception>
         /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
-        public async Task ExecuteSql(Func<SqlConnection, CancellationToken, SqlException, Task> action, ILogger logger, CancellationToken cancellationToken, bool isReadOnly = false)
+        public async Task ExecuteSql(Func<SqlConnection, CancellationToken, SqlException, Task> action, ILogger logger, CancellationToken cancellationToken, bool isReadOnly = false, Func<SqlException, bool> shouldNotRetry = null)
         {
             EnsureArg.IsNotNull(action, nameof(action));
 
@@ -197,14 +226,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, null, logger, cancellationToken);
+                    using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, null, _maxPoolSize, logger, cancellationToken);
                     await action(sqlConnection, cancellationToken, sqlException);
                     return;
                 }
                 catch (Exception ex)
                 {
-                    if (++retry >= _maxRetries || !IsRetriable(ex))
+                    if (++retry >= _maxRetries || !IsRetriable(ex, shouldNotRetry))
                     {
+                        ThrowIfKnownSqlError(ex, logger);
                         throw;
                     }
 
@@ -223,7 +253,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <summary>
         /// Creates and opens SQL connection and assigns it to <paramref name="sqlCommand"/>. Then executes delegate <paramref name="action"/>
         /// and retries entire process on SQL error or failed SQL connection error. In the case if non-retriable exception or if the last retry failed
-        /// tha same exception is thrown.
+        /// the exception is rethrown, with customer-managed key and parameter-limit errors translated to FHIR exceptions.
         /// </summary>
         /// <param name="sqlCommand">SQL command to be executed.</param>
         /// <param name="action">Delegate to be executed by passing <paramref name="sqlCommand"/> as input parameter.</param>
@@ -234,7 +264,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="disableRetries">"Flag indicating whether retries are disabled."</param>
         /// <param name="applicationName">"Application name."</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
+        /// <exception cref="CustomerManagedKeyException">The SQL operation failed due to a customer-managed key error after retries ended.</exception>
+        /// <exception cref="RequestNotValidException">The SQL operation exceeded the parameter limit after retries ended.</exception>
         public async Task ExecuteSql(SqlCommand sqlCommand, Func<SqlCommand, CancellationToken, Task> action, ILogger logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false, bool disableRetries = false, string applicationName = null)
         {
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
@@ -252,12 +283,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, applicationName, logger, cancellationToken);
-                    //// only change if not default 30 seconds. This should allow to handle any explicitly set timeouts correctly.
-                    sqlCommand.CommandTimeout = sqlCommand.CommandTimeout == 30 ? _commandTimeout : sqlCommand.CommandTimeout;
-                    sqlCommand.Connection = sqlConnection;
+                    using (SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, applicationName, _maxPoolSize, logger, cancellationToken))
+                    {
+                        //// only change if not default 30 seconds. This should allow to handle any explicitly set timeouts correctly.
+                        sqlCommand.CommandTimeout = sqlCommand.CommandTimeout == 30 ? _commandTimeout : sqlCommand.CommandTimeout;
+                        sqlCommand.Connection = sqlConnection;
 
-                    await action(sqlCommand, cancellationToken);
+                        await action(sqlCommand, cancellationToken);
+                    }
+
+                    // Log after the connection is returned to the pool, so the event log does not hold a second connection from it.
                     if (retry > 0)
                     {
                         await TryLogEvent($"SuccessOnRetry:{sqlCommand.CommandText}", "Warn", $"retries={retry} error={lastException}", start, cancellationToken);
@@ -270,6 +305,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     lastException = ex;
                     if (disableRetries || !IsRetriable(ex))
                     {
+                        ThrowIfKnownSqlError(ex, logger);
                         throw;
                     }
 
@@ -277,6 +313,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         logger.LogError(ex, $"Final attempt ({retry}): {logMessage}");
                         await TryLogEvent($"Retry:{sqlCommand.CommandText}", "Error", $"retries={retry} error={lastException}", start, cancellationToken);
+                        ThrowIfKnownSqlError(ex, logger);
                         throw;
                     }
 
@@ -284,6 +321,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
 
                 await Task.Delay(_retryMillisecondsDelay, cancellationToken);
+            }
+        }
+
+        private static void ThrowIfKnownSqlError(Exception exception, ILogger logger)
+        {
+            if (exception is SqlException sqlException)
+            {
+                if (sqlException.IsCMKError())
+                {
+                    logger.LogWarning(sqlException, "SQL operation failed due to a customer-managed key error.");
+                    throw new CustomerManagedKeyException(Core.Resources.OperationFailedForCustomerManagedKey, sqlException);
+                }
+
+                if (sqlException.Number == SqlErrorCodes.TooManyParameters)
+                {
+                    logger.LogWarning(sqlException, "SQL operation exceeded the parameter limit.");
+                    throw new RequestNotValidException(Core.Resources.TooManyParameters);
+                }
             }
         }
 
@@ -308,6 +363,46 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
 
                     await reader.NextResultAsync(cancellationToken);
+                },
+                logger,
+                logMessage,
+                cancellationToken,
+                isReadOnly);
+
+            return results;
+        }
+
+        public async Task<IReadOnlyList<IReadOnlyList<TResult>>> ExecuteMultiResultReaderAsync<TResult>(SqlCommand sqlCommand, IList<Func<SqlDataReader, TResult>> readersToResult, ILogger logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false)
+        {
+            EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
+            EnsureArg.IsNotNull(readersToResult, nameof(readersToResult));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+
+            List<IReadOnlyList<TResult>> results = null;
+            await ExecuteSql(
+                sqlCommand,
+                async (sqlCommand, cancellationToken) =>
+                {
+                    using SqlDataReader reader = await sqlCommand.ExecuteReaderAsync(cancellationToken);
+                    results = new List<IReadOnlyList<TResult>>();
+
+                    do
+                    {
+                        List<TResult> resultSet = new List<TResult>();
+                        var readerToResult = readersToResult[results.Count];
+
+                        while (await reader.ReadAsync(cancellationToken))
+                        {
+                            var result = readerToResult(reader);
+                            if (result != null)
+                            {
+                                resultSet.Add(result);
+                            }
+                        }
+
+                        results.Add(resultSet);
+                    }
+                    while (await reader.NextResultAsync(cancellationToken));
                 },
                 logger,
                 logMessage,
@@ -358,10 +453,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     cmd.Parameters.AddWithValue("@Start", startDate.Value);
                 }
 
-                var connStr = _eventLogHandler.GetEventLogConnectionString(_sqlConnectionBuilder);
+                var connStr = _eventLogHandler.GetEventLogConnectionString(_sqlConnectionBuilder, _maxPoolSize);
                 if (connStr == null)
                 {
                     using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
+                    ApplyMaxPoolSize(conn, _maxPoolSize);
                     conn.RetryLogicProvider = null;
                     await conn.OpenAsync(cancellationToken);
                     cmd.Connection = conn;
@@ -380,6 +476,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 // do nothing;
             }
+        }
+
+        /// <summary>
+        /// Applies the configured maximum pool size to a connection that has not been opened yet. SqlClient keys connection pools by
+        /// connection string, so every connection created by this service must receive the same value to share a pool.
+        /// </summary>
+        /// <param name="connection">Connection that has not been opened.</param>
+        /// <param name="maxPoolSize">Configured maximum pool size. When null, the connection string is left unchanged.</param>
+        internal static void ApplyMaxPoolSize(SqlConnection connection, int? maxPoolSize)
+        {
+            if (!maxPoolSize.HasValue)
+            {
+                return;
+            }
+
+            var builder = new SqlConnectionStringBuilder(connection.ConnectionString)
+            {
+                MaxPoolSize = maxPoolSize.Value,
+            };
+
+            connection.ConnectionString = builder.ConnectionString;
         }
 
         private static void InitReplicaHandler(CoreFeatureConfiguration coreFeatureConfiguration)
@@ -418,7 +535,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 _coreFeatureConfiguration = coreFeatureConfiguration;
             }
 
-            public async Task<SqlConnection> GetConnection(ISqlConnectionBuilder sqlConnectionBuilder, bool isReadOnly, string applicationName, ILogger logger, CancellationToken cancel)
+            public async Task<SqlConnection> GetConnection(ISqlConnectionBuilder sqlConnectionBuilder, bool isReadOnly, string applicationName, int? maxPoolSize, ILogger logger, CancellationToken cancel)
             {
                 SqlConnection conn;
                 var sw = Stopwatch.StartNew();
@@ -434,7 +551,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 else
                 {
                     logSB.AppendLine("Checking read only. ");
-                    var replicaTrafficRatio = GetReplicaTrafficRatio(sqlConnectionBuilder, logger);
+                    var replicaTrafficRatio = GetReplicaTrafficRatio(sqlConnectionBuilder, maxPoolSize, logger);
                     logSB.AppendLine($"Got replica traffic ratio in {sw.Elapsed.TotalSeconds} seconds. Ratio is {replicaTrafficRatio}. ");
 
                     if (replicaTrafficRatio < 0.5) // it does not make sense to use replica less than master at all
@@ -454,6 +571,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         conn = await sqlConnectionBuilder.GetSqlConnectionAsync(!useWriteConnection, applicationName);
                     }
                 }
+
+                ApplyMaxPoolSize(conn, maxPoolSize);
 
                 // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, deprecated retry implementation. According to the .NET spec, RetryLogicProvider
                 // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
@@ -477,7 +596,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return conn;
             }
 
-            private double GetReplicaTrafficRatio(ISqlConnectionBuilder sqlConnectionBuilder, ILogger logger)
+            private double GetReplicaTrafficRatio(ISqlConnectionBuilder sqlConnectionBuilder, int? maxPoolSize, ILogger logger)
             {
                 const int trafficRatioCacheDurationSec = 600;
                 if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < trafficRatioCacheDurationSec)
@@ -496,7 +615,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
 
                         logger.LogInformation("Updating replica traffic ratio");
-                        _replicaTrafficRatio = GetReplicaTrafficRatioFromDatabase(sqlConnectionBuilder, logger);
+                        _replicaTrafficRatio = GetReplicaTrafficRatioFromDatabase(sqlConnectionBuilder, maxPoolSize, logger);
                         _lastUpdated = DateTime.UtcNow;
                     }
                     finally
@@ -512,11 +631,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return _replicaTrafficRatio;
             }
 
-            private static double GetReplicaTrafficRatioFromDatabase(ISqlConnectionBuilder sqlConnectionBuilder, ILogger logger)
+            private static double GetReplicaTrafficRatioFromDatabase(ISqlConnectionBuilder sqlConnectionBuilder, int? maxPoolSize, ILogger logger)
             {
                 try
                 {
                     using var conn = sqlConnectionBuilder.GetSqlConnection();
+                    ApplyMaxPoolSize(conn, maxPoolSize);
                     conn.RetryLogicProvider = null;
                     conn.Open();
                     using var cmd = new SqlCommand("IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'ReplicaTrafficRatio'", conn);
@@ -541,7 +661,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
             }
 
-            internal string GetEventLogConnectionString(ISqlConnectionBuilder sqlConnectionBuilder)
+            internal string GetEventLogConnectionString(ISqlConnectionBuilder sqlConnectionBuilder, int? maxPoolSize)
             {
                 if (!_initialized)
                 {
@@ -549,7 +669,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         if (!_initialized)
                         {
-                            _eventLogConnectionString = GetEventLogConnectionStringFromDatabase(sqlConnectionBuilder);
+                            _eventLogConnectionString = GetEventLogConnectionStringFromDatabase(sqlConnectionBuilder, maxPoolSize);
                         }
                     }
                 }
@@ -557,11 +677,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return _eventLogConnectionString;
             }
 
-            private string GetEventLogConnectionStringFromDatabase(ISqlConnectionBuilder sqlConnectionBuilder)
+            private string GetEventLogConnectionStringFromDatabase(ISqlConnectionBuilder sqlConnectionBuilder, int? maxPoolSize)
             {
                 try
                 {
                     using var conn = sqlConnectionBuilder.GetSqlConnection();
+                    ApplyMaxPoolSize(conn, maxPoolSize);
                     conn.RetryLogicProvider = null;
                     conn.Open();
                     using var cmd = new SqlCommand("IF object_id('dbo.Parameters') IS NOT NULL SELECT Char FROM dbo.Parameters WHERE Id = 'EventLogConnectionString'", conn);

@@ -119,7 +119,23 @@ if (-not $authority) {
     exit 1
 }
 $tenantId = $authority.TrimEnd('/').Split('/')[-1]
+
+try {
+    $openidConfiguration = Invoke-RestMethod -Uri "$($authority.TrimEnd('/'))/.well-known/openid-configuration" -ErrorAction Stop
+    $tokenEndpoint = $openidConfiguration.token_endpoint
+}
+catch {
+    Write-Host "  Error: Could not retrieve the OIDC discovery document for '$authority'. $_" -ForegroundColor Red
+    exit 1
+}
+
+if (-not $tokenEndpoint) {
+    Write-Host "  Error: OIDC discovery document for '$authority' does not contain a token_endpoint." -ForegroundColor Red
+    exit 1
+}
+
 Write-Host "  Tenant ID: $tenantId" -ForegroundColor Green
+Write-Host "  Test token endpoint: $tokenEndpoint" -ForegroundColor Green
 Write-Host ""
 
 # Fetch secrets from Key Vault
@@ -215,6 +231,7 @@ $xmlContent = @"
       <!-- Azure AD Configuration -->
       <tenant-id>$tenantId</tenant-id>
       <Resource>$resourceUri</Resource>
+      <TestTokenEndpoint>$tokenEndpoint</TestTokenEndpoint>
 
       <!-- Service Principal Credentials -->
 

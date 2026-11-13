@@ -36,6 +36,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return VisitSearchParameterExpressionBase(expression.Parameter, expression.Expression, context);
         }
 
+        public SearchParamTableExpressionQueryGenerator VisitVectorSearch(VectorSearchExpression expression, object context)
+        {
+            throw new InvalidOperationException("Vector search expressions require the vector query execution path.");
+        }
+
         public SearchParamTableExpressionQueryGenerator VisitMissingSearchParameter(MissingSearchParameterExpression expression, object context)
         {
             return VisitSearchParameterExpressionBase(expression.Parameter, null, context);
@@ -140,7 +145,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public SearchParamTableExpressionQueryGenerator VisitMissingField(MissingFieldExpression expression, object context)
         {
-            return TokenQueryGenerator.Instance;
+            return expression.FieldName switch
+            {
+                FieldName.ReferenceResourceType or FieldName.ReferenceBaseUri => ReferenceQueryGenerator.Instance,
+                _ => TokenQueryGenerator.Instance,
+            };
         }
 
         public SearchParamTableExpressionQueryGenerator VisitNotExpression(NotExpression expression, object context)
@@ -155,7 +164,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public SearchParamTableExpressionQueryGenerator VisitUnion(UnionExpression expression, object context)
         {
-            return VisitExpressionsContainer(expression, context);
+            return VisitExpressionsContainer(expression, context) ?? NotReferencedQueryGenerator.Instance;
         }
 
         public SearchParamTableExpressionQueryGenerator VisitString(StringExpression expression, object context)
@@ -195,6 +204,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public SearchParamTableExpressionQueryGenerator VisitNotReferenced(NotReferencedExpression expression, object context)
         {
+            return NotReferencedQueryGenerator.Instance;
+        }
+
+        public SearchParamTableExpressionQueryGenerator VisitNotReferencing(NotReferencingExpression expression, object context)
+        {
+            // NotReferencedQueryGenerator's Table is dbo.Resource, which is what we want:
+            // the union CTE selects from Resource and filters with a NOT EXISTS anti-join.
             return NotReferencedQueryGenerator.Instance;
         }
 

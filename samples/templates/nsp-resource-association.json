@@ -19,7 +19,8 @@
             "allowedValues": [
                 "Microsoft.DocumentDB/databaseAccounts",
                 "Microsoft.Sql/servers",
-                "Microsoft.KeyVault/vaults"
+                "Microsoft.KeyVault/vaults",
+                "Microsoft.Storage/storageAccounts"
             ],
             "metadata": {
                 "description": "Type of the resource to associate with NSP"

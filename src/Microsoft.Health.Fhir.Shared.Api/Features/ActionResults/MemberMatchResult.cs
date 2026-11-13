@@ -6,13 +6,14 @@
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
     public sealed class MemberMatchResult : ResourceActionResult<Parameters>
     {
-        private MemberMatchResult(Parameters parameters, HttpStatusCode statusCode)
-            : base(parameters, statusCode)
+        private MemberMatchResult(Parameters parameters, HttpStatusCode statusCode, ILogger logger)
+            : base(parameters, statusCode, logger)
         {
             EnsureArg.IsNotNull(parameters, nameof(parameters));
         }
@@ -21,9 +22,10 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// Creates an <see cref="MemberMatchResult"/> with <see cref="HttpStatusCode.OK"/>
         /// </summary>
         /// <param name="parameters">Parameters object containing Patient with identifier.</param>
-        public static MemberMatchResult Ok(Parameters parameters)
+        /// <param name="logger">The logger.</param>
+        public static MemberMatchResult Ok(Parameters parameters, ILogger logger)
         {
-            return new MemberMatchResult(parameters, HttpStatusCode.OK);
+            return new MemberMatchResult(parameters, HttpStatusCode.OK, logger);
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,10 +9,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -72,7 +74,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 _searchParameterComparer,
                 _searchParameterStatusDataStore.CreateMockScopeProvider(),
                 _fhirDataStore.CreateMockScopeProvider(),
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
             _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator, _logger);
             _searchParameterHandler = new SearchParameterStateHandler(_authorizationService, _searchParameterDefinitionManager, _searchParameterStatusManager);
             _cancellationToken = CancellationToken.None;
@@ -177,9 +180,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 });
             ConcurrentDictionary<string, SearchParameterInfo> urlLookup = new ConcurrentDictionary<string, SearchParameterInfo>(searchParamDefinitionStore.ToDictionary(x => x.Url.ToString()));
             _searchParameterDefinitionManager.UrlLookup = urlLookup;
-            ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>> typeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>>();
-            typeLookup.GetOrAdd("Resource", new ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>(searchParamDefinitionStore.Where(sp => sp.Name == "Resource").GroupBy(x => x.Code).ToDictionary(x => x.Key, x => new ConcurrentQueue<SearchParameterInfo>(x))));
-            typeLookup.GetOrAdd("Patient", new ConcurrentDictionary<string, ConcurrentQueue<SearchParameterInfo>>(searchParamDefinitionStore.Where(sp => sp.Name == "Patient").GroupBy(x => x.Code).ToDictionary(x => x.Key, x => new ConcurrentQueue<SearchParameterInfo>(x))));
+            ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>> typeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, ConcurrentQueue<string>>>();
+            typeLookup.GetOrAdd("Resource", new ConcurrentDictionary<string, ConcurrentQueue<string>>(searchParamDefinitionStore.Where(sp => sp.Name == "Resource").GroupBy(x => x.Code).ToDictionary(x => x.Key, x => new ConcurrentQueue<string>(x.Select(sp => sp.Url.OriginalString)))));
+            typeLookup.GetOrAdd("Patient", new ConcurrentDictionary<string, ConcurrentQueue<string>>(searchParamDefinitionStore.Where(sp => sp.Name == "Patient").GroupBy(x => x.Code).ToDictionary(x => x.Key, x => new ConcurrentQueue<string>(x.Select(sp => sp.Url.OriginalString)))));
             _searchParameterDefinitionManager.TypeLookup = typeLookup;
         }
 
@@ -190,7 +193,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var request = new SearchParameterStateRequest(new List<Tuple<string, string>>());
 
             // Act
-            var response = await _searchParameterHandler.Handle(request, _cancellationToken);
+            var response = await _searchParameterHandler.HandleAsync(request, _cancellationToken);
 
             // Assert
             Assert.NotNull(response);
@@ -213,7 +216,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.Url, ResourceId) });
 
             // Act
-            var response = await _searchParameterHandler.Handle(request, _cancellationToken);
+            var response = await _searchParameterHandler.HandleAsync(request, _cancellationToken);
 
             // Assert
             Assert.NotNull(response);
@@ -230,7 +233,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.Code, "lastUpdated") });
 
             // Act
-            var response = await _searchParameterHandler.Handle(request, _cancellationToken);
+            var response = await _searchParameterHandler.HandleAsync(request, _cancellationToken);
 
             // Assert
             Assert.NotNull(response);
@@ -248,7 +251,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.ResourceType, "Resource") });
 
             // Act
-            var response = await _searchParameterHandler.Handle(request, _cancellationToken);
+            var response = await _searchParameterHandler.HandleAsync(request, _cancellationToken);
 
             // Assert
             Assert.NotNull(response);
@@ -269,7 +272,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.Code, "lastUpdated"), new Tuple<string, string>(SearchParameterStateProperties.ResourceType, "Resource") });
 
             // Act
-            var response = await _searchParameterHandler.Handle(request, _cancellationToken);
+            var response = await _searchParameterHandler.HandleAsync(request, _cancellationToken);
 
             // Assert
             Assert.NotNull(response);
@@ -287,7 +290,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
 
             // Act
             // Assert
-            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _searchParameterHandler.Handle(request, _cancellationToken));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _searchParameterHandler.HandleAsync(request, _cancellationToken));
         }
     }
 }

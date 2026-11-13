@@ -9,11 +9,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Everything;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -39,14 +40,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             _dataResourceFilter = dataResourceFilter;
         }
 
-        public async Task<EverythingOperationResponse> Handle(EverythingOperationRequest request, CancellationToken cancellationToken)
+        public async Task<EverythingOperationResponse> HandleAsync(EverythingOperationRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Read, cancellationToken) != DataActions.Read)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(DataActions.Read, true, cancellationToken);
 
             if (!string.Equals(request.EverythingOperationType, ResourceType.Patient.ToString(), StringComparison.Ordinal))
             {

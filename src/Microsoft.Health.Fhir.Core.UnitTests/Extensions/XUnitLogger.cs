@@ -7,9 +7,9 @@ using System;
 using System.Linq;
 using System.Threading;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Scoping;
 using NSubstitute;
-using Xunit.Abstractions;
+using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 

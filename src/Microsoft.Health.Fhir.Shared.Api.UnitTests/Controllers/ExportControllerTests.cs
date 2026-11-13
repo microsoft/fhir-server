@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,11 +9,12 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
@@ -141,22 +142,27 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 typeParameter: ResourceType.Observation.ToString()));
         }
 
-        [Fact]
-        public async Task GivenAnExportResourceTypeIdRequest_WhenResourceTypeIsNotGroup_ThenRequestNotValidExceptionShouldBeThrown()
+        [Theory]
+        [InlineData(KnownResourceTypes.Patient)]
+        [InlineData(KnownResourceTypes.Observation)]
+        public async Task GivenNonGroupInstanceExport_WhenRequested_ThenRequestNotValidExceptionShouldBeThrown(string resourceType)
         {
-            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById(
-                typeFilter: null,
-                since: null,
-                till: null,
-                resourceType: null,
-                containerName: null,
-                formatName: null,
-                maxCount: 0,
-                anonymizationConfigCollectionReference: null,
-                anonymizationConfigLocation: null,
-                anonymizationConfigFileETag: null,
-                typeParameter: ResourceType.Patient.ToString(),
-                idParameter: "id"));
+            // Group/{id}/$export is the only supported instance-level export. This does not prevent a system-level
+            // $export from selecting one patient with _type=Patient and _typeFilter=Patient?_id={id}.
+            await Assert.ThrowsAsync<RequestNotValidException>(() =>
+                _exportEnabledController.ExportResourceTypeById(
+                   typeFilter: null,
+                   since: null,
+                   till: null,
+                   resourceType: null,
+                   containerName: null,
+                   formatName: null,
+                   maxCount: 0,
+                   anonymizationConfigCollectionReference: null,
+                   anonymizationConfigLocation: null,
+                   anonymizationConfigFileETag: null,
+                   typeParameter: resourceType,
+                   idParameter: "123"));
         }
 
         [Fact]
@@ -233,6 +239,104 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 anonymizationConfigLocation: _testConfig,
                 anonymizationConfigFileETag: _testAnonymizationConfigEtag,
                 typeParameter: ResourceType.Patient.ToString()));
+        }
+
+        [Theory]
+        [InlineData("../secret")]
+        [InlineData("..\\secret")]
+        [InlineData("..%2fsecret")]
+        public async Task GivenAnExportRequest_WhenContainerHasPathTraversal_ThenRequestNotValidExceptionShouldBeThrown(string containerName)
+        {
+            var exportController = GetController(_exportEnabledJobConfiguration, _featureConfiguration, _artifactStoreConfig);
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.Export(
+                typeFilter: null,
+                since: null,
+                till: null,
+                resourceType: null,
+                containerName: containerName,
+                formatName: null,
+                isParallel: false,
+                maxCount: 0,
+                anonymizationConfigCollectionReference: null,
+                anonymizationConfigLocation: null,
+                anonymizationConfigFileETag: null));
+        }
+
+        [Theory]
+        [InlineData("../secret/config.json")]
+        [InlineData("..\\secret\\config.json")]
+        [InlineData("..%2fsecret%2fconfig.json")]
+        [InlineData("secret/..")]
+        [InlineData("a/../b")]
+        public async Task GivenAnAnonymizedExportRequest_WhenAnonymizationConfigHasPathTraversal_ThenRequestNotValidExceptionShouldBeThrown(string anonymizationConfigLocation)
+        {
+            var exportController = GetController(_exportEnabledJobConfiguration, _anonymizationEnabledFeatureConfiguration, _artifactStoreConfig);
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceType(
+                typeFilter: null,
+                since: null,
+                till: null,
+                resourceType: null,
+                containerName: _testContainer,
+                formatName: null,
+                maxCount: 0,
+                anonymizationConfigCollectionReference: null,
+                anonymizationConfigLocation: anonymizationConfigLocation,
+                anonymizationConfigFileETag: null,
+                typeParameter: ResourceType.Patient.ToString()));
+        }
+
+        [Theory]
+        [InlineData("mycontainer")]
+        [InlineData("config.json")]
+        [InlineData("folder/config.json")]
+        [InlineData("my..config.json")]
+        [InlineData("configv2..0.json")]
+        public async Task GivenAnAnonymizedExportRequest_WhenExportParametersAreValid_ThenValidationAllowsRequest(string anonymizationConfigLocation)
+        {
+            var exportController = GetController(_exportEnabledJobConfiguration, _anonymizationEnabledFeatureConfiguration, _artifactStoreConfig);
+            ConfigureControllerForSuccessfulExport(exportController);
+
+            var exception = await Record.ExceptionAsync(() => exportController.ExportResourceType(
+                typeFilter: null,
+                since: null,
+                till: null,
+                resourceType: null,
+                containerName: "mycontainer",
+                formatName: null,
+                maxCount: 0,
+                anonymizationConfigCollectionReference: null,
+                anonymizationConfigLocation: anonymizationConfigLocation,
+                anonymizationConfigFileETag: null,
+                typeParameter: ResourceType.Patient.ToString()));
+
+            Assert.Null(exception);
+        }
+
+        [Theory]
+        [InlineData("mycontainer")]
+        [InlineData("my-container-2")]
+        [InlineData("export2026")]
+        public async Task GivenAnExportRequest_WhenContainerIsValid_ThenValidationAllowsRequest(string containerName)
+        {
+            var exportController = GetController(_exportEnabledJobConfiguration, _featureConfiguration, _artifactStoreConfig);
+            ConfigureControllerForSuccessfulExport(exportController);
+
+            var exception = await Record.ExceptionAsync(() => exportController.Export(
+                typeFilter: null,
+                since: null,
+                till: null,
+                resourceType: null,
+                containerName: containerName,
+                formatName: null,
+                isParallel: false,
+                maxCount: 0,
+                anonymizationConfigCollectionReference: null,
+                anonymizationConfigLocation: null,
+                anonymizationConfigFileETag: null));
+
+            Assert.Null(exception);
         }
 
         [Fact]
@@ -316,7 +420,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenASystemLevelExport_WhenRequestSentToMediator_CorrectIsParallelValueInRequest(bool isApiForFhir, bool expectedIsParallel, bool? inputIsParallelValue)
         {
             // Get export controller with specific runtime configuration (if needed).
-            IFhirRuntimeConfiguration fhirConfig = isApiForFhir ? Substitute.For<AzureApiForFhirRuntimeConfiguration>() : Substitute.For<IFhirRuntimeConfiguration>();
+            IFhirRuntimeConfiguration fhirConfig = isApiForFhir ? new AzureApiForFhirRuntimeConfiguration(runtimeState: FhirRuntimeState.Active) : new AzureHealthDataServicesRuntimeConfiguration();
             var exportController = GetController(_exportEnabledJobConfiguration, _featureConfiguration, _artifactStoreConfig, fhirConfig);
 
             // Setup additional dependencies needed for test execution.
@@ -336,7 +440,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             // Mock mediator call for CreateExportRequest - throw exception to fail test if we get unexpected value.
             _mediator
-                .Send(Arg.Any<CreateExportRequest>(), Arg.Any<CancellationToken>())
+                .SendAsync(Arg.Any<CreateExportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     var request = callInfo.Arg<CreateExportRequest>();
@@ -438,7 +542,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _fhirRequestContextAccessor.RequestContext.Uri.Returns(baseUri);
 
             _mediator
-                .Send(Arg.Any<GetExportRequest>(), Arg.Any<CancellationToken>())
+                .SendAsync(Arg.Any<GetExportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(
                     x =>
                     {
@@ -455,7 +559,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var request = default(GetExportRequest);
             _mediator.When(
-                x => x.Send(
+                x => x.SendAsync(
                     Arg.Any<GetExportRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x =>
@@ -482,12 +586,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _fhirRequestContextAccessor.RequestContext.Uri.Returns(baseUri);
 
             _mediator
-                .Send(Arg.Any<CancelExportRequest>(), Arg.Any<CancellationToken>())
+                .SendAsync(Arg.Any<CancelExportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(new CancelExportResponse(HttpStatusCode.OK));
 
             var request = default(CancelExportRequest);
             _mediator.When(
-                x => x.Send(
+                x => x.SendAsync(
                     Arg.Any<CancelExportRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x =>
@@ -525,7 +629,32 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 optionsOperationConfiguration,
                 optionsArtifactStoreConfiguration,
                 optionsFeatures,
-                fhirConfig ?? Substitute.For<IFhirRuntimeConfiguration>());
+                fhirConfig ?? Substitute.For<IFhirRuntimeConfiguration>(),
+                NullLogger<ExportController>.Instance);
+        }
+
+        // Configures mocks so the controller can dispatch through MediatR without throwing.
+        // Required for positive-path tests that verify validation allows the request through.
+        private void ConfigureControllerForSuccessfulExport(ExportController exportController)
+        {
+            exportController.ControllerContext.HttpContext = new DefaultHttpContext();
+
+            var baseUri = new Uri("https://test.com/");
+            _fhirRequestContextAccessor.RequestContext = new FhirRequestContext(
+               method: "export",
+               uriString: baseUri.OriginalString,
+               baseUriString: baseUri.OriginalString,
+               correlationId: "export",
+               requestHeaders: new Dictionary<string, StringValues>(),
+               responseHeaders: new Dictionary<string, StringValues>());
+
+            _urlResolver
+                .ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>())
+                .Returns(baseUri);
+
+            _mediator
+                .SendAsync(Arg.Any<CreateExportRequest>(), Arg.Any<CancellationToken>())
+                .Returns(new CreateExportResponse("ExportTestJobId"));
         }
 
         private async Task RunCreateExportRequestTest(
@@ -579,12 +708,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             // Mock mediator call for CreateExportRequest - throw exception to fail test if we get unexpected value.
             _mediator
-                .Send(Arg.Any<CreateExportRequest>(), Arg.Any<CancellationToken>())
+                .SendAsync(Arg.Any<CreateExportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(new CreateExportResponse("ExportTestJobId"));
 
             var request = default(CreateExportRequest);
             _mediator.When(
-                x => x.Send(
+                x => x.SendAsync(
                     Arg.Any<CreateExportRequest>(),
                     Arg.Any<CancellationToken>()))
                 .Do(x =>

@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
 
                     AppendColumnName(context, VLatest.QuantitySearchParam.QuantityCodeId, expression)
-                        .Append(" IN (SELECT ")
+                        .Append(" = (SELECT ")
                         .Append(VLatest.QuantityCode.QuantityCodeId, null)
                         .Append(" FROM ").Append(VLatest.QuantityCode)
                         .Append(" WHERE ")
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
 
                     AppendColumnName(context, VLatest.QuantitySearchParam.SystemId, expression)
-                        .Append(" IN (SELECT ")
+                        .Append(" = (SELECT ")
                         .Append(VLatest.System.SystemId, null)
                         .Append(" FROM ").Append(VLatest.System)
                         .Append(" WHERE ")

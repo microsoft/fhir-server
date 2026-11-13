@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _fhirRequestContext.CorrelationId = _correlationId;
             _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
 
-            _filterAttribute = new FhirRequestContextRouteDataPopulatingFilterAttribute(_fhirRequestContextAccessor, _auditEventTypeMapping);
+            _filterAttribute = new FhirRequestContextRouteDataPopulatingFilterAttribute(_fhirRequestContextAccessor, _auditEventTypeMapping, NullLogger<FhirRequestContextRouteDataPopulatingFilterAttribute>.Instance);
         }
 
         [Fact]

@@ -12,23 +12,26 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.JobManagement;
 using Polly;
+using JobConflictException = Microsoft.Health.JobManagement.JobConflictException;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 
 public class CosmosQueueClient : IQueueClient
 {
-    private readonly Func<IScoped<Container>> _containerFactory;
+    private readonly IScopeProvider<Container> _containerFactory;
     private readonly ICosmosQueryFactory _queryFactory;
     private readonly ICosmosDbDistributedLockFactory _distributedLockFactory;
     private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
@@ -36,7 +39,7 @@ public class CosmosQueueClient : IQueueClient
     private readonly ILogger<CosmosQueueClient> _logger;
 
     public CosmosQueueClient(
-        Func<IScoped<Container>> containerFactory,
+        IScopeProvider<Container> containerFactory,
         ICosmosQueryFactory queryFactory,
         ICosmosDbDistributedLockFactory distributedLockFactory,
         RetryExceptionPolicyFactory retryExceptionPolicyFactory,
@@ -149,18 +152,27 @@ public class CosmosQueueClient : IQueueClient
                     throw new JobConflictException("Failed to enqueue job.");
                 }
 
-                jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, cancellationToken));
+                jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, null, cancellationToken));
             }
         }
         else
         {
-            jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, cancellationToken));
+            jobInfos.AddRange(await CreateNewJob(id, queueType, newDefinitions, groupId, null, cancellationToken));
         }
 
         return jobInfos;
     }
 
-    private async Task<IReadOnlyList<JobInfo>> CreateNewJob(long id, byte queueType, string[] definitions, long? groupId, CancellationToken cancellationToken)
+    public async Task<JobInfo> EnqueueWithStatusAsync(byte queueType, long? groupId, string definition, JobStatus jobStatus, string result, DateTime? startDate, CancellationToken cancellationToken)
+    {
+        // This is a special case, we are adding this function to support Handle Bulk data access 2.0
+        // Only limited changes are made in order to get Cosmos working
+        var jobInfos = new List<JobInfo>();
+        jobInfos.AddRange(await CreateNewJob(GetLongId(), queueType, new[] { definition }, groupId, jobStatus, cancellationToken));
+        return jobInfos.FirstOrDefault();
+    }
+
+    private async Task<IReadOnlyList<JobInfo>> CreateNewJob(long id, byte queueType, string[] definitions, long? groupId, JobStatus? jobStatus, CancellationToken cancellationToken)
     {
         var jobInfo = new JobGroupWrapper
         {
@@ -176,13 +188,21 @@ public class CosmosQueueClient : IQueueClient
 
         foreach (var item in definitions)
         {
+            var now = Clock.UtcNow;
             var definitionInfo = new JobDefinitionWrapper
             {
                 JobId = (jobId++).ToString(),
-                Status = (byte)JobStatus.Created,
+                Status = jobStatus.HasValue ? (byte)jobStatus.Value : (byte)JobStatus.Created,
                 Definition = item,
                 DefinitionHash = item.ComputeHash(),
             };
+
+            if (jobStatus == JobStatus.Running)
+            {
+                definitionInfo.StartDate = now;
+                definitionInfo.HeartbeatDateTime = now;
+                definitionInfo.Version = GenerateVersion();
+            }
 
             jobInfo.Definitions.Add(definitionInfo);
         }
@@ -504,6 +524,11 @@ public class CosmosQueueClient : IQueueClient
     public async Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken)
     {
         return await GetActiveJobsByQueueTypeInternalAsync(queueType, returnParentOnly, cancellationToken);
+    }
+
+    public async Task<JobInfo> GetMostRecentJobByQueueTypeAsync(byte queueType, CancellationToken cancellationToken)
+    {
+        throw new NotImplementedException();
     }
 
     private async Task<IReadOnlyList<JobInfo>> GetActiveJobsByQueueTypeInternalAsync(byte queueType, bool returnParentOnly, CancellationToken cancellationToken)

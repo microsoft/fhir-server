@@ -21,7 +21,6 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
-using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -343,7 +342,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 accessControlContext.AllowedResourceActions.Add(scope);
             }
 
-            contextAccessor.RequestContext.AccessControlContext.Returns(accessControlContext);
+            var mockFhirRequestContext = Substitute.For<IFhirRequestContext>();
+            mockFhirRequestContext.AccessControlContext.Returns(accessControlContext);
+
+            contextAccessor.RequestContext.Returns(mockFhirRequestContext);
         }
 
         private static SearchParams CreateSearchParams(params (string key, string value)[] items)

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -33,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
     public class GetBulkDeleteHandlerTests
     {
         private readonly string _countLabel = "ResourceDeletedCount";
+        private readonly string _ignoredCountLabel = "ResourceIgnoredCount";
 
         private IAuthorizationService<DataActions> _authorizationService;
         private IQueueClient _queueClient;
@@ -50,20 +51,37 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         {
             var patientResult1 = new BulkDeleteResult();
             patientResult1.ResourcesDeleted.Add(KnownResourceTypes.Patient, 15);
+            patientResult1.ResourcesIgnored.Add(KnownResourceTypes.StructureDefinition, 2);
+            patientResult1.Issues.Add("Skipped 2 StructureDefinition resource(s): profile defining resources are not supported for bulk delete and have not been deleted.");
             var patientResult2 = new BulkDeleteResult();
             patientResult2.ResourcesDeleted.Add(KnownResourceTypes.Patient, 7);
+            patientResult2.ResourcesIgnored.Add(KnownResourceTypes.StructureDefinition, 3);
             var observationResult = new BulkDeleteResult();
             observationResult.ResourcesDeleted.Add(KnownResourceTypes.Observation, 5);
+            observationResult.ResourcesIgnored.Add(KnownResourceTypes.ValueSet, 1);
 
             var resourcesDeleted = new List<Tuple<string, Base>>
             {
                 new(KnownResourceTypes.Patient, new Integer64(22)),
                 new(KnownResourceTypes.Observation, new Integer64(5)),
             };
+            var resourcesIgnored = new List<Tuple<string, Base>>
+            {
+                new(KnownResourceTypes.StructureDefinition, new Integer64(5)),
+                new(KnownResourceTypes.ValueSet, new Integer64(1)),
+            };
 
             var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()
             {
                 { _countLabel, resourcesDeleted },
+                { _ignoredCountLabel, resourcesIgnored },
+            };
+            var issues = new List<OperationOutcomeIssue>
+            {
+                new(
+                    OperationOutcomeConstants.IssueSeverity.Information,
+                    OperationOutcomeConstants.IssueType.Informational,
+                    detailsText: patientResult1.Issues.Single()),
             };
 
             await RunGetBulkDeleteTest(
@@ -91,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                         },
                         5),
                 },
-                new GetBulkDeleteResponse(ToParameters(resultsDictionary).ToArray(), null, System.Net.HttpStatusCode.OK));
+                new GetBulkDeleteResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.OK));
         }
 
         [Fact]
@@ -261,7 +279,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.None);
 
             var request = new GetBulkDeleteRequest(1);
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
         }
 
         [Fact]
@@ -271,7 +289,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, Arg.Any<long>(), false, Arg.Any<CancellationToken>()).Returns(new List<JobInfo>());
 
             var request = new GetBulkDeleteRequest(1);
-            await Assert.ThrowsAsync<JobNotFoundException>(async () => await _handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<JobNotFoundException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
         }
 
         private async Task RunGetBulkDeleteTest(IReadOnlyList<Tuple<JobInfo, int>> jobs, GetBulkDeleteResponse expectedResponse)
@@ -286,7 +304,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, Arg.Any<long>(), true, Arg.Any<CancellationToken>()).Returns(jobs.Select(job => job.Item1).ToList());
             var request = new GetBulkDeleteRequest(1);
-            var response = await _handler.Handle(request, CancellationToken.None);
+            var response = await _handler.HandleAsync(request, CancellationToken.None);
 
             Assert.Equal(expectedResponse.HttpStatusCode, response.HttpStatusCode);
 

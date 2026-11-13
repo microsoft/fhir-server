@@ -37,7 +37,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
             ICollection<string> responseTypesSupported = null,
             string introspectionEndpoint = null,
             string managementEndpoint = null,
-            string revocationEndpoint = null)
+            string revocationEndpoint = null,
+            string issuer = null,
+            string jwksUri = null)
         {
             EnsureArg.IsNotNull(authorizationEndpoint, nameof(authorizationEndpoint));
             EnsureArg.IsNotNull(tokenEndpoint, nameof(tokenEndpoint));
@@ -54,6 +56,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
             IntrospectionEndpoint = introspectionEndpoint;
             ManagementEndpoint = managementEndpoint;
             RevocationEndpoint = revocationEndpoint;
+            Issuer = issuer;
+            JwksUri = jwksUri;
         }
 
         [JsonConstructor]
@@ -93,5 +97,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         [JsonProperty("revocation_endpoint")]
         public string RevocationEndpoint { get; }
+
+        [JsonProperty("issuer")]
+        public string Issuer { get; }
+
+#pragma warning disable CA1056 // URI-like properties should not be strings
+        [JsonProperty("jwks_uri")]
+        public string JwksUri { get; }
+#pragma warning restore CA1056 // URI-like properties should not be strings
     }
 }

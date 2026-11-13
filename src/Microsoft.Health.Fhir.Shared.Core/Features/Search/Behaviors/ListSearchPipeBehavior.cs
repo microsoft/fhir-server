@@ -9,13 +9,14 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Medino;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Scoping;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
 {
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
     /// </summary>
     public class ListSearchPipeBehavior : IPipelineBehavior<SearchResourceRequest, SearchResourceResponse>
     {
-        private readonly IScoped<IFhirDataStore> _dataStore;
+        private readonly IScopeProvider<IFhirDataStore> _dataStore;
         private readonly ResourceDeserializer _deserializer;
         private readonly IBundleFactory _bundleFactory;
         private readonly IReferenceSearchValueParser _referenceSearchValueParser;
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
         public ListSearchPipeBehavior(
             ISearchOptionsFactory searchOptionsFactory,
             IBundleFactory bundleFactory,
-            IScoped<IFhirDataStore> dataStore,
+            IScopeProvider<IFhirDataStore> dataStore,
             ResourceDeserializer deserializer,
             IReferenceSearchValueParser referenceSearchValueParser)
         {
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             _referenceSearchValueParser = referenceSearchValueParser;
         }
 
-        public async Task<SearchResourceResponse> Handle(SearchResourceRequest request, RequestHandlerDelegate<SearchResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<SearchResourceResponse> HandleAsync(SearchResourceRequest request, RequestHandlerDelegate<SearchResourceResponse> next, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -60,11 +61,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             // if _list was not requested, or _list was requested with invalid value, continue...
             if ((listParameter == null) || string.IsNullOrWhiteSpace(listParameter.Item2))
             {
-                return await next(cancellationToken);
+                return await next();
             }
 
-            ResourceWrapper listWrapper =
-                await _dataStore.Value.GetAsync(new ResourceKey<Hl7.Fhir.Model.List>(listParameter.Item2), cancellationToken);
+            ResourceWrapper listWrapper;
+            using (IScoped<IFhirDataStore> dataStore = _dataStore.Invoke())
+            {
+                listWrapper = await dataStore.Value.GetAsync(new ResourceKey<Hl7.Fhir.Model.List>(listParameter.Item2), cancellationToken);
+            }
 
             // wanted list was not found
             if (listWrapper == null)
@@ -92,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
 
             query = query.Concat(new[] { Tuple.Create(KnownQueryParameterNames.Id, string.Join(",", references.Select(x => x.ResourceId))) });
             request.Queries = query.ToArray();
-            return await next(cancellationToken);
+            return await next();
         }
 
         public SearchResourceResponse CreateEmptySearchResponse(SearchResourceRequest request)

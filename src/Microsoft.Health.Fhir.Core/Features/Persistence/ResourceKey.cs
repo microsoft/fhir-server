@@ -10,7 +10,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public class ResourceKey : IEquatable<ResourceKey>
+    public class ResourceKey : IEquatable<ResourceKey>, IComparable<ResourceKey>
     {
         public ResourceKey(string resourceType, string id, string versionId = null)
         {
@@ -28,6 +28,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public string VersionId { get; }
 
         public string ResourceType { get; }
+
+        public static bool operator ==(ResourceKey left, ResourceKey right)
+        {
+            if (ReferenceEquals(left, null))
+            {
+                return ReferenceEquals(right, null);
+            }
+
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(ResourceKey left, ResourceKey right)
+        {
+            return !(left == right);
+        }
+
+        public static bool operator <(ResourceKey left, ResourceKey right)
+        {
+            return ReferenceEquals(left, null) ? !ReferenceEquals(right, null) : left.CompareTo(right) < 0;
+        }
+
+        public static bool operator <=(ResourceKey left, ResourceKey right)
+        {
+            return ReferenceEquals(left, null) || left.CompareTo(right) <= 0;
+        }
+
+        public static bool operator >(ResourceKey left, ResourceKey right)
+        {
+            return !ReferenceEquals(left, null) && left.CompareTo(right) > 0;
+        }
+
+        public static bool operator >=(ResourceKey left, ResourceKey right)
+        {
+            return ReferenceEquals(left, null) ? ReferenceEquals(right, null) : left.CompareTo(right) >= 0;
+        }
 
         public bool Equals(ResourceKey other)
         {
@@ -83,6 +118,44 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             return builder.ToString();
+        }
+
+        public int CompareTo(ResourceKey other)
+        {
+            int result = 0;
+
+            if (other is null)
+            {
+                return 1;
+            }
+
+            if (!string.Equals(ResourceType, other.ResourceType, StringComparison.Ordinal))
+            {
+                result = string.Compare(ResourceType, other.ResourceType, StringComparison.Ordinal);
+            }
+            else if (!string.Equals(Id, other.Id, StringComparison.Ordinal))
+            {
+                result = string.Compare(Id, other.Id, StringComparison.Ordinal);
+            }
+            else if (VersionId != null && other.VersionId != null)
+            {
+                var versionIsNum = int.TryParse(VersionId, out int version);
+                var otherVersionIsNum = int.TryParse(other.VersionId, out int otherVersion);
+                if (versionIsNum && otherVersionIsNum)
+                {
+                    result = version.CompareTo(otherVersion);
+                }
+                else
+                {
+                    result = string.Compare(VersionId, other.VersionId, StringComparison.Ordinal);
+                }
+            }
+            else
+            {
+                result = 0;
+            }
+
+            return result;
         }
     }
 }

@@ -1,0 +1,108 @@
+# AGENTS.md — Microsoft FHIR Server
+
+Universal agent instructions for all AI tools working in this repository.
+
+---
+
+## Repository Overview
+
+This is the **Microsoft FHIR Server** — an open-source, standards-compliant implementation of HL7 FHIR (Fast Healthcare Interoperability Resources) built on .NET and Azure. It supports both **Azure Cosmos DB** and **SQL Server** as storage backends, and exposes a RESTful API conforming to FHIR R4/R5/STU3.
+
+---
+
+## Coding Conventions
+
+- **C# naming**: PascalCase for classes, methods, public properties. `_camelCase` for private fields.
+- **XML doc** on all public members.
+- **One blank line** between `namespace` and `class` declarations.
+- **Dependency injection** and interface-based design throughout — never `new` a service directly.
+- **MediatR** Request/Response/Handler pattern for all business operations.
+- **FHIR compliance first** — any behavior change must be validated against the HL7 FHIR specification.
+
+---
+
+## Testing Requirements
+
+- **Build and fix all errors before writing tests.**
+- **xUnit** as the testing framework; **NSubstitute** for mocks.
+- **Arrange-Act-Assert** pattern in every test.
+- Unit tests for all new functionality; E2E tests when the feature touches the HTTP layer.
+- Validate inputs rigorously; handle exceptions gracefully with no unhandled runtime exceptions.
+
+---
+
+## Debugging
+
+- When fixing an unhandled exception, identify the violated invariant and the earliest point it can be enforced. Prefer rejecting invalid input at the entry point over making downstream code tolerate it. State the intended contract before writing the fix.
+- Tests must assert the intended contract, not the behavior the patched code happens to produce.
+- Don't add or suggest guards for states the contract excludes — they hide violations instead of surfacing them.
+
+---
+
+## Performance Claims
+
+- State per-call cost and call frequency, or don't raise it. "Hot path" and "adds an allocation" are not findings without both.
+- If the total is under ~1% of the operation's duration, drop it.
+- Measure before proposing added indirection. If the measurement kills the rationale, withdraw it — don't re-justify on other grounds.
+
+### SQL Performance Reviews
+
+- For every review that adds or changes SQL, assess query performance; do not omit the assessment because a live database or execution plan is unavailable.
+- Inspect the relevant table schema and indexes in the repository, and compare them with the query's predicates, joins, grouping, and ordering. Consider the expected data volume, execution frequency, and whether the plan may scan or transfer substantially more data than needed.
+- Since runtime database evidence is unavailable during review, state that limitation, report the static query/index assessment, and avoid presenting runtime performance as verified.
+
+---
+
+## Response Style
+
+- Prefer concise, direct, review-ready answers by default. Establish the relevant scope and assumptions, then provide only the detail needed to support the conclusion.
+
+---
+
+## Project Structure
+
+| Path | Purpose |
+|------|---------|
+| `src/Microsoft.Health.Fhir.Api/` | RESTful API layer (controllers, filters, actions) |
+| `src/Microsoft.Health.Fhir.Core/` | Core FHIR domain logic and models |
+| `src/Microsoft.Health.Fhir.SqlServer/` | SQL Server data persistence |
+| `src/Microsoft.Health.Fhir.SqlServer/Features/Schema/` | SQL schema, migrations, stored procs |
+| `src/Microsoft.Health.Fhir.CosmosDb/` | Cosmos DB data persistence |
+| `src/Microsoft.Health.Fhir.Shared.*/` | Components shared across FHIR versions |
+| `src/Microsoft.Health.Fhir.[Stu3\|R4\|R5].*/` | Version-specific implementations |
+| `docs/arch/` | Architectural Decision Records (ADRs) |
+| `docs/flow diagrams/` | Mermaid architecture and request-flow diagrams |
+| `tools/AsyncJobGenerator` | Scaffold tool for new background job types |
+
+---
+
+## Architectural Principles
+
+- Strict separation of concerns: **API → Business Logic → Data Access → Infrastructure**.
+- All SQL work lives in `Microsoft.Health.Fhir.SqlServer`; keep Core/API layers SQL-agnostic.
+- ADRs live in `docs/arch/`. If a change makes a prior ADR obsolete, update it.
+- Clearly link code changes back to the user story or requirement that motivated them.
+
+---
+
+## Security and Compliance
+
+- Never commit secrets or credentials.
+- Follow Azure security best practices: encrypted transport, least-privilege identity, no plaintext config.
+- All data access must respect FHIR resource-level authorization.
+
+---
+
+## Available Agents (`.github/agents/`)
+
+| Agent | Use when |
+|-------|---------|
+| `coding-agent` | General implementation, delegates to fast/complex as needed |
+| `complex-coding-agent` | Complex multi-file refactors, threading, race conditions |
+| `fast-coding-agent` | Single-file edits, simple fixes, build errors |
+
+## Available Skills (`.github/skills/`)
+
+| Skill | Use when |
+|-------|---------|
+| `create-adr` | Drafting an Architectural Decision Record |

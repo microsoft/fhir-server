@@ -3,31 +3,53 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
     public interface ISearchParameterOperations
     {
-        Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken);
+        DateTimeOffset SearchParamLastUpdated { get; }
 
-        Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool ignoreSearchParameterNotSupportedException = false);
+        Task MarkSearchParameterForDeletionAsync(RawResource searchParamResource, CancellationToken cancellationToken, bool isHardDelete = false);
 
-        Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam, CancellationToken cancellationToken);
+        Task<DateTimeOffset> ValidateSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken, DateTimeOffset? lastUpdated = null);
+
+        Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken);
 
         /// <summary>
-        /// This method should be called periodically to get any updates to SearchParameters
-        /// added to the DB by other service instances.
-        /// It should also be called when a user starts a reindex job
+        /// This method should be called to get any updates to search param cache
         /// </summary>
         /// <param name="cancellationToken">Cancellation token</param>
-        /// <param name="forceFullRefresh">When true, forces a full refresh from database instead of incremental updates</param>
-        /// <returns>A task.</returns>
-        Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken, bool forceFullRefresh = false);
+        /// <param name="zeroWaitForSemaphore">Whether to wait for the semaphore to become available.</param>
+        /// <returns>A task that returns true if the refresh was performed, false if it was skipped due to exceeding the lock interval.</returns>
+        Task<bool> GetAndApplySearchParameterUpdates(CancellationToken cancellationToken, bool zeroWaitForSemaphore = false);
 
-        string GetResourceTypeSearchParameterHashMap(string resourceType);
+        string GetSearchParameterHash(string resourceType);
+
+        /// <summary>
+        /// Deletes the search parameter resource from the data store.
+        /// Should only be called after reindex completes and the search parameter is no longer needed.
+        /// </summary>
+        /// <param name="searchParameterUrl">URL of the search parameter to delete</param>
+        /// <param name="hardDelete">True to hard delete, false to soft delete</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        Task DeleteSearchParameterResourceAsync(string searchParameterUrl, bool hardDelete, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Gets search parameters by their URLs as typed elements.
+        /// Tries direct search first, falls back to full scan for deleted resources.
+        /// The ID can be extracted from the typed element using GetStringScalar("id").
+        /// </summary>
+        /// <param name="searchParameterUrls">URLs of the search parameters</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Dictionary mapping URLs to typed elements</returns>
+        Task<Dictionary<string, ITypedElement>> GetSearchParametersByUrlsAsync(IReadOnlyCollection<string> searchParameterUrls, CancellationToken cancellationToken);
     }
 }

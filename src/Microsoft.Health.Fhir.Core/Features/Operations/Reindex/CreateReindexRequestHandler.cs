@@ -3,20 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
-using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -27,37 +23,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
-        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly ISearchParameterOperations _searchParameterOperations;
 
         public CreateReindexRequestHandler(
             IFhirOperationDataStore fhirOperationDataStore,
             IAuthorizationService<DataActions> authorizationService,
-            IOptions<ReindexJobConfiguration> reindexJobConfiguration,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            ISearchParameterOperations searchParameterOperations)
+            IOptions<ReindexJobConfiguration> reindexJobConfiguration)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(reindexJobConfiguration, nameof(reindexJobConfiguration));
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
-            EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
 
             _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
             _reindexJobConfiguration = reindexJobConfiguration.Value;
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
-            _searchParameterOperations = searchParameterOperations;
         }
 
-        public async Task<CreateReindexResponse> Handle(CreateReindexRequest request, CancellationToken cancellationToken)
+        public async Task<CreateReindexResponse> HandleAsync(CreateReindexRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Reindex, cancellationToken) != DataActions.Reindex)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(DataActions.Reindex, true, cancellationToken);
 
             // Check for active reindex jobs - but don't block, instead signal for updates
             (var activeReindexJobs, var reindexJobId) = await _fhirOperationDataStore.CheckActiveReindexJobsAsync(cancellationToken);
@@ -69,36 +54,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 return new CreateReindexResponse(existingJob);
             }
 
-            // We need to pull in latest search parameter updates from the data store before creating a reindex job.
-            // There could be a potential delay of <see cref="ReindexJobConfiguration.JobPollingFrequency"/> before
-            // search parameter updates on one instance propagates to other instances.
-            await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
-
-            // What this handles is the scenario where a user is effectively forcing a reindex to run by passing
-            // in a parameter of targetSearchParameterTypes. From those we can identify the base resource types.
-            var searchParameterResourceTypes = new HashSet<string>();
-            if (request.TargetSearchParameterTypes.Any())
-            {
-                foreach (var searchParameterUrl in request.TargetSearchParameterTypes)
-                {
-                    SearchParameterInfo searchParameterInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParameterUrl);
-                    if (searchParameterInfo == null)
-                    {
-                        throw new RequestNotValidException(Core.Resources.SearchParameterByDefinitionUriNotSupported, searchParameterUrl);
-                    }
-
-                    searchParameterResourceTypes.UnionWith(searchParameterInfo.BaseResourceTypes);
-                }
-            }
-
             var jobRecord = new ReindexJobRecord(
-            _searchParameterDefinitionManager.SearchParameterHashMap,
-            request.TargetResourceTypes,
-            request.TargetSearchParameterTypes,
-            searchParameterResourceTypes,
-            request.MaximumResourcesPerQuery ?? _reindexJobConfiguration.MaximumNumberOfResourcesPerQuery,
-            request.MaximumResourcesPerWrite ?? _reindexJobConfiguration.MaximumNumberOfResourcesPerWrite,
-            request.QueryDelayIntervalInMilliseconds ?? _reindexJobConfiguration.QueryDelayIntervalInMilliseconds);
+                request.MaximumResourcesPerQuery ?? _reindexJobConfiguration.MaximumNumberOfResourcesPerQuery,
+                request.MaximumResourcesPerWrite ?? _reindexJobConfiguration.MaximumNumberOfResourcesPerWrite);
 
             var outcome = await _fhirOperationDataStore.CreateReindexJobAsync(jobRecord, cancellationToken);
 

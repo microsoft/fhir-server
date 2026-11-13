@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,8 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
-using MediatR;
-using MediatR.Pipeline;
+using Medino;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -18,9 +18,13 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor;
+using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -31,9 +35,11 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
+using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Api.Registration;
 using Microsoft.Health.SqlServer.Configs;
@@ -46,12 +52,12 @@ namespace Microsoft.Extensions.DependencyInjection
 {
     public static class FhirServerBuilderSqlServerRegistrationExtensions
     {
-        public static IFhirServerBuilder AddSqlServer(this IFhirServerBuilder fhirServerBuilder, Action<SqlServerDataStoreConfiguration> configureAction = null)
+        public static IFhirServerBuilder AddSqlServer(this IFhirServerBuilder fhirServerBuilder, Action<SqlServerDataStoreConfiguration> configureSqlAction = null)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             IServiceCollection services = fhirServerBuilder.Services;
 
-            services.AddSqlServerConnection(configureAction);
+            services.AddSqlServerConnection(configureSqlAction);
             services.AddSqlServerManagement<SchemaVersion>();
             services.AddSqlServerApi();
 
@@ -59,6 +65,29 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
+
+            services.Add(provider =>
+                {
+                    var config = new FhirSqlServerConfiguration();
+                    provider.GetService<IConfiguration>().GetSection("FhirSqlServer").Bind(config);
+                    if (config.EnableInstantDateTimeRewriter &&
+                        !provider.GetRequiredService<IOptions<CoreFeatureConfiguration>>().Value.EnableSearchParameterTemporalClassification)
+                    {
+                        provider.GetRequiredService<ILogger<FhirSqlServerConfiguration>>().LogWarning(
+                            "FhirSqlServer:EnableInstantDateTimeRewriter is enabled, but FhirServer:CoreFeatures:EnableSearchParameterTemporalClassification is disabled. Instant searches will use existing SQL.");
+                    }
+
+                    if (config.EnableScalarTemporalEqualityRewriter &&
+                        !provider.GetRequiredService<IOptions<CoreFeatureConfiguration>>().Value.EnableSearchParameterTemporalClassification)
+                    {
+                        provider.GetRequiredService<ILogger<FhirSqlServerConfiguration>>().LogWarning(
+                            "FhirSqlServer:EnableScalarTemporalEqualityRewriter is enabled, but FhirServer:CoreFeatures:EnableSearchParameterTemporalClassification is disabled. Calendar date searches will use existing SQL.");
+                    }
+
+                    return config;
+                })
+                .Singleton()
+                .AsSelf();
 
             services.AddSingleton<IParameterStore, SqlServerParameterStore>();
 
@@ -70,6 +99,14 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<SearchParameterToSearchValueTypeMap>()
                 .Singleton()
                 .AsSelf();
+
+            services.RemoveServiceTypeExact<QueryPlanReuseChecker, INotificationHandler<SearchParametersInitializedNotification>>()
+                .Add<QueryPlanReuseChecker>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IHostedService>()
+                .AsService<IQueryPlanReuseChecker>()
+                .AsService<INotificationHandler<SearchParametersInitializedNotification>>();
 
             services.Add<SqlServerFhirDataStore>()
                 .Scoped()
@@ -100,6 +137,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            services.Add<SqlApproximateVectorSearchProvider>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             AddSqlServerTableRowParameterGenerators(services);
 
             services.Add<SearchParamTableExpressionQueryGeneratorFactory>()
@@ -107,6 +149,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf();
 
             services.Add<SqlRootExpressionRewriter>()
+                .Singleton()
+                .AsSelf();
+
+            services.Add<InstantDateTimeRewriter>()
                 .Singleton()
                 .AsSelf();
 
@@ -126,8 +172,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
-
-            services.AddFactory<IScoped<SqlConnectionWrapperFactory>>();
 
             services.Add<SqlServerFhirModel>()
                 .Singleton()
@@ -187,13 +231,20 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            // Watchdogs
             services.Add<DefragWatchdog>().Singleton().AsSelf();
             services.Add<CleanupEventLogWatchdog>().Singleton().AsSelf();
-            services.Add<TransactionWatchdog>().Scoped().AsSelf();
-            services.AddFactory<IScoped<TransactionWatchdog>>();
             services.Add<InvisibleHistoryCleanupWatchdog>().Singleton().AsSelf();
-
+            services.Add<ExpiredResourceCleanupWatchdog>().Singleton().AsSelf();
             services.Add<GeoReplicationLagWatchdog>().Singleton().AsSelf();
+            services.Add<JobMonitorWatchdog>().Singleton().AsSelf();
+            services.Add<TransactionWatchdog>().Scoped().AsSelf();
+
+            services.RemoveServiceTypeExact<JobMonitorMetricNotifier, INotificationHandler<JobMonitorMetricsNotification>>()
+                    .Add<JobMonitorMetricNotifier>()
+                    .Singleton()
+                    .AsSelf()
+                    .AsService<INotificationHandler<JobMonitorMetricsNotification>>();
 
             services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<SearchParametersInitializedNotification>>() // Mediatr registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient
                     .Add<WatchdogsBackgroundService>()

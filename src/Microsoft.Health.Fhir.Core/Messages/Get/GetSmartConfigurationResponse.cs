@@ -33,7 +33,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Get
             ICollection<string> responseTypesSupported = null,
             string introspectionEndpoint = null,
             string managementEndpoint = null,
-            string revocationEndpoint = null)
+            string revocationEndpoint = null,
+            string issuer = null,
+            string jwksUri = null)
         {
             EnsureArg.IsNotNull(authorizationEndpoint, nameof(authorizationEndpoint));
             EnsureArg.IsNotNull(tokenEndpoint, nameof(tokenEndpoint));
@@ -50,6 +52,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Get
             IntrospectionEndpoint = introspectionEndpoint;
             ManagementEndpoint = managementEndpoint;
             RevocationEndpoint = revocationEndpoint;
+            Issuer = issuer;
+            JwksUri = jwksUri;
         }
 
         public Uri AuthorizationEndpoint { get; }
@@ -73,5 +77,11 @@ namespace Microsoft.Health.Fhir.Core.Messages.Get
         public string ManagementEndpoint { get; }
 
         public string RevocationEndpoint { get; }
+
+        public string Issuer { get; }
+
+#pragma warning disable CA1056 // URI-like properties should not be strings
+        public string JwksUri { get; }
+#pragma warning restore CA1056 // URI-like properties should not be strings
     }
 }

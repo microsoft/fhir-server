@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
@@ -18,7 +19,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             bool requireETagOnUpdate,
             bool keepVersion,
             BundleResourceContext bundleResourceContext,
-            bool metaHistory = true)
+            bool metaHistory = true,
+            bool createOnly = false)
         {
             Wrapper = EnsureArg.IsNotNull(wrapper, nameof(wrapper));
             AllowCreate = allowCreate;
@@ -28,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             KeepVersion = keepVersion;
             BundleResourceContext = bundleResourceContext;
             MetaHistory = metaHistory;
+            CreateOnly = createOnly;
         }
 
         public ResourceWrapper Wrapper { get; }
@@ -44,7 +47,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public bool MetaHistory { get; }
 
+        /// <summary>
+        /// When true, the write must not replace a live (non-deleted) resource with the same id; it fails with a conflict instead.
+        /// </summary>
+        public bool CreateOnly { get; }
+
         public BundleResourceContext BundleResourceContext { get; }
+
+        public ResourceSearchParameterStatus PendingSearchParameterStatus { get; internal set; }
 
 #pragma warning disable CA1024 // Use properties where appropriate
         public DataStoreOperationIdentifier GetIdentifier()

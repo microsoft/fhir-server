@@ -7,16 +7,23 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Threading.Tasks;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Microsoft.Net.Http.Headers;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 {
@@ -25,12 +32,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ExportTests : IClassFixture<HttpIntegrationTestFixture>
     {
+        private readonly HttpIntegrationTestFixture _fixture;
         private readonly HttpClient _client;
+        private readonly FhirJsonParser _fhirJsonParser;
+        private readonly ITestOutputHelper _outputHelper;
         private const string PreferHeaderName = "Prefer";
 
-        public ExportTests(HttpIntegrationTestFixture fixture)
+        public ExportTests(HttpIntegrationTestFixture fixture, ITestOutputHelper outputHelper)
         {
+            _fixture = fixture;
             _client = fixture.HttpClient;
+            _fhirJsonParser = new FhirJsonParser();
+            _outputHelper = outputHelper;
         }
 
         [Theory]
@@ -100,6 +113,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         }
 
         [Theory]
+        [InlineData("$export", "_include", "respond-async")]
+        [InlineData("$export", "_revinclude:iterate", "respond-async, handling=strict")]
+        [InlineData("Patient/$export", "_revinclude:recurse", "respond-async")]
+        [InlineData("Group/123456/$export", "_revinclude", "respond-async, handling=lenient")]
+        public async Task GivenInclusionTypeFilter_WhenRequestingExport_ThenServerShouldReturnAccepted(
+            string path,
+            string parameter,
+            string preferHeader)
+        {
+            // Arrange
+            using HttpRequestMessage request = GenerateExportRequest(
+                path,
+                preferHeader: preferHeader,
+                queryParams: new Dictionary<string, string>
+                {
+                    { KnownQueryParameterNames.Type, "Observation" },
+                    { KnownQueryParameterNames.TypeFilter, $"Observation?{parameter}=Observation:subject:Patient" },
+                });
+
+            // Act
+            using HttpResponseMessage response = await _client.SendAsync(request);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+            Assert.NotNull(response.Content.Headers.ContentLocation);
+            await GenerateAndSendCancelExportMessage(response.Content.Headers.ContentLocation);
+        }
+
+        [Theory]
         [InlineData("$export")]
         [InlineData("Patient/$export")]
         [InlineData("Group/123456/$export")]
@@ -149,6 +191,283 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenPatientSmartScope_WhenCreatingExport_ThenServerShouldReturnForbidden()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+
+            using HttpClient patientClient = await CreateSmartHttpClientAsync(TestApplications.SmartPatientA, "patient/Patient.read");
+            using HttpRequestMessage exportRequest = GenerateExportRequest(
+                queryParams: new Dictionary<string, string> { { "_type", "Patient" } });
+            using HttpResponseMessage exportResponse = await patientClient.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Forbidden, exportResponse.StatusCode);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenUserSmartScope_WhenCreatingExport_ThenServerShouldReturnForbidden()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+
+            using HttpClient userClient = await CreateSmartHttpClientAsync(TestApplications.SmartPractitionerA, "user/Patient.read");
+            using HttpRequestMessage exportRequest = GenerateExportRequest(
+                queryParams: new Dictionary<string, string> { { "_type", "Patient" } });
+            using HttpResponseMessage exportResponse = await userClient.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Forbidden, exportResponse.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("Observation", false, "_include", "respond-async")]
+        [InlineData("Observation", true, "_include:iterate", "respond-async, handling=lenient")]
+        [InlineData("Patient", false, "_revinclude", "respond-async, handling=lenient")]
+        [InlineData("Patient", true, "_revinclude:iterate", "respond-async")]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenSmartExportWithInclusionTypeFilter_WhenCompleted_ThenStorageContainsOnlyAuthorizedResources(
+            string primaryResourceType,
+            bool inclusionAuthorized,
+            string parameter,
+            string preferHeader)
+        {
+            // Arrange
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            using var patientResponse = await _fixture.TestFhirClient.CreateAsync(new Patient
+            {
+                Name = new List<HumanName> { new HumanName { Text = $"export-include-{Guid.NewGuid()}" } },
+            });
+            using var observationResponse = await _fixture.TestFhirClient.CreateAsync(new Observation
+            {
+                Status = ObservationStatus.Final,
+                Code = new CodeableConcept("http://loinc.org", "8867-4"),
+                Subject = new ResourceReference($"Patient/{patientResponse.Resource.Id}"),
+            });
+            Resource primaryResource = primaryResourceType == "Observation" ? observationResponse.Resource : patientResponse.Resource;
+            Resource includedResource = primaryResourceType == "Observation" ? patientResponse.Resource : observationResponse.Resource;
+            string scope = $"system/{primaryResource.TypeName}.rs";
+            if (inclusionAuthorized)
+            {
+                scope += $" system/{includedResource.TypeName}.rs";
+            }
+
+            using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, scope);
+            if (!inclusionAuthorized)
+            {
+                using HttpResponseMessage includedReadResponse = await systemClient.GetAsync($"{includedResource.TypeName}/{includedResource.Id}");
+                Assert.Equal(HttpStatusCode.Forbidden, includedReadResponse.StatusCode);
+            }
+
+            using HttpRequestMessage request = GenerateExportRequest(
+                preferHeader: preferHeader,
+                queryParams: new Dictionary<string, string>
+                {
+                    { KnownQueryParameterNames.Type, primaryResource.TypeName },
+                    { KnownQueryParameterNames.TypeFilter, $"{primaryResource.TypeName}?_id={primaryResource.Id}&{parameter}=Observation:subject:Patient" },
+                });
+
+            // Act
+            using HttpResponseMessage response = await systemClient.SendAsync(request);
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_fixture.TestFhirClient, response.Content.Headers.ContentLocation);
+            var exportedResources = await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
+
+            // Assert
+            Assert.True(exportedResources.ContainsKey((primaryResource.TypeName, primaryResource.Id, primaryResource.VersionId)));
+            Assert.Equal(inclusionAuthorized, exportedResources.ContainsKey((includedResource.TypeName, includedResource.Id, includedResource.VersionId)));
+            Assert.Equal(inclusionAuthorized ? 2 : 1, exportedResources.Count);
+            using HttpResponseMessage statusResponse = await systemClient.GetAsync(response.Content.Headers.ContentLocation);
+            Assert.Equal(HttpStatusCode.OK, statusResponse.StatusCode);
+            var result = Newtonsoft.Json.JsonConvert.DeserializeObject<ExportJobResult>(await statusResponse.Content.ReadAsStringAsync());
+            if (inclusionAuthorized)
+            {
+                Assert.DoesNotContain(result.Issues, issue => issue.Diagnostics?.Contains("were excluded") == true);
+            }
+            else
+            {
+                Assert.Contains(result.Issues, issue =>
+                    issue.Severity == "Warning"
+                    && issue.Code == "Forbidden"
+                    && issue.Diagnostics == $"Included resources of type '{includedResource.TypeName}' were excluded because the caller does not have the required SMART export permissions for this resource type.");
+            }
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenPatientOrUserSmartScope_WhenRequestingSystemExportStatusOrCancel_ThenServerShouldReturnNotFound()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+
+            using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/*.read");
+            Uri contentLocation = await CreateExportJobAsync(systemClient, "Patient");
+
+            using HttpClient patientClient = await CreateSmartHttpClientAsync(TestApplications.SmartPatientA, "patient/Patient.read");
+            using HttpResponseMessage patientStatusResponse = await patientClient.GetAsync(contentLocation);
+            Assert.Equal(HttpStatusCode.NotFound, patientStatusResponse.StatusCode);
+            using HttpResponseMessage patientCancelResponse = await patientClient.DeleteAsync(contentLocation);
+            Assert.Equal(HttpStatusCode.NotFound, patientCancelResponse.StatusCode);
+
+            using HttpClient userClient = await CreateSmartHttpClientAsync(TestApplications.SmartPractitionerA, "user/Patient.read");
+            using HttpResponseMessage userStatusResponse = await userClient.GetAsync(contentLocation);
+            Assert.Equal(HttpStatusCode.NotFound, userStatusResponse.StatusCode);
+            using HttpResponseMessage userCancelResponse = await userClient.DeleteAsync(contentLocation);
+            Assert.Equal(HttpStatusCode.NotFound, userCancelResponse.StatusCode);
+
+            using HttpResponseMessage cleanupResponse = await systemClient.DeleteAsync(contentLocation);
+            Assert.Equal(HttpStatusCode.Accepted, cleanupResponse.StatusCode);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenSystemWildcardScope_WhenCreatingExportWithoutType_ThenServerShouldReturnAccepted()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+
+            using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/*.read");
+            Uri contentLocation = await CreateExportJobAsync(systemClient);
+            using HttpResponseMessage cancelResponse = await systemClient.DeleteAsync(contentLocation);
+            Assert.Equal(HttpStatusCode.Accepted, cancelResponse.StatusCode);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenPartialSystemScope_WhenCreatingExportWithoutType_ThenServerShouldReturnAcceptedWithInferredType()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+
+            using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/Patient.read");
+
+            // Omitting _type is now allowed for a partial system scope: the effective _type is inferred and
+            // narrowed to the eligible scope(s) instead of being rejected.
+            Uri contentLocation = await CreateExportJobAsync(systemClient);
+
+            using HttpResponseMessage cancelResponse = await systemClient.DeleteAsync(contentLocation);
+            Assert.Equal(HttpStatusCode.Accepted, cancelResponse.StatusCode);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenPartialSystemScope_WhenCreatingMatchingOrMismatchingTypeExport_ThenServerShouldAuthorizeEveryRequestedType()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+
+            using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/Patient.read");
+            Uri contentLocation = await CreateExportJobAsync(systemClient, "Patient");
+
+            using HttpRequestMessage mismatchingRequest = GenerateExportRequest(
+                queryParams: new Dictionary<string, string> { { "_type", "Observation" } });
+            using HttpResponseMessage mismatchingResponse = await systemClient.SendAsync(mismatchingRequest);
+
+            Assert.Equal(HttpStatusCode.Forbidden, mismatchingResponse.StatusCode);
+
+            using HttpResponseMessage cancelResponse = await systemClient.DeleteAsync(contentLocation);
+            Assert.Equal(HttpStatusCode.Accepted, cancelResponse.StatusCode);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenExplicitTypeJob_WhenSystemScopeMatchesOrMismatches_ThenStatusAndCancelShouldAuthorizeEveryType()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+
+            using HttpClient matchingClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/Patient.read");
+            Uri contentLocation = await CreateExportJobAsync(matchingClient, "Patient");
+
+            using HttpResponseMessage matchingStatusResponse = await matchingClient.GetAsync(contentLocation);
+            AssertStatusIsAcceptedOrOk(matchingStatusResponse.StatusCode);
+
+            using HttpClient mismatchingClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/Observation.read");
+            using HttpResponseMessage mismatchingStatusResponse = await mismatchingClient.GetAsync(contentLocation);
+            Assert.Equal(HttpStatusCode.NotFound, mismatchingStatusResponse.StatusCode);
+            using HttpResponseMessage mismatchingCancelResponse = await mismatchingClient.DeleteAsync(contentLocation);
+            Assert.Equal(HttpStatusCode.NotFound, mismatchingCancelResponse.StatusCode);
+
+            using HttpResponseMessage matchingCancelResponse = await matchingClient.DeleteAsync(contentLocation);
+            Assert.Equal(HttpStatusCode.Accepted, matchingCancelResponse.StatusCode);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenJobWithoutExplicitType_WhenSystemScopeIsPartialOrWildcard_ThenWildcardAccessIsRequired()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+
+            using HttpClient wildcardClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/*.read");
+            Uri contentLocation = await CreateExportJobAsync(wildcardClient);
+
+            using HttpClient partialClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/Patient.read");
+            using HttpResponseMessage partialStatusResponse = await partialClient.GetAsync(contentLocation);
+            Assert.Equal(HttpStatusCode.NotFound, partialStatusResponse.StatusCode);
+            using HttpResponseMessage partialCancelResponse = await partialClient.DeleteAsync(contentLocation);
+            Assert.Equal(HttpStatusCode.NotFound, partialCancelResponse.StatusCode);
+
+            using HttpResponseMessage wildcardStatusResponse = await wildcardClient.GetAsync(contentLocation);
+            AssertStatusIsAcceptedOrOk(wildcardStatusResponse.StatusCode);
+            using HttpResponseMessage wildcardCancelResponse = await wildcardClient.DeleteAsync(contentLocation);
+            Assert.Equal(HttpStatusCode.Accepted, wildcardCancelResponse.StatusCode);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenPatientRouteWithoutPatientSelectionAccess_WhenCreatingExportWithExplicitType_ThenServerShouldReturnForbidden()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+
+            // Patient/$export requires system/Patient selection access in addition to the explicit output type,
+            // independently of whether the output type itself is covered.
+            using HttpClient systemClient = await CreateSmartHttpClientAsync(TestApplications.SmartUserClient, "system/Observation.read");
+            using HttpRequestMessage exportRequest = GenerateExportRequest(
+                "Patient/$export",
+                queryParams: new Dictionary<string, string> { { "_type", "Observation" } });
+            using HttpResponseMessage exportResponse = await systemClient.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Forbidden, exportResponse.StatusCode);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenGroupRouteWithoutGroupSelectionAccess_WhenCreatingExportWithExplicitType_ThenServerShouldReturnForbidden()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+
+            // Group/{id}/$export requires both system/Group and system/Patient selection access; Patient plus the
+            // explicit output type alone is not sufficient.
+            using HttpClient systemClient = await CreateSmartHttpClientAsync(
+                TestApplications.SmartUserClient,
+                "system/Patient.read system/Observation.read");
+            using HttpRequestMessage exportRequest = GenerateExportRequest(
+                $"Group/{Guid.NewGuid()}/$export",
+                queryParams: new Dictionary<string, string> { { "_type", "Observation" } });
+            using HttpResponseMessage exportResponse = await systemClient.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Forbidden, exportResponse.StatusCode);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenGroupRouteWithGroupAndPatientSelectionAccess_WhenCreatingExportWithExplicitType_ThenServerShouldReturnAccepted()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+
+            // Job creation does not synchronously validate that the referenced Group exists, so a nonexistent
+            // group id is sufficient to exercise the route authorization requirements in isolation.
+            using HttpClient systemClient = await CreateSmartHttpClientAsync(
+                TestApplications.SmartUserClient,
+                "system/Group.read system/Patient.read system/Observation.read");
+            using HttpRequestMessage exportRequest = GenerateExportRequest(
+                $"Group/{Guid.NewGuid()}/$export",
+                queryParams: new Dictionary<string, string> { { "_type", "Observation" } });
+            using HttpResponseMessage exportResponse = await systemClient.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Accepted, exportResponse.StatusCode);
+
+            Uri contentLocation = exportResponse.Content.Headers.ContentLocation;
+            Assert.NotNull(contentLocation);
+
+            using HttpResponseMessage cancelResponse = await systemClient.DeleteAsync(contentLocation);
+            Assert.Equal(HttpStatusCode.Accepted, cancelResponse.StatusCode);
+        }
+
+        [Fact]
         public async Task GivenExportJobDoesNotExist_WhenRequestingExportStatus_ThenServerShouldReturnNotFound()
         {
             string getPath = OperationsConstants.Operations + "/" + OperationsConstants.Export + "/" + Guid.NewGuid();
@@ -190,6 +509,43 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
+        [Theory]
+        [InlineData("../secret")]
+        [InlineData("..\\secret")]
+        [InlineData("..%2fsecret")]
+        public async Task GivenExportIsEnabled_WhenContainerContainsPathTraversal_ThenServerShouldReturnBadRequest(string container)
+        {
+            var queryParam = new Dictionary<string, string>
+            {
+                { KnownQueryParameterNames.Container, container },
+            };
+
+            using HttpRequestMessage request = GenerateExportRequest("$export", queryParams: queryParam);
+
+            using HttpResponseMessage response = await _client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("../secret/config.json")]
+        [InlineData("..\\secret\\config.json")]
+        [InlineData("..%2fsecret%2fconfig.json")]
+        public async Task GivenExportIsEnabled_WhenAnonymizationConfigContainsPathTraversal_ThenServerShouldReturnBadRequest(string anonymizationConfig)
+        {
+            var queryParam = new Dictionary<string, string>
+            {
+                { KnownQueryParameterNames.Container, "test-container" },
+                { KnownQueryParameterNames.AnonymizationConfigurationLocation, anonymizationConfig },
+            };
+
+            using HttpRequestMessage request = GenerateExportRequest("$export", queryParams: queryParam);
+
+            using HttpResponseMessage response = await _client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
         private HttpRequestMessage GenerateExportRequest(
             string path = "$export",
             string acceptHeader = ContentType.JSON_CONTENT_HEADER,
@@ -214,6 +570,62 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             return request;
         }
 
+        private HttpClient CreateUnauthenticatedHttpClient()
+        {
+            return new HttpClient(_fixture.TestFhirServer.CreateMessageHandler())
+            {
+                BaseAddress = _fixture.TestFhirServer.BaseAddress,
+            };
+        }
+
+        private async Task<HttpClient> CreateSmartHttpClientAsync(TestApplication application, string scope)
+        {
+            string accessToken = await GetSmartAccessTokenAsync(application, scope);
+            HttpClient smartClient = CreateUnauthenticatedHttpClient();
+            smartClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            return smartClient;
+        }
+
+        private async Task<string> GetSmartAccessTokenAsync(TestApplication application, string scope)
+        {
+            using var content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                { "grant_type", application.GrantType },
+                { "client_id", application.ClientId },
+                { "client_secret", application.ClientSecret },
+                { "scope", scope },
+                { "resource", AuthenticationSettings.Resource },
+            });
+
+            using HttpClient authClient = CreateUnauthenticatedHttpClient();
+            using HttpResponseMessage response = await authClient.PostAsync(_fixture.TestFhirServer.TokenUri, content);
+            response.EnsureSuccessStatusCode();
+
+            var responseJson = await response.Content.ReadAsStringAsync();
+            var tokenResponse = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(responseJson);
+            return tokenResponse["access_token"].GetString();
+        }
+
+        private async Task<Uri> CreateExportJobAsync(HttpClient client, string resourceType = null)
+        {
+            Dictionary<string, string> queryParams = resourceType == null
+                ? null
+                : new Dictionary<string, string> { { "_type", resourceType } };
+            using HttpRequestMessage request = GenerateExportRequest(queryParams: queryParams);
+            using HttpResponseMessage response = await client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+            Assert.NotNull(response.Content.Headers.ContentLocation);
+            return response.Content.Headers.ContentLocation;
+        }
+
+        private static void AssertStatusIsAcceptedOrOk(HttpStatusCode statusCode)
+        {
+            Assert.True(
+                statusCode == HttpStatusCode.Accepted || statusCode == HttpStatusCode.OK,
+                $"Expected Accepted or OK for export status but got {statusCode}.");
+        }
+
         // Currently our tests do not validate the data that is being exported.
         // So once the tests are done we would like to cancel the export request
         // to try to prevent the worker from actually processing the export.
@@ -227,6 +639,135 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             request.RequestUri = contentLocation;
 
             await _client.SendAsync(request);
+        }
+
+        /// <summary>
+        /// Verifies the full user-facing export cancellation lifecycle per the FHIR Bulk Data IG
+        /// (https://hl7.org/fhir/uv/bulkdata/STU2/export.html#bulk-data-delete-request):
+        ///   1. Create an export job → 202 Accepted with Content-Location.
+        ///   2. Cancel the job (DELETE Content-Location) → 202 Accepted.
+        ///   3. Get status (GET Content-Location) → 404 Not Found.
+        ///   4. Cancel again (DELETE Content-Location) → 404 Not Found.
+        /// </summary>
+        [Fact]
+        public async Task GivenExportJobExists_WhenCancelledThenStatusCheckedThenCancelledAgain_ThenCancelReturns202AndSubsequentCallsReturn404()
+        {
+            // Step 1 — Create an export job
+            using HttpRequestMessage exportRequest = GenerateExportRequest();
+            using HttpResponseMessage exportResponse = await _client.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Accepted, exportResponse.StatusCode);
+
+            Uri contentLocation = exportResponse.Content.Headers.ContentLocation;
+            Assert.NotNull(contentLocation);
+
+            // Step 2 — Cancel the job (DELETE) → 202 Accepted
+            using HttpRequestMessage cancelRequest = new HttpRequestMessage(HttpMethod.Delete, contentLocation);
+            using HttpResponseMessage cancelResponse = await _client.SendAsync(cancelRequest);
+
+            Assert.Equal(HttpStatusCode.Accepted, cancelResponse.StatusCode);
+
+            // Step 3 — Get status (GET) → 404 Not Found
+            using HttpRequestMessage getStatusRequest = new HttpRequestMessage(HttpMethod.Get, contentLocation);
+            using HttpResponseMessage getStatusResponse = await _client.SendAsync(getStatusRequest);
+
+            Assert.Equal(HttpStatusCode.NotFound, getStatusResponse.StatusCode);
+
+            // Step 4 — Cancel again (DELETE) → 404 Not Found
+            using HttpRequestMessage cancelAgainRequest = new HttpRequestMessage(HttpMethod.Delete, contentLocation);
+            using HttpResponseMessage cancelAgainResponse = await _client.SendAsync(cancelAgainRequest);
+
+            Assert.Equal(HttpStatusCode.NotFound, cancelAgainResponse.StatusCode);
+        }
+
+        /// <summary>
+        /// Verifies that when an export job is created with an invalid resource type in the _type
+        /// query parameter, the orchestrator validates the types before processing and the job
+        /// fails with a 400 Bad Request (not 500 Internal Server Error).
+        ///
+        /// Steps:
+        ///   1. Request $export with _type=InvalidResourceType → 202 Accepted (job is queued).
+        ///   2. Poll the status endpoint until the job completes or fails.
+        ///   3. Assert the status endpoint returns 400 Bad Request.
+        /// </summary>
+        [Theory]
+        [InlineData("InvalidResourceType", "InvalidResourceType")]
+        [InlineData("Patient,InvalidResourceType", "InvalidResourceType")]
+        [InlineData("Patient,,Observation", "<empty>")]
+        [InlineData("Patient, ,Observation", "<empty>")]
+        public async Task GivenExportWithInvalidTypeQueryParam_WhenJobIsProcessed_ThenStatusEndpointReturnsBadRequest(
+            string resourceTypes,
+            string invalidResourceType)
+        {
+            // Step 1 — Create an export job with an invalid _type query parameter
+            var queryParam = new Dictionary<string, string>()
+            {
+                { KnownQueryParameterNames.Type, resourceTypes },
+                { KnownQueryParameterNames.IsParallel, "true" },
+            };
+            using HttpRequestMessage exportRequest = GenerateExportRequest("$export", queryParams: queryParam);
+            using HttpResponseMessage exportResponse = await _client.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Accepted, exportResponse.StatusCode);
+
+            Uri contentLocation = exportResponse.Content.Headers.ContentLocation;
+            Assert.NotNull(contentLocation);
+
+            // Step 2 — Poll the status endpoint until the job fails
+            HttpStatusCode statusCode = HttpStatusCode.Accepted;
+            string responseContent = null;
+            var deadline = DateTime.UtcNow.AddSeconds(60);
+            while (DateTime.UtcNow < deadline && statusCode == HttpStatusCode.Accepted)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2));
+
+                using HttpRequestMessage statusRequest = new HttpRequestMessage(HttpMethod.Get, contentLocation);
+                using HttpResponseMessage statusResponse = await _client.SendAsync(statusRequest);
+                statusCode = statusResponse.StatusCode;
+                responseContent = statusResponse.Content != null ? await statusResponse.Content.ReadAsStringAsync() : null;
+            }
+
+            // Step 3 — Assert the job failed with 400 Bad Request
+            Assert.Equal(HttpStatusCode.BadRequest, statusCode);
+
+            // Step 3a - Make sure the response content is not empty and contains an OperationOutcome with the expected invalid resource type
+            Assert.False(string.IsNullOrEmpty(responseContent));
+            var resource = _fhirJsonParser.Parse<Resource>(responseContent);
+            var operationOutcome = Assert.IsType<OperationOutcome>(resource);
+            Assert.Contains(
+                operationOutcome.Issue,
+                issue =>
+                {
+                    return issue != null
+                        && issue.Severity == OperationOutcome.IssueSeverity.Error
+                        && issue.Diagnostics?.Contains(invalidResourceType) == true;
+                });
+        }
+
+        [Theory]
+        [InlineData(false, "Patient,Observation")]
+        [InlineData(false, " Patient , Observation ")]
+        [InlineData(true, "Patient,Observation")]
+        [InlineData(true, " Patient , Observation ")]
+        public async Task GivenExportWithWhitespacePaddedValidTypeQueryParam_WhenJobIsProcessed_ThenStatusEndpointReturnsOk(
+            bool isParallel,
+            string resourceTypes)
+        {
+            var queryParam = new Dictionary<string, string>()
+            {
+                { KnownQueryParameterNames.Type, resourceTypes },
+                { KnownQueryParameterNames.IsParallel, isParallel.ToString() },
+                { KnownQueryParameterNames.Since, DateTimeOffset.UtcNow.ToString("O") },
+            };
+            using HttpRequestMessage exportRequest = GenerateExportRequest("$export", queryParams: queryParam);
+            using HttpResponseMessage exportResponse = await _client.SendAsync(exportRequest);
+
+            Assert.Equal(HttpStatusCode.Accepted, exportResponse.StatusCode);
+
+            Uri contentLocation = exportResponse.Content.Headers.ContentLocation;
+            Assert.NotNull(contentLocation);
+
+            await ExportTestHelper.CheckExportStatus(_fixture.TestFhirClient, contentLocation);
         }
     }
 }

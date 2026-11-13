@@ -16,23 +16,28 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Api.Features.Audit;
-using Microsoft.Health.Api.Features.Headers;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
+using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
+using Microsoft.Health.Fhir.Api.Features.Logging;
+using Microsoft.Health.Fhir.Api.Features.Metrics;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
+using Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers;
 using Microsoft.Health.Fhir.Core.Registration;
 using Polly;
 
@@ -79,10 +84,17 @@ namespace Microsoft.Extensions.DependencyInjection
             configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
             configureAction?.Invoke(fhirServerConfiguration);
 
+            fhirServerConfiguration.CoreFeatures.VectorSearch.Validate();
+            fhirServerConfiguration.Bundle.Validate();
+            fhirServerConfiguration.CircuitBreaker.Validate();
+
+            services.AddSingleton(ResourceIdPolicy.From(fhirServerConfiguration.CoreFeatures.UseLongResourceIds));
+
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Security));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Features));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.CoreFeatures));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.CoreFeatures.VectorSearch));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Cors));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Export));
@@ -94,7 +106,9 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Terminology));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Audit));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Bundle));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.CircuitBreaker));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.SmartIdentityProvider));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Watchdog));
             services.AddSingleton<ISearchParameterStatusManager, SearchParameterStatusManager>();
             services.AddSingleton(provider =>
             {
@@ -107,7 +121,7 @@ namespace Microsoft.Extensions.DependencyInjection
             {
                 services.Configure<ForwardedHeadersOptions>(options =>
                 {
-                    // Defaulut value for options.ForwardedHeaders is ForwardedHeaders.None.
+                    // Default value for options.ForwardedHeaders is ForwardedHeaders.None.
                     options.ForwardedHeaders |= ForwardedHeaders.XForwardedHost | ForwardedHeaders.XForwardedPrefix;
 
                     // Only loopback proxies are allowed by default.
@@ -121,7 +135,12 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ArtifactStore));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides.USCore));
-            services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
+
+            // Extended HTTP Inbound Request logging for FHIR server.
+            services.AddSingleton<IHttpInboundRequestLogger, HttpInboundRequestLogger>();
+
+            // IStartupFilter registering.
+            services.AddTransient<IStartupFilter, FhirServerStartupFilter>((x) => new FhirServerStartupFilter(fhirServerConfiguration));
 
             // Register global instance configuration for storing base URI and instance ID
             // This is available to all services including background tasks that don't have access to HttpContext
@@ -177,11 +196,28 @@ namespace Microsoft.Extensions.DependencyInjection
         /// </summary>
         private static void AddMetricEmitter(IServiceCollection services)
         {
-            // Register the metric handlers used by the service.
-            services.TryAddSingleton<IBundleMetricHandler, DefaultBundleMetricHandler>();
+            // Generic metric handlers.
             services.TryAddSingleton<ICrudMetricHandler, DefaultCrudMetricHandler>();
-            services.TryAddSingleton<ISearchMetricHandler, DefaultSearchMetricHandler>();
             services.TryAddSingleton<IFailureMetricHandler, DefaultFailureMetricHandler>();
+            services.AddSingleton<IExceptionMetricEmissionFilter, AuthenticationFailureExceptionMetricEmissionFilter>();
+            services.AddSingleton<IExceptionMetricEmissionFilter, SecurityAbuseExceptionMetricEmissionFilter>();
+            services.TryAddSingleton<ISearchMetricHandler, DefaultSearchMetricHandler>();
+
+            // Feature specific metric handlers.
+            services.TryAddSingleton<IBundleMetricHandler, DefaultBundleMetricHandler>();
+            services.TryAddSingleton<ISearchParameterCacheRefresherMetricHandler, DefaultSearchParameterCacheRefresherMetricHandler>();
+            services.TryAddSingleton<IServiceMetricHandler, DefaultServiceMetricHandler>();
+
+            // Job metric handlers.
+            services.TryAddSingleton<IBulkDeleteMetricHandler, DefaultBulkDeleteMetricHandler>();
+            services.TryAddSingleton<IBulkUpdateMetricHandler, DefaultBulkUpdateMetricHandler>();
+            services.TryAddSingleton<IExportMetricHandler, DefaultExportMetricHandler>();
+            services.TryAddSingleton<IImportMetricHandler, DefaultImportMetricHandler>();
+            services.TryAddSingleton<IReindexMetricHandler, DefaultReindexMetricHandler>();
+            services.TryAddSingleton<IJobMonitorMetricHandler, DefaultJobMonitorMetricHandler>();
+
+            // Factory metric handlers.
+            services.TryAddSingleton<Health.JobManagement.IJobMetricFactory, JobMetricFactory>();
         }
 
         private class FhirServerBuilder : IFhirServerBuilder
@@ -200,6 +236,15 @@ namespace Microsoft.Extensions.DependencyInjection
         /// </summary>
         private class FhirServerStartupFilter : IStartupFilter
         {
+            private readonly FhirServerConfiguration _fhirServerConfiguration;
+
+            public FhirServerStartupFilter(FhirServerConfiguration fhirServerConfiguration)
+            {
+                EnsureArg.IsNotNull(fhirServerConfiguration, nameof(fhirServerConfiguration));
+
+                _fhirServerConfiguration = fhirServerConfiguration;
+            }
+
             public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
             {
                 return app =>
@@ -213,6 +258,10 @@ namespace Microsoft.Extensions.DependencyInjection
                     {
                         app.UseForwardedHeaders();
                     }
+
+                    // This middleware rejects requests that contain access tokens (JWTs) in the URL path or query string.
+                    // It must run before FhirRequestContext to prevent the token from being logged.
+                    app.UseAccessTokenUrlValidation();
 
                     // This middleware should be registered at the beginning since it generates correlation id among other things,
                     // which will be used in other middlewares.
@@ -244,7 +293,11 @@ namespace Microsoft.Extensions.DependencyInjection
                     // The audit module needs to come after the exception handler because we need to catch the response before it gets converted to custom error.
                     app.UseAudit();
 
+                    // Platform network validation and application authentication.
                     app.UseFhirRequestContextAuthentication();
+
+                    // Add FHIR runtime middleware, that runs validations on top of the state of the FHIR service.
+                    app.UseFhirRuntimeState(_fhirServerConfiguration);
 
                     app.UseMiddleware<SearchPostReroutingMiddleware>();
 

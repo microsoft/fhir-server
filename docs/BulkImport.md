@@ -61,7 +61,7 @@ Ensure the following settings are set correctly in your FHIR server:
 ---
 **NOTE**
 
-There are two ways by which one can set the source storage account to import from. One way would be to use the connection string for the storage account and update the `FhirServer__Operations__IntegrationDataStore__StorageAccountConnection` setting. The FHIR server will use the connection string to connect to the storage account and import data.
+There are two ways by which one can set the source storage account to import from. One way would be to use the connection string for the storage account and update the `FhirServer__Operations__IntegrationDataStore__StorageAccountConnection` setting. The FHIR server will use the connection string to connect to the storage account and import data. For import URL validation, connection-string endpoint overrides such as `BlobEndpoint` are not supported. The expected blob endpoint is derived from `AccountName`, `DefaultEndpointsProtocol`, and `EndpointSuffix`.
 
 The other option would be to use the `FhirServer__Operations__IntegrationDataStore__StorageAccountUri` setting with the URI of the storage account. For this option, we assume that the FHIR server has permissions to contribute data to the corresponding storage account. One way to achieve this (assuming you are running the FHIR server code in the App Service with Managed Identity enabled) would be to give the App Service `Storage Blob Data Contributor` permissions for the storage account of your choice.
 
@@ -119,7 +119,7 @@ Content-Type:application/fhir+json
 | Input part name   | Description | Card. |  Accepted values |
 | ----------- | ----------- | ----------- | ----------- |
 | type   |  Resource type of input file   | 0..1 |  Not required. In case when all resources in a file are of the same type, a value for [FHIR resource type](https://www.hl7.org/fhir/resourcelist.html) can be provided. |
-| URL   |  Azure storage url of input file   | 1..1 | URL value of the input file that can't be modified. |
+| URL   |  Azure storage url of input file   | 1..1 | URL value of the input file that can't be modified. The URL must point to the storage account configured by `FhirServer__Operations__IntegrationDataStore__StorageAccountUri` or the standard blob endpoint derived from `FhirServer__Operations__IntegrationDataStore__StorageAccountConnection`. Custom `BlobEndpoint` connection-string overrides are not supported for import URL validation. |
 | etag   |  Etag of the input file on Azure storage used to verify the file content has not changed. | 0..1 |  Etag value of the input file that can't be modified. |
 
 **Sample request:**

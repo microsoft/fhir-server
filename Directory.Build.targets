@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup Condition="$(MSBuildProjectName.Contains('Test')) AND '$(IsTestProject)' != 'false'">
+    <PackageReference Include="Microsoft.NET.Test.Sdk" PrivateAssets="all" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

@@ -13,12 +13,13 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Support;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Messages;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 
@@ -40,14 +41,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
         }
 
-        public async Task<GetBulkUpdateResponse> Handle(GetBulkUpdateRequest request, CancellationToken cancellationToken)
+        public async Task<GetBulkUpdateResponse> HandleAsync(GetBulkUpdateRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.BulkOperator, cancellationToken) != DataActions.BulkOperator)
-            {
-                throw new UnauthorizedFhirActionException();
-            }
+            await _authorizationService.CheckAccess(DataActions.BulkOperator, true, cancellationToken);
 
             var jobs = await _queueClient.GetJobByGroupIdAsync(QueueType.BulkUpdate, request.JobId, true, cancellationToken);
 
@@ -92,6 +90,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                             {
                                 cancelled = true;
                             }
+                            else if (IsProfileResourceSkippedIssue(issue))
+                            {
+                                issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, detailsText: issue));
+                            }
                             else
                             {
                                 issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: issue));
@@ -135,6 +137,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                     UpdateResources(result.ResourcesUpdated, resourcesUpdated);
                     UpdateResources(result.ResourcesIgnored, resourcesIgnored);
                     UpdateResources(result.ResourcesPatchFailed, resourcesPatchFailed);
+
+                    if (job.Status == JobStatus.Completed)
+                    {
+                        foreach (string issue in result.Issues)
+                        {
+                            issues.Add(new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Information,
+                                OperationOutcomeConstants.IssueType.Informational,
+                                detailsText: issue));
+                        }
+                    }
                 }
             }
 
@@ -175,7 +188,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             AddParameterComponent(resourcesPatchFailed, ResourcePatchFailedCountName);
 
             HttpStatusCode statusCode;
-            if (failed && issues.Count > 0)
+            if (failed && issues.Any(issue =>
+                issue.Severity == OperationOutcomeConstants.IssueSeverity.Error ||
+                issue.Severity == OperationOutcomeConstants.IssueSeverity.Fatal))
             {
                 statusCode = failureResultCode;
             }
@@ -220,6 +235,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             }
 
             return new GetBulkUpdateResponse(fhirResults, issues, statusCode);
+        }
+
+        private static bool IsProfileResourceSkippedIssue(string issue)
+        {
+            return issue.StartsWith("Skipped ", StringComparison.Ordinal)
+                && issue.Contains("because the submitting caller did not have EditProfileDefinitions permission.", StringComparison.Ordinal);
         }
     }
 }

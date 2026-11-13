@@ -5,7 +5,7 @@
 
 using System.Collections.Generic;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
@@ -13,9 +13,9 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Upsert
 {
-    public class UpsertResourceRequest : BaseBundleInnerRequest, IRequest<UpsertResourceResponse>, IRequest, IRequireCapability
+    public class UpsertResourceRequest : BaseBundleInnerRequest, IRequest<UpsertResourceResponse>, IRequireCapability
     {
-        public UpsertResourceRequest(ResourceElement resource, BundleResourceContext bundleResourceContext = null, WeakETag weakETag = null, bool metaHistory = true)
+        public UpsertResourceRequest(ResourceElement resource, BundleResourceContext bundleResourceContext = null, WeakETag weakETag = null, bool metaHistory = true, bool createOnly = false)
             : base(bundleResourceContext)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
@@ -23,6 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Upsert
             Resource = resource;
             WeakETag = weakETag;
             MetaHistory = metaHistory;
+            CreateOnly = createOnly;
         }
 
         public ResourceElement Resource { get; }
@@ -30,6 +31,11 @@ namespace Microsoft.Health.Fhir.Core.Messages.Upsert
         public WeakETag WeakETag { get; }
 
         public bool MetaHistory { get; }
+
+        /// <summary>
+        /// When true, the upsert fails with a conflict instead of replacing a live resource with the same id.
+        /// </summary>
+        public bool CreateOnly { get; }
 
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
         {

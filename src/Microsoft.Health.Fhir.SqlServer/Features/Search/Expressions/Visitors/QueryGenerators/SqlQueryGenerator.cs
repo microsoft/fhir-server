@@ -11,13 +11,16 @@ using System.Text;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -36,6 +39,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private int _stackDepth = 0;
 
         private const string _joinShift = "     ";
+        private const string ApproximateQueryVariable = "@SemanticQuery";
+        private const string SemanticDistanceColumnName = "SemanticDistance";
         internal const string ParametersHashStart = "/* HASH ";
         internal const string ParametersHashEnd = " */";
 
@@ -62,8 +67,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private int maxTableExpressionCountLimitForExists = 5;
         private bool _reuseQueryPlans;
         private bool _isAsyncOperation;
+        private bool _semanticMatchesRankedInTop;
         private readonly HashSet<short> _searchParamIds = new();
         private readonly SearchParamTableExpressionQueryGeneratorFactory _queryGeneratorFactory;
+        private readonly bool _enableChainSourceDeduplication;
+        private readonly HashSet<int> _chainTableExpressionIndexes = new();
+        private readonly List<(int position, bool insideHash)> _queryShapePositions = [];
 
         public SqlQueryGenerator(
             IndentedStringBuilder sb,
@@ -73,7 +82,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             SearchParamTableExpressionQueryGeneratorFactory queryGeneratorFactory,
             bool reuseQueryPlans,
             bool isAsyncOperation,
-            SqlException sqlException = null)
+            SqlException sqlException = null,
+            bool enableChainSourceDeduplication = false)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
@@ -88,6 +98,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _queryGeneratorFactory = queryGeneratorFactory;
             _reuseQueryPlans = reuseQueryPlans;
             _isAsyncOperation = isAsyncOperation;
+            _enableChainSourceDeduplication = enableChainSourceDeduplication;
 
             if (sqlException?.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
             {
@@ -111,6 +122,38 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             _rootExpression = expression;
+            SqlSearchOptions sqlSearchOptions = context as SqlSearchOptions;
+            bool isVectorSearch = sqlSearchOptions?.PreparedVectorQuery != null;
+            int approximateCandidateMultiplier = 0;
+            bool isApproximateVectorSearch = isVectorSearch && UsesApproximateVectorSearch(sqlSearchOptions, out approximateCandidateMultiplier);
+
+            // _include/_revinclude expand only the returned semantic matches, so the Top CTE ranks and pages them before
+            // the include CTEs run; the final select then reads their distance instead of searching vectors again.
+            _semanticMatchesRankedInTop = TopRewriter.SemanticMatchesExpandIncludes(expression, context)
+                && expression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Top);
+
+            if (isApproximateVectorSearch)
+            {
+                // VECTOR_SEARCH accepts only a variable as the query vector, so it cannot be cast inline.
+                object queryEmbeddingParameter = Parameters.AddParameter(SqlVectorFormatter.Format(sqlSearchOptions.PreparedVectorQuery.Embedding), includeInHash: false);
+                StringBuilder.Append("DECLARE ").Append(ApproximateQueryVariable).Append(" VECTOR(").Append(VectorSearchConfiguration.SupportedDimensions).Append(") = CAST(")
+                    .Append(queryEmbeddingParameter).Append(" AS VECTOR(").Append(VectorSearchConfiguration.SupportedDimensions).AppendLine("));");
+            }
+
+            // Fail-closed invariant: when a SMART compartment membership context was attached for this search
+            // (see SqlServerSearchService.AttachSmartCompartmentMembership), it must still be present on the
+            // root expression that reaches SQL generation. SmartCompartmentMembership is carried outside the
+            // visitable expression tree, so a rewrite step that reconstructs SqlRootExpression after the attach
+            // would silently drop it — and the include CTEs would be generated without compartment
+            // authorization. Refuse to generate that SQL. This cannot affect non-SMART or system-scope
+            // searches: IsSmartCompartmentSearch is only set when a membership context was actually attached.
+            if (context is SqlSearchOptions { IsSmartCompartmentSearch: true }
+                && expression.SmartCompartmentMembership == null
+                && expression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include))
+            {
+                throw new InvalidOperationException(
+                    "SMART compartment membership context was dropped before SQL generation; refusing to generate _include/_revinclude SQL without compartment authorization.");
+            }
 
             var visitedInclude = false;
             if (expression.SearchParamTableExpressions.Count > 0)
@@ -120,12 +163,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     throw new InvalidOperationException("Expected no predicates on the Resource table because of the presence of TableExpressions");
                 }
 
+                bool isIncludesCount = IsIncludesCount(context);
+
                 // Union expressions must be executed first than all other expressions. The overral idea is that Union All expressions will
                 // filter the highest group of records, and the following expressions will be executed on top of this group of records.
                 // If include, split SQL into 2 parts: 1st filter and preserve data in filtered data table variable, and 2nd - use persisted data
-                StringBuilder.Append("DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit, Row int");
+                if (!isIncludesCount)
+                {
+                    StringBuilder.Append("DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit, Row int");
+                }
+
                 var isSortValueNeeded = IsSortValueNeeded(context);
-                if (isSortValueNeeded)
+                if (!isIncludesCount && isSortValueNeeded)
                 {
                     var sortContext = GetSortRelatedDetails(context);
                     var dbType = sortContext.SortColumnName.Metadata.SqlDbType;
@@ -137,7 +186,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
                 }
 
-                StringBuilder.AppendLine(")");
+                if (_semanticMatchesRankedInTop)
+                {
+                    StringBuilder.Append(", ").Append(SemanticDistanceColumnName).Append(" float");
+                }
+
+                if (!isIncludesCount)
+                {
+                    StringBuilder.AppendLine(")");
+                }
+
                 bool hasIncludeExpressions = expression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
                 bool hasSmartV2UnionExpressionInTheSet = expression.SearchParamTableExpressions.Any(t => t.HasSmartV2UnionExpression());
 
@@ -145,7 +203,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 int numberOfUnionExpressions = expression.SearchParamTableExpressions.GetCountOfUnionAllExpressions();
                 int smartV2TableCounter = 0;
                 UnionExpression smartV2UnionExpression = null;
-                SearchParamTableExpressionQueryGenerator smartV2QueryGenerator = null;
                 StringBuilder.AppendLine(";WITH");
                 StringBuilder.AppendDelimited($"{Environment.NewLine},", expression.SearchParamTableExpressions.SortExpressionsByQueryLogic(), (sb, tableExpression) =>
                 {
@@ -157,10 +214,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             // Union expressions for smart v2 scopes with search parameters needs to be handled differently
                             smartV2TableCounter = _tableExpressionCounter;
                             smartV2UnionExpression = unionExpression;
-                            smartV2QueryGenerator = tableExpression.QueryGenerator;
 
                             var parametersBeforeSmartScopesAreApplied = Parameters.ParametersToHash;
-                            AppendSmartNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator, false);
+                            AppendSmartNewSetOfUnionAllTableExpressions(context, unionExpression, false);
 
                             if (hasIncludeExpressions)
                             {
@@ -171,7 +227,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         }
                         else
                         {
-                            AppendNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator);
+                            AppendNewSetOfUnionAllTableExpressions(context, unionExpression);
                         }
 
                         // Keep building the sql the old way when there are other remaining expressions after the union all without smart v2 scopes with search parameters
@@ -185,21 +241,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     else
                     {
                         // Look for include kind. Before going to include itself, add filtered data persistence.
-                        if (!visitedInclude && tableExpression.Kind == SearchParamTableExpressionKind.Include)
+                        if (!isIncludesCount && !visitedInclude && tableExpression.Kind == SearchParamTableExpressionKind.Include)
                         {
                             sb.Remove(sb.Length - 1, 1); // remove last comma
                             AddParametersHash(); // hash is required in upper SQL
-                            sb.AppendLine($"INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row{(isSortValueNeeded ? ", SortValue " : " ")}FROM cte{_tableExpressionCounter}");
+                            sb.AppendLine($"INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row{(isSortValueNeeded ? ", SortValue" : string.Empty)}{(_semanticMatchesRankedInTop ? $", {SemanticDistanceColumnName}" : string.Empty)} FROM cte{_tableExpressionCounter}");
                             AddOptionClause();
 
                             if (_smartV2UnionVisited)
                             {
-                                // If we have smart v2 scopes with search parameters we need to re-generate the scoped restricted data for the include
+                                // If we have smart v2 scopes with search parameters we need to re-generate the scope
+                                // restricted data set for the include, because the
+                                // include CTEs are emitted in a new ;WITH statement that cannot reference the CTEs above.
                                 sb.AppendLine("OPTION (RECOMPILE)");
                                 sb.AppendLine($";WITH");
                                 int saveTableExpressionCounter = _tableExpressionCounter;
                                 _tableExpressionCounter = smartV2TableCounter;
-                                AppendSmartNewSetOfUnionAllTableExpressions(context, smartV2UnionExpression, smartV2QueryGenerator, true);
+                                AppendSmartNewSetOfUnionAllTableExpressions(context, smartV2UnionExpression, true);
                                 _tableExpressionCounter = saveTableExpressionCounter;
                                 sb.AppendLine();
                                 sb.AppendLine($",cte{_tableExpressionCounter} AS (SELECT * FROM @FilteredData)");
@@ -221,32 +279,53 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.AppendLine();
             }
 
+            bool hasParametersHash = false;
             if (!visitedInclude)
             {
-                AddParametersHash(); // for include and rev-include we already added hash for all filtering conditions to the filter query
+                hasParametersHash = AddParametersHash(); // for include and rev-include we already added hash for all filtering conditions to the filter query
             }
             else if (visitedInclude && _smartV2UnionVisited)
             {
-                AddParametersHash(true); // for include and rev-include with smart v2 scopes with search parameters add the hash
+                hasParametersHash = AddParametersHash(true); // for include and rev-include with smart v2 scopes with search parameters add the hash
+            }
+            else
+            {
+                _queryShapePositions.Add((StringBuilder.Length, false));
             }
 
             string resourceTableAlias = "r";
             bool selectingFromResourceTable;
 
+            StringBuilder.Append("SELECT ");
+            if (!hasParametersHash && expression.SearchParamTableExpressions.Count == 0)
+            {
+                _queryShapePositions.Add((StringBuilder.Length, false));
+            }
+
             if (searchOptions.CountOnly)
             {
-                if (expression.SearchParamTableExpressions.Count > 0)
+                if (isVectorSearch)
+                {
+                    selectingFromResourceTable = true;
+
+                    // SELECT is already written above; each resource contributes at most one row (its best chunk).
+                    StringBuilder.Append("count_big(DISTINCT ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(")");
+                }
+                else if (expression.SearchParamTableExpressions.Count > 0)
                 {
                     // The last CTE has all the surrogate IDs that match the results.
                     // We just need to count those and don't need to join with the Resource table
                     selectingFromResourceTable = false;
-                    StringBuilder.AppendLine("SELECT count_big(DISTINCT Sid1)");
+
+                    // The $includes count is over distinct (ResourceTypeId, ResourceSurrogateId) pairs, which a single
+                    // count_big(DISTINCT ...) cannot express, so the distinct set is computed in a derived table below.
+                    StringBuilder.AppendLine(IsIncludesCount(context) ? "count_big(*)" : "count_big(DISTINCT Sid1)");
                 }
                 else
                 {
                     // We will be counting over the Resource table.
                     selectingFromResourceTable = true;
-                    StringBuilder.AppendLine("SELECT count_big(*)");
+                    StringBuilder.AppendLine("count_big(*)");
                 }
             }
             else
@@ -257,13 +336,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // to ensure pagination works correctly. Previously TOP was in the inner subquery without ORDER BY,
                 // causing SQL Server to return arbitrary rows before the outer ORDER BY reordered them.
                 // Fix for pagination bug introduced in commit 6dd540c7d.
-                if (expression.SearchParamTableExpressions.Count == 0)
+                // When the Top CTE pages semantic matches for includes, the result also holds included resources, so it is not limited here.
+                if ((expression.SearchParamTableExpressions.Count == 0 || isVectorSearch) && !_semanticMatchesRankedInTop)
                 {
-                    StringBuilder.Append("SELECT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") * FROM (");
+                    StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") * FROM (");
                 }
                 else
                 {
-                    StringBuilder.Append("SELECT * FROM (");
+                    StringBuilder.Append("* FROM (");
                 }
 
                 // DISTINCT is used since different ctes may return the same resources due to _include and _include:iterate search parameters
@@ -276,9 +356,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(", ")
                     .Append(VLatest.Resource.RequestMethod, resourceTableAlias).Append(", ");
 
-                // If there's a table expression, use the previously selected bit, otherwise everything in the select is considered a match
-                StringBuilder.Append(expression.SearchParamTableExpressions.Count > 0 ? "CAST(IsMatch AS bit) AS IsMatch, " : "CAST(1 AS bit) AS IsMatch, ");
-                StringBuilder.Append(expression.SearchParamTableExpressions.Count > 0 ? "CAST(IsPartial AS bit) AS IsPartial, " : "CAST(0 AS bit) AS IsPartial, ");
+                // If there's a table expression, use the previously selected bit, otherwise everything in the select is considered a match.
+                // Vector search suppresses the Top CTE that carries IsMatch/IsPartial, and every ranked row is a match,
+                // unless includes are expanded, in which case Top ranks the matches and the CTE marks them.
+                bool selectMatchBitFromCte = expression.SearchParamTableExpressions.Count > 0 && (!isVectorSearch || _semanticMatchesRankedInTop);
+                StringBuilder.Append(selectMatchBitFromCte ? "CAST(IsMatch AS bit) AS IsMatch, " : "CAST(1 AS bit) AS IsMatch, ");
+                StringBuilder.Append(selectMatchBitFromCte ? "CAST(IsPartial AS bit) AS IsPartial, " : "CAST(0 AS bit) AS IsPartial, ");
 
                 StringBuilder.Append(VLatest.Resource.IsRawResourceMetaSet, resourceTableAlias).Append(", ");
 
@@ -288,6 +371,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
+
+                if (_semanticMatchesRankedInTop)
+                {
+                    // Matches carry the distance ranked by Top; included resources carry NULL.
+                    StringBuilder.Append(", ").Append(TableExpressionName(_tableExpressionCounter)).Append('.').Append(SemanticDistanceColumnName);
+                }
+                else if (isVectorSearch)
+                {
+                    StringBuilder.Append(", semantic.SemanticDistance");
+                }
 
                 if (IsSortValueNeeded(context) && !context.IsIncludesOperation)
                 {
@@ -324,6 +417,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" = ").Append(TableExpressionName(_tableExpressionCounter)).AppendLine(".Sid1");
                 }
 
+                if (isVectorSearch && !_semanticMatchesRankedInTop)
+                {
+                    AppendSemanticSearch(sqlSearchOptions, isApproximateVectorSearch, approximateCandidateMultiplier, expression, resourceTableAlias, TableExpressionName(_tableExpressionCounter));
+                }
+
                 using (var delimitedClause = StringBuilder.BeginDelimitedWhereClause())
                 {
                     foreach (var denormalizedPredicate in expression.ResourceTableExpressions)
@@ -335,6 +433,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     AppendHistoryClause(delimitedClause, context.ResourceVersionTypes);
 
                     AppendDeletedClause(delimitedClause, context.ResourceVersionTypes);
+
+                    if (isVectorSearch && !_semanticMatchesRankedInTop)
+                    {
+                        AppendSemanticContinuation(delimitedClause, sqlSearchOptions, isApproximateVectorSearch, resourceTableAlias);
+                    }
                 }
 
                 if (!searchOptions.CountOnly)
@@ -350,7 +453,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append("IsMatch DESC, ");
                     }
 
-                    if (IsPrimaryKeySort(searchOptions))
+                    if (isVectorSearch && (searchOptions.Sort.Count == 0 || IsScoreSort(searchOptions)))
+                    {
+                        StringBuilder
+                            .Append("SemanticDistance ASC, ")
+                            .Append(VLatest.Resource.ResourceTypeId, orderTableAlias).Append(" ASC, ")
+                            .Append(VLatest.Resource.ResourceSurrogateId, orderTableAlias).AppendLine(" ASC ");
+                    }
+                    else if (IsPrimaryKeySort(searchOptions))
                     {
                         StringBuilder.AppendDelimited(", ", searchOptions.Sort, (sb, sort) =>
                         {
@@ -418,10 +528,200 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             else
             {
                 // this is selecting only from the last CTE (for a count)
-                StringBuilder.Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter));
+                if (IsIncludesCount(context))
+                {
+                    StringBuilder.Append("FROM (SELECT DISTINCT T1, Sid1 FROM ").Append(TableExpressionName(_tableExpressionCounter)).AppendLine(") AS IncludedResources");
+                }
+                else
+                {
+                    StringBuilder.Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter));
+                }
             }
 
             return null;
+        }
+
+        // Attaches the best-chunk SemanticDistance of each candidate resource as "semantic". Candidates are restricted to
+        // filterCte, the CTE holding the structured filter results, when one exists.
+        private void AppendSemanticSearch(SqlSearchOptions options, bool isApproximate, int candidateMultiplier, SqlRootExpression expression, string resourceTableAlias, string filterCte)
+        {
+            if (isApproximate)
+            {
+                AppendApproximateVectorSearchJoin(options, candidateMultiplier, expression, resourceTableAlias, filterCte);
+            }
+            else
+            {
+                AppendVectorSearchApply(options.PreparedVectorQuery, resourceTableAlias);
+            }
+        }
+
+        // Resumes after the last (distance, resource) returned by the previous page.
+        private void AppendSemanticContinuation(in IndentedStringBuilder.DelimitedScope delimitedClause, SqlSearchOptions options, bool isApproximate, string resourceTableAlias)
+        {
+            if (options.SemanticContinuationToken is not { } continuationToken)
+            {
+                return;
+            }
+
+            object distanceParameter = Parameters.AddParameter(continuationToken.Distance, includeInHash: false);
+            object resourceTypeParameter = Parameters.AddParameter(continuationToken.ResourceTypeId, includeInHash: false);
+            object surrogateIdParameter = Parameters.AddParameter(continuationToken.ResourceSurrogateId, includeInHash: false);
+
+            delimitedClause.BeginDelimitedElement();
+            StringBuilder
+                .Append("(semantic.SemanticDistance > ").Append(distanceParameter)
+                .Append(" OR (semantic.SemanticDistance = ").Append(distanceParameter).Append(" AND (")
+                .Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(" > ").Append(resourceTypeParameter)
+                .Append(" OR (").Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(" = ").Append(resourceTypeParameter)
+                .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" > ").Append(surrogateIdParameter)
+                .Append("))))");
+
+            if (isApproximate)
+            {
+                delimitedClause.BeginDelimitedElement();
+                AppendApproximateContinuationDuplicateGuard(options.PreparedVectorQuery, resourceTableAlias, distanceParameter);
+            }
+        }
+
+        private void AppendVectorSearchApply(PreparedVectorSearchQuery preparedQuery, string resourceTableAlias)
+        {
+            const string vectorTableAlias = "v";
+
+            short searchParamId = Model.GetSearchParamId(preparedQuery.SearchParameter.Url);
+            _searchParamIds.Add(searchParamId);
+            object distanceMetricParameter = Parameters.AddParameter(VectorSearchConfiguration.SupportedDistanceMetric, includeInHash: false);
+            object queryEmbeddingParameter = Parameters.AddParameter(SqlVectorFormatter.Format(preparedQuery.Embedding), includeInHash: false);
+            object maximumDistanceParameter = Parameters.AddParameter(2 * (1 - preparedQuery.MinimumScore), includeInHash: false);
+
+            StringBuilder.AppendLine("     CROSS APPLY")
+                .AppendLine("     (")
+                .Append("         SELECT TOP (1) VECTOR_DISTANCE(").Append(distanceMetricParameter).Append(", ")
+                .Append(VLatest.VectorSearchParam.Embedding, vectorTableAlias).Append(", CAST(")
+                .Append(queryEmbeddingParameter).Append(" AS VECTOR(").Append(VectorSearchConfiguration.SupportedDimensions).AppendLine("))) AS SemanticDistance")
+                .Append("         FROM ").Append(VLatest.VectorSearchParam).Append(" AS ").AppendLine(vectorTableAlias)
+                .Append("         WHERE ").Append(VLatest.VectorSearchParam.ResourceTypeId, vectorTableAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).AppendLine()
+                .Append("           AND ").Append(VLatest.VectorSearchParam.ResourceSurrogateId, vectorTableAlias).Append(" = ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine()
+                .Append("           AND ").Append(VLatest.VectorSearchParam.SearchParamId, vectorTableAlias).Append(" = ").Append(Parameters.AddParameter(VLatest.VectorSearchParam.SearchParamId, searchParamId, includeInHash: true)).AppendLine()
+                .Append("           AND ").Append(VLatest.VectorSearchParam.EmbeddingModelId, vectorTableAlias).Append(" = ").Append(Parameters.AddParameter(VLatest.VectorSearchParam.EmbeddingModelId, preparedQuery.EmbeddingModelId, includeInHash: false)).AppendLine()
+                .Append("           AND VECTOR_DISTANCE(").Append(distanceMetricParameter).Append(", ")
+                .Append(VLatest.VectorSearchParam.Embedding, vectorTableAlias).Append(", CAST(")
+                .Append(queryEmbeddingParameter).Append(" AS VECTOR(").Append(VectorSearchConfiguration.SupportedDimensions).Append("))) <= ").Append(maximumDistanceParameter).AppendLine()
+                .Append("         ORDER BY VECTOR_DISTANCE(").Append(distanceMetricParameter).Append(", ")
+                .Append(VLatest.VectorSearchParam.Embedding, vectorTableAlias).Append(", CAST(")
+                .Append(queryEmbeddingParameter).Append(" AS VECTOR(").Append(VectorSearchConfiguration.SupportedDimensions).Append("))), ")
+                .Append(VLatest.VectorSearchParam.ChunkOrdinal, vectorTableAlias).AppendLine(" ASC")
+                .AppendLine("     ) semantic");
+        }
+
+        // Approximate retrieval ranks only the nearest candidate chunks, so it is used only when a candidate multiplier is
+        // configured and results page in relevance order (no sort, or _score first). Counts and other sorts rank exactly.
+        private static bool UsesApproximateVectorSearch(SqlSearchOptions options, out int candidateMultiplier)
+        {
+            if (options.ApproximateVectorCandidateMultiplier is { } configuredMultiplier
+                && !options.CountOnly
+                && (options.Sort.Count == 0 || IsScoreSort(options)))
+            {
+                candidateMultiplier = configuredMultiplier;
+                return true;
+            }
+
+            candidateMultiplier = 0;
+            return false;
+        }
+
+        // Replaces the per-resource exact scan with a DiskANN candidate search. Structured filters sit inside the
+        // approximate block so that they are applied while the index is searched (iterative filtering) rather than
+        // after a fixed number of nearest neighbors was returned. Chunks are then reduced to the best one per resource.
+        // The outer query keeps every predicate, so this only narrows which candidates the index examines.
+        private void AppendApproximateVectorSearchJoin(SqlSearchOptions options, int candidateMultiplier, SqlRootExpression expression, string resourceTableAlias, string filterCte)
+        {
+            const string candidateAlias = "c";
+            const string vectorTableAlias = "v";
+            const string distanceAlias = "s";
+            const string resourceFilterAlias = "rr";
+            const string cteFilterAlias = "f";
+
+            PreparedVectorSearchQuery preparedQuery = options.PreparedVectorQuery;
+            short searchParamId = Model.GetSearchParamId(preparedQuery.SearchParameter.Url);
+            _searchParamIds.Add(searchParamId);
+
+            long candidateLimit = Math.Min(((long)options.MaxItemCount + 1) * candidateMultiplier, int.MaxValue);
+            object candidateLimitParameter = Parameters.AddParameter((int)candidateLimit, includeInHash: false);
+            object maximumDistanceParameter = Parameters.AddParameter(2 * (1 - preparedQuery.MinimumScore), includeInHash: false);
+
+            StringBuilder.AppendLine("     JOIN")
+                .AppendLine("     (")
+                .Append("         SELECT ").Append(VLatest.VectorSearchParam.ResourceTypeId, candidateAlias).Append(", ")
+                .Append(VLatest.VectorSearchParam.ResourceSurrogateId, candidateAlias).Append(", MIN(").Append(candidateAlias).AppendLine(".distance) AS SemanticDistance")
+                .AppendLine("         FROM")
+                .AppendLine("         (")
+                .Append("             SELECT TOP (").Append(candidateLimitParameter).Append(") WITH APPROXIMATE ")
+                .Append(VLatest.VectorSearchParam.ResourceTypeId, vectorTableAlias).Append(", ")
+                .Append(VLatest.VectorSearchParam.ResourceSurrogateId, vectorTableAlias).Append(", ").Append(distanceAlias).AppendLine(".distance")
+                .Append("             FROM VECTOR_SEARCH(TABLE = ").Append(VLatest.VectorSearchParam).Append(" AS ").Append(vectorTableAlias)
+                .Append(", COLUMN = ").Append(VLatest.VectorSearchParam.Embedding.ToString()).Append(", SIMILAR_TO = ").Append(ApproximateQueryVariable)
+                .Append(", METRIC = '").Append(VectorSearchConfiguration.SupportedDistanceMetric).Append("') AS ").AppendLine(distanceAlias);
+
+            bool filtersOnResourceTable = expression.SearchParamTableExpressions.Count == 0 && expression.ResourceTableExpressions.Count > 0;
+            if (filtersOnResourceTable)
+            {
+                StringBuilder.Append("             INNER JOIN ").Append(VLatest.Resource).Append(" AS ").Append(resourceFilterAlias).Append(" ON ")
+                    .Append(VLatest.Resource.ResourceTypeId, resourceFilterAlias).Append(" = ").Append(VLatest.VectorSearchParam.ResourceTypeId, vectorTableAlias).Append(" AND ")
+                    .Append(VLatest.Resource.ResourceSurrogateId, resourceFilterAlias).Append(" = ").Append(VLatest.VectorSearchParam.ResourceSurrogateId, vectorTableAlias).AppendLine();
+            }
+
+            StringBuilder.Append("             WHERE ").Append(VLatest.VectorSearchParam.SearchParamId, vectorTableAlias).Append(" = ").Append(Parameters.AddParameter(VLatest.VectorSearchParam.SearchParamId, searchParamId, includeInHash: true)).AppendLine()
+                .Append("               AND ").Append(VLatest.VectorSearchParam.EmbeddingModelId, vectorTableAlias).Append(" = ").Append(Parameters.AddParameter(VLatest.VectorSearchParam.EmbeddingModelId, preparedQuery.EmbeddingModelId, includeInHash: false)).AppendLine()
+                .Append("               AND ").Append(distanceAlias).Append(".distance <= ").Append(maximumDistanceParameter).AppendLine();
+
+            if (options.SemanticContinuationToken is { } continuationToken)
+            {
+                // The outer query applies the exact (distance, resource) boundary; this lets the index skip earlier pages.
+                StringBuilder.Append("               AND ").Append(distanceAlias).Append(".distance >= ").Append(Parameters.AddParameter(continuationToken.Distance, includeInHash: false)).AppendLine();
+            }
+
+            if (expression.SearchParamTableExpressions.Count > 0)
+            {
+                StringBuilder.Append("               AND EXISTS (SELECT 1 FROM ").Append(filterCte).Append(" AS ").Append(cteFilterAlias)
+                    .Append(" WHERE ").Append(cteFilterAlias).Append(".T1 = ").Append(VLatest.VectorSearchParam.ResourceTypeId, vectorTableAlias)
+                    .Append(" AND ").Append(cteFilterAlias).Append(".Sid1 = ").Append(VLatest.VectorSearchParam.ResourceSurrogateId, vectorTableAlias).AppendLine(")");
+            }
+
+            if (filtersOnResourceTable)
+            {
+                foreach (Expression resourceTablePredicate in expression.ResourceTableExpressions)
+                {
+                    StringBuilder.Append("               AND ");
+                    resourceTablePredicate.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext(resourceFilterAlias));
+                    StringBuilder.AppendLine();
+                }
+            }
+
+            StringBuilder.Append("             ORDER BY ").Append(distanceAlias).AppendLine(".distance")
+                .Append("         ) AS ").AppendLine(candidateAlias)
+                .Append("         GROUP BY ").Append(VLatest.VectorSearchParam.ResourceTypeId, candidateAlias).Append(", ")
+                .Append(VLatest.VectorSearchParam.ResourceSurrogateId, candidateAlias).AppendLine()
+                .Append("     ) AS semantic ON semantic.").Append(VLatest.VectorSearchParam.ResourceTypeId.ToString()).Append(" = ")
+                .Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(" AND semantic.").Append(VLatest.VectorSearchParam.ResourceSurrogateId.ToString()).Append(" = ")
+                .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine();
+        }
+
+        // The index lower bound (distance >= boundary) skips earlier pages, but it also hides the best chunk of a resource
+        // that was already returned while leaving its worse chunks visible, which would return the resource again with a
+        // worse distance. A resource whose true best chunk lies before the boundary belongs to an earlier page.
+        private void AppendApproximateContinuationDuplicateGuard(PreparedVectorSearchQuery preparedQuery, string resourceTableAlias, object boundaryDistanceParameter)
+        {
+            const string guardAlias = "b";
+
+            short searchParamId = Model.GetSearchParamId(preparedQuery.SearchParameter.Url);
+
+            StringBuilder.Append("NOT EXISTS (SELECT 1 FROM ").Append(VLatest.VectorSearchParam).Append(" AS ").Append(guardAlias)
+                .Append(" WHERE ").Append(VLatest.VectorSearchParam.ResourceTypeId, guardAlias).Append(" = ").Append(VLatest.Resource.ResourceTypeId, resourceTableAlias)
+                .Append(" AND ").Append(VLatest.VectorSearchParam.ResourceSurrogateId, guardAlias).Append(" = ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias)
+                .Append(" AND ").Append(VLatest.VectorSearchParam.SearchParamId, guardAlias).Append(" = ").Append(Parameters.AddParameter(VLatest.VectorSearchParam.SearchParamId, searchParamId, includeInHash: true))
+                .Append(" AND ").Append(VLatest.VectorSearchParam.EmbeddingModelId, guardAlias).Append(" = ").Append(Parameters.AddParameter(VLatest.VectorSearchParam.EmbeddingModelId, preparedQuery.EmbeddingModelId, includeInHash: false))
+                .Append(" AND VECTOR_DISTANCE('").Append(VectorSearchConfiguration.SupportedDistanceMetric).Append("', ")
+                .Append(VLatest.VectorSearchParam.Embedding, guardAlias).Append(", ").Append(ApproximateQueryVariable).Append(") < ").Append(boundaryDistanceParameter).AppendLine(")");
         }
 
         // TODO: Remove when code starts using TokenSearchParamHighCard table
@@ -436,14 +736,38 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
         }
 
-        private void AddParametersHash(bool forSmartV2Include = false)
+        internal string CalculateHashThenAddNormalizedQueryShape(
+            string queryText,
+            string normalizedQueryShape,
+            ISqlQueryHashCalculator queryHashCalculator,
+            out string queryHash)
+        {
+            queryHash = queryHashCalculator.CalculateHash(queryText);
+            if (string.IsNullOrEmpty(normalizedQueryShape))
+            {
+                return queryText;
+            }
+
+            // SqlCommandSimplifier skips CTE queries; its plain-query edits follow these SELECT/hash positions.
+            var annotated = new StringBuilder(queryText);
+            for (int i = _queryShapePositions.Count - 1; i >= 0; i--)
+            {
+                var (position, insideHash) = _queryShapePositions[i];
+                annotated.Insert(position, insideHash ? $" fhir={normalizedQueryShape}" : $"/* fhir={normalizedQueryShape} */ ");
+            }
+
+            return annotated.ToString();
+        }
+
+        private bool AddParametersHash(bool forSmartV2Include = false)
         {
             foreach (var searchParamId in Parameters.SearchParamIds)
             {
                 _searchParamIds.Add(searchParamId);
             }
 
-            if (Parameters.HasParametersToHash && !_reuseQueryPlans) // hash cannot be last comment as it will not be stored in query store
+            bool hasParametersHash = Parameters.HasParametersToHash && !_reuseQueryPlans;
+            if (hasParametersHash) // hash cannot be last comment as it will not be stored in query store
             {
                 // Add a hash of (most of the) parameter values as a comment.
                 // We do this to avoid re-using query plans unless two queries have
@@ -464,10 +788,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     Parameters.AppendHashedParameterNames(StringBuilder);
                 }
 
+                _queryShapePositions.Add((StringBuilder.Length, true));
                 StringBuilder.Append(ParametersHashEnd);
+            }
+            else if (_rootExpression.SearchParamTableExpressions.Count > 0)
+            {
+                _queryShapePositions.Add((StringBuilder.Length, false));
             }
 
             StringBuilder.AppendLine(); // do not include EOL into parameters hash line to get same behavior on Windows and Linux
+            return hasParametersHash;
         }
 
         /// <summary>
@@ -507,6 +837,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 const string referenceSourceTableAlias = "refSource";
                 const string referenceTargetResourceTableAlias = "refTarget";
+
+                if (searchParamTableExpression.ChainLevel > 0)
+                {
+                    _chainTableExpressionIndexes.Add(_tableExpressionCounter);
+                }
+                else
+                {
+                    _chainTableExpressionIndexes.Remove(_tableExpressionCounter);
+                }
 
                 switch (searchParamTableExpression.Kind)
                 {
@@ -707,6 +1046,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression, null, specialCaseTableName);
 
+                if (specialCaseTableName.Equals(VLatest.Resource))
+                {
+                    AppendDeletedClause(delimited, context.ResourceVersionTypes);
+                }
+
                 // For smart request when we have union of all scopes ANDed with their respective search parameters
                 // Like (ResourceType = x and searchParam1 = foo) Intersect (ResourceType = x and searchParam2 = doo) UNION (ResourceType = y and searchParam3 = goo) Intersect (ResourceType = y and searchParam4 = woo)
                 // To get the intersection we need to AppendIntersectionWithPredecessor
@@ -802,7 +1146,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private void HandleTableKindTop(SearchOptions context)
         {
             var tableExpressionName = TableExpressionName(_tableExpressionCounter - 1);
+
+            if (IsIncludesCount(context))
+            {
+                // The $includes count covers the whole original search, so the matches must not be truncated, paged or
+                // sorted. The Row column only exists to satisfy the shape of @FilteredData; it is never used for a count.
+                StringBuilder.Append("SELECT DISTINCT T1, Sid1, 1 AS IsMatch, 0 AS IsPartial, 0 AS Row FROM ").AppendLine(tableExpressionName);
+                _cteMainSelect = TableExpressionName(_tableExpressionCounter);
+                return;
+            }
+
             var sortExpression = IsSortValueNeeded(context) ? $"{tableExpressionName}.SortValue" : null;
+
+            if (_semanticMatchesRankedInTop)
+            {
+                HandleSemanticTop(context, tableExpressionName, sortExpression != null, AppendOrderBy);
+                return;
+            }
 
             bool hasIncludeExpression = _rootExpression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
 
@@ -821,7 +1181,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             // Everything in the top expression is considered a match
             const string selectStatement = "SELECT DISTINCT";
-            StringBuilder.Append(selectStatement).Append(" TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") T1, Sid1, 1 AS IsMatch, 0 AS IsPartial ")
+
+            // Normal searches fetch one extra match to detect the next page. When replaying a page for
+            // $includes, select only the matches actually returned so references from that extra match are excluded.
+            var matchPageSize = IncludesContinuationToken.FromString(context.IncludesContinuationToken)?.MatchPageSize;
+            StringBuilder.Append(selectStatement).Append(" TOP (").Append(Parameters.AddParameter(matchPageSize ?? context.MaxItemCount + 1, includeInHash: false)).Append(") T1, Sid1, 1 AS IsMatch, 0 AS IsPartial ")
                 .AppendLine(sortExpression == null ? string.Empty : $", {sortExpression}")
                 .Append("FROM ").AppendLine(tableExpressionName);
 
@@ -860,6 +1224,67 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 else
                 {
                     StringBuilder.Append("Sid1 ASC");
+                }
+            }
+        }
+
+        // Ranks and pages the semantic matches before _include/_revinclude expands them. Only resources with an embedding
+        // within the score threshold are matches, and only the returned page (Row < MaxItemCount + 1, so not the lookahead
+        // row) seeds the includes. Each match carries its best-chunk distance, which the final select returns as its score.
+        private void HandleSemanticTop(SearchOptions context, string filterCte, bool sortValueNeeded, Action appendStructuredOrderBy)
+        {
+            const string resourceTableAlias = "r";
+            const string candidateAlias = "p";
+
+            var sqlSearchOptions = (SqlSearchOptions)context;
+            bool isApproximate = UsesApproximateVectorSearch(sqlSearchOptions, out int candidateMultiplier);
+            bool rankByDistance = context.Sort.Count == 0 || IsScoreSort(context);
+
+            StringBuilder.Append("SELECT ROW_NUMBER() OVER (");
+            AppendOrderBy();
+            StringBuilder.AppendLine(") AS Row, *")
+                .AppendLine("FROM")
+                .AppendLine("(");
+
+            using (StringBuilder.Indent())
+            {
+                StringBuilder.Append("SELECT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") ")
+                    .Append(candidateAlias).Append(".T1, ").Append(candidateAlias).Append(".Sid1, 1 AS IsMatch, 0 AS IsPartial")
+                    .Append(sortValueNeeded ? $", {candidateAlias}.SortValue" : string.Empty)
+                    .Append(", semantic.").AppendLine(SemanticDistanceColumnName)
+                    .Append("FROM (SELECT DISTINCT T1, Sid1").Append(sortValueNeeded ? ", SortValue" : string.Empty)
+                    .Append(" FROM ").Append(filterCte).Append(") AS ").AppendLine(candidateAlias)
+                    .Append("JOIN ").Append(VLatest.Resource).Append(' ').Append(resourceTableAlias).Append(" ON ")
+                    .Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(" = ").Append(candidateAlias).Append(".T1 AND ")
+                    .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" = ").Append(candidateAlias).AppendLine(".Sid1");
+
+                AppendSemanticSearch(sqlSearchOptions, isApproximate, candidateMultiplier, _rootExpression, resourceTableAlias, filterCte);
+
+                using (var delimitedClause = StringBuilder.BeginDelimitedWhereClause())
+                {
+                    AppendHistoryClause(delimitedClause, context.ResourceVersionTypes, tableAlias: resourceTableAlias);
+                    AppendDeletedClause(delimitedClause, context.ResourceVersionTypes, resourceTableAlias);
+                    AppendSemanticContinuation(delimitedClause, sqlSearchOptions, isApproximate, resourceTableAlias);
+                }
+
+                AppendOrderBy();
+                StringBuilder.AppendLine();
+            }
+
+            StringBuilder.AppendLine(") t");
+
+            // The includes join on the ranked matches.
+            _cteMainSelect = TableExpressionName(_tableExpressionCounter);
+
+            void AppendOrderBy()
+            {
+                if (rankByDistance)
+                {
+                    StringBuilder.Append("ORDER BY ").Append(SemanticDistanceColumnName).Append(" ASC, T1 ASC, Sid1 ASC");
+                }
+                else
+                {
+                    appendStructuredOrderBy();
                 }
             }
         }
@@ -969,7 +1394,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.Append("SELECT DISTINCT ");
 
             // Adding 1 to the include count for detecting a case of truncated "include" resources.
-            StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.IncludeCount + 1, includeInHash: false)).Append(") ");
+            // A count must see every included resource, so it is not truncated.
+            if (!IsIncludesCount(context))
+            {
+                StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.IncludeCount + 1, includeInHash: false)).Append(") ");
+            }
 
             var table = !includeExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias;
 
@@ -986,48 +1415,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
-                // Smart V2 with SearchParam has a special handling for references resources
-                if (!_smartV2UnionVisited)
+                if (!includeExpression.WildCard)
                 {
-                    if (!includeExpression.WildCard)
-                    {
-                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.SearchParamId, referenceSourceTableAlias)
-                            .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.SearchParamId, Model.GetSearchParamId(includeExpression.ReferenceSearchParameter.Url), true));
+                    delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.SearchParamId, referenceSourceTableAlias)
+                        .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.SearchParamId, Model.GetSearchParamId(includeExpression.ReferenceSearchParameter.Url), true));
 
-                        if (includeExpression.TargetResourceType != null)
-                        {
-                            delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
-                                .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(includeExpression.TargetResourceType), true));
-                        }
-                        else if (includeExpression.AllowedResourceTypesByScope != null &&
-                                !includeExpression.AllowedResourceTypesByScope.Contains(KnownResourceTypes.All))
-                        {
-                            // AllowedResourceTypesByScope - types allowed by SMART scopes on this request
-                            // If the list contains "All", then we don't add a filter
-                            // Restrict the reference resource types that are returned to the allowed types by scope
-                            // For revinclude that would be ReferenceSearchParam.ResourceTypeId (Resource type that referes the target)
-                            // For include that would be ReferenceSearchParam.ReferenceResourceTypeId (Resource type that is refered by the source)
-                            // Smart V2 with SP has a special handling for references resources
-                            if (!includeExpression.Reversed)
-                            {
-                                delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
-                                    .Append(" IN (")
-                                    .Append(string.Join(", ", includeExpression.AllowedResourceTypesByScope.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(x), true))))
-                                    .Append(")");
-                            }
-                            else
-                            {
-                                // For _revinclude we need to filter on ResourceTypeId (the resource type that contains the reference)
-                                // Example: /Patient?_revinclude=*:* and scope Patient/Patient and Patient/Encounter
-                                // In this case, we need to filter the resources referring Patient by the allowed types by scope
-                                delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
-                                .Append(" IN (")
-                                .Append(string.Join(", ", includeExpression.AllowedResourceTypesByScope.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(x), true))))
-                                .Append(")");
-                            }
-                        }
+                    if (includeExpression.TargetResourceType != null)
+                    {
+                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
+                            .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(includeExpression.TargetResourceType), true));
                     }
-                    else if (includeExpression.WildCard && includeExpression.AllowedResourceTypesByScope != null &&
+                    else if (!_smartV2UnionVisited &&
+                            includeExpression.AllowedResourceTypesByScope != null &&
                             !includeExpression.AllowedResourceTypesByScope.Contains(KnownResourceTypes.All))
                     {
                         // AllowedResourceTypesByScope - types allowed by SMART scopes on this request
@@ -1035,6 +1434,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         // Restrict the reference resource types that are returned to the allowed types by scope
                         // For revinclude that would be ReferenceSearchParam.ResourceTypeId (Resource type that referes the target)
                         // For include that would be ReferenceSearchParam.ReferenceResourceTypeId (Resource type that is refered by the source)
+                        // Smart V2 with SP has a special handling for references resources
                         if (!includeExpression.Reversed)
                         {
                             delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
@@ -1052,6 +1452,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             .Append(string.Join(", ", includeExpression.AllowedResourceTypesByScope.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(x), true))))
                             .Append(")");
                         }
+                    }
+                }
+                else if (!_smartV2UnionVisited &&
+                        includeExpression.WildCard &&
+                        includeExpression.AllowedResourceTypesByScope != null &&
+                        !includeExpression.AllowedResourceTypesByScope.Contains(KnownResourceTypes.All))
+                {
+                    // AllowedResourceTypesByScope - types allowed by SMART scopes on this request
+                    // If the list contains "All", then we don't add a filter
+                    // Restrict the reference resource types that are returned to the allowed types by scope
+                    // For revinclude that would be ReferenceSearchParam.ResourceTypeId (Resource type that referes the target)
+                    // For include that would be ReferenceSearchParam.ReferenceResourceTypeId (Resource type that is refered by the source)
+                    if (!includeExpression.Reversed)
+                    {
+                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
+                            .Append(" IN (")
+                            .Append(string.Join(", ", includeExpression.AllowedResourceTypesByScope.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(x), true))))
+                            .Append(")");
+                    }
+                    else
+                    {
+                        // For _revinclude we need to filter on ResourceTypeId (the resource type that contains the reference)
+                        // Example: /Patient?_revinclude=*:* and scope Patient/Patient and Patient/Encounter
+                        // In this case, we need to filter the resources referring Patient by the allowed types by scope
+                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
+                        .Append(" IN (")
+                        .Append(string.Join(", ", includeExpression.AllowedResourceTypesByScope.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(x), true))))
+                        .Append(")");
                     }
                 }
 
@@ -1125,16 +1553,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
                 }
 
-                var includesContinuationToken = IncludesContinuationToken.FromString(context.IncludesContinuationToken);
-                if (!context.IsIncludesOperation || includesContinuationToken?.IncludeResourceTypeId == null || includesContinuationToken?.IncludeResourceSurrogateId == null)
+                if (includeExpression.Reversed && includeExpression.SourceResourceType != "*")
                 {
-                    if (includeExpression.Reversed && includeExpression.SourceResourceType != "*")
-                    {
-                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
-                            .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.SourceResourceType), true));
-                    }
+                    delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
+                        .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.SourceResourceType), true));
                 }
-                else
+
+                var includesContinuationToken = IncludesContinuationToken.FromString(context.IncludesContinuationToken);
+                if (context.IsIncludesOperation && !IsIncludesCount(context) && includesContinuationToken?.IncludeResourceTypeId != null && includesContinuationToken?.IncludeResourceSurrogateId != null)
                 {
                     var tableAlias = includeExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias;
                     delimited.BeginDelimitedElement()
@@ -1178,7 +1604,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 scope.Append(")");
 
-                if (includeExpression.AllowedResourceTypesByScope != null && !includeExpression.AllowedResourceTypesByScope.Contains(KnownResourceTypes.All) && _smartV2UnionVisited)
+                if (includeExpression.AllowedResourceTypesByScope != null && _smartV2UnionVisited)
                 {
                     if (!includeExpression.Reversed)
                     {
@@ -1199,11 +1625,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             .Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, referenceSourceTableAlias).Append(" = Sid1)");
                     }
                 }
+
+                if (_rootExpression.SmartCompartmentMembership != null)
+                {
+                    AppendSmartCompartmentCandidatePredicate(
+                        delimited.BeginDelimitedElement(),
+                        includeExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias,
+                        candidateIsResourceTable: !includeExpression.Reversed);
+                }
             }
 
             if (context.IsIncludesOperation)
             {
-                StringBuilder.AppendLine("ORDER BY T1 ASC, Sid1 ASC");
+                if (!IsIncludesCount(context))
+                {
+                    StringBuilder.AppendLine("ORDER BY T1 ASC, Sid1 ASC");
+                }
+
                 _includeCteIds.Add(TableExpressionName(_tableExpressionCounter));
             }
 
@@ -1215,7 +1653,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             // Update target reference cte dictionary
-            var curLimitCte = TableExpressionName(_tableExpressionCounter + 1);
+            // An includes operation has no per-include limit cte, so for a count the include cte itself is what
+            // :iterate expressions read from. Otherwise the cte that follows (the next include) would be referenced.
+            var curLimitCte = TableExpressionName(IsIncludesCount(context) ? _tableExpressionCounter : _tableExpressionCounter + 1);
 
             // Take the count before AddIncludeLimitCte because _includeFromCteIds?.Count will be incremented differently depending on the resource type.
             int count = _includeFromCteIds?.Count ?? 0;
@@ -1244,8 +1684,225 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
         }
 
+        private void AppendSmartCompartmentCandidatePredicate(
+            IndentedStringBuilder scope,
+            string candidateTableAlias,
+            bool candidateIsResourceTable)
+        {
+            const string membershipAlias = "smartCompartmentMembership";
+            const string rootAlias = "smartCompartmentRoot";
+
+            SmartCompartmentMembershipContext membership = _rootExpression.SmartCompartmentMembership;
+            var candidateResourceTypeId = candidateIsResourceTable
+                ? VLatest.Resource.ResourceTypeId
+                : VLatest.ReferenceSearchParam.ResourceTypeId;
+            var candidateResourceSurrogateId = candidateIsResourceTable
+                ? VLatest.Resource.ResourceSurrogateId
+                : VLatest.ReferenceSearchParam.ResourceSurrogateId;
+
+            object compartmentResourceTypeId = Parameters.AddParameter(
+                VLatest.Resource.ResourceTypeId,
+                Model.GetResourceTypeId(membership.CompartmentResourceType),
+                true);
+            object compartmentResourceId = Parameters.AddParameter(
+                VLatest.Resource.ResourceId,
+                membership.CompartmentResourceId,
+                true);
+
+            scope.Append("(")
+                .Append("(")
+                .Append(candidateResourceTypeId, candidateTableAlias)
+                .Append(" = ")
+                .Append(compartmentResourceTypeId)
+                .Append(" AND ");
+
+            if (candidateIsResourceTable)
+            {
+                scope.Append(VLatest.Resource.ResourceId, candidateTableAlias)
+                    .Append(" = ")
+                    .Append(compartmentResourceId);
+            }
+            else
+            {
+                scope.Append("EXISTS (SELECT 1 FROM ")
+                    .Append(VLatest.Resource)
+                    .Append(' ')
+                    .Append(rootAlias)
+                    .Append(" WHERE ")
+                    .Append(VLatest.Resource.ResourceTypeId, rootAlias)
+                    .Append(" = ")
+                    .Append(candidateResourceTypeId, candidateTableAlias)
+                    .Append(" AND ")
+                    .Append(VLatest.Resource.ResourceSurrogateId, rootAlias)
+                    .Append(" = ")
+                    .Append(candidateResourceSurrogateId, candidateTableAlias)
+                    .Append(" AND ")
+                    .Append(VLatest.Resource.ResourceId, rootAlias)
+                    .Append(" = ")
+                    .Append(compartmentResourceId)
+                    .Append(")");
+            }
+
+            scope.Append(")");
+
+            if (!membership.SharedResourceTypes.IsDefaultOrEmpty)
+            {
+                scope.Append(" OR ")
+                    .Append(candidateResourceTypeId, candidateTableAlias)
+                    .Append(" IN (")
+                    .Append(string.Join(
+                        ", ",
+                        membership.SharedResourceTypes.Select(resourceType => Parameters.AddParameter(
+                            VLatest.Resource.ResourceTypeId,
+                            Model.GetResourceTypeId(resourceType),
+                            true))))
+                    .Append(")");
+            }
+
+            if (!membership.MembershipRules.IsDefaultOrEmpty)
+            {
+                scope.Append(" OR EXISTS (SELECT 1 FROM ")
+                    .Append(VLatest.ReferenceSearchParam)
+                    .Append(' ')
+                    .Append(membershipAlias)
+                    .Append(" WHERE ")
+                    .Append(VLatest.ReferenceSearchParam.ResourceTypeId, membershipAlias)
+                    .Append(" = ")
+                    .Append(candidateResourceTypeId, candidateTableAlias)
+                    .Append(" AND ")
+                    .Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, membershipAlias)
+                    .Append(" = ")
+                    .Append(candidateResourceSurrogateId, candidateTableAlias)
+                    .Append(" AND ")
+                    .Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, membershipAlias)
+                    .Append(" = ")
+                    .Append(compartmentResourceTypeId)
+                    .Append(" AND ")
+                    .Append(VLatest.ReferenceSearchParam.ReferenceResourceId, membershipAlias)
+                    .Append(" = ")
+                    .Append(compartmentResourceId)
+                    .Append(" AND ")
+                    .Append(VLatest.ReferenceSearchParam.BaseUri, membershipAlias)
+                    .Append(" IS NULL AND (");
+
+                for (int ruleIndex = 0; ruleIndex < membership.MembershipRules.Length; ruleIndex++)
+                {
+                    SmartCompartmentMembershipRule rule = membership.MembershipRules[ruleIndex];
+                    if (ruleIndex > 0)
+                    {
+                        scope.Append(" OR ");
+                    }
+
+                    scope.Append("(")
+                        .Append(VLatest.ReferenceSearchParam.ResourceTypeId, membershipAlias)
+                        .Append(" = ")
+                        .Append(Parameters.AddParameter(
+                            VLatest.ReferenceSearchParam.ResourceTypeId,
+                            Model.GetResourceTypeId(rule.ResourceType),
+                            true))
+                        .Append(" AND ")
+                        .Append(VLatest.ReferenceSearchParam.SearchParamId, membershipAlias)
+                        .Append(" IN (")
+                        .Append(string.Join(
+                            ", ",
+                            rule.SearchParameterUrls.Select(url => Parameters.AddParameter(
+                                VLatest.ReferenceSearchParam.SearchParamId,
+                                Model.GetSearchParamId(url),
+                                true))))
+                        .Append("))");
+                }
+
+                scope.Append("))");
+            }
+
+            if (!membership.ConditionalRules.IsDefaultOrEmpty)
+            {
+                // Conditional-visibility legs (for example the SMART Device limits). Each rule authorizes a candidate
+                // of a given resource type that either references the compartment root (own device) or has no
+                // reference at all (unassigned device). Candidates that satisfy neither (for example a device
+                // assigned to a different patient) are excluded, closing the _include/_revinclude leak. This loop is
+                // generic: the rules are data supplied by SmartCompartmentSearchRewriter.GetConditionalCompartmentRules,
+                // so no resource-type-specific logic lives here.
+                for (int conditionalIndex = 0; conditionalIndex < membership.ConditionalRules.Length; conditionalIndex++)
+                {
+                    SmartCompartmentConditionalMembershipRule rule = membership.ConditionalRules[conditionalIndex];
+
+                    // Defense in depth. Only the two visibilities below authorize anything; anything else (today,
+                    // a Never rule used to fail closed when the restriction cannot be enforced) must not widen the
+                    // predicate. SmartCompartmentMembershipContextFactory already drops those rules, and this guard
+                    // keeps a future visibility value from silently falling into the "EXISTS" branch below.
+                    if (rule.Visibility != SmartCompartmentConditionalVisibility.HasNoReference &&
+                        rule.Visibility != SmartCompartmentConditionalVisibility.ReferencesCompartmentRoot)
+                    {
+                        continue;
+                    }
+
+                    string conditionalAlias = "smartCompartmentConditional" + conditionalIndex.ToString(CultureInfo.InvariantCulture);
+
+                    object ruleResourceTypeId = Parameters.AddParameter(
+                        VLatest.Resource.ResourceTypeId,
+                        Model.GetResourceTypeId(rule.ResourceType),
+                        true);
+                    object ruleSearchParamId = Parameters.AddParameter(
+                        VLatest.ReferenceSearchParam.SearchParamId,
+                        Model.GetSearchParamId(new Uri(rule.ReferenceSearchParameterUrl)),
+                        true);
+
+                    scope.Append(" OR (")
+                        .Append(candidateResourceTypeId, candidateTableAlias)
+                        .Append(" = ")
+                        .Append(ruleResourceTypeId)
+                        .Append(" AND ");
+
+                    scope.Append(rule.Visibility == SmartCompartmentConditionalVisibility.HasNoReference ? "NOT EXISTS" : "EXISTS")
+                        .Append(" (SELECT 1 FROM ")
+                        .Append(VLatest.ReferenceSearchParam)
+                        .Append(' ')
+                        .Append(conditionalAlias)
+                        .Append(" WHERE ")
+                        .Append(VLatest.ReferenceSearchParam.ResourceTypeId, conditionalAlias)
+                        .Append(" = ")
+                        .Append(candidateResourceTypeId, candidateTableAlias)
+                        .Append(" AND ")
+                        .Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, conditionalAlias)
+                        .Append(" = ")
+                        .Append(candidateResourceSurrogateId, candidateTableAlias)
+                        .Append(" AND ")
+                        .Append(VLatest.ReferenceSearchParam.SearchParamId, conditionalAlias)
+                        .Append(" = ")
+                        .Append(ruleSearchParamId);
+
+                    if (rule.Visibility == SmartCompartmentConditionalVisibility.ReferencesCompartmentRoot)
+                    {
+                        scope.Append(" AND ")
+                            .Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, conditionalAlias)
+                            .Append(" = ")
+                            .Append(compartmentResourceTypeId)
+                            .Append(" AND ")
+                            .Append(VLatest.ReferenceSearchParam.ReferenceResourceId, conditionalAlias)
+                            .Append(" = ")
+                            .Append(compartmentResourceId)
+                            .Append(" AND ")
+                            .Append(VLatest.ReferenceSearchParam.BaseUri, conditionalAlias)
+                            .Append(" IS NULL");
+                    }
+
+                    scope.Append("))");
+                }
+            }
+
+            scope.Append(")");
+        }
+
         private void HandleTableKindIncludeLimit(SearchOptions context)
         {
+            if (IsIncludesCount(context))
+            {
+                // A count must not be limited; pass the included resources through unchanged.
+                StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
+                return;
+            }
+
             StringBuilder.Append("SELECT DISTINCT TOP (")
                 .Append(Parameters.AddParameter(context.IncludeCount + 1, includeInHash: false))
                 .Append(") T1, Sid1, IsMatch, ");
@@ -1268,6 +1925,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindIncludeUnionAll(SearchOptions context)
         {
+            if (IsIncludesCount(context))
+            {
+                // Each union branch excludes matched resources; the include CTEs themselves do not, so :iterate
+                // can read them before this exclusion. The final count removes duplicates across branches with DISTINCT.
+                for (var index = 0; index < _includeCteIds.Count; index++)
+                {
+                    var includeCte = _includeCteIds[index];
+                    if (index > 0)
+                    {
+                        StringBuilder.AppendLine("UNION ALL");
+                    }
+
+                    StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial FROM ").Append(includeCte)
+                        .Append(" WHERE NOT EXISTS (SELECT * FROM ").Append(_cteMainSelect)
+                        .Append(" WHERE ").Append(_cteMainSelect).Append(".Sid1 = ").Append(includeCte).Append(".Sid1")
+                        .Append(" AND ").Append(_cteMainSelect).Append(".T1 = ").Append(includeCte).AppendLine(".T1)");
+                }
+
+                return;
+            }
+
             StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial ");
 
             bool sortValueNeeded = IsSortValueNeeded(context);
@@ -1275,12 +1953,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             // The includes operation does not contain matched resources, so no sort value is needed.
             if (sortValueNeeded && !context.IsIncludesOperation)
             {
-                StringBuilder.AppendLine(", SortValue");
+                StringBuilder.Append(", SortValue");
             }
-            else
+
+            if (_semanticMatchesRankedInTop)
             {
-                StringBuilder.AppendLine();
+                StringBuilder.Append(", ").Append(SemanticDistanceColumnName);
             }
+
+            StringBuilder.AppendLine();
 
             // Excluding a cte for matched resources for $includes operation.
             var rootCte = _cteMainSelect;
@@ -1299,12 +1980,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial");
                 if (sortValueNeeded && !context.IsIncludesOperation)
                 {
-                    StringBuilder.AppendLine(", NULL as SortValue ");
+                    StringBuilder.Append(", NULL as SortValue ");
                 }
-                else
+
+                if (_semanticMatchesRankedInTop)
                 {
-                    StringBuilder.AppendLine();
+                    // Included resources are not semantic matches and have no score.
+                    StringBuilder.Append(", NULL AS ").Append(SemanticDistanceColumnName);
                 }
+
+                StringBuilder.AppendLine();
 
                 // Matched results should be excluded from included CTEs
                 StringBuilder.Append("FROM ").Append(includeCte)
@@ -1422,7 +2107,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return new SearchParameterQueryGeneratorContext(StringBuilder, Parameters, Model, _schemaInfo, isAsyncOperation: _isAsyncOperation, tableAlias);
         }
 
-        private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator)
+        private void AppendNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression)
         {
             if (unionExpression.Operator != UnionOperator.All)
             {
@@ -1434,7 +2119,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             foreach (Expression innerExpression in unionExpression.Expressions)
             {
                 // Determine the appropriate query generator for this specific inner expression
-                var queryGenerator = DetermineQueryGeneratorForExpression(innerExpression, defaultQueryGenerator);
+                var queryGenerator = DetermineQueryGeneratorForExpression(innerExpression);
 
                 var searchParamExpression = new SearchParamTableExpression(
                     queryGenerator,
@@ -1496,7 +2181,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _firstChainAfterUnionVisited = false;
         }
 
-        private void AppendSmartNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator, bool skipJoinFromPreviousUnions)
+        private void AppendSmartNewSetOfUnionAllTableExpressions(SearchOptions context, UnionExpression unionExpression, bool skipJoinFromPreviousUnions)
         {
             if (unionExpression.Operator != UnionOperator.All)
             {
@@ -1516,7 +2201,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         // Determine the appropriate query generator for this specific inner expression
                         StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
-                        var childQueryGenerator = DetermineQueryGeneratorForExpression(childExpression, defaultQueryGenerator);
+                        var childQueryGenerator = DetermineQueryGeneratorForExpression(childExpression);
 
                         var childSearchParamExpression = new SearchParamTableExpression(
                             childQueryGenerator,
@@ -1538,7 +2223,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 else
                 {
                     // Determine the appropriate query generator for this specific inner expression
-                    var queryGenerator = DetermineQueryGeneratorForExpression(innerExpression, defaultQueryGenerator);
+                    var queryGenerator = DetermineQueryGeneratorForExpression(innerExpression);
 
                     var searchParamExpression = new SearchParamTableExpression(
                         queryGenerator,
@@ -1619,11 +2304,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         /// Determines the appropriate query generator for a specific expression within a UNION.
         /// This allows different expressions in a UNION to use different underlying SQL tables.
         /// </summary>
-        private SearchParamTableExpressionQueryGenerator DetermineQueryGeneratorForExpression(Expression expression, SearchParamTableExpressionQueryGenerator defaultQueryGenerator)
+        private SearchParamTableExpressionQueryGenerator DetermineQueryGeneratorForExpression(Expression expression)
         {
             // Use the factory to determine the appropriate query generator for this expression
             var specificGenerator = expression.AcceptVisitor(_queryGeneratorFactory, _queryGeneratorFactory.InitialContext);
-            return specificGenerator ?? defaultQueryGenerator;
+            return specificGenerator ?? NotReferencedQueryGenerator.Instance;
         }
 
         private bool UseAppendWithJoin()
@@ -1671,8 +2356,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // To simplify query plan generation, if we are intersecting with the Reference search param table, we will use an inner join
                 // rather than an EXISTS clause.  We have see that this significanlty reduces the query plan generation time for
                 // complex queries
-                sb.Append(_joinShift).Append("JOIN " + TableExpressionName(predecessorIndex - 0))
-                    .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
+                sb.Append(_joinShift).Append("JOIN ");
+                bool restartsChain = searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain && searchParamTableExpression.ChainLevel == 1;
+                bool filtersChainSources = searchParamTableExpression.ChainLevel == 0 && _chainTableExpressionIndexes.Contains(predecessorIndex);
+                if (_enableChainSourceDeduplication && (restartsChain || filtersChainSources))
+                {
+                    // Independent chains and root-level filters intersect on source existence, not on a chain's target.
+                    // Project unique source keys so the predecessor's matching references cannot multiply this table.
+                    sb.Append("(SELECT DISTINCT T1, Sid1 FROM ").Append(TableExpressionName(predecessorIndex)).Append(") predecessor");
+                }
+                else
+                {
+                    sb.Append(TableExpressionName(predecessorIndex));
+                }
+
+                sb.Append(" ON ").Append(VLatest.Resource.ResourceTypeId, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, tableAlias).Append(" = ").Append(intersectWithFirst ? "Sid1" : "Sid2")
                     .AppendLine();
             }
@@ -1801,14 +2499,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return _includeLimitCtesByResourceType.TryGetValue(resourceType, out ctes);
         }
 
+        /// <summary>
+        /// A count over an $includes operation counts the distinct included resources of the whole original search.
+        /// It ignores the includes continuation token (match page, include cursor, page sizes), the limits and the sort.
+        /// </summary>
+        private static bool IsIncludesCount(SearchOptions context) => context.CountOnly && context.IsIncludesOperation;
+
         private static bool IsPrimaryKeySort(SearchOptions searchOptions)
         {
             return searchOptions.Sort.All(s => s.searchParameterInfo.Name is SearchParameterNames.ResourceType or SearchParameterNames.LastUpdated);
         }
 
+        private static bool IsScoreSort(SearchOptions searchOptions)
+        {
+            return searchOptions.Sort.Count > 0 && searchOptions.Sort[0].searchParameterInfo.Name == SearchParameterNames.Score;
+        }
+
         internal bool IsSortValueNeeded(SearchOptions context)
         {
-            if (context.Sort.Count == 0)
+            if (context.Sort.Count == 0 || IsScoreSort(context))
             {
                 return false;
             }

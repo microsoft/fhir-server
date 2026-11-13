@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [RetryFact]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnIncompleteSearchParam_WhenDeletingConditionally_TheServerRespondsWithCorrectMessage()
         {
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [InlineData(1)]
         [InlineData(100)]
-        [RetryTheory]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenNoExistingResources_WhenDeletingConditionally_TheServerShouldReturnAccepted(int deleteCount)
         {
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(KnownQueryParameterNames.HardDelete, true, 100)]
         [InlineData(KnownQueryParameterNames.HardDelete, false, 1)]
         [InlineData(KnownQueryParameterNames.BulkHardDelete, false, 100)]
-        [RetryTheory]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenOneMatchingResource_WhenDeletingConditionally_TheServerShouldDeleteSuccessfully(string hardDeleteKey, bool hardDeleteValue, int deleteCount)
         {
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await ValidateResults(tag, 0);
         }
 
-        [RetryFact]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyInSingleMode_TheServerShouldReturnError()
         {
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(-1)]
         [InlineData(0)]
         [InlineData(int.MaxValue)]
-        [RetryTheory]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyWithOutOfRangeCount_TheServerShouldReturnError(int deleteCount)
         {
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [InlineData(true)]
         [InlineData(false)]
-        [RetryTheory]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyWithMultipleFlag_TheServerShouldDeleteSuccessfully(bool hardDelete)
         {
@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(false, 50, 50, 0)]
         [InlineData(true, 10, 5, 5)]
         [InlineData(false, 10, 5, 5)]
-        [RetryTheory]
+        [Theory]
         public async Task GivenMatchingResources_WhenDeletingConditionallyWithMultipleFlag_TheServerShouldDeleteSuccessfully(bool hardDelete, int create, int delete, int expected)
         {
             var tag = Guid.NewGuid().ToString();
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await ValidateResults(tag, expected);
         }
 
-        [RetryFact]
+        [Fact]
         public async Task GivenMatchingResources_WhenDeletingConditionallyWithInclude_ThenTheIncludedResourcesAreDeleted()
         {
             var tag = Guid.NewGuid().ToString();
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await ValidateResults(tag, 0);
         }
 
-        [RetryFact]
+        [Fact]
         public async Task GivenMatchingResources_WhenHardDeletingConditionallyWithInclude_ThenTheIncludedResourcesAreDeleted()
         {
             var tag = Guid.NewGuid().ToString();
@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await ValidateResults(tag, 0);
         }
 
-        [RetryFact]
+        [Fact]
         public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyWithInclude_ThenTheIncludedResourcesAreDeleted()
         {
             var tag = Guid.NewGuid().ToString();
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await ValidateResults(tag, 0);
         }
 
-        [RetryFact]
+        [Fact]
         public async Task GivenMatchingResources_WhenDeletingConditionallyWithMoreIncludedResourcesThanTheLimit_ThenBadRequestIsRetured()
         {
             var tag = Guid.NewGuid().ToString();

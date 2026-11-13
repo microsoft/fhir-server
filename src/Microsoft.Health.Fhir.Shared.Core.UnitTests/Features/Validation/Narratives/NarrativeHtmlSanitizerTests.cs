@@ -3,11 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
@@ -20,7 +26,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
 
         public NarrativeHtmlSanitizerTests()
         {
-            _sanitizer = new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance);
+            _sanitizer = CreateSanitizer();
+        }
+
+        private static NarrativeHtmlSanitizer CreateSanitizer(bool rejectDangerousHrefs = false, ILogger<NarrativeHtmlSanitizer> logger = null)
+        {
+            var config = new CoreFeatureConfiguration { RejectDangerousNarrativeHrefs = rejectDangerousHrefs };
+            return new NarrativeHtmlSanitizer(
+                logger ?? NullLogger<NarrativeHtmlSanitizer>.Instance,
+                Options.Create(config));
         }
 
         [Theory]
@@ -83,6 +97,157 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             var results = _sanitizer.Sanitize(input);
 
             Assert.Equal(output, results);
+        }
+
+        [Theory]
+        [InlineData("<div><a href=\"javascript:alert('XSS')\">click</a></div>")]
+        [InlineData("<div><a href=\"JAVASCRIPT:alert('XSS')\">click</a></div>")]
+        [InlineData("<div><a href=\"vbscript:MsgBox('XSS')\">click</a></div>")]
+        [InlineData("<div><a href=\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4=\">click</a></div>")]
+        public void GivenHtmlWithDangerousHref_WhenValidating_ThenWarningIsLoggedButValidationSucceeds(string html)
+        {
+            var results = _sanitizer.Validate(html);
+
+            Assert.Empty(results);
+        }
+
+        [Fact]
+        public void GivenHtmlWithDangerousHref_WhenValidatingInWarnMode_ThenWarningIsLogged()
+        {
+            var logger = Substitute.For<ILogger<NarrativeHtmlSanitizer>>();
+            var sanitizer = CreateSanitizer(rejectDangerousHrefs: false, logger: logger);
+
+            var results = sanitizer.Validate("<div><a href=\"javascript:alert('XSS')\">click</a></div>");
+
+            Assert.Empty(results);
+            logger.Received(1).Log(
+                LogLevel.Warning,
+                Arg.Any<EventId>(),
+                Arg.Any<object>(),
+                Arg.Any<Exception>(),
+                Arg.Any<Func<object, Exception, string>>());
+        }
+
+        [Theory]
+        [InlineData("<div><a href=\"javascript:alert('XSS')\">click</a></div>")]
+        [InlineData("<div><a href=\"JAVASCRIPT:alert('XSS')\">click</a></div>")]
+        [InlineData("<div><a href=\"vbscript:MsgBox('XSS')\">click</a></div>")]
+        [InlineData("<div><a href=\"data:text/html;base64,PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4=\">click</a></div>")]
+        public void GivenHtmlWithDangerousHref_WhenValidatingInRejectMode_ThenValidationErrorIsReturned(string html)
+        {
+            var sanitizer = CreateSanitizer(rejectDangerousHrefs: true);
+
+            var results = sanitizer.Validate(html);
+
+            Assert.NotEmpty(results);
+        }
+
+        [Theory]
+        [InlineData("<div><a href=\"https://example.com\">safe</a></div>")]
+        [InlineData("<div><a href=\"http://example.com\">safe</a></div>")]
+        [InlineData("<div><a href=\"#section1\">anchor</a></div>")]
+        [InlineData("<div><a href=\"mypage.html\">relative</a></div>")]
+        [InlineData("<div><a href=\"mailto:user@example.com\">email</a></div>")]
+        public void GivenHtmlWithSafeHref_WhenValidating_ThenValidationIsSuccessful(string html)
+        {
+            var results = _sanitizer.Validate(html);
+
+            Assert.Empty(results);
+        }
+
+        [Theory]
+        [InlineData("<div><a href=\"javascript:alert('XSS')\">click</a></div>", "<div><a>click</a></div>")]
+        [InlineData("<div><a href=\"data:text/html,<script>alert(1)</script>\">click</a></div>", "<div><a>click</a></div>")]
+        [InlineData("<div><a href=\"https://example.com\">safe</a></div>", "<div><a href=\"https://example.com\">safe</a></div>")]
+        public void GivenHtmlWithMaliciousHref_WhenSanitizing_ThenHrefIsRemoved(string input, string output)
+        {
+            var results = _sanitizer.Sanitize(input);
+
+            Assert.Equal(output, results);
+        }
+
+        // Leading ASCII whitespace / C0 control characters are normalized away by browsers before a URL's
+        // scheme is resolved. A naive StartsWith() check against the raw attribute value misses this
+        // normalization, allowing values like " javascript:alert(1)" to bypass the dangerous-href denylist
+        // even though a browser would still treat and execute them as javascript: URLs.
+        [Theory]
+        [InlineData("<div><a href=\" javascript:alert('XSS')\">click</a></div>")] // leading space (U+0020)
+        [InlineData("<div><a href=\"\tjavascript:alert('XSS')\">click</a></div>")] // leading tab (U+0009)
+        [InlineData("<div><a href=\"\rjavascript:alert('XSS')\">click</a></div>")] // leading CR (U+000D)
+        [InlineData("<div><a href=\"\njavascript:alert('XSS')\">click</a></div>")] // leading LF (U+000A)
+        [InlineData("<div><a href=\"\u0001javascript:alert('XSS')\">click</a></div>")] // leading C0 control (U+0001)
+        [InlineData("<div><a href=\"\u001Fjavascript:alert('XSS')\">click</a></div>")] // leading C0 control (U+001F)
+        [InlineData("<div><a href=\"  \t\r\njavascript:alert('XSS')\">click</a></div>")] // mixed leading whitespace
+        [InlineData("<div><a href=\" JaVaScRiPt:alert('XSS')\">click</a></div>")] // leading space + mixed case
+        [InlineData("<div><a href=\" vbscript:MsgBox('XSS')\">click</a></div>")]
+        [InlineData("<div><a href=\" data:text/html;base64,PHNjcmlwdD5hbGVydCgnWFNTJyk8L3NjcmlwdD4=\">click</a></div>")]
+        [InlineData("<div><a href=\" livescript:alert('XSS')\">click</a></div>")]
+        [InlineData("<div><a href=\" file:///etc/passwd\">click</a></div>")]
+        public void GivenHtmlWithLeadingWhitespaceOrControlCharsBeforeDangerousHrefScheme_WhenValidatingInRejectMode_ThenValidationErrorIsReturned(string html)
+        {
+            var sanitizer = CreateSanitizer(rejectDangerousHrefs: true);
+
+            var results = sanitizer.Validate(html);
+
+            Assert.NotEmpty(results);
+        }
+
+        [Theory]
+        [InlineData("<div><a href=\" javascript:alert('XSS')\">click</a></div>")]
+        [InlineData("<div><a href=\"\tjavascript:alert('XSS')\">click</a></div>")]
+        [InlineData("<div><a href=\"\rjavascript:alert('XSS')\">click</a></div>")]
+        [InlineData("<div><a href=\"\njavascript:alert('XSS')\">click</a></div>")]
+        [InlineData("<div><a href=\" vbscript:MsgBox('XSS')\">click</a></div>")]
+        public void GivenHtmlWithLeadingWhitespaceOrControlCharsBeforeDangerousHrefScheme_WhenSanitizing_ThenHrefIsRemoved(string html)
+        {
+            var results = _sanitizer.Sanitize(html);
+
+            Assert.DoesNotContain("href", results, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Theory]
+        [InlineData("<div><img src=\" javascript:alert('XSS')\" /></div>")] // leading space before disallowed scheme
+        [InlineData("<div><img src=\"\tjavascript:alert('XSS')\" /></div>")] // leading tab before disallowed scheme
+        [InlineData("<div><img src=\"\r\njavascript:alert('XSS')\" /></div>")] // leading CRLF before disallowed scheme
+        [InlineData("<div><img src=\"\u0001javascript:alert('XSS')\" /></div>")] // leading C0 control before disallowed scheme
+        public void GivenHtmlWithLeadingWhitespaceOrControlCharsBeforeDisallowedSrcScheme_WhenValidating_ThenValidationErrorIsReturned(string html)
+        {
+            var results = _sanitizer.Validate(html);
+
+            Assert.NotEmpty(results);
+        }
+
+        [Theory]
+        [InlineData("<div><img src=\" javascript:alert('XSS')\" /></div>", "<div><img></div>")]
+        [InlineData("<div><img src=\"\tjavascript:alert('XSS')\" /></div>", "<div><img></div>")]
+        public void GivenHtmlWithLeadingWhitespaceOrControlCharsBeforeDisallowedSrcScheme_WhenSanitizing_ThenSrcIsRemoved(string input, string output)
+        {
+            var results = _sanitizer.Sanitize(input);
+
+            Assert.Equal(output, results);
+        }
+
+        [Theory]
+        [InlineData("<div><a href=\"  https://example.com\">safe</a></div>")] // leading whitespace before safe https scheme
+        [InlineData("<div><a href=\"\thttp://example.com\">safe</a></div>")] // leading tab before safe http scheme
+        [InlineData("<div><a href=\"\r\nmailto:user@example.com\">email</a></div>")] // leading CRLF before safe mailto scheme
+        [InlineData("<div><a href=\" #section1\">anchor</a></div>")] // leading space before safe anchor
+        [InlineData("<div><a href=\" mypage.html\">relative</a></div>")] // leading space before safe relative reference
+        public void GivenHtmlWithLeadingWhitespaceBeforeSafeHrefScheme_WhenValidating_ThenValidationIsSuccessful(string html)
+        {
+            var results = _sanitizer.Validate(html);
+
+            Assert.Empty(results);
+        }
+
+        [Theory]
+        [InlineData("<div><img src=\"  https://example.com/image.png\" /></div>")]
+        [InlineData("<div><img src=\"\thttps://example.com/image.png\" /></div>")]
+        public void GivenHtmlWithLeadingWhitespaceBeforeSafeSrcScheme_WhenValidating_ThenValidationIsSuccessful(string html)
+        {
+            var results = _sanitizer.Validate(html);
+
+            Assert.Empty(results);
         }
     }
 }

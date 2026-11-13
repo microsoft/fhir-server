@@ -15,7 +15,7 @@ using Azure.Identity;
 using EnsureThat;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Utility;
-using MediatR;
+using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -111,6 +111,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 await EnqueueProcessingJobsAsync(jobInfo, inputData, result, cancellationToken);
                 _logger.LogJobInformation(jobInfo, "Registration of processing jobs completed.");
             }
+            catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogJobInformation(ex, jobInfo, "Import job canceled from cancellation token. {Message}", ex.Message);
+                await SendNotification(JobStatus.Cancelled, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
+                throw;
+            }
             catch (OperationCanceledException ex)
             {
                 _logger.LogJobInformation(ex, jobInfo, "Import job canceled. {Message}", ex.Message);
@@ -143,7 +149,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
 
                 await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
-                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, false);
+                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, ex, ex.IsCustomerCaused);
             }
             catch (CredentialUnavailableException ex)
             {
@@ -161,10 +167,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (Exception ex)
             {
-                _logger.LogJobError(ex, jobInfo, "Failed to register processing jobs.");
-                errorResult = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.InternalServerError };
+                bool isCustomerCaused = ex.IsCustomerCaused();
+                if (isCustomerCaused)
+                {
+                    _logger.LogJobWarning(ex, jobInfo, "Failed to register processing jobs due to a customer-caused error.");
+                }
+                else
+                {
+                    _logger.LogJobError(ex, jobInfo, "Failed to register processing jobs.");
+                }
+
+                errorResult = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = ex.GetJobFailureStatusCode() };
                 await SendNotification(JobStatus.Failed, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
-                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, false);
+                throw new JobExecutionException(errorResult.ErrorMessage, errorResult, ex, isCustomerCaused);
             }
 
             return JsonConvert.SerializeObject(result);
@@ -174,6 +189,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             await Parallel.ForEachAsync(inputData.Input, new ParallelOptions { MaxDegreeOfParallelism = 16 }, async (input, cancel) =>
             {
+                if (input.Url == null || !input.Url.IsAbsoluteUri)
+                {
+                    var errorResult = new ImportJobErrorResult { ErrorMessage = "Input blob URI must be a valid absolute URI.", HttpStatusCode = HttpStatusCode.BadRequest };
+                    throw new JobExecutionException(errorResult.ErrorMessage, errorResult, true);
+                }
+
                 Dictionary<string, object> properties = await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken);
                 if (!string.IsNullOrEmpty(input.Etag))
                 {
@@ -232,35 +253,60 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 failed,
                 importMode);
 
-            await mediator.Publish(importJobMetricsNotification, CancellationToken.None);
+            await mediator.PublishAsync(importJobMetricsNotification, CancellationToken.None);
         }
 
         private async Task EnqueueProcessingJobsAsync(JobInfo coord, ImportOrchestratorJobDefinition coordDefinition, ImportOrchestratorJobResult result, CancellationToken cancellationToken)
         {
-            // split blobs by size
             var inputs = new List<InputResource>();
-            await Parallel.ForEachAsync(coordDefinition.Input, new ParallelOptions { MaxDegreeOfParallelism = 16 }, async (input, cancel) =>
+            var bytesToRead = coordDefinition.ProcessingUnitBytesToRead == 0
+                            ? BytesToReadDefault
+                            : coordDefinition.ProcessingUnitBytesToRead;
+
+            if (coordDefinition.InMemoryTestProcessingJobs > 0)
             {
-                var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
-                result.TotalBytes += blobLength;
-                var bytesToRead = coordDefinition.ProcessingUnitBytesToRead == 0
-                                ? BytesToReadDefault
-                                : coordDefinition.ProcessingUnitBytesToRead;
-                foreach (var offset in GetOffsets(blobLength, bytesToRead))
+                // Test-only: use the first provided input as a template and generate the requested number of
+                // in-memory processing jobs from it (each with its own unique inmemorytest:// URL), so tests can
+                // exercise orchestrator scaling without needing to construct that many distinct input files.
+                var template = coordDefinition.Input[0];
+                var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(template.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
+                for (var i = 0; i < coordDefinition.InMemoryTestProcessingJobs; i++)
                 {
-                    var newInput = input.Clone();
-                    newInput.Offset = offset;
-                    newInput.BytesToRead = bytesToRead;
-                    lock (inputs)
-                    {
-                        inputs.Add(newInput);
-                    }
+                    result.TotalBytes += blobLength;
+                    var syntheticInput = template.Clone();
+                    syntheticInput.Url = new Uri($"{IntegrationDataStoreClientConstants.InMemoryTestSourceScheme}://{template.Url.Host}-{i}");
+                    AddNewInput(inputs, syntheticInput, 0, bytesToRead);
                 }
-            });
+            }
+            else
+            {
+                // split blobs by size
+                await Parallel.ForEachAsync(coordDefinition.Input, new ParallelOptions { MaxDegreeOfParallelism = 16 }, async (input, cancel) =>
+                {
+                    var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
+                    result.TotalBytes += blobLength;
+
+                    foreach (var offset in GetOffsets(blobLength, bytesToRead))
+                    {
+                        AddNewInput(inputs, input, offset, bytesToRead);
+                    }
+                });
+            }
 
             var jobIds = await EnqueueProcessingJobsAsync(inputs, coord.GroupId, coordDefinition, cancellationToken);
 
             result.CreatedJobs = jobIds.Count;
+        }
+
+        private static void AddNewInput(List<InputResource> inputs, InputResource input, long offset, int bytesToRead)
+        {
+            var newInput = input.Clone();
+            newInput.Offset = offset;
+            newInput.BytesToRead = bytesToRead;
+            lock (inputs)
+            {
+                inputs.Add(newInput);
+            }
         }
 
         internal static IEnumerable<long> GetOffsets(long blobLength, int bytesToRead)
@@ -303,10 +349,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 var jobIds = await _timeoutRetries.ExecuteAsync(async () => (await _queueClient.EnqueueAsync(QueueType.Import, cancellationToken, groupId: groupId, definitions: definitions.ToArray())).Select(x => x.Id).OrderBy(x => x).ToList());
                 return jobIds;
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
-                _logger.LogJobError(ex, orchestratorInfo, "Failed to enqueue jobs.");
-                throw new JobExecutionException("Failed to enqueue jobs.", new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.InternalServerError}, false);
+                bool isCustomerCaused = ex.IsCustomerCaused();
+                if (isCustomerCaused)
+                {
+                    _logger.LogJobWarning(ex, orchestratorInfo, "Failed to enqueue jobs due to a customer-caused error.");
+                }
+                else
+                {
+                    _logger.LogJobError(ex, orchestratorInfo, "Failed to enqueue jobs.");
+                }
+
+                throw new JobExecutionException("Failed to enqueue jobs.", new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = ex.GetJobFailureStatusCode() }, ex, isCustomerCaused);
             }
         }
     }

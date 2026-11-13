@@ -71,7 +71,10 @@
         {
             "name": "smartUser",
             "dataActions": [
-                "*",
+                "read",
+                "readById",
+                "search",
+                "export",
                 "smart"
             ],
             "notDataActions": [],

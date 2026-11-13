@@ -11,17 +11,19 @@ using System.Net;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Models;
@@ -60,16 +62,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task<EntryComponent> ExecuteRequestsInParallelAsync(
             Hl7.Fhir.Model.Bundle responseBundle,
-            List<ResourceExecutionContext> resources,
+            List<BundleHandlerInternalOperationExecutionContext> resources,
             IBundleOrchestratorOperation bundleOperation,
             EntryComponent throttledEntryComponent,
             BundleHandlerStatistics statistics,
             CancellationToken cancellationToken)
         {
+            if (!_bundleType.HasValue)
+            {
+                throw new MethodNotAllowedException(string.Format(Api.Resources.InvalidBundleType, _bundleType));
+            }
+
             if (!resources.Any())
             {
                 return await Task.FromResult(throttledEntryComponent);
             }
+
+            BundleExecutionContext bundleExecutionContext = new BundleExecutionContext(
+                _bundleConfiguration,
+                _bundleType.Value,
+                _requestCount);
 
             using (CancellationTokenSource requestCancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
@@ -79,7 +91,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 IBundleHttpContextAccessor bundleHttpContextAccessor = _bundleHttpContextAccessor;
 
                 // Parallel Resource Handling Function.
-                Func<ResourceExecutionContext, CancellationToken, Task> handleRequestFunction = async (ResourceExecutionContext resourceExecutionContext, CancellationToken ct) =>
+                Func<BundleHandlerInternalOperationExecutionContext, CancellationToken, Task> handleRequestFunction = async (BundleHandlerInternalOperationExecutionContext resourceExecutionContext, CancellationToken ct) =>
                 {
                     _logger.LogInformation("BundleHandler - Running '{HttpVerb}' Request #{RequestNumber} out of {TotalNumberOfRequests}.", resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, bundleOperation.OriginalExpectedNumberOfResources);
 
@@ -94,11 +106,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         EntryComponent entry = await HandleRequestAsync(
                             responseBundle,
+                            bundleExecutionContext,
                             resourceExecutionContext,
                             throttledEntryComponent,
-                            _bundleType,
                             bundleOperation,
-                            _requestCount,
                             auditEventTypeMapping,
                             originalFhirRequestContext,
                             requestContext,
@@ -107,7 +118,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             fhirJsonParser,
                             statistics,
                             _logger,
-                            _bundleConfiguration,
                             ct);
 
                         DetectNeedToRefreshProfiles(resourceExecutionContext.ResourceType);
@@ -121,19 +131,37 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         // If the exception raised is a OperationCanceledException, then either client cancelled the request or httprequest timed out.
                         _logger.LogWarning(ex, "Bundle request timed out. Elapsed time {TotalElapsedMilliseconds}ms. Error: {ErrorMessage}", watch.Elapsed.TotalMilliseconds, ex.Message);
                     }
+                    catch (JobConflictException ex) when (bundleExecutionContext.BundleType == BundleType.Batch)
+                    {
+                        _logger.LogInformation(ex, "BundleHandler - Batch request #{RequestNumber} completed with conflict while reindex is in progress.", resourceExecutionContext.Index);
+
+                        var entry = new EntryComponent
+                        {
+                            Response = new ResponseComponent
+                            {
+                                Status = ((int)HttpStatusCode.Conflict).ToString(),
+                                Outcome = CreateOperationOutcome(OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Conflict, ex.Message),
+                            },
+                        };
+
+                        responseBundle.Entry[resourceExecutionContext.Index] = entry;
+                        statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, HttpStatusCode.Conflict, watch.Elapsed, resourceExecutionContext.IsConditionalOperation);
+                    }
                     catch (BaseFhirTransactionException ex)
                     {
                         if (ex is FhirTransactionCancelledException tce)
                         {
                             // Handles client cancelled operations.
                             _logger.LogWarning(tce, $"BundleHandler - Failed transaction. Error caused due an external cancellation. Canceling Bundle Orchestrator Operation. HttpStatusCode: {tce.ResponseStatusCode}");
-                            statistics.MarkBundleAsCancelled();
+                            statistics.SetBundleAsCancelled();
+                            bundleExecutionContext.SetTransactionFailedByClientCancellation();
                         }
                         else if (ex is FhirTransactionFailedException tfe && tfe.IsErrorCausedDueClientFailure())
                         {
                             // Handles client failures.
                             _logger.LogWarning(tfe, $"BundleHandler - Failed transaction. Error caused due a client failure. Cancelling Bundle Orchestrator Operation. HttpStatusCode: {tfe.ResponseStatusCode}");
-                            statistics.MarkBundleAsFailedDueClientError();
+                            statistics.SetBundleAsFailedByClientError();
+                            bundleExecutionContext.SetTransactionFailedByClientError();
                         }
                         else
                         {
@@ -149,12 +177,31 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     }
                 };
 
-                List<Task> requestsPerResource = new List<Task>();
-                foreach (ResourceExecutionContext resourceContext in resources)
+                int conditionalOperationsCounter = 0;
+                int conditionalOperationsGroupSize = _bundleConfiguration.ConditionalOperationGroupSize;
+                if (conditionalOperationsGroupSize <= 0)
                 {
-                    requestsPerResource.Add(handleRequestFunction(resourceContext, requestCancellationToken.Token));
+                    conditionalOperationsGroupSize = BundleConfiguration.DefaultConditionalOperationGroupSize;
                 }
 
+                List<Task> requestsPerResource = new List<Task>();
+                foreach (BundleHandlerInternalOperationExecutionContext resourceContext in resources)
+                {
+                    requestsPerResource.Add(handleRequestFunction(resourceContext, requestCancellationToken.Token));
+
+                    if (_isConditionalOperationThrottlingEnabled && resourceContext.IsConditionalOperation)
+                    {
+                        conditionalOperationsCounter++;
+                        if (conditionalOperationsCounter % conditionalOperationsGroupSize == 0)
+                        {
+                            _totalThrottledDelays++;
+                            _logger.LogInformation($"BundleHandler - Conditional Operation Throttling - {_bundleConfiguration.ConditionalOperationGroupDelayInMilliseconds}ms");
+                            await Task.Delay(_bundleConfiguration.ConditionalOperationGroupDelayInMilliseconds, CancellationToken.None);
+                        }
+                    }
+                }
+
+                Task parallelRequests = null;
                 try
                 {
                     // The following Task.WhenAll should wait for all requests to finish.
@@ -165,28 +212,29 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     // Based on tests, as suggested by the following article, disposing Tasks does not bring any benefits.
                     // Ref: Do I need to dispose of Tasks? https://devblogs.microsoft.com/dotnet/do-i-need-to-dispose-of-tasks/
 
-                    await Task.WhenAll(requestsPerResource);
-                }
-                catch (AggregateException age)
-                {
-                    BaseFhirTransactionException fte = age.InnerExceptions.Where(e => e is BaseFhirTransactionException).FirstOrDefault() as BaseFhirTransactionException;
-                    if (fte != null)
-                    {
-                        // If one of the exceptions raised is a FhirTransactionFailedException, then keep its origin.
-                        ExceptionDispatchInfo.Capture(fte).Throw();
-                    }
-
-                    _logger.LogError(age, "Multiple failures while processing bundle in parallel. Error: {ErrorMessage}", age.Message);
-                    throw;
+                    parallelRequests = Task.WhenAll(requestsPerResource);
+                    await parallelRequests;
                 }
                 catch (Exception ex)
                 {
+                    // Stage 1 - Identify prioritized exceptions with client errors.
+                    if (bundleExecutionContext.IsTransactionFailedByClientError && parallelRequests != null && parallelRequests.Exception != null)
+                    {
+                        // FhirTransactionFailedException - It means that the transaction failed due a possible client error.
+                        FhirTransactionFailedException clientException = BundleHandlerRuntime.GetPrioritizedClientException(parallelRequests.Exception);
+                        if (clientException != null)
+                        {
+                            ExceptionDispatchInfo.Capture(clientException).Throw();
+                        }
+                    }
+
+                    // Stage 2 - Handle FhirTransactionCancelledException or any other BaseFhirTransactionException that is not prioritized by client errors.
                     if (ex is BaseFhirTransactionException)
                     {
-                        // If one the exception raised is a FHIR Transaction Exception, then keep its origin.
                         throw;
                     }
 
+                    // Stage 3 - Handle other exception types.
                     _logger.LogError(ex, "Failure while processing bundle in parallel. Error: {ErrorMessage}", ex.Message);
                     throw;
                 }
@@ -227,7 +275,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// * If a resource finishes while the Bundle Operation is still "waiting for resources", it means that resource followed an unexpected path, and
         /// it should be released.
         /// </remarks>
-        private async Task SetResourceProcessingStatusAsync(HTTPVerb httpVerb, ResourceExecutionContext resourceExecutionContext, IBundleOrchestratorOperation bundleOperation, EntryComponent entry, CancellationToken cancellationToken)
+        private async Task SetResourceProcessingStatusAsync(HTTPVerb httpVerb, BundleHandlerInternalOperationExecutionContext resourceExecutionContext, IBundleOrchestratorOperation bundleOperation, EntryComponent entry, CancellationToken cancellationToken)
         {
             string resourceFinalStatusCode = entry.Response.Status;
 
@@ -273,11 +321,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private static async Task<EntryComponent> HandleRequestAsync(
             Hl7.Fhir.Model.Bundle responseBundle,
-            ResourceExecutionContext resourceExecutionContext,
+            BundleExecutionContext bundleExecutionContext,
+            BundleHandlerInternalOperationExecutionContext resourceExecutionContext,
             EntryComponent throttledEntryComponent,
-            BundleType? bundleType,
             IBundleOrchestratorOperation bundleOperation,
-            int requestCount,
             IAuditEventTypeMapping auditEventTypeMapping,
             IFhirRequestContext originalFhirRequestContext,
             RequestContextAccessor<IFhirRequestContext> requestContext,
@@ -286,7 +333,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             FhirJsonParser fhirJsonParser,
             BundleHandlerStatistics statistics,
             ILogger<BundleHandler> logger,
-            BundleConfiguration bundleConfiguration,
             CancellationToken cancellationToken)
         {
             EntryComponent entryComponent;
@@ -302,7 +348,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     logger.LogInformation(
                         "BundleHandler was throttled, subsequent actions will be skipped and HTTP 429 will be added as a result. HttpVerb:{HttpVerb} BundleSize: {RequestCount} EntryIndex: {EntryIndex}",
                         resourceExecutionContext.HttpVerb,
-                        requestCount,
+                        bundleExecutionContext.RequestCount,
                         resourceExecutionContext.Index);
                     entryComponent = throttledEntryComponent;
                 }
@@ -314,7 +360,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     httpContext.RequestAborted = cancellationToken;
 
                     SetupContexts(
-                        bundleType,
+                        bundleExecutionContext.BundleType,
                         resourceExecutionContext.Context,
                         resourceExecutionContext.HttpVerb,
                         resourceExecutionContext.PersistedId,
@@ -327,32 +373,60 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         bundleHttpContextAccessor,
                         logger);
 
-                    // Attempt 1.
-                    await resourceExecutionContext.Context.Handler.Invoke(httpContext);
+                    IFhirRequestContext entryRequestContext = requestContext.RequestContext;
 
-                    // Should we continue retrying HTTP 429s?
-                    // As we'll start running more requests in parallel, the risk of raising more HTTP 429s is hight.
-                    // -----------
-                    // We will retry a 429 one time per request in the bundle
-                    if (httpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests)
+                    try
                     {
-                        logger.LogInformation(
-                            "BundleHandler received HTTP 429 response, attempting retry.  HttpVerb:{HttpVerb} BundleSize:{RequestCount} EntryIndex:{EntryIndex}",
-                            resourceExecutionContext.HttpVerb,
-                            requestCount,
-                            resourceExecutionContext.Index);
-
-                        int retryDelay = 2;
-                        var retryAfterValues = httpContext.Response.Headers.GetCommaSeparatedValues("Retry-After");
-                        if (retryAfterValues != StringValues.Empty && int.TryParse(retryAfterValues[0], out var retryHeaderValue))
-                        {
-                            retryDelay = retryHeaderValue;
-                        }
-
-                        await Task.Delay(retryDelay * 1000, cancellationToken); // multiply by 1000 as retry-header specifies delay in seconds
-
-                        // Attempt 2.
+                        // Attempt 1.
                         await resourceExecutionContext.Context.Handler.Invoke(httpContext);
+
+                        // Should we continue retrying HTTP 429s?
+                        // As we'll start running more requests in parallel, the risk of raising more HTTP 429s is hight.
+                        // -----------
+                        // We will retry a 429 one time per request in the bundle
+                        if (httpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests)
+                        {
+                            logger.LogInformation(
+                                "BundleHandler received HTTP 429 response, attempting retry.  HttpVerb:{HttpVerb} BundleSize:{RequestCount} EntryIndex:{EntryIndex}",
+                                resourceExecutionContext.HttpVerb,
+                                bundleExecutionContext.RequestCount,
+                                resourceExecutionContext.Index);
+
+                            try
+                            {
+                                await BundleHandlerRuntime.DelayWithRetryAfterAsync(httpContext, cancellationToken);
+                            }
+                            catch (OperationCanceledException oce)
+                            {
+                                logger.LogWarning(oce, "BundleHandler received 429 message, client cancelled during retry delay. HttpVerb:{HttpVerb} BundleSize: {RequestCount} entryIndex:{EntryIndex}", resourceExecutionContext.HttpVerb, bundleExecutionContext.RequestCount, resourceExecutionContext.Index);
+
+                                // This is an edge case scenario when the client cancels the request during the retry delay.
+                                // We should respect the cancellation and not attempt to process the request further.
+
+                                entryComponent = HandleCancelledRetryRequest(
+                                    responseBundle,
+                                    resourceExecutionContext,
+                                    bundleExecutionContext.BundleType,
+                                    statistics,
+                                    bundleExecutionContext.Configuration,
+                                    watch,
+                                    httpContext,
+                                    isOperationCancelledByClientError: bundleExecutionContext.IsTransactionFailedByClientError,
+                                    cancellationToken);
+
+                                // This action was throttled and then cancelled. Capture the entry and reuse it for subsequent actions.
+                                throttledEntryComponent = entryComponent;
+
+                                return entryComponent;
+                            }
+
+                            // Attempt 2.
+                            await resourceExecutionContext.Context.Handler.Invoke(httpContext);
+                        }
+                    }
+                    finally
+                    {
+                        RegisterEntrySearchIndexValues(statistics, resourceExecutionContext, entryRequestContext);
                     }
 
                     entryComponent = CreateEntryComponent(fhirJsonParser, httpContext);
@@ -365,12 +439,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         }
                     }
 
-                    if (bundleType == BundleType.Batch && entryComponent.Response.Status == "429")
+                    if (bundleExecutionContext.BundleType == BundleType.Batch && entryComponent.Response.Status == "429")
                     {
                         logger.LogInformation(
                             "BundleHandler received HTTP 429 response after retry, now aborting remainder of bundle. HttpVerb:{HttpVerb} BundleSize:{RequestCount} EntryIndex:{EntryIndex}",
                             resourceExecutionContext.HttpVerb,
-                            requestCount,
+                            bundleExecutionContext.RequestCount,
                             resourceExecutionContext.Index);
 
                         // this action was throttled. Capture the entry and reuse it for subsequent actions.
@@ -393,27 +467,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 };
             }
 
-            statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, entryComponent.Response.Status, watch.Elapsed);
+            HttpStatusCode httpStatusCode = GetFinalHttpStatusCode(entryComponent, bundleExecutionContext);
+            statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, httpStatusCode, watch.Elapsed, resourceExecutionContext.IsConditionalOperation);
 
-            if (bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
+            if (bundleExecutionContext.BundleType == BundleType.Transaction && entryComponent.Response.Outcome != null)
             {
-                // Bug 182314: Standardize status code returned when a bundle fails.
-
-                if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
-                {
-                    httpStatusCode = HttpStatusCode.BadRequest;
-                }
-
-                var errorMessage = string.Format(
-                    Api.Resources.TransactionFailed,
-                    resourceExecutionContext.Context.HttpContext.Request.Method,
-                    resourceExecutionContext.Context.HttpContext.Request.Path);
-
-                TransactionExceptionHandler.ThrowTransactionException(
-                    errorMessage,
+                RaiseFhirTransactionException(
+                    resourceExecutionContext,
                     httpStatusCode,
-                    (OperationOutcome)entryComponent.Response.Outcome,
-                    cancelled: BundleHandlerRuntime.IsTransactionCancelledByClient(watch.Elapsed, bundleConfiguration, cancellationToken));
+                    entryComponent,
+                    isOperationCancelledByClient: !bundleExecutionContext.IsTransactionFailedByClientError && BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, bundleExecutionContext.Configuration, cancellationToken));
             }
 
             responseBundle.Entry[resourceExecutionContext.Index] = entryComponent;
@@ -421,26 +484,99 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return entryComponent;
         }
 
-        private struct ResourceExecutionContext
+        private static EntryComponent HandleCancelledRetryRequest(Hl7.Fhir.Model.Bundle responseBundle, BundleHandlerInternalOperationExecutionContext resourceExecutionContext, BundleType? bundleType, BundleHandlerStatistics statistics, BundleConfiguration bundleConfiguration, Stopwatch watch, HttpContext httpContext, bool isOperationCancelledByClientError, CancellationToken cancellationToken)
         {
-            public ResourceExecutionContext(HTTPVerb httpVerb, string resourceType, RouteContext context, int index, string persistedId)
+            const HttpStatusCode cancelledRequestHttpStatusCode = HttpStatusCode.RequestTimeout;
+            EntryComponent entryComponent = CreateEntryComponentForCancelledRequest(httpContext);
+
+            statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, cancelledRequestHttpStatusCode, watch.Elapsed, resourceExecutionContext.IsConditionalOperation);
+
+            if (bundleType.Equals(BundleType.Transaction))
             {
-                HttpVerb = httpVerb;
-                ResourceType = resourceType; // Resource type can be null in case HTTP GET is used.
-                Context = context;
-                Index = index;
-                PersistedId = persistedId; // PersistedId is only generated in case of POST requests in a transaction bundle, when the entry full URL is provided.
+                RaiseFhirTransactionException(resourceExecutionContext, cancelledRequestHttpStatusCode, entryComponent, isOperationCancelledByClient: !isOperationCancelledByClientError && BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, bundleConfiguration, cancellationToken));
             }
 
-            public HTTPVerb HttpVerb { get; private set; }
+            // Default path for batch bundles.
+            responseBundle.Entry[resourceExecutionContext.Index] = entryComponent;
+            return entryComponent;
+        }
 
-            public string ResourceType { get; private set; }
+        private static void RaiseFhirTransactionException(
+            BundleHandlerInternalOperationExecutionContext resourceContext,
+            HttpStatusCode httpStatusCode,
+            Hl7.Fhir.Model.Bundle.EntryComponent entryComponent,
+            bool isOperationCancelledByClient)
+        {
+            var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.Context.HttpContext.Request.Method, resourceContext.Context.HttpContext.Request.Path);
 
-            public RouteContext Context { get; private set; }
+            TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome, isOperationCancelledByClient: isOperationCancelledByClient);
+        }
 
-            public int Index { get; private set; }
+        private static HttpStatusCode GetFinalHttpStatusCode(EntryComponent entryComponent, BundleExecutionContext bundleExecutionContext = null)
+        {
+            // Bug 182314: Standardize status code returned when a bundle fails.
+            if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
+            {
+                httpStatusCode = HttpStatusCode.BadRequest;
+            }
+            else if (bundleExecutionContext != null && bundleExecutionContext.IsTransactionFailedByClientError && httpStatusCode == HttpStatusCode.RequestTimeout)
+            {
+                // At this point, an operations failed with a client error and it was handled as a HTTP400.
+                // The remaining operations will be cancelled and return HTTP408 (RequestTimeout) to this handler.
+                // The bundle will return HTTP400 (BadRequest) to properly reflect that the failure was caused by a client error, not a timeout.
+                // And to avoid misunderstanding in logs, the not-executed operations will be logged as HTTP424 (FailedDependency) instead of HTTP408 (RequestTimeout).
+                httpStatusCode = HttpStatusCode.FailedDependency;
+            }
 
-            public string PersistedId { get; private set; }
+            return httpStatusCode;
+        }
+
+        private sealed class BundleExecutionContext
+        {
+            private int _transactionFailedByClientCancellation;
+
+            private int _transactionFailedByClientError;
+
+            public BundleExecutionContext(BundleConfiguration bundleConfiguration, BundleType bundleType, int requestCount)
+            {
+                EnsureArg.IsNotNull(bundleConfiguration, nameof(bundleConfiguration));
+
+                Configuration = bundleConfiguration;
+                BundleType = bundleType;
+                RequestCount = requestCount;
+
+                _transactionFailedByClientCancellation = 0;
+                _transactionFailedByClientError = 0;
+            }
+
+            public BundleConfiguration Configuration
+            {
+                get;
+            }
+
+            public BundleType BundleType
+            {
+                get;
+            }
+
+            public int RequestCount
+            {
+                get;
+            }
+
+            public bool IsTransactionFailedByClientCancellation => Volatile.Read(ref _transactionFailedByClientCancellation) == 1;
+
+            public bool IsTransactionFailedByClientError => Volatile.Read(ref _transactionFailedByClientError) == 1;
+
+            public void SetTransactionFailedByClientCancellation()
+            {
+                Interlocked.Exchange(ref _transactionFailedByClientCancellation, 1);
+            }
+
+            public void SetTransactionFailedByClientError()
+            {
+                Interlocked.Exchange(ref _transactionFailedByClientError, 1);
+            }
         }
     }
 }

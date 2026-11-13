@@ -5,6 +5,7 @@
 
 using System.Net;
 using EnsureThat;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
@@ -14,13 +15,13 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
     /// </summary>
     public class ImportResult : ResourceActionResult<ImportJobResult>
     {
-        public ImportResult(HttpStatusCode statusCode)
-            : base(null, statusCode)
+        public ImportResult(HttpStatusCode statusCode, ILogger logger)
+            : base(null, statusCode, logger)
         {
         }
 
-        public ImportResult(ImportJobResult jobResult, HttpStatusCode statusCode)
-            : base(jobResult, statusCode)
+        public ImportResult(ImportJobResult jobResult, HttpStatusCode statusCode, ILogger logger)
+            : base(jobResult, statusCode, logger)
         {
             EnsureArg.IsNotNull(jobResult, nameof(jobResult));
         }
@@ -28,31 +29,33 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <summary>
         /// Creates an ImportResult with HttpStatusCode Accepted.
         /// </summary>
-        public static ImportResult Accepted()
+        public static ImportResult Accepted(ILogger logger)
         {
-            return new ImportResult(HttpStatusCode.Accepted);
+            return new ImportResult(HttpStatusCode.Accepted, logger);
         }
 
         /// <summary>
         /// Creates an ImportResult with HttpStatusCode Accepted.
         /// </summary>
         /// <param name="taskResult">The job payload that must be returned as part of the ImportResult.</param>
-        public static ImportResult Accepted(ImportJobResult taskResult)
+        /// <param name="logger">The logger.</param>
+        public static ImportResult Accepted(ImportJobResult taskResult, ILogger logger)
         {
             EnsureArg.IsNotNull(taskResult, nameof(taskResult));
 
-            return new ImportResult(taskResult, HttpStatusCode.Accepted);
+            return new ImportResult(taskResult, HttpStatusCode.Accepted, logger);
         }
 
         /// <summary>
         /// Creates an ImportResult with HttpStatusCode Ok.
         /// </summary>
         /// <param name="taskResult">The job payload that must be returned as part of the ImportResult.</param>
-        public static ImportResult Ok(ImportJobResult taskResult)
+        /// <param name="logger">The logger.</param>
+        public static ImportResult Ok(ImportJobResult taskResult, ILogger logger)
         {
             EnsureArg.IsNotNull(taskResult, nameof(taskResult));
 
-            return new ImportResult(taskResult, HttpStatusCode.OK);
+            return new ImportResult(taskResult, HttpStatusCode.OK, logger);
         }
     }
 }

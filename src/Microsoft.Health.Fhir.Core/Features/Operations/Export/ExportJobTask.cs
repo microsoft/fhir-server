@@ -6,20 +6,19 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using AngleSharp.Text;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -29,6 +28,8 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Scoping;
+using Microsoft.Health.Fhir.ValueSets;
 using Polly;
 using Polly.Retry;
 using Task = System.Threading.Tasks.Task;
@@ -37,10 +38,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class ExportJobTask : IExportJobTask
     {
-        private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
-        private readonly IScoped<IAnonymizerFactory> _anonymizerFactory;
+        private readonly IScopeProvider<IFhirOperationDataStore> _fhirOperationDataStoreFactory;
+        private readonly IScopeProvider<IAnonymizerFactory> _anonymizerFactory;
         private readonly ExportJobConfiguration _exportJobConfiguration;
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly IGroupMemberExtractor _groupMemberExtractor;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
         private readonly IExportDestinationClient _exportDestinationClient;
@@ -52,17 +53,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
         private ExportFileManager _fileManager;
+        private HashSet<string> _authorizedIncludeResourceTypes;
+        private readonly HashSet<string> _omittedIncludeResourceTypes = new HashSet<string>(StringComparer.Ordinal);
         private readonly AsyncRetryPolicy _exportSearchRetryPolicy;
 
         public ExportJobTask(
-            Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
+            IScopeProvider<IFhirOperationDataStore> fhirOperationDataStoreFactory,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
-            Func<IScoped<ISearchService>> searchServiceFactory,
+            IScopeProvider<ISearchService> searchServiceFactory,
             IGroupMemberExtractor groupMemberExtractor,
             IResourceToByteArraySerializer resourceToByteArraySerializer,
             IExportDestinationClient exportDestinationClient,
             IResourceDeserializer resourceDeserializer,
-            IScoped<IAnonymizerFactory> anonymizerFactory,
+            IScopeProvider<IAnonymizerFactory> anonymizerFactory,
             IMediator mediator,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILogger<ExportJobTask> logger)
@@ -122,8 +125,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _exportJobRecord = exportJobRecord;
             _weakETag = weakETag;
             _fileManager = new ExportFileManager(_exportJobRecord, _exportDestinationClient);
+            _authorizedIncludeResourceTypes = new HashSet<string>(
+                exportJobRecord.AuthorizedIncludeResourceTypes ?? Array.Empty<string>(),
+                StringComparer.Ordinal);
+            _omittedIncludeResourceTypes.Clear();
 
             var existingFhirRequestContext = _contextAccessor.RequestContext;
+            bool destinationConnected = false;
 
             // Don't allow jobs to loop forever if they are failing.
             if (exportJobRecord.RestartCount > _exportJobConfiguration.MaxJobRestartCount)
@@ -182,6 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 // Connect to export destination using appropriate client.
                 await _exportDestinationClient.ConnectAsync(exportJobConfiguration, cancellationToken, _exportJobRecord.StorageAccountContainerName);
+                destinationConnected = true;
 
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If it is null, then we know we are processing a new job.
@@ -258,9 +267,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             catch (DestinationConnectionException dce)
             {
-                _logger.LogInformation(dce, "[JobId:{JobId}] Can't connect to destination. The job will be marked as failed.", _exportJobRecord.Id);
+                _logger.LogInformation(dce, "[JobId:{JobId}] Export destination operation failed. The job will be marked as failed.", _exportJobRecord.Id);
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(dce.Message, dce.StatusCode);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(
+                    dce.Message,
+                    dce.StatusCode,
+                    isCustomerCaused: !destinationConnected && (dce.StatusCode == HttpStatusCode.Unauthorized || dce.StatusCode == HttpStatusCode.Forbidden || dce.StatusCode == HttpStatusCode.NotFound || dce.StatusCode == HttpStatusCode.BadRequest));
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (ResourceNotFoundException rnfe)
@@ -274,7 +286,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     _logger.LogError(rnfe, "[JobId:{JobId}] Can't find specified resource. The job will be marked as failed.", _exportJobRecord.Id);
                 }
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(rnfe.Message, HttpStatusCode.BadRequest);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(rnfe.Message, HttpStatusCode.BadRequest, isCustomerCaused: true);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (FailedToParseAnonymizationConfigurationException ex)
@@ -295,7 +307,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 _logger.LogError(ex, "[JobId:{JobId}] Cannot found anonymization configuration. The job will be marked as failed.", _exportJobRecord.Id);
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest, isCustomerCaused: true);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (AnonymizationConfigurationFetchException ex)
@@ -315,19 +327,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.Output.Clear();
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
-            catch (OutOfMemoryException ex)
-            {
-                // The job has encountered an error it cannot recover from.
-                // Try to update the job to failed state.
-                _logger.LogError(ex, "[JobId:{JobId}] Encountered an out of memory exception. The job will be marked as failed.", _exportJobRecord.Id);
-
-                _exportJobRecord.FailureDetails = new JobFailureDetails(string.Format(Core.Resources.ExportOutOfMemoryException, _exportJobRecord.MaximumNumberOfResourcesPerQuery), HttpStatusCode.RequestEntityTooLarge, string.Concat(ex.Message + "\n\r" + ex.StackTrace));
-                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
-            }
             catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
             {
                 _logger.LogInformation(ex, "[JobId:{JobId}] The job was canceled.", _exportJobRecord.Id);
                 await CompleteJobAsync(OperationStatus.Canceled, CancellationToken.None);
+            }
+            catch (OutOfMemoryException)
+            {
+                // Let OOM bubble up to ExportProcessingJob for batch size reduction and retry.
+                throw;
+            }
+            catch (Exception ex) when (ex.IsCustomerCaused())
+            {
+                _logger.LogInformation(ex, "[JobId:{JobId}] Export failed due to a customer-caused error.", _exportJobRecord.Id);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, ex.GetJobFailureStatusCode(), ex.ToString(), isCustomerCaused: true);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -368,7 +382,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             try
             {
-                await _mediator.Publish(new ExportTaskMetricsNotification(_exportJobRecord), cancellationToken);
+                await _mediator.PublishAsync(new ExportTaskMetricsNotification(_exportJobRecord), cancellationToken);
             }
             catch (ObjectDisposedException ode)
             {
@@ -412,9 +426,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private async Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord exportJobRecord, WeakETag weakETag, CancellationToken cancellationToken)
         {
-            using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
+            using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory.Invoke())
             {
-                return await fhirOperationDataStore.Value.UpdateExportJobAsync(exportJobRecord, weakETag, cancellationToken);
+                return await fhirOperationDataStore.Value.UpdateExportJobAsync(exportJobRecord, weakETag, false, cancellationToken);
             }
         }
 
@@ -445,7 +459,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
             }
 
-            IAnonymizer anonymizer = IsAnonymizedExportJob() ? await CreateAnonymizerAsync(cancellationToken) : null;
+            using IScoped<IAnonymizerFactory> anonymizerFactory = IsAnonymizedExportJob() ? _anonymizerFactory.Invoke() : null;
+            IAnonymizer anonymizer = anonymizerFactory != null
+                ? await anonymizerFactory.Value.CreateAnonymizerAsync(_exportJobRecord, cancellationToken)
+                : null;
 
             if (progress.CurrentFilter != null)
             {
@@ -548,7 +565,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     case ExportJobType.All:
                     case ExportJobType.Patient:
-                        using (IScoped<ISearchService> searchService = _searchServiceFactory())
+                        using (IScoped<ISearchService> searchService = _searchServiceFactory.Invoke())
                         {
                             searchResult = await searchService.Value.SearchAsync(
                                 resourceType: resourceType,
@@ -570,7 +587,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 if (_exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group)
                 {
-                    var searchResultEntries = searchResult?.Results?.ToList();
+                    var searchResultEntries = searchResult?.Results?.Where(IsAuthorizedSearchResult).ToList();
                     if (searchResultEntries?.Any() ?? false)
                     {
                         var startSurrogateId = sharedQueryParametersList
@@ -629,7 +646,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     || string.IsNullOrWhiteSpace(_exportJobRecord.ResourceType)
                     || _exportJobRecord.ResourceType.Contains(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase))
                 {
-                    ProcessSearchResults(searchResult?.Results.ToList(), anonymizer);
+                    ProcessSearchResults(searchResult?.Results, anonymizer);
                 }
 
                 if (searchResult?.ContinuationToken == null)
@@ -637,21 +654,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     break;
                 }
 
+                // For the SQL parallel path (surrogate IDs set), skip per-page job segmentation.
+                // The surrogate ID range is the resumability unit, so resources accumulate in one
+                // file until the rolling size limit is reached or the range is fully processed.
+                bool hasSurrogateIdRange = !string.IsNullOrEmpty(_exportJobRecord.StartSurrogateId) &&
+                                           !string.IsNullOrEmpty(_exportJobRecord.EndSurrogateId);
+
                 await ProcessProgressChange(
                     progress,
                     queryParametersList,
                     searchResult.ContinuationToken,
-                    false,
+                    hasSurrogateIdRange,
                     cancellationToken);
             }
 
             // Commit one last time for any pending changes.
             _fileManager.CommitFiles();
-        }
-
-        private async Task<IAnonymizer> CreateAnonymizerAsync(CancellationToken cancellationToken)
-        {
-            return await _anonymizerFactory.Value.CreateAnonymizerAsync(_exportJobRecord, cancellationToken);
         }
 
         private async Task RunExportCompartmentSearch(
@@ -756,7 +774,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 SearchResult searchResult = null;
 
                 // Search and process the results.
-                using (IScoped<ISearchService> searchService = _searchServiceFactory())
+                using (IScoped<ISearchService> searchService = _searchServiceFactory.Invoke())
                 {
                     searchResult = await searchService.Value.SearchCompartmentAsync(
                         compartmentType: KnownResourceTypes.Patient,
@@ -787,29 +805,68 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private void ProcessSearchResults(IEnumerable<SearchResultEntry> searchResults, IAnonymizer anonymizer)
         {
-            // Testing to see if the returned enumerable is a list so we can remove items from it. This helps conserve memory by not keeping entries that have already been processed.
-            // Since the search service isn't guaranteed to return a list, we need to handle both cases.
-            if (searchResults is not List<SearchResultEntry>)
+            if (searchResults == null)
+            {
+                return;
+            }
+
+            if (searchResults is List<SearchResultEntry> searchResultsList)
+            {
+                for (int i = 0; i < searchResultsList.Count; i++)
+                {
+                    ProcessSearchResult(searchResultsList[i], anonymizer);
+                }
+
+                searchResultsList.Clear();
+            }
+            else
             {
                 foreach (var result in searchResults)
                 {
                     ProcessSearchResult(result, anonymizer);
                 }
             }
-            else
+        }
+
+        private bool IsAuthorizedSearchResult(SearchResultEntry result)
+        {
+            if (!_exportJobRecord.SmartRequest
+                || result.SearchEntryMode != SearchEntryMode.Include
+                || _authorizedIncludeResourceTypes.Contains(KnownResourceTypes.All)
+                || _authorizedIncludeResourceTypes.Contains(result.Resource.ResourceTypeName))
             {
-                var searchResultsList = searchResults as List<SearchResultEntry>;
-                while (searchResultsList.Any())
+                return true;
+            }
+
+            if (_omittedIncludeResourceTypes.Add(result.Resource.ResourceTypeName))
+            {
+                _logger.LogInformation(
+                    "[JobId:{JobId}] Omitted included resources of type {ResourceType} because SMART export permission was not granted.",
+                    _exportJobRecord.Id,
+                    result.Resource.ResourceTypeName);
+                string diagnostic = string.Format(CultureInfo.InvariantCulture, Core.Resources.ExportUnauthorizedIncludesOmitted, result.Resource.ResourceTypeName);
+                if (!_exportJobRecord.Issues.Any(issue =>
+                    issue.Severity == OperationOutcomeConstants.IssueSeverity.Warning
+                    && issue.Code == OperationOutcomeConstants.IssueType.Forbidden
+                    && issue.Diagnostics == diagnostic))
                 {
-                    var result = searchResultsList.First();
-                    ProcessSearchResult(result, anonymizer);
-                    searchResultsList.Remove(result);
+                    _contextAccessor.RequestContext.BundleIssues.Add(new OperationOutcomeIssue(
+                        OperationOutcomeConstants.IssueSeverity.Warning,
+                        OperationOutcomeConstants.IssueType.Forbidden,
+                        diagnostic));
                 }
             }
+
+            return false;
         }
 
         private void ProcessSearchResult(SearchResultEntry result, IAnonymizer anonymizer)
         {
+            if (!IsAuthorizedSearchResult(result))
+            {
+                return;
+            }
+
             ResourceWrapper resourceWrapper = result.Resource;
             ResourceElement overrideDataElement = null;
             var addSoftDeletedExtension = resourceWrapper.IsDeleted && _exportJobRecord.IncludeDeleted;
@@ -841,6 +898,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, outputData);
+
+            // Release the raw resource data to allow GC to reclaim LOH memory.
+            // The Lazy<string> inside RawResource caches the decompressed JSON string (~MBs per resource)
+            // and its closure retains the compressed byte[]. After writing to blob, neither is needed.
+            resourceWrapper.RawResource = null;
         }
 
         private async Task ProcessProgressChange(
@@ -903,7 +965,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Id, string.Join(',', patientIds)));
             }
 
-            using (IScoped<ISearchService> searchService = _searchServiceFactory())
+            using (IScoped<ISearchService> searchService = _searchServiceFactory.Invoke())
             {
                 return await searchService.Value.SearchAsync(
                                resourceType: KnownResourceTypes.Patient,

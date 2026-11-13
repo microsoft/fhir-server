@@ -13,16 +13,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Registration
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]
+    [Trait(Traits.Category, Categories.ServiceRuntimeState)]
     public sealed class FhirRuntimeConfigurationTests
     {
-        [Fact]
-        public void GivenARuntimeConfiguration_WhenForAzureApiForFHIR_FollowsTheExpectedValues()
+        [Theory]
+        [InlineData(FhirRuntimeState.Deprecated)]
+        [InlineData(FhirRuntimeState.Active)]
+        public void GivenARuntimeConfiguration_WhenForAzureApiForFHIR_FollowsTheExpectedValues(FhirRuntimeState runtimeState)
         {
             // Azure API For FHIR.
-            IFhirRuntimeConfiguration runtimeConfiguration = new AzureApiForFhirRuntimeConfiguration();
+            IFhirRuntimeConfiguration runtimeConfiguration = new AzureApiForFhirRuntimeConfiguration(runtimeState);
 
             // Support to Cosmos Db.
             Assert.Equal(KnownDataStores.CosmosDb, runtimeConfiguration.DataStore);
+
+            // Runtime state should follow the value used as part of the initialization.
+            Assert.Equal(runtimeState, runtimeConfiguration.RuntimeState);
 
             // No support to Selective Search Parameter.
             Assert.False(runtimeConfiguration.IsSelectiveSearchParameterSupported);
@@ -32,6 +38,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Registration
 
             // No support to transactions.
             Assert.False(runtimeConfiguration.IsTransactionSupported);
+
+            // No support to Surrogate Id Ranging.
+            Assert.False(runtimeConfiguration.IsSurrogateIdRangingSupported);
+
+            // No support to Query Cache.
+            Assert.False(runtimeConfiguration.IsQueryCacheSupported);
+
+            // Support to Latency over Efficiency.
+            Assert.True(runtimeConfiguration.IsLatencyOverEfficiencySupported);
         }
 
         [Fact]
@@ -43,6 +58,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Registration
             // Support to SQL Server.
             Assert.Equal(KnownDataStores.SqlServer, runtimeConfiguration.DataStore);
 
+            // Runtime state is active.
+            Assert.Equal(FhirRuntimeState.Active, runtimeConfiguration.RuntimeState);
+
             // Support to Selective Search Parameter.
             Assert.True(runtimeConfiguration.IsSelectiveSearchParameterSupported);
 
@@ -51,6 +69,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Registration
 
             // Support to transactions.
             Assert.True(runtimeConfiguration.IsTransactionSupported);
+
+            // Support to Surrogate Id Ranging.
+            Assert.True(runtimeConfiguration.IsSurrogateIdRangingSupported);
+
+            // Support to Query Cache.
+            Assert.True(runtimeConfiguration.IsQueryCacheSupported);
+
+            // No support to Latency over Efficiency.
+            Assert.False(runtimeConfiguration.IsLatencyOverEfficiencySupported);
         }
     }
 }

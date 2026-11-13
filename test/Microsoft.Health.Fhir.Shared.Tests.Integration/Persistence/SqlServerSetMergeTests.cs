@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -19,7 +20,6 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
-using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -125,6 +125,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             var poco = resource.ToPoco();
             poco.VersionId = "1";
+            poco.Meta ??= new Meta();
+            poco.Meta.LastUpdated = DateTime.UtcNow;
+
             var str = _jsonSerializer.SerializeToString(poco);
             var raw = new RawResource(str, FhirResourceFormat.Json, true);
             var wrapper = new ResourceWrapper(resource, raw, new ResourceRequest("Merge"), false, null, null, null, "hash");

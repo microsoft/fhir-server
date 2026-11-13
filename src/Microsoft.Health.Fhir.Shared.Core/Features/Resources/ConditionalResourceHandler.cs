@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             _logger = logger;
         }
 
-        public async Task<TResponse> Handle(TRequest request, CancellationToken cancellationToken)
+        public async Task<TResponse> HandleAsync(TRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -82,6 +82,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
         public abstract Task<TResponse> HandleNoMatch(TRequest request, CancellationToken cancellationToken);
 
-        public abstract Task<DataActions> CheckAccess(CancellationToken cancellationToken);
+        public abstract Task<bool> CheckAccess(CancellationToken cancellationToken);
     }
 }

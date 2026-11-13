@@ -42,14 +42,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             : base(new Uri("http://localhost/"))
         {
             var projectDir = GetProjectPath("src", startupType);
-            var testConfigPath = Path.GetFullPath("testconfiguration.json");
+            var testConfigPath = Path.Join(AppContext.BaseDirectory, "testconfiguration.json");
 
             var launchSettings = JObject.Parse(File.ReadAllText(Path.Combine(projectDir, "Properties", "launchSettings.json")));
 
             var configuration = launchSettings["profiles"][dataStore.ToString()]["environmentVariables"].Cast<JProperty>().ToDictionary(p => p.Name, p => p.Value.ToString());
 
             configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true";
-            configuration["TestAuthEnvironment:FilePath"] = "testauthenvironment.json";
+            configuration["TestAuthEnvironment:FilePath"] = Path.Join(AppContext.BaseDirectory, "testauthenvironment.json");
             configuration["FhirServer:Security:Enabled"] = "true";
             configuration["DevelopmentIdentityProvider:Enabled"] = "true";
 
@@ -59,29 +59,42 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // For local development we will use the Azure Storage Emulator for export.
             configuration["FhirServer:Operations:Export:StorageAccountConnection"] = "UseDevelopmentStorage=true";
 
-            // enable reindex for testing
+            // Enable reindex for testing
             configuration["FhirServer:Operations:Reindex:Enabled"] = "true";
+            configuration["FhirServer:Operations:Reindex:JobsPollingIntervalSec"] = "1";
 
-            // enable import for testing
+            // Enable import for testing
             configuration["FhirServer:Operations:Import:Enabled"] = "true";
-            configuration["FhirServer:Operations:Import:PollingFrequencyInSeconds"] = "1";
+            configuration["FhirServer:Operations:Import:InMemoryTestEnabled"] = "true";
             configuration["FhirServer:Operations:IntegrationDataStore:StorageAccountConnection"] = "UseDevelopmentStorage=true";
-
-            // enable rebuild indexes for testing
-            configuration["FhirServer:Operations:Import:DisableOptionalIndexesForImport"] = "false";
-            configuration["FhirServer:Operations:Import:DisableUniqueOptionalIndexesForImport"] = "false";
 
             // Validate operation settings
             var validateConfiguration = new ValidateOperationConfiguration();
             configuration["FhirServer:Operations:Validate:CacheDurationInSeconds"] = validateConfiguration.CacheDurationInSeconds.ToString();
             configuration["FhirServer:Operations:Validate:MaxExpansionSize"] = validateConfiguration.MaxExpansionSize.ToString();
-            configuration["FhirServer:Operations:Validate:BackgroundProfileStatusCheckIntervalInSeconds"] = validateConfiguration.BackgroundProfileStatusCheckIntervalInSeconds.ToString();
-            configuration["FhirServer:Operations:Validate:BackgroundProfileStatusDelayedStartInSeconds"] = validateConfiguration.BackgroundProfileStatusDelayedStartInSeconds.ToString();
+            configuration["FhirServer:Operations:Validate:BackgroundProfileStatusCheckIntervalInSeconds"] = "5"; // Lower interval for testing purposes.
+            configuration["FhirServer:Operations:Validate:BackgroundProfileStatusDelayedStartInSeconds"] = "5"; // Lower interval for testing purposes.
 
             // Enable background jobs.
             configuration["TaskHosting:Enabled"] = "true";
             configuration["TaskHosting:MaxRunningTaskCount"] = "2";
             configuration["TaskHosting:PollingFrequencyInSeconds"] = "1";
+
+            // Core Features settings
+            configuration["FhirServer:CoreFeatures:SearchParameterCacheRefreshIntervalSeconds"] = "1";
+            configuration["FhirServer:CoreFeatures:SystemConformanceProviderRefreshIntervalSeconds"] = "5";
+            configuration["FhirServer:CoreFeatures:SystemConformanceProviderRebuildIntervalSeconds"] = "120";
+            configuration["FhirServer:CoreFeatures:MaxIncludeCountPerSearch"] = "10";
+            configuration["FhirServer:CoreFeatures:DefaultIncludeCountPerSearch"] = "10";
+
+            if (dataStore == DataStore.SqlServer)
+            {
+                string sqlConnectionString = Environment.GetEnvironmentVariable("SqlServer__ConnectionString");
+                if (!string.IsNullOrWhiteSpace(sqlConnectionString))
+                {
+                    configuration["SqlServer:ConnectionString"] = sqlConnectionString;
+                }
+            }
 
             if (startupType.IsDefined(typeof(RequiresIsolatedDatabaseAttribute)))
             {
@@ -145,8 +158,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 .UseStartup(startupType)
                 .ConfigureServices(serviceCollection =>
                 {
-                    // ensure that HttpClients
-                    // use a message handler for the test server
+                    // Ensure that HttpClients
+                    // Use a message handler for the test server
                     serviceCollection
                         .AddHttpClient(Options.DefaultName)
                         .ConfigurePrimaryHttpMessageHandler(() => new DispatchingHandler(Server.CreateHandler(), inProcEndpoint))
@@ -175,6 +188,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         internal override HttpMessageHandler CreateMessageHandler()
         {
             return Server.CreateHandler();
+        }
+
+        protected override Uri GetClientCredentialTokenEndpoint()
+        {
+            var authority = new Uri(_builtConfiguration["FhirServer:Security:Authentication:Authority"]);
+            return new Uri(authority, "connect/token");
         }
 
         public override async ValueTask DisposeAsync()

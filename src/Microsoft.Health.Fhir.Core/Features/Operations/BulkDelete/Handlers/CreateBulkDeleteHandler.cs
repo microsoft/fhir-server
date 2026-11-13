@@ -9,11 +9,13 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -21,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
@@ -34,37 +37,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ISearchService _searchService;
         private readonly ILogger<CreateBulkDeleteHandler> _logger;
+        private readonly CoreFeatureConfiguration _coreFeatures;
 
         public CreateBulkDeleteHandler(
             IAuthorizationService<DataActions> authorizationService,
             IQueueClient queueClient,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ISearchService searchService,
-            ILogger<CreateBulkDeleteHandler> logger)
+            ILogger<CreateBulkDeleteHandler> logger,
+            IOptions<CoreFeatureConfiguration> coreFeatures)
         {
             _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
         }
 
-        public async Task<CreateBulkDeleteResponse> Handle(CreateBulkDeleteRequest request, CancellationToken cancellationToken)
+        public async Task<CreateBulkDeleteResponse> HandleAsync(CreateBulkDeleteRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            DataActions requiredDataAction = request.DeleteOperation switch
-            {
-                DeleteOperation.SoftDelete => DataActions.Delete,
-                _ => DataActions.HardDelete | DataActions.Delete,
-            };
+            await _authorizationService.CheckConditionalDeleteAccess(cancellationToken, hardDelete: request.DeleteOperation != DeleteOperation.SoftDelete);
+            bool allowProfileResourceModification = await _authorizationService.CheckAccess(DataActions.EditProfileDefinitions, false, cancellationToken);
 
-            if (await _authorizationService.CheckAccess(requiredDataAction, cancellationToken) != requiredDataAction)
+            if (_coreFeatures.EnableSmartBulkDeleteRestriction &&
+                _contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
             {
                 throw new UnauthorizedFhirActionException();
             }
 
-            var searchParameters = new List<Tuple<string, string>>(request.ConditionalParameters); // remove read only restriction
+            var searchParameters = new List<Tuple<string, string>>(request.ConditionalParameters);
+
+            // Temporarily add _lastUpdated to the search parameters to mimic the behavior of the processing job. Conditional search will also fail if there are no search criteria.
             var dateCurrent = new PartialDateTime(Clock.UtcNow);
             searchParameters.Add(Tuple.Create("_lastUpdated", $"lt{dateCurrent}"));
 
@@ -79,13 +85,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 JobType.BulkDeleteOrchestrator,
                 request.DeleteOperation,
                 request.ResourceType,
-                searchParameters,
+                request.ConditionalParameters,
                 request.ExcludedResourceTypes,
                 _contextAccessor.RequestContext.Uri.ToString(),
                 _contextAccessor.RequestContext.BaseUri.ToString(),
                 _contextAccessor.RequestContext.CorrelationId,
                 versionType: request.IncludeSoftDeleted ? ResourceVersionType.SoftDeleted : ResourceVersionType.Latest,
-                removeReferences: request.RemoveReferences);
+                removeReferences: request.RemoveReferences,
+                allowProfileResourceModification: allowProfileResourceModification);
 
             IReadOnlyList<JobInfo> jobInfo =
                 await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, definitions: processingDefinition);
