@@ -25,7 +25,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             }
 
             // Contained resources will not be searchable.
+#if NET11_0_OR_GREATER
+            if (reference.StartsWith('#', StringComparison.Ordinal)
+#else
             if (reference.StartsWith('#')
+#endif
                 || reference.StartsWith("urn:", StringComparison.Ordinal))
             {
                 yield break;

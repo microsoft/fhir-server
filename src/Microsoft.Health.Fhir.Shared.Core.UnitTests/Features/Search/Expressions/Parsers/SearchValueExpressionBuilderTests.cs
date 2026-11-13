@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -428,17 +429,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         }
 
         [Theory]
-        [InlineData("", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 14.95, 15.05)]
-        [InlineData("eq", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 14.95, 15.05)]
-        [InlineData("ap", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 13.45, 16.55)]
-        [InlineData("ne", MultiaryOperator.Or, BinaryOperator.LessThan, BinaryOperator.GreaterThan, 14.95, 15.05)]
+        [InlineData("", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, "14.95", "15.05")]
+        [InlineData("eq", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, "14.95", "15.05")]
+        [InlineData("ap", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, "13.45", "16.55")]
+        [InlineData("ne", MultiaryOperator.Or, BinaryOperator.LessThan, BinaryOperator.GreaterThan, "14.95", "15.05")]
         public void GivenANumberWithComparatorOfMultipleBinaryOperator_WhenBuilt_ThenCorrectExpressionShouldBeCreated(
             string prefix,
             MultiaryOperator multiaryOperator,
             BinaryOperator lowerBoundOperator,
             BinaryOperator upperBoundOperator,
-            decimal lowerBoundValue,
-            decimal upperBoundValue)
+            string lowerBoundValue,
+            string upperBoundValue)
         {
             Validate(
                 CreateSearchParameter(SearchParamType.Number),
@@ -447,8 +448,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 e => ValidateMultiaryExpression(
                     e,
                     multiaryOperator,
-                    e1 => ValidateBinaryExpression(e1, FieldName.Number, lowerBoundOperator, lowerBoundValue),
-                    e1 => ValidateBinaryExpression(e1, FieldName.Number, upperBoundOperator, upperBoundValue)));
+                    e1 => ValidateBinaryExpression(e1, FieldName.Number, lowerBoundOperator, decimal.Parse(lowerBoundValue, CultureInfo.InvariantCulture)),
+                    e1 => ValidateBinaryExpression(e1, FieldName.Number, upperBoundOperator, decimal.Parse(upperBoundValue, CultureInfo.InvariantCulture))));
         }
 
         [Theory]
@@ -478,17 +479,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         }
 
         [Theory]
-        [InlineData("", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 6.045, 6.055)]
-        [InlineData("eq", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 6.045, 6.055)]
-        [InlineData("ap", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 5.440, 6.66)]
-        [InlineData("ne", MultiaryOperator.Or, BinaryOperator.LessThan, BinaryOperator.GreaterThan, 6.045, 6.055)]
+        [InlineData("", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, "6.045", "6.055")]
+        [InlineData("eq", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, "6.045", "6.055")]
+        [InlineData("ap", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, "5.440", "6.66")]
+        [InlineData("ne", MultiaryOperator.Or, BinaryOperator.LessThan, BinaryOperator.GreaterThan, "6.045", "6.055")]
         public void GivenAQuantityWithComparatorOfMultipleBinaryOperator_WhenBuilt_ThenCorrectExpressionShouldBeCreated(
             string prefix,
             MultiaryOperator multiaryOperator,
             BinaryOperator lowerBoundOperator,
             BinaryOperator upperBoundOperator,
-            decimal lowerBoundValue,
-            decimal upperBoundValue)
+            string lowerBoundValue,
+            string upperBoundValue)
         {
             const string system = "system";
             const string code = "code";
@@ -505,8 +506,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     e1 => ValidateMultiaryExpression(
                         e1,
                         multiaryOperator,
-                        e2 => ValidateBinaryExpression(e2, FieldName.Quantity, lowerBoundOperator, lowerBoundValue),
-                        e2 => ValidateBinaryExpression(e2, FieldName.Quantity, upperBoundOperator, upperBoundValue))));
+                        e2 => ValidateBinaryExpression(e2, FieldName.Quantity, lowerBoundOperator, decimal.Parse(lowerBoundValue, CultureInfo.InvariantCulture)),
+                        e2 => ValidateBinaryExpression(e2, FieldName.Quantity, upperBoundOperator, decimal.Parse(upperBoundValue, CultureInfo.InvariantCulture)))));
         }
 
         [Theory]

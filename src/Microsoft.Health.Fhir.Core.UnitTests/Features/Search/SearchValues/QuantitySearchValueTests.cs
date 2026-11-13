@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -81,20 +82,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         }
 
         [Theory]
-        [InlineData(@"123.3", "", "", 123.3)]
-        [InlineData(@"234.5|system|", "system", "", 234.5)]
-        [InlineData(@"0|system|code", "system", "code", 0)]
-        [InlineData(@"98.565656||code", "", "code", 98.565656)]
-        [InlineData(@"5.40e-3|system|code", "system", "code", 0.00540)]
-        [InlineData(@"12|sys\|tem|co\$de", "sys|tem", "co$de", 12)]
-        public void GivenAValidString_WhenParsed_ThenCorrectSearchValueShouldBeReturned(string s, string expectedSystem, string expectedCode, decimal expectedQuantity)
+        [InlineData(@"123.3", "", "", "123.3")]
+        [InlineData(@"234.5|system|", "system", "", "234.5")]
+        [InlineData(@"0|system|code", "system", "code", "0")]
+        [InlineData(@"98.565656||code", "", "code", "98.565656")]
+        [InlineData(@"5.40e-3|system|code", "system", "code", "0.00540")]
+        [InlineData(@"12|sys\|tem|co\$de", "sys|tem", "co$de", "12")]
+        public void GivenAValidString_WhenParsed_ThenCorrectSearchValueShouldBeReturned(string s, string expectedSystem, string expectedCode, string expectedQuantity)
         {
             QuantitySearchValue value = QuantitySearchValue.Parse(s);
 
             Assert.NotNull(value);
             Assert.Equal(expectedSystem, value.System);
             Assert.Equal(expectedCode, value.Code);
-            Assert.Equal(expectedQuantity, value.Low);
+            Assert.Equal(decimal.Parse(expectedQuantity, CultureInfo.InvariantCulture), value.Low);
             Assert.Equal(value.Low, value.High);
         }
 
@@ -122,14 +123,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         }
 
         [Theory]
-        [InlineData(12, "system", "code", "12|system|code")]
-        [InlineData(3.3, @"sy|ste\|m", @"c$o,\de", @"3.3|sy\|ste\\\|m|c\$o\,\\de")]
-        [InlineData(2, null, null, "2")]
-        [InlineData(100, null, "code", "100||code")]
-        [InlineData(14.2034, "system", null, "14.2034|system")]
-        public void GivenASearchValue_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned(decimal quantity, string system, string code, string expected)
+        [InlineData("12", "system", "code", "12|system|code")]
+        [InlineData("3.3", @"sy|ste\|m", @"c$o,\de", @"3.3|sy\|ste\\\|m|c\$o\,\\de")]
+        [InlineData("2", null, null, "2")]
+        [InlineData("100", null, "code", "100||code")]
+        [InlineData("14.2034", "system", null, "14.2034|system")]
+        public void GivenASearchValue_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned(string quantity, string system, string code, string expected)
         {
-            _builder.Value = quantity;
+            _builder.Value = decimal.Parse(quantity, CultureInfo.InvariantCulture);
             _builder.System = system;
             _builder.Code = code;
 

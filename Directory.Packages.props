@@ -20,9 +20,10 @@
   </PropertyGroup>
   <!-- SDK Packages -->
   <Choose>
-    <When Condition="'$(TargetFramework)' == 'net9.0'">
+    <When Condition="'$(TargetFramework)' == 'net11.0'">
       <PropertyGroup>
-        <AspNetPackageVersion>9.0.15</AspNetPackageVersion>
+        <AspNetPackageVersion>11.0.0</AspNetPackageVersion>
+        <DotNetSdkPackageVersion>11.0.0</DotNetSdkPackageVersion>
       </PropertyGroup>
     </When>
     <When Condition="'$(TargetFramework)' == 'net10.0'">

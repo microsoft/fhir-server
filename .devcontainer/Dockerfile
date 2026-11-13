@@ -22,6 +22,7 @@ RUN sudo mkdir -p /setup
 COPY .devcontainer/library-scripts/*.sh /setup/library-scripts/
 COPY .devcontainer/library-scripts/fix-cert.sh /setup/fix-cert.sh
 COPY global.json /setup/global.json
+COPY build/dotnet10-compat/global.json /setup/dotnet10-compat/global.json
 
 RUN apt-get update \
     && apt-get install -y dos2unix \
@@ -40,6 +41,7 @@ RUN dos2unix /setup/global.json
 RUN dos2unix /setup/*.sh
 RUN chmod +x /setup/*.sh
 RUN sudo mkdir -p /usr/share/dotnet
+RUN $HOME/dotnet-install.sh --install-dir /usr/share/dotnet --jsonfile /setup/dotnet10-compat/global.json
 RUN $HOME/dotnet-install.sh --install-dir /usr/share/dotnet --jsonfile /setup/global.json
 RUN ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
 

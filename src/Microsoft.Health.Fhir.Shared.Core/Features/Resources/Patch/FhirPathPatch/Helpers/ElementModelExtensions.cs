@@ -65,7 +65,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
 
                 // Get the location of the first elements to check the rest of the node list. Remove the collection index.
                 var firstElementLocation = nodeList.First().Location;
+#if NET11_0_OR_GREATER
+                var firstElementCollectionLocation = firstElementLocation.Remove(firstElementLocation.LastIndexOf('[', StringComparison.Ordinal));
+#else
                 var firstElementCollectionLocation = firstElementLocation.Remove(firstElementLocation.LastIndexOf('['));
+#endif
 
                 // We only allow multiple elements if they are from the same collection
                 if (nodeList.Any(l =>
