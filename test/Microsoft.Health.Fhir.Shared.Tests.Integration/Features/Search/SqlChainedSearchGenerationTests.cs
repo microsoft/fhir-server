@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Azure.Identity;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -45,7 +44,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
 
         static SqlChainedSearchGenerationTests()
         {
-            ConfigureWorkloadIdentityAuthentication();
+            SqlAzurePipelinesWorkloadIdentityAuthenticationProvider.ConfigureFromEnvironment();
         }
 
         public SqlChainedSearchGenerationTests(ITestOutputHelper output)
@@ -263,23 +262,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
             }
 
             return ids;
-        }
-
-        // Configures SQL workload identity authentication when Azure Pipelines credentials are available.
-        internal static void ConfigureWorkloadIdentityAuthentication()
-        {
-            string clientId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionClientId);
-            string tenantId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionTenantId);
-            string serviceConnectionId = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.AzureSubscriptionServiceConnectionId);
-            string systemAccessToken = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SystemAccessToken);
-
-            if (!string.IsNullOrEmpty(clientId) && !string.IsNullOrEmpty(tenantId) && !string.IsNullOrEmpty(serviceConnectionId) && !string.IsNullOrEmpty(systemAccessToken))
-            {
-                var credential = new AzurePipelinesCredential(tenantId, clientId, serviceConnectionId, systemAccessToken);
-                SqlAuthenticationProvider.SetProvider(
-                    SqlAuthenticationMethod.ActiveDirectoryWorkloadIdentity,
-                    new SqlAzurePipelinesWorkloadIdentityAuthenticationProvider(credential));
-            }
         }
 
         // Reads the row counts of three intermediate CTEs selected by the command.

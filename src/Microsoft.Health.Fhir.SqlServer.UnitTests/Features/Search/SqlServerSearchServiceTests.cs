@@ -1063,7 +1063,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         [Fact]
         public void ApplyDateEqualitySemantics_WhenContainmentEnabledAndScalarOff_PassesExpressionThroughUnchanged()
         {
-            SearchParameterExpression containment = BuildExactDayBirthdateEquality();
+            SearchParameterExpression containment = BuildExactDayCalendarDateEquality();
 
             Expression result = SqlServerSearchService.ApplyDateEqualitySemantics(containment, enableFhirDateContainment: true, enableScalarTemporalRewriter: false);
 
@@ -1080,51 +1080,47 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Null(SqlServerSearchService.ApplyDateEqualitySemantics(null, enableFhirDateContainment: true, enableScalarTemporalRewriter: true));
         }
 
-        // Full date-equality flag matrix for an EXACT-DAY birthdate query, exercising the single mutually-exclusive
-        // dispatch (ApplyDateEqualitySemantics) exactly as CreateDefaultSearchExpression wires it. The scalar-temporal
-        // optimization and the containment range form are never layered: each flag combination resolves to exactly one
-        // path. VP2: a partial-precision stored birthdate (e.g. year-only '1990', stored as a multi-day range with
-        // IsLongerThanADay = true and DateTimeEnd = 1990-12-31T23:59) MATCHES under the overlap form
-        // (DateTimeStart <= hi AND DateTimeEnd >= lo) but is DROPPED under containment. The overlap predicate is
-        // present iff legacy overlap is applied; the IsLongerThanADay=false collapse appears only when the
-        // rewriter runs. No path may emit a temporal UNION.
         [Theory]
-        [InlineData(true, true, true, false)] // both ON => End-only collapse (containment); year-only dropped
-        [InlineData(false, true, false, false)] // containment ON, rewriter OFF => containment two-predicate; year-only dropped
-        [InlineData(true, false, false, true)] // containment OFF => legacy overlap; year-only matched
-        [InlineData(false, false, false, true)] // both OFF => legacy overlap; year-only matched
+        [InlineData(true, true, true, false)]
+        [InlineData(false, true, false, false)]
+        [InlineData(true, false, true, true)]
+        [InlineData(false, false, false, true)]
         public void DateEqualityPipeline_AcrossFlagMatrix_AppliesExpectedSemanticsAndNeverUnions(
             bool enableScalarTemporalRewriter,
             bool enableFhirDateContainment,
-            bool expectEndOnlyCollapse,
+            bool expectScalarDayPredicate,
             bool expectLegacyOverlap)
         {
-            SearchParameterExpression query = BuildExactDayBirthdateEquality();
+            SearchParameterExpression query = BuildExactDayCalendarDateEquality();
 
             Expression result = SqlServerSearchService.ApplyDateEqualitySemantics(
                 query, enableFhirDateContainment, enableScalarTemporalRewriter);
 
-            bool hasEndOnlyCollapse = ContainsPredicate(
+            bool hasScalarDayPredicate = ContainsPredicate(
                 result,
                 e => e is BinaryExpression { FieldName: SqlFieldName.DateTimeIsLongerThanADay, BinaryOperator: BinaryOperator.Equal, Value: false });
             bool hasOverlapPredicate = ContainsPredicate(
                 result,
                 e => e is BinaryExpression { FieldName: FieldName.DateTimeStart, BinaryOperator: BinaryOperator.LessThanOrEqual });
 
-            Assert.Equal(expectEndOnlyCollapse, hasEndOnlyCollapse);
+            Assert.Equal(expectScalarDayPredicate, hasScalarDayPredicate);
             Assert.Equal(expectLegacyOverlap, hasOverlapPredicate);
             Assert.False(ContainsPredicate(result, e => e is UnionExpression), "No date-equality flag combination may emit a temporal UNION.");
         }
 
-        private static SearchParameterExpression BuildExactDayBirthdateEquality()
+        private static SearchParameterExpression BuildExactDayCalendarDateEquality()
         {
             var dateParam = new SearchParameterInfo(
-                "birthdate",
-                "birthdate",
+                "payment-date",
+                "payment-date",
                 SearchParamType.Date,
-                new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
-                expression: "Patient.birthDate",
-                baseResourceTypes: new[] { "Patient" });
+                new Uri("http://hl7.org/fhir/SearchParameter/ClaimResponse-payment-date"),
+                expression: "ClaimResponse.payment.date",
+                baseResourceTypes: new[] { "ClaimResponse" })
+            {
+                IsSystemDefined = true,
+                TemporalType = TemporalType.Date,
+            };
 
             // Exact UTC calendar day (end-of-day to the tick) so the scalar-temporal rewriter collapses it.
             var lo = new DateTimeOffset(1990, 5, 15, 0, 0, 0, TimeSpan.Zero);

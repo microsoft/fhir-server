@@ -21,6 +21,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public static int WaitTime { get; set; } = 60;
 
+        internal static void ResetForTests()
+        {
+            lock (lockObject)
+            {
+                _lastUpdatedQueryCache = DateTimeOffset.MinValue;
+                QueryStore = new Dictionary<string, string>();
+                WaitTime = 60;
+            }
+        }
+
         public static string CheckQueryHash(IDbConnection connection, string hash, ILogger<SqlServerSearchService> logger)
         {
             DateTimeOffset now = Clock.UtcNow;
