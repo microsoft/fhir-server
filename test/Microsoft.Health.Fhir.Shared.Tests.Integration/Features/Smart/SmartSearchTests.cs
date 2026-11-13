@@ -2889,7 +2889,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
         private static string CreateSmartV2TestResourceId(string scenario)
         {
-            return $"smart-v2-{scenario}-{Guid.NewGuid():N}";
+            var id = $"smart-v2-{Guid.NewGuid():N}-{scenario}";
+            return id[..Math.Min(id.Length, ResourceIdPolicy.StandardMaxLength)];
         }
 
         // The SMART _include/_revinclude compartment enforcement (candidate authorization) is implemented in the

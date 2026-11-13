@@ -11,12 +11,14 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -138,5 +140,121 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
         }
 #endif
+
+        [Theory]
+        [InlineData("Practitioner/", 65)]
+        [InlineData("", 65)]
+        [InlineData("scheme://test.com/Practitioner/", 65)]
+        [InlineData("https://example.org/", 129)]
+        public async System.Threading.Tasks.Task GivenAReferenceThatCannotBeIndexedWhole_WhenExtract_ThenBadRequestIsThrown(string prefix, int length)
+        {
+            // Arrange
+            TypedElementSearchIndexer indexer = await CreatePerformerIndexerAsync();
+            string reference = prefix.StartsWith("https", StringComparison.Ordinal)
+                ? $"{CreateBaseUri(prefix, length)}Practitioner/abc"
+                : $"{prefix}{new string('a', length)}";
+
+            // Act and Assert
+            Assert.Throws<BadRequestException>(() => indexer.Extract(CreateObservation(reference)).ToList());
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task GivenAReferenceWithABaseUriAtTheLimit_WhenExtract_ThenTheReferenceIsIndexed()
+        {
+            // Arrange
+            TypedElementSearchIndexer indexer = await CreatePerformerIndexerAsync();
+            string baseUri = CreateBaseUri("https://example.org/", 128);
+
+            // Act
+            var value = Assert.IsType<ReferenceSearchValue>(Assert.Single(indexer.Extract(CreateObservation($"{baseUri}Practitioner/abc"))).Value);
+
+            // Assert
+            Assert.Equal(baseUri, value.BaseUri.ToString());
+            Assert.Equal("abc", value.ResourceId);
+        }
+
+        [Fact]
+        public void GivenACanonicalWithALongResourceTypeShapedSuffix_WhenExtract_ThenTheSuffixIsPreserved()
+        {
+            // Arrange
+            string suffix = new string('a', 65);
+            var definition = new StructureDefinition
+            {
+                Id = "my-profile",
+                BaseDefinition = $"https://example.org/StructureDefinition/{suffix}",
+            };
+            var definitionManager = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            definitionManager.GetSearchParameters("StructureDefinition").Returns(new[]
+            {
+                new SearchParameterInfo(
+                    "base",
+                    "base",
+                    (ValueSets.SearchParamType)SearchParamType.Reference,
+                    new Uri("http://hl7.org/fhir/SearchParameter/StructureDefinition-base"),
+                    expression: "StructureDefinition.baseDefinition",
+                    targetResourceTypes: new List<string> { "StructureDefinition" },
+                    baseResourceTypes: new List<string> { "StructureDefinition" }),
+            });
+            var parser = new ReferenceSearchValueParser(
+                new FhirRequestContextAccessor(),
+                Substitute.For<IFhirServerInstanceConfiguration>(),
+                ResourceIdPolicy.Standard);
+            var converters = new FhirTypedElementToSearchValueConverterManager(new ITypedElementToSearchValueConverter[]
+            {
+                new CanonicalToReferenceSearchValueConverter(parser),
+                new UriToReferenceSearchValueConverter(parser),
+            });
+            var indexer = new TypedElementSearchIndexer(
+                definitionManager,
+                converters,
+                Substitute.For<IReferenceToElementResolver>(),
+                ModelInfoProvider.Instance,
+                Substitute.For<ILogger<TypedElementSearchIndexer>>());
+
+            // Act
+            var value = Assert.IsType<ReferenceSearchValue>(Assert.Single(indexer.Extract(definition.ToResourceElement())).Value);
+
+            // Assert
+            Assert.Equal(new Uri("https://example.org/"), value.BaseUri);
+            Assert.Equal("StructureDefinition", value.ResourceType);
+            Assert.Equal(suffix, value.ResourceId);
+        }
+
+        private static string CreateBaseUri(string prefix, int length)
+        {
+            string baseUri = $"{prefix}{new string('a', length - prefix.Length - 1)}/";
+            Assert.Equal(length, new Uri(baseUri).ToString().Length);
+            return baseUri;
+        }
+
+        private static ResourceElement CreateObservation(string performerReference)
+        {
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Performer = new List<ResourceReference> { new ResourceReference(performerReference) };
+            return observation.ToResourceElement();
+        }
+
+        private async System.Threading.Tasks.Task<TypedElementSearchIndexer> CreatePerformerIndexerAsync()
+        {
+            var definitionManager = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            definitionManager.GetSearchParameters(Arg.Any<string>()).Returns(new[]
+            {
+                new SearchParameterInfo(
+                    "performer",
+                    "performer",
+                    (ValueSets.SearchParamType)SearchParamType.Reference,
+                    new Uri("http://hl7.org/fhir/SearchParameter/Observation-performer"),
+                    expression: "Observation.performer",
+                    targetResourceTypes: new List<string> { "Practitioner", "Patient" },
+                    baseResourceTypes: new List<string> { "Observation" }),
+            });
+
+            return new TypedElementSearchIndexer(
+                definitionManager,
+                await GetTypeConverterAsync(),
+                Substitute.For<IReferenceToElementResolver>(),
+                ModelInfoProvider.Instance,
+                Substitute.For<ILogger<TypedElementSearchIndexer>>());
+        }
     }
 }

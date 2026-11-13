@@ -7,13 +7,16 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Hl7.Fhir.ElementModel;
 using Medino;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
@@ -33,37 +36,32 @@ using Xunit;
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGeneration
 {
     /// <summary>
-    /// Regressions for the resource id truncation performed by <see cref="ReferenceSearchParamListRowGenerator"/>.
-    /// The generator must truncate to the configured maximum resource id length, not to the schema default.
+    /// Regressions for reference length limits applied by <see cref="ReferenceSearchParamListRowGenerator"/>.
+    /// A reference whose id or base URI exceeds its limit is not indexed when rejection is enabled.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     public class ReferenceSearchParamListRowGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     {
         /// <summary>
-        /// Gets input lengths and independently specified retained lengths for both resource id policies.
+        /// Gets input lengths and whether a row is expected for both resource id policies.
         /// </summary>
-        public static TheoryData<bool, int, int> ResourceIdLengths => new TheoryData<bool, int, int>
+        public static TheoryData<bool, int, bool> ResourceIdLengths => new TheoryData<bool, int, bool>
         {
-            { false, 63, 63 },
-            { false, 64, 64 },
-            { false, 65, 64 },
-            { false, 100, 64 },
-            { false, 127, 64 },
-            { false, 128, 64 },
-            { false, 129, 64 },
-            { true, 63, 63 },
-            { true, 64, 64 },
-            { true, 65, 65 },
-            { true, 100, 100 },
-            { true, 127, 127 },
-            { true, 128, 128 },
-            { true, 129, 128 },
+            { false, 63, true },
+            { false, 64, true },
+            { false, 65, false },
+            { false, 128, false },
+            { false, 129, false },
+            { true, 64, true },
+            { true, 65, true },
+            { true, 128, true },
+            { true, 129, false },
         };
 
         [Theory]
         [MemberData(nameof(ResourceIdLengths))]
-        public void GivenAReferenceNearTheIdLimits_WhenGeneratingARow_ThenTheExpectedPrefixIsRetained(bool useLongResourceIds, int length, int expectedLength)
+        public void GivenAReferenceNearTheIdLimits_WhenGeneratingARow_ThenTheWholeIdIsStoredOrNoRowIsGenerated(bool useLongResourceIds, int length, bool expectedGenerated)
         {
             // Arrange
             var generator = new ReferenceSearchParamListRowGenerator(CreateModel(ResourceIdPolicy.From(useLongResourceIds)), new SearchParameterToSearchValueTypeMap());
@@ -74,8 +72,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             bool generated = generator.TryGenerateRow(1, 2L, 3, searchValue, results: null, out ReferenceSearchParamListRow row);
 
             // Assert
-            Assert.True(generated);
-            Assert.Equal(resourceId[..expectedLength], row.ReferenceResourceId);
+            Assert.Equal(expectedGenerated, generated);
+            if (!expectedGenerated)
+            {
+                return;
+            }
+
+            Assert.Equal(resourceId, row.ReferenceResourceId);
             Assert.Equal(1, row.ResourceTypeId);
             Assert.Equal(2L, row.ResourceSurrogateId);
             Assert.Equal(3, row.SearchParamId);
@@ -84,9 +87,68 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             Assert.Null(row.ReferenceResourceVersion);
         }
 
+        [Fact]
+        public void GivenAnUntypedReferenceOverTheIdLimit_WhenGeneratingARow_ThenNoRowIsGenerated()
+        {
+            // Arrange
+            var generator = new ReferenceSearchParamListRowGenerator(CreateModel(ResourceIdPolicy.Standard), new SearchParameterToSearchValueTypeMap());
+            var searchValue = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, baseUri: null, resourceType: null, CreateResourceId(65));
+
+            // Act
+            bool generated = generator.TryGenerateRow(1, 2L, 3, searchValue, results: null, out _);
+
+            // Assert
+            Assert.False(generated);
+        }
+
+        [Theory]
+        [InlineData(false, 65)]
+        [InlineData(true, 129)]
+        public void GivenACanonicalWithALongResourceTypeShapedSuffix_WhenConvertingAndGeneratingARow_ThenNoTruncatedRowIsGenerated(bool useLongResourceIds, int length)
+        {
+            // Arrange
+            ResourceIdPolicy policy = ResourceIdPolicy.From(useLongResourceIds);
+            var parser = new ReferenceSearchValueParser(
+                new FhirRequestContextAccessor(),
+                Substitute.For<IFhirServerInstanceConfiguration>(),
+                policy);
+            var converter = new CanonicalToReferenceSearchValueConverter(parser);
+            string suffix = CreateResourceId(length);
+            var canonical = Substitute.For<ITypedElement>();
+            canonical.InstanceType.Returns("canonical");
+            canonical.Value.Returns($"https://example.org/Patient/{suffix}");
+            var generator = new ReferenceSearchParamListRowGenerator(CreateModel(policy), new SearchParameterToSearchValueTypeMap());
+
+            // Act
+            var searchValue = Assert.IsType<ReferenceSearchValue>(Assert.Single(converter.ConvertTo(canonical)));
+            bool generated = generator.TryGenerateRow(1, 2L, 3, searchValue, results: null, out _);
+
+            // Assert
+            Assert.Equal(suffix, searchValue.ResourceId);
+            Assert.False(generated);
+        }
+
+        [Theory]
+        [InlineData(false, 65, 64)]
+        [InlineData(true, 129, 128)]
+        public void GivenRejectionIsDisabled_WhenGeneratingARowForAReferenceOverTheIdLimit_ThenTheIdIsCutOffAtTheLimit(bool useLongResourceIds, int length, int expectedLength)
+        {
+            // Arrange
+            var generator = new ReferenceSearchParamListRowGenerator(CreateModel(ResourceIdPolicy.From(useLongResourceIds, rejectLongReferences: false)), new SearchParameterToSearchValueTypeMap());
+            string resourceId = CreateResourceId(length);
+            var searchValue = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, baseUri: null, "Patient", resourceId);
+
+            // Act
+            bool generated = generator.TryGenerateRow(1, 2L, 3, searchValue, results: null, out ReferenceSearchParamListRow row);
+
+            // Assert
+            Assert.True(generated);
+            Assert.Equal(resourceId[..expectedLength], row.ReferenceResourceId);
+        }
+
         [Theory]
         [MemberData(nameof(ResourceIdLengths))]
-        public void GivenAReferenceTokenCompositeNearTheIdLimits_WhenGeneratingARow_ThenTheExpectedPrefixIsRetained(bool useLongResourceIds, int length, int expectedLength)
+        public void GivenAReferenceTokenCompositeNearTheIdLimits_WhenGeneratingARow_ThenTheWholeIdIsStoredOrNoRowIsGenerated(bool useLongResourceIds, int length, bool expectedGenerated)
         {
             // Arrange
             SqlServerFhirModel model = CreateModel(ResourceIdPolicy.From(useLongResourceIds));
@@ -104,8 +166,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             bool generated = generator.TryGenerateRow(1, 2L, 3, (reference, token), results: null, out ReferenceTokenCompositeSearchParamListRow row);
 
             // Assert
-            Assert.True(generated);
-            Assert.Equal(resourceId[..expectedLength], row.ReferenceResourceId1);
+            Assert.Equal(expectedGenerated, generated);
+            if (!expectedGenerated)
+            {
+                return;
+            }
+
+            Assert.Equal(resourceId, row.ReferenceResourceId1);
             Assert.Equal(1, row.ResourceTypeId);
             Assert.Equal(2L, row.ResourceSurrogateId);
             Assert.Equal(3, row.SearchParamId);
@@ -115,6 +182,80 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             Assert.Null(row.SystemId2);
             Assert.Equal("test-code", row.Code2);
             Assert.Null(row.CodeOverflow2);
+        }
+
+        [Theory]
+        [InlineData(128, true)]
+        [InlineData(129, false)]
+        public void GivenAReferenceNearTheBaseUriLimit_WhenGeneratingARow_ThenTheWholeBaseUriIsStoredOrNoRowIsGenerated(int length, bool expectedGenerated)
+        {
+            // Arrange
+            var generator = new ReferenceSearchParamListRowGenerator(CreateModel(ResourceIdPolicy.Standard), new SearchParameterToSearchValueTypeMap());
+            Uri baseUri = CreateBaseUri(length);
+            var searchValue = new ReferenceSearchValue(ReferenceKind.External, baseUri, "Patient", "123");
+
+            // Act
+            bool generated = generator.TryGenerateRow(1, 2L, 3, searchValue, results: null, out ReferenceSearchParamListRow row);
+
+            // Assert
+            Assert.Equal(expectedGenerated, generated);
+            if (expectedGenerated)
+            {
+                Assert.Equal(baseUri.ToString(), row.BaseUri);
+            }
+        }
+
+        [Fact]
+        public void GivenAReferenceTokenCompositeOverTheBaseUriLimit_WhenGeneratingARow_ThenNoRowIsGenerated()
+        {
+            // Arrange
+            SqlServerFhirModel model = CreateModel(ResourceIdPolicy.Standard);
+            var map = new SearchParameterToSearchValueTypeMap();
+            var generator = new ReferenceTokenCompositeSearchParamListRowGenerator(
+                model,
+                new ReferenceSearchParamListRowGenerator(model, map),
+                new TokenSearchParamListRowGenerator(model, map),
+                map);
+            Uri baseUri = CreateBaseUri(129);
+            var reference = new ReferenceSearchValue(ReferenceKind.External, baseUri, "Patient", "123");
+            var token = new TokenSearchValue(system: null, code: "test-code", text: null);
+
+            // Act
+            bool generated = generator.TryGenerateRow(1, 2L, 3, (reference, token), results: null, out _);
+
+            // Assert
+            Assert.False(generated);
+        }
+
+        [Fact]
+        public void GivenRejectionIsDisabled_WhenGeneratingARowForAReferenceOverTheBaseUriLimit_ThenTheWholeValueIsPassedThrough()
+        {
+            // Arrange
+            var generator = new ReferenceSearchParamListRowGenerator(CreateModel(ResourceIdPolicy.From(false, rejectLongReferences: false)), new SearchParameterToSearchValueTypeMap());
+            Uri baseUri = CreateBaseUri(129);
+            var searchValue = new ReferenceSearchValue(ReferenceKind.External, baseUri, "Patient", "123");
+
+            // Act
+            bool generated = generator.TryGenerateRow(1, 2L, 3, searchValue, results: null, out ReferenceSearchParamListRow row);
+
+            // Assert
+            Assert.True(generated);
+            Assert.Equal(baseUri.ToString(), row.BaseUri);
+        }
+
+        [Fact]
+        public void GivenTheReferenceIndex_WhenComparingBaseUriWidths_ThenTheyMatchTheLimitAppliedToReferences()
+        {
+            Assert.Equal(ResourceIdPolicy.MaxReferenceBaseUriLength, VLatest.ReferenceSearchParam.BaseUri.Metadata.MaxLength);
+            Assert.Equal(ResourceIdPolicy.MaxReferenceBaseUriLength, VLatest.ReferenceTokenCompositeSearchParam.BaseUri1.Metadata.MaxLength);
+        }
+
+        private static Uri CreateBaseUri(int length)
+        {
+            const string prefix = "https://example.org/";
+            var baseUri = new Uri(prefix + new string('a', length - prefix.Length - 1) + "/");
+            Assert.Equal(length, baseUri.ToString().Length);
+            return baseUri;
         }
 
         private static string CreateResourceId(int length)
