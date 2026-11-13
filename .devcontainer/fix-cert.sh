@@ -24,5 +24,5 @@ sudo install -m 0644 "$certificate" /usr/local/share/ca-certificates/cosmos-emul
 sudo update-ca-certificates
 
 curl --fail --silent --show-error --connect-timeout 3 --max-time 10 "$endpoint" --output /dev/null
-dotnet dev-certs https
+/setup/configure-debug.sh CosmosDb
 echo "Cosmos DB HTTPS trust and the ASP.NET development certificate are ready."

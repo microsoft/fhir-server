@@ -1,7 +1,8 @@
 {
-	"name": "FHIR Cosmos DB",
-	"dockerComposeFile": "docker-compose.yml",
-	"service": "fhir",
+	"name": "FHIR SQL Server",
+	"dockerComposeFile": "docker-compose.sql.yml",
+	"service": "fhir-sql",
+	"runServices": ["sql", "fhir-sql"],
 	"workspaceFolder": "/workspace",
 	"shutdownAction": "stopCompose",
 	"features": {
@@ -14,22 +15,23 @@
 		"vscode": {
 			"extensions": [
 				"ms-dotnettools.csharp",
-				"ms-azuretools.vscode-cosmosdb",
 				"humao.rest-client"
 			]
 		}
 	},
-	"postStartCommand": "/setup/fix-cert.sh",
+	"initializeCommand": [
+		"docker", "run", "--rm",
+		"--mount", "type=bind,source=${localWorkspaceFolder}/.devcontainer,target=/devcontainer",
+		"mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+		"bash", "/devcontainer/initialize-sql.sh"
+	],
+	"postStartCommand": "/setup/post-start-sql.sh",
 	"waitFor": "postStartCommand",
 	"remoteUser": "vscode",
-	"forwardPorts": [44348, 8081],
+	"forwardPorts": [44348],
 	"portsAttributes": {
 		"44348": {
 			"label": "FHIR HTTPS",
-			"protocol": "https"
-		},
-		"8081": {
-			"label": "Cosmos DB emulator",
 			"protocol": "https"
 		}
 	}

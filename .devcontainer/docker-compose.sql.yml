@@ -1,0 +1,42 @@
+services:
+  sql:
+    image: mcr.microsoft.com/mssql/server:2025-latest
+    user: root
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+    entrypoint: ["/bin/bash", "/setup/sql-entrypoint.sh"]
+    command: ["/opt/mssql/bin/sqlservr"]
+    secrets:
+      - sql-password
+    volumes:
+      - sql-data:/var/opt/mssql
+      - ./sql-entrypoint.sh:/setup/sql-entrypoint.sh:ro
+      - ./sql-healthcheck.sh:/setup/sql-healthcheck.sh:ro
+    healthcheck:
+      test: ["CMD", "/bin/bash", "/setup/sql-healthcheck.sh"]
+      interval: 5s
+      timeout: 10s
+      retries: 24
+      start_period: 20s
+
+  fhir-sql:
+    depends_on:
+      sql:
+        condition: service_healthy
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    init: true
+    volumes:
+      - ..:/workspace:cached
+    secrets:
+      - sql-password
+    command: sleep infinity
+
+secrets:
+  sql-password:
+    file: ./.local/sql-password
+
+volumes:
+  sql-data:

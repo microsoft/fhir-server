@@ -5,6 +5,39 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "R4 dev container",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "buildR4",
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web/bin/Debug/net11.0/Microsoft.Health.Fhir.R4.Web.dll",
+            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web",
+            "envFile": "${env:HOME}/.fhir-devcontainer/R4.env",
+            "launchSettingsProfile": "",
+            "stopAtEntry": false
+        },
+        {
+            "name": "STU3 dev container",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "buildSTU3",
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.Stu3.Web/bin/Debug/net11.0/Microsoft.Health.Fhir.Stu3.Web.dll",
+            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.Stu3.Web",
+            "envFile": "${env:HOME}/.fhir-devcontainer/STU3.env",
+            "launchSettingsProfile": "",
+            "stopAtEntry": false
+        },
+        {
+            "name": "R5 dev container",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "buildR5",
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R5.Web/bin/Debug/net11.0/Microsoft.Health.Fhir.R5.Web.dll",
+            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R5.Web",
+            "envFile": "${env:HOME}/.fhir-devcontainer/R5.env",
+            "launchSettingsProfile": "",
+            "stopAtEntry": false
+        },
+        {
             "name": "R4 Cosmos DB",
             "type": "coreclr",
             "request": "launch",
