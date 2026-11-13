@@ -9,6 +9,10 @@
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" />
     <!-- Referenced to mitigate GHSA-g94r-2vxg-569j -->
     <PackageReference Include="OpenTelemetry.Api" />
+    <!-- SQL connection pool metrics. OpenTelemetry and OpenTelemetry.Extensions.Hosting are referenced so the SDK version matches the API version it requires. -->
+    <PackageReference Include="OpenTelemetry" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.EventCounters" />
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" />

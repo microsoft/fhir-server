@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -104,6 +105,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             context.Response.Headers[XContentTypeOptions] = XContentTypeOptionsValue;
             context.Response.Headers[XFrameOptions] = XFrameOptionsValue;
             context.Response.Headers[ContentSecurityPolicy] = ContentSecurityPolicyValue;
+
+            using ActionTimer requestTimer = _logger.BeginTimedScope(nameof(FhirRequestContextMiddleware));
+            fhirRequestContext.RequestTimer = requestTimer;
 
             fhirRequestContextAccessor.RequestContext = fhirRequestContext;
 

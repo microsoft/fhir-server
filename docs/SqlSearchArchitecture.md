@@ -60,6 +60,27 @@ search phases used by Patient `$everything`. The annotation describes the genera
 shape. It does not attempt to identify the originating HTTP operation. Include and reverse-include syntax is
 preserved when those parameter names are present.
 
+## Calendar-date equality
+
+`FhirSqlServer:EnableScalarTemporalEqualityRewriter` optimizes full UTC-day equality for built-in calendar-date search parameters.
+It requires `FhirServer:CoreFeatures:EnableSearchParameterTemporalClassification` before definitions initialize.
+Both flags default to `false`. Their environment variables are `FhirSqlServer__EnableScalarTemporalEqualityRewriter`
+and `FhirServer__CoreFeatures__EnableSearchParameterTemporalClassification`.
+Restart after changing these settings. Derived `TemporalType` metadata is not serialized, and existing definition instances retain their classification on reload.
+If scalar optimization is enabled without classification, the server logs a startup warning and uses existing SQL.
+
+Eligibility requires `IsSystemDefined`, search type `Date`, no components, and `TemporalType.Date`.
+Homogeneous date unions qualify, including built-in birthdate expressions.
+`ClaimResponse.payment.date` qualifies in R4, R5, and STU3. `Basic.created` qualifies in R4 and STU3, but is `dateTime` in R5.
+Custom definitions and `DateTime`, `Instant`, `Period`, `Timing`, `Mixed`, or `Unknown` classifications do not qualify.
+
+The short-date branch uses `IsLongerThanADay = 0 AND EndDateTime = endOfDay`.
+With default overlap semantics, a disjoint OR branch retains month/year rows and their existing endpoint predicates.
+`EnableFhirDateContainment` still selects containment semantics independently.
+Partial query precision, timestamps, and range or approximate operators keep their existing paths.
+No temporal union, schema change, reindex, or result-set change is required.
+See [the scalar temporal equality ADR](arch/adr-2605-scalar-temporal-equality-rewriter.md) for the invariant and rollout limits.
+
 ## Instant date predicates
 
 `FhirSqlServer:EnableInstantDateTimeRewriter` enables single-column date predicates for model-proven FHIR `instant` search parameters.

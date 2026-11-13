@@ -36,6 +36,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
+using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer;
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     [Collection(Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.ModelInfoProviderSerialCollection.Name)]
-    public class SqlServerFhirDataStoreUnitTests
+    public class SqlServerFhirDataStoreUnitTests : IClassFixture<ModelInfoProviderFixture>
     {
         public static IEnumerable<object[]> RemoveTrailingZerosTestCases()
         {
@@ -696,7 +697,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         {
             sqlTransactionHandler ??= new SqlTransactionHandler();
 
-            ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).AddKnownTypes(KnownResourceTypes.Group).Build());
+            var modelInfoProvider = MockModelInfoProviderBuilder.Create(FhirSpecification.R4).AddKnownTypes(KnownResourceTypes.Group).Build();
 
             var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max)
             {
@@ -708,7 +709,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             var statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
             var fhirDataStore = Substitute.For<IFhirDataStore>();
             ISearchParameterDefinitionManager defManager = new SearchParameterDefinitionManager(
-                ModelInfoProvider.Instance,
+                modelInfoProvider,
                 Substitute.For<IMediator>(),
                 searchService.CreateMockScopeProvider(),
                 searchParameterComparer,
@@ -716,7 +717,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 fhirDataStore.CreateMockScopeProvider(),
                 NullLogger<SearchParameterDefinitionManager>.Instance,
                 Options.Create(new CoreFeatureConfiguration()));
-            FilebasedSearchParameterStatusDataStore statusStore = new FilebasedSearchParameterStatusDataStore(defManager, ModelInfoProvider.Instance);
+            FilebasedSearchParameterStatusDataStore statusStore = new FilebasedSearchParameterStatusDataStore(defManager, modelInfoProvider);
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
@@ -766,7 +767,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 Substitute.For<ICompressedRawResourceConverter>(),
                 logger ?? NullLogger<SqlServerFhirDataStore>.Instance,
                 schemaInfo,
-                ModelInfoProvider.Instance,
+                modelInfoProvider,
                 Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
                 Substitute.For<IImportErrorSerializer>(),
                 storeClient,
