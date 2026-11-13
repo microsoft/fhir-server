@@ -22,9 +22,8 @@ namespace Microsoft.Health.Extensions.Xunit
                 return base.RunTestClass(context, testClass, testCases);
             }
 
-            var orderer = context.TestCaseOrderer ?? DefaultTestCaseOrderer.Instance;
-            var runner = new CustomXunitTestClassRunner();
-            return runner.Run(testClass, testCases, context.ExplicitOption, context.MessageBus, orderer, context.Aggregator.Clone(), context.CancellationTokenSource, context.CollectionFixtureMappings);
+            var runner = new CustomXunitTestClassRunner(context.CollectionFixtureMappings);
+            return runner.Run(testClass, testCases, context.ExplicitOption, context.MessageBus, context.Aggregator.Clone(), context.CancellationTokenSource, context.ParallelMode, context.Scheduler, context.CollectionFixtureMappings);
         }
     }
 }

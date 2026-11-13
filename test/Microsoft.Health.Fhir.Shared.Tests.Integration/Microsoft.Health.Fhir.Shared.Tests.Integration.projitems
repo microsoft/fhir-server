@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyValidationsTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)FixtureArgumentExecutionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ChangeFeed\SqlServerFhirResourceChangeCaptureDisabledTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ChangeFeed\SqlServerFhirResourceChangeCaptureFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ChangeFeed\SqlServerFhirResourceChangeCaptureEnabledTests.cs" />

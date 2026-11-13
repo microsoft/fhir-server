@@ -19,7 +19,7 @@ namespace Microsoft.Health.Extensions.Xunit
     internal sealed class CustomXunitTestFrameworkExecutor : XunitTestFrameworkExecutor
     {
         public CustomXunitTestFrameworkExecutor(Assembly assembly)
-            : base(new XunitTestAssembly(assembly, null, assembly.GetName().Version, UniqueIDGenerator.ForAssembly(assembly.Location, null)))
+            : base(new XunitTestAssembly(assembly, configFilePath: null))
         {
         }
 
