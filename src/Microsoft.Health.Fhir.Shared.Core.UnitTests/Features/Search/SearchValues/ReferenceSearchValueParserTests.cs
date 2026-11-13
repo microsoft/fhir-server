@@ -5,10 +5,12 @@
 
 using System;
 using System.Linq;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -73,11 +75,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         public void GivenAValidReference_WhenParsing_ThenCorrectSearchValueShouldBeReturned(string reference, string baseUri, ResourceType? resourceType, string resourceId)
         {
             ReferenceSearchValue value = _referenceSearchValueParser.Parse(reference);
+            ReferenceSearchValue uriValue = _referenceSearchValueParser.ParseUri(reference);
 
             Assert.NotNull(value);
             Assert.Equal(baseUri == null ? null : new Uri(baseUri), value.BaseUri);
             Assert.Equal(resourceType.ToString(), value.ResourceType ?? string.Empty);
             Assert.Equal(resourceId, value.ResourceId);
+            Assert.Equal(value.Kind, uriValue.Kind);
+            Assert.Equal(value.BaseUri, uriValue.BaseUri);
+            Assert.Equal(value.ResourceType, uriValue.ResourceType);
+            Assert.Equal(value.ResourceId, uriValue.ResourceId);
         }
 
         [Theory]
@@ -259,6 +266,59 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             // Assert
             Assert.Null(value.ResourceType);
             Assert.Equal(canonical, value.ResourceId);
+        }
+
+        [Theory]
+        [InlineData("canonical", false, true, "")]
+        [InlineData("canonical", false, true, "|1.0")]
+        [InlineData("canonical", true, true, "")]
+        [InlineData("canonical", false, false, "")]
+        [InlineData("uri", false, true, "")]
+        [InlineData("url", false, true, "")]
+        public void GivenAUriWithALongResourceTypeShapedSuffix_WhenConvertingToAReferenceSearchValue_ThenTheSuffixIsNotRejectedOrTruncated(
+            string fhirType,
+            bool useLongResourceIds,
+            bool rejectLongReferences,
+            string version)
+        {
+            // Arrange
+            ResourceIdPolicy policy = ResourceIdPolicy.From(useLongResourceIds, rejectLongReferences);
+            string suffix = CreateResourceId(policy.MaxLength + 1);
+            const string baseUri = "https://example.org/";
+            var element = Substitute.For<ITypedElement>();
+            element.InstanceType.Returns(fhirType);
+            element.Value.Returns($"{baseUri}StructureDefinition/{suffix}{version}");
+            ReferenceSearchValueParser parser = CreateParser(policy);
+            ITypedElementToSearchValueConverter converter = fhirType == "canonical"
+                ? new CanonicalToReferenceSearchValueConverter(parser)
+                : new UriToReferenceSearchValueConverter(parser);
+
+            // Act
+            var value = Assert.IsType<ReferenceSearchValue>(Assert.Single(converter.ConvertTo(element)));
+
+            // Assert
+            Assert.Equal(ReferenceKind.External, value.Kind);
+            Assert.Equal(new Uri(baseUri), value.BaseUri);
+            Assert.Equal("StructureDefinition", value.ResourceType);
+            Assert.Equal(suffix, value.ResourceId);
+        }
+
+        [Theory]
+        [InlineData("", ReferenceKind.InternalOrExternal)]
+        [InlineData("https://localhost/stu3/", ReferenceKind.Internal)]
+        public void GivenALongUriWithNoExternalBase_WhenParsingAsAUri_ThenTheSuffixAndClassificationArePreserved(string prefix, ReferenceKind expectedKind)
+        {
+            // Arrange
+            string suffix = CreateResourceId(65);
+
+            // Act
+            ReferenceSearchValue value = _referenceSearchValueParser.ParseUri($"{prefix}StructureDefinition/{suffix}");
+
+            // Assert
+            Assert.Equal(expectedKind, value.Kind);
+            Assert.Null(value.BaseUri);
+            Assert.Equal("StructureDefinition", value.ResourceType);
+            Assert.Equal(suffix, value.ResourceId);
         }
 
         [Theory]

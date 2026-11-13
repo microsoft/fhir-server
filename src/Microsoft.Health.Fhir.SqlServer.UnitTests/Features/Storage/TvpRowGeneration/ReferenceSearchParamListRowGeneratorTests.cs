@@ -7,13 +7,16 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Hl7.Fhir.ElementModel;
 using Medino;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
@@ -95,6 +98,33 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             bool generated = generator.TryGenerateRow(1, 2L, 3, searchValue, results: null, out _);
 
             // Assert
+            Assert.False(generated);
+        }
+
+        [Theory]
+        [InlineData(false, 65)]
+        [InlineData(true, 129)]
+        public void GivenACanonicalWithALongResourceTypeShapedSuffix_WhenConvertingAndGeneratingARow_ThenNoTruncatedRowIsGenerated(bool useLongResourceIds, int length)
+        {
+            // Arrange
+            ResourceIdPolicy policy = ResourceIdPolicy.From(useLongResourceIds);
+            var parser = new ReferenceSearchValueParser(
+                new FhirRequestContextAccessor(),
+                Substitute.For<IFhirServerInstanceConfiguration>(),
+                policy);
+            var converter = new CanonicalToReferenceSearchValueConverter(parser);
+            string suffix = CreateResourceId(length);
+            var canonical = Substitute.For<ITypedElement>();
+            canonical.InstanceType.Returns("canonical");
+            canonical.Value.Returns($"https://example.org/Patient/{suffix}");
+            var generator = new ReferenceSearchParamListRowGenerator(CreateModel(policy), new SearchParameterToSearchValueTypeMap());
+
+            // Act
+            var searchValue = Assert.IsType<ReferenceSearchValue>(Assert.Single(converter.ConvertTo(canonical)));
+            bool generated = generator.TryGenerateRow(1, 2L, 3, searchValue, results: null, out _);
+
+            // Assert
+            Assert.Equal(suffix, searchValue.ResourceId);
             Assert.False(generated);
         }
 
