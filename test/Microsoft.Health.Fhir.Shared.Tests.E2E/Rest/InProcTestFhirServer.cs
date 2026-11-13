@@ -49,6 +49,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var configuration = launchSettings["profiles"][dataStore.ToString()]["environmentVariables"].Cast<JProperty>().ToDictionary(p => p.Name, p => p.Value.ToString());
 
             configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true";
+
+            if (startupType.IsDefined(typeof(RequiresTrustedForwardersAttribute)))
+            {
+                // A TEST-NET-1 range, which the in-proc test client is never part of.
+                configuration["FhirServer:ForwardedHeaders:KnownNetworks:0"] = "192.0.2.0/24";
+            }
+
             configuration["TestAuthEnvironment:FilePath"] = Path.Join(AppContext.BaseDirectory, "testauthenvironment.json");
             configuration["FhirServer:Security:Enabled"] = "true";
             configuration["DevelopmentIdentityProvider:Enabled"] = "true";

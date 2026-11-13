@@ -119,16 +119,29 @@ namespace Microsoft.Extensions.DependencyInjection
 
             if (string.Equals(configurationRoot?["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
             {
+                // Parsed eagerly so that invalid entries fail at startup.
+                var knownProxies = fhirServerConfiguration.ForwardedHeaders.KnownProxies.Select(ParseProxy).ToList();
+                var knownNetworks = fhirServerConfiguration.ForwardedHeaders.KnownNetworks.Select(ParseNetwork).ToList();
+
                 services.Configure<ForwardedHeadersOptions>(options =>
                 {
                     // Default value for options.ForwardedHeaders is ForwardedHeaders.None.
                     options.ForwardedHeaders |= ForwardedHeaders.XForwardedHost | ForwardedHeaders.XForwardedPrefix;
 
-                    // Only loopback proxies are allowed by default.
-                    // Clear that restriction because forwarders are enabled by explicit
-                    // configuration.
-                    options.KnownNetworks.Clear();
+                    // Only loopback proxies are allowed by default. Replace that default with the
+                    // configured trusted forwarders. If neither list is configured, both stay empty
+                    // and any caller is trusted (legacy behavior; clients can forge X-Forwarded-* headers).
                     options.KnownProxies.Clear();
+                    foreach (IPAddress proxy in knownProxies)
+                    {
+                        options.KnownProxies.Add(proxy);
+                    }
+
+                    options.KnownIPNetworks.Clear();
+                    foreach (System.Net.IPNetwork network in knownNetworks)
+                    {
+                        options.KnownIPNetworks.Add(network);
+                    }
                 });
             }
 
@@ -189,6 +202,26 @@ namespace Microsoft.Extensions.DependencyInjection
             fhirServerBuilder.Services.AddSingleton<IBundleOrchestrator, BundleOrchestrator>();
 
             return fhirServerBuilder;
+        }
+
+        private static IPAddress ParseProxy(string value)
+        {
+            if (!IPAddress.TryParse(value, out IPAddress address))
+            {
+                throw new InvalidOperationException($"Invalid FhirServer:ForwardedHeaders:KnownProxies entry '{value}'. Expected an IP address.");
+            }
+
+            return address;
+        }
+
+        private static System.Net.IPNetwork ParseNetwork(string value)
+        {
+            if (!System.Net.IPNetwork.TryParse(value, out System.Net.IPNetwork network))
+            {
+                throw new InvalidOperationException($"Invalid FhirServer:ForwardedHeaders:KnownNetworks entry '{value}'. Expected CIDR notation, e.g. 10.0.0.0/8.");
+            }
+
+            return network;
         }
 
         /// <summary>
