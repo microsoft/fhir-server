@@ -28,7 +28,7 @@ BEGIN TRY
            +CASE WHEN C.IncludeColumns IS NOT NULL THEN ' INCLUDE ('+C.IncludeColumns+')' ELSE '' END
            +' WHERE ResourceTypeId = '+@ResourceTypeIdChar+' AND SearchParamId = '+@SearchParamIdChar
            +CASE WHEN I.filter_definition IS NOT NULL THEN ' AND ('+I.filter_definition+')' ELSE '' END
-           +' WITH (DATA_COMPRESSION = '+IP.PropertyValue+')'
+           +' WITH (DATA_COMPRESSION = '+P.PropertyValue+')'
       FROM sys.indexes I
            CROSS APPLY (SELECT IndexName = replace(I.name,'_SearchParamId','')+'_WHERE_RT_'+@ResourceTypeIdChar+'_SP_'+@SearchParamIdChar) N
            LEFT JOIN dbo.IndexProperties P ON P.TableName = @TableName AND P.IndexName = I.name AND P.PropertyName = 'DATA_COMPRESSION'
