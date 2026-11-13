@@ -727,6 +727,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The parameter in &apos;{1}&apos; cannot be enforced as a SMART on FHIR clinical scope constraint. The scope &apos;{0}&apos; must use a search parameter that filters resources..
+        /// </summary>
+        public static string SmartScopeSearchParameterResultParameterNotSupported {
+            get {
+                return ResourceManager.GetString("SmartScopeSearchParameterResultParameterNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Only one profile can be provided between a Parameters resource and the URL.
         /// </summary>
         public static string MultipleProfilesProvided {

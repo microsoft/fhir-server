@@ -173,7 +173,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchParameterComparer,
                 statusDataStore.CreateMockScopeProvider(),
                 fhirDataStore.CreateMockScopeProvider(),
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
 
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(_searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
@@ -260,7 +261,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ModelInfoProvider.Instance,
                 _fhirRequestContextAccessor,
                 importErrorSerializer,
-                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, SchemaInformation));
+                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, SchemaInformation),
+                Substitute.For<IResourceWrapperFactory>());
 
             // Create operation data store with real SqlQueueClient for reindex tests
             _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(sqlQueueClient, NullLoggerFactory.Instance);
@@ -308,6 +310,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirDataStore,
                 sqlServerFhirModel,
                 sqlRootExpressionRewriter,
+                new InstantDateTimeRewriter(),
                 chainFlatteningRewriter,
                 sortRewriter,
                 partitionEliminationRewriter,

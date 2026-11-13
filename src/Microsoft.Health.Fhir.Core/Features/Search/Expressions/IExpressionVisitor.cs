@@ -20,6 +20,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         TOutput VisitSearchParameter(SearchParameterExpression expression, TContext context);
 
         /// <summary>
+        /// Visits the <see cref="VectorSearchExpression"/>.
+        /// </summary>
+        /// <param name="expression">The expression to visit.</param>
+        /// <param name="context">The input</param>
+        TOutput VisitVectorSearch(VectorSearchExpression expression, TContext context);
+
+        /// <summary>
         /// Visits the <see cref="BinaryExpression"/>.
         /// </summary>
         /// <param name="expression">The expression to visit.</param>

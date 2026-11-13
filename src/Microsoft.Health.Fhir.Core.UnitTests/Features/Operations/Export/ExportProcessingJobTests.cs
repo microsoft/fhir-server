@@ -10,17 +10,19 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
@@ -32,12 +34,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
     {
         private readonly string _progressToken = "progress token";
 
-        private static Func<IScoped<ISearchService>> CreateMockSearchServiceFactory()
+        private static IScopeProvider<ISearchService> CreateMockSearchServiceFactory()
         {
             var searchService = Substitute.For<ISearchService>();
             var scoped = Substitute.For<IScoped<ISearchService>>();
             scoped.Value.Returns(searchService);
-            return () => scoped;
+            return scoped.CreateMockScopeProviderFromScoped();
         }
 
         [Fact]
@@ -68,6 +70,37 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJob), CreateMockSearchServiceFactory(), new TestQueueClient(), new NullLogger<ExportProcessingJob>());
             await Assert.ThrowsAsync<OperationCanceledException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), CancellationToken.None));
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenSerializedFailureDetails_WhenExportProcessingExecutes_ThenFailureClassificationIsPreserved(bool? isCustomerCaused)
+        {
+            // Arrange
+            var record = JObject.Parse(GenerateJobRecord(OperationStatus.Failed, "Export failed."));
+            if (isCustomerCaused.HasValue)
+            {
+                record["failureDetails"]["isCustomerCaused"] = isCustomerCaused.Value;
+            }
+
+            var processingJob = new ExportProcessingJob(MakeMockJob, CreateMockSearchServiceFactory(), new TestQueueClient(), NullLogger<ExportProcessingJob>.Instance);
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(GenerateJobInfo(record.ToString()), CancellationToken.None));
+
+            // Assert
+            Assert.Equal(isCustomerCaused ?? false, exception.IsCustomerCaused);
+            var serializedResult = JObject.Parse(JsonConvert.SerializeObject(exception.Error));
+            if (isCustomerCaused == true)
+            {
+                Assert.True(serializedResult["failureDetails"]["isCustomerCaused"].Value<bool>());
+            }
+            else
+            {
+                Assert.Null(serializedResult["failureDetails"]["isCustomerCaused"]);
+            }
         }
 
         [Theory]
@@ -283,7 +316,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var scoped = Substitute.For<IScoped<ISearchService>>();
             scoped.Value.Returns(searchService);
-            Func<IScoped<ISearchService>> factory = () => scoped;
+            IScopeProvider<ISearchService> factory = scoped.CreateMockScopeProviderFromScoped();
 
             var processingJob = new ExportProcessingJob(MakeMockJobThatAlwaysOoms, factory, new TestQueueClient(), new NullLogger<ExportProcessingJob>());
             var jobRecord = GenerateJobRecord(OperationStatus.Completed, resourceType: "Patient", startSurrogateId: startSurrogateId, endSurrogateId: endSurrogateId, maximumNumberOfResourcesPerQuery: maxCount);
@@ -347,7 +380,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var scoped = Substitute.For<IScoped<ISearchService>>();
             scoped.Value.Returns(searchService);
-            Func<IScoped<ISearchService>> factory = () => scoped;
+            IScopeProvider<ISearchService> factory = scoped.CreateMockScopeProviderFromScoped();
 
             var processingJob = new ExportProcessingJob(MakeMockJobCapturingBatchSize, factory, new TestQueueClient(), new NullLogger<ExportProcessingJob>());
             var jobRecord = GenerateJobRecord(OperationStatus.Completed, resourceType: "Patient", startSurrogateId: startSurrogateId, endSurrogateId: endSurrogateId);
@@ -448,7 +481,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var scoped = Substitute.For<IScoped<ISearchService>>();
             scoped.Value.Returns(searchService);
-            Func<IScoped<ISearchService>> factory = () => scoped;
+            IScopeProvider<ISearchService> factory = scoped.CreateMockScopeProviderFromScoped();
 
             var processingJob = new ExportProcessingJob(MakeMockJobWithOomOnFirstRange, factory, new TestQueueClient(), new NullLogger<ExportProcessingJob>());
             var jobRecord = GenerateJobRecord(OperationStatus.Completed, exportJobType: exportJobType, resourceType: resourceType, startSurrogateId: startId, endSurrogateId: endId);

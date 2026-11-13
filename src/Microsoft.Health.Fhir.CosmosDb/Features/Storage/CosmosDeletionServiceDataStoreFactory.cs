@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Concurrent;
 using EnsureThat;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 

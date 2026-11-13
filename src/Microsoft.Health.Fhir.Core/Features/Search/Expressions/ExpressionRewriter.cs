@@ -26,6 +26,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return new SearchParameterExpression(expression.Parameter, visitedExpression);
         }
 
+        public virtual Expression VisitVectorSearch(VectorSearchExpression expression, TContext context)
+        {
+            return expression;
+        }
+
         public virtual Expression VisitBinary(BinaryExpression expression, TContext context)
         {
             return expression;

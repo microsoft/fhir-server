@@ -403,7 +403,10 @@ RAISERROR('Test',18,127)
 
             ExecuteSql("DROP TRIGGER dbo.tmp_NumberSearchParam");
 
-            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, factory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper))
+            var indexingFactory = Substitute.For<IResourceWrapperFactory>();
+            indexingFactory.UpdateAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>())
+                .Returns(call => factory.UpdateAsync(call.Arg<IReadOnlyCollection<ResourceWrapper>>(), call.Arg<CancellationToken>()));
+            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, indexingFactory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper))
             {
                 AllowRebalance = true,
                 PeriodSec = 1,
@@ -430,6 +433,11 @@ RAISERROR('Test',18,127)
 
             await cts.CancelAsync();
             await wdTask;
+
+            await indexingFactory.Received(1).UpdateAsync(
+                Arg.Is<IReadOnlyCollection<ResourceWrapper>>(resources => resources.Count == 1 && resources.Single().ResourceId == patient.Id),
+                cts.Token);
+            indexingFactory.DidNotReceive().Update(Arg.Any<ResourceWrapper>());
         }
 
         [Fact]
@@ -828,12 +836,120 @@ INSERT INTO dbo.WatchdogLeases
             Assert.Equal(1, captured.QueueDepths[QueueType.Import].Pending);
         }
 
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(2)]
+        public async Task JobMonitorWatchdog_WhenReadingActiveJobs_ReturnsEquivalentAggregates(int scenario)
+        {
+            // Arrange
+            ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+            if (scenario > 0)
+            {
+                ExecuteSql($@"
+INSERT INTO dbo.JobQueue (QueueType, GroupId, JobId, Definition, DefinitionHash, Status, CreateDate)
+SELECT Q.QueueType, D.Duplicate + 1, P.PartitionId + 16 * (S.Status + 7 * D.Duplicate), 'job', 0x00, S.Status,
+       dateadd(second, -(P.PartitionId + S.Status * 100 + D.Duplicate * 1000), convert(datetime, '20260101', 112))
+FROM (VALUES (0),(1),(2),(3),(4),(5),(6),(255)) Q(QueueType)
+CROSS JOIN (VALUES (0),(1),(2),(3),(4),(5),(6),(7),(8),(9),(10),(11),(12),(13),(14),(15)) P(PartitionId)
+CROSS JOIN (VALUES (0),(1),(2),(3),(4),(5),(6)) S(Status)
+CROSS JOIN (VALUES (0),(1)) D(Duplicate)
+WHERE S.Status >= {(scenario == 2 ? 2 : 0)}");
+            }
+
+            using var expectedCommand = new SqlCommand(@"
+SELECT QueueType, Status, min(CreateDate), count(*)
+FROM dbo.JobQueue
+WHERE Status IN (0,1) AND QueueType IN (1,2,3,4,5,6)
+GROUP BY QueueType, Status");
+            var expected = await _fixture.SqlRetryService.ExecuteReaderAsync(
+                expectedCommand,
+                reader => new JobMonitorWatchdog.QueueStatusAggregate(
+                    (QueueType)reader.GetByte(0),
+                    (JobStatus)reader.GetByte(1),
+                    reader.GetDateTime(2),
+                    reader.GetInt32(3)),
+                XUnitLogger<JobMonitorWatchdog>.Create(_testOutputHelper),
+                "Failed to read expected queue aggregates",
+                CancellationToken.None);
+            var watchdog = new JobMonitorWatchdog(
+                _fixture.SqlRetryService,
+                XUnitLogger<JobMonitorWatchdog>.Create(_testOutputHelper),
+                Substitute.For<IMediator>(),
+                new SqlQueueClient(_fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper)));
+
+            // Act
+            var actual = await watchdog.GetQueueStatusAggregatesAsync(CancellationToken.None);
+
+            // Assert
+            Assert.Equal(scenario == 1 ? 12 : 0, actual.Count);
+            Assert.Equal(
+                expected.OrderBy(a => a.QueueType).ThenBy(a => a.Status),
+                actual.OrderBy(a => a.QueueType).ThenBy(a => a.Status));
+            if (scenario == 1)
+            {
+                Assert.All(actual, aggregate => Assert.Equal(32, aggregate.Count));
+            }
+        }
+
+        [Theory]
+        [InlineData(null, false)]
+        [InlineData(true, false)]
+        [InlineData(false, false)]
+        [InlineData(null, true)]
+        [InlineData(true, true)]
+        [InlineData(false, true)]
+        public async Task GetActiveJobs_WhenReturnDefinitionIsSpecified_PreservesJobMetadata(bool? returnDefinition, bool returnParentOnly)
+        {
+            // Arrange
+            ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
+            ExecuteSql(@"
+INSERT INTO dbo.JobQueue (QueueType, GroupId, JobId, Definition, DefinitionHash, Status, CreateDate)
+SELECT 1, 0, P.PartitionId + 16 * S.Status, 'job', 0x00, S.Status, convert(datetime, '20260101', 112)
+FROM (VALUES (0),(1),(2),(3),(4),(5),(6),(7),(8),(9),(10),(11),(12),(13),(14),(15)) P(PartitionId)
+CROSS JOIN (VALUES (0),(1)) S(Status)");
+            using var command = new SqlCommand("dbo.GetActiveJobs") { CommandType = CommandType.StoredProcedure };
+            command.Parameters.Add("@QueueType", SqlDbType.TinyInt).Value = 1;
+            command.Parameters.Add("@ReturnParentOnly", SqlDbType.Bit).Value = returnParentOnly;
+            if (returnDefinition.HasValue)
+            {
+                command.Parameters.Add("@ReturnDefinition", SqlDbType.Bit).Value = returnDefinition.Value;
+            }
+
+            // Act
+            var jobs = await _fixture.SqlRetryService.ExecuteReaderAsync(
+                command,
+                reader => (
+                    Id: reader.GetInt64(reader.GetOrdinal("JobId")),
+                    GroupId: reader.GetInt64(reader.GetOrdinal("GroupId")),
+                    Status: reader.GetByte(reader.GetOrdinal("Status")),
+                    CreateDate: reader.GetDateTime(reader.GetOrdinal("CreateDate")),
+                    Definition: reader.IsDBNull(reader.GetOrdinal("Definition")) ? null : reader.GetString(reader.GetOrdinal("Definition"))),
+                XUnitLogger<SqlQueueClient>.Create(_testOutputHelper),
+                "Failed to read active jobs",
+                CancellationToken.None);
+
+            // Assert
+            Assert.Equal(returnParentOnly ? 1 : 32, jobs.Count);
+            Assert.Equal(
+                Enumerable.Range(0, returnParentOnly ? 1 : 32).Select(id => (long)id),
+                jobs.Select(job => job.Id).OrderBy(id => id));
+            Assert.All(jobs, job =>
+            {
+                Assert.Equal(0, job.GroupId);
+                Assert.Equal((byte)(job.Id / 16), job.Status);
+                Assert.Equal(new DateTime(2026, 1, 1), job.CreateDate);
+                Assert.Equal(returnDefinition == false ? null : "job", job.Definition);
+            });
+        }
+
         private async Task RunJobMonitorWatchdogUntilPublishAsync(IMediator mediator, Func<bool> isPublished)
         {
             var wd = new JobMonitorWatchdog(
                 _fixture.SqlRetryService,
                 XUnitLogger<JobMonitorWatchdog>.Create(_testOutputHelper),
-                mediator)
+                mediator,
+                new SqlQueueClient(_fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper)))
             {
                 PeriodSec = 1,
                 LeasePeriodSec = 2,

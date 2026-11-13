@@ -43,6 +43,28 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
         private const BindingFlags InstanceFields = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
         [Theory]
+        [InlineData("2026-10-01T00:00:00Z")]
+        [InlineData("2026-10-01T00:00:00.1234567Z")]
+        [InlineData("2026-10-01T05:30:00.0000001+05:30")]
+        [InlineData("2026-09-30T17:00:00.9999999-07:00")]
+        [InlineData("0001-01-01T00:00:00Z")]
+        [InlineData("9999-12-31T23:59:59.9999999Z")]
+        public void GivenInstantSearchValue_WhenGeneratingDateRow_ThenBothEndpointsKeepTheSameUtcTick(string literal)
+        {
+            var parameter = new SearchParameterInfo("start", "start", ValueSets.SearchParamType.Date, new Uri("http://hl7.org/fhir/SearchParameter/Slot-start"));
+            var generator = new DateTimeSearchParamListRowGenerator(CreateModel(parameter), new SearchParameterToSearchValueTypeMap());
+            DateTimeOffset instant = DateTimeOffset.Parse(literal, CultureInfo.InvariantCulture);
+
+            Assert.True(generator.TryGenerateRow(1, 100, 3, new DateTimeSearchValue(instant), null, out var row));
+
+            Assert.Equal(instant.ToUniversalTime(), row.StartDateTime);
+            Assert.Equal(row.StartDateTime, row.EndDateTime);
+            Assert.Equal(TimeSpan.Zero, row.StartDateTime.Offset);
+            Assert.Equal(TimeSpan.Zero, row.EndDateTime.Offset);
+            Assert.False(row.IsLongerThanADay);
+        }
+
+        [Theory]
         [InlineData("Token")]
         [InlineData("TokenText")]
         [InlineData("String")]

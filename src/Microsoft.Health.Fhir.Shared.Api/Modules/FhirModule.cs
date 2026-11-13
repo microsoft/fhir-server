@@ -173,9 +173,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
             ModelExtensions.SetModelInfoProvider();
             services.Add(_ => ModelInfoProvider.Instance).Singleton().AsSelf().AsImplementedInterfaces();
 
-            // Register a factory to resolve a scope that returns all components that provide capabilities
-            services.AddFactory<IScoped<IEnumerable<IProvideCapability>>>();
-
             // Register pipeline behavior to intercept create/update requests and check presence of provenace header.
             services.Add<ProvenanceHeaderBehavior>()
                 .Scoped()
@@ -215,7 +212,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddHealthChecks().AddCheck<StorageInitializedHealthCheck>(name: "StorageInitializedHealthCheck");
 
             services.AddLazy();
-            services.AddScoped();
 
             services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
 
@@ -225,7 +221,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AssignableTo<IInstantiateCapability>()
                 .Transient()
                 .AsService<IInstantiateCapability>();
-            services.AddFactory<IScoped<IEnumerable<IInstantiateCapability>>>();
         }
     }
 }
