@@ -23,7 +23,7 @@ If discovery aborts with "Could not find testhost", verify these references are 
 Build the project before running it from a terminal. The .NET 11 R4 web executable is `.\src\Microsoft.Health.Fhir.R4.Web\bin\Debug\net11.0\Microsoft.Health.Fhir.R4.Web.exe`.
 Running this executable will start the project in the terminal. Note that it will use the appsettings options stored in the folder with the executable, which is only updated when the project is built. This file can also be manually edited if desired.
 
-Run unit tests for each framework with `dotnet test <unit-test.csproj> -f net11.0` and `dotnet test <unit-test.csproj> -f net10.0`.
+Run unit tests for each framework with `dotnet test --project <unit-test.csproj> -f net11.0` and `dotnet test --project <unit-test.csproj> -f net10.0`.
 
 ### Enabling extra logging
 

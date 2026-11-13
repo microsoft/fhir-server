@@ -135,7 +135,7 @@ SMART deltas smaller than that as indistinguishable from noise.
 ### 1. Generate data
 
 ```powershell
-dotnet run --project tools/IncludePerf/FhirPerfDataGenerator -c Release -- `
+dotnet run --project tools/IncludePerf/FhirPerfDataGenerator --framework net11.0 -c Release -- `
     --profile large --output C:\perfdata-large --workers 8
 ```
 
