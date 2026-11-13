@@ -475,6 +475,21 @@ stages:
       containerAppName: $(DeploymentEnvironmentNameR5Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
 
+- template: ./stages/sql-profile-tests.yml
+  parameters:
+    version: Stu3
+    appName: $(DeploymentEnvironmentNameSql)
+
+- template: ./stages/sql-profile-tests.yml
+  parameters:
+    version: R4
+    appName: $(DeploymentEnvironmentNameR4Sql)
+
+- template: ./stages/sql-profile-tests.yml
+  parameters:
+    version: R5
+    appName: $(DeploymentEnvironmentNameR5Sql)
+
 - template: ./stages/cleanup-pr-test-resources.yml
   parameters:
     testStage: testStu3Sql

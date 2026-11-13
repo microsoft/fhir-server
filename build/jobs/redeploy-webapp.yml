@@ -9,6 +9,9 @@ parameters:
   type: string
 - name: resourceGroup
   type: string
+- name: pinImageDigest
+  type: boolean
+  default: false
 
 jobs:
 - job: provisionEnvironment
@@ -27,6 +30,11 @@ jobs:
         $containerAppName = "${{ parameters.webAppName }}".ToLower()
         $rgName = "${{ parameters.resourceGroup }}"
         $newImage = "$(azureContainerRegistry)/$("${{ parameters.version }}".ToLower())_fhir-server:${{ parameters.imageTag }}"
+        if ('${{ parameters.pinImageDigest }}' -eq 'True') {
+          $digest = az acr repository show --name "$(azureContainerRegistryName)" --image "$("${{ parameters.version }}".ToLower())_fhir-server:${{ parameters.imageTag }}" --query digest --output tsv --only-show-errors
+          if ($LASTEXITCODE -ne 0 -or $digest -cnotmatch '^sha256:[a-f0-9]{64}$') { throw 'The SQL build image must resolve to a SHA-256 manifest digest.' }
+          $newImage = "$newImage@$digest"
+        }
         $appInsightsName = "AppInsights-$containerAppName"
 
         $currentImage = az containerapp show `
@@ -53,21 +61,67 @@ jobs:
         }
         Write-Host "##vso[task.setsecret]$appInsightsConnectionString"
 
-        az containerapp update `
-          --name $containerAppName `
-          --resource-group $rgName `
-          --image $newImage `
-          --remove-env-vars Telemetry__InstrumentationKey `
-          --set-env-vars `
-            "Telemetry__Provider=ApplicationInsights" `
-            "Telemetry__ConnectionString=$appInsightsConnectionString" `
-            "APPLICATIONINSIGHTS_CONNECTION_STRING=$appInsightsConnectionString" `
-            "FhirServer__Operations__Import__InMemoryTestEnabled=$(importInMemoryTestEnabled)" `
-          --output none `
-          --only-show-errors
+        if ('${{ parameters.pinImageDigest }}' -eq 'True') {
+          # SQL apps run labeled profile revisions, so the latest revision may be a test profile.
+          # Deploy a new Standard64 baseline copied from the explicitly routed revision instead
+          # of an app-level update that would inherit the latest template.
+          $appResourceId = az containerapp show `
+            --name $containerAppName `
+            --resource-group $rgName `
+            --query id `
+            --output tsv `
+            --only-show-errors
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($appResourceId)) {
+            throw "Failed to get the resource ID of container app '$containerAppName'"
+          }
 
-        if ($LASTEXITCODE -ne 0) { throw "Failed to update container app '$containerAppName'" }
-        Write-Host "Container app image updated successfully."
+          $armToken = az account get-access-token --resource 'https://management.azure.com/' --query accessToken --output tsv --only-show-errors
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($armToken)) {
+            throw 'Failed to get an ARM access token for the SQL revision deployment.'
+          }
+          Write-Host "##vso[task.setsecret]$armToken"
+          $secureToken = ConvertTo-SecureString -String $armToken -AsPlainText -Force
+          $armToken = $null
+
+          $settings = @{
+            FhirServer__CoreFeatures__UseLongResourceIds = 'false'
+            TaskHosting__Enabled = 'true'
+            Telemetry__Provider = 'ApplicationInsights'
+            Telemetry__ConnectionString = $appInsightsConnectionString
+            APPLICATIONINSIGHTS_CONNECTION_STRING = $appInsightsConnectionString
+            FhirServer__Operations__Import__InMemoryTestEnabled = '$(importInMemoryTestEnabled)'
+          }
+
+          $result = & '$(System.DefaultWorkingDirectory)/build/jobs/scripts/Sync-SqlRevisions.ps1' `
+            -Goal Converge `
+            -AppResourceId $appResourceId `
+            -AccessToken $secureToken `
+            -BuildId '$(Build.BuildId)' `
+            -Attempt '$(System.StageAttempt)' `
+            -Image $newImage `
+            -MinReplicas 3 `
+            -Environment $settings `
+            -RemoveEnvironment 'Telemetry__InstrumentationKey'
+          $secureToken = $null
+          Write-Host "Baseline revision $($result.BaselineRevision) serves $($result.Image)."
+        }
+        else {
+          az containerapp update `
+            --name $containerAppName `
+            --resource-group $rgName `
+            --image $newImage `
+            --remove-env-vars Telemetry__InstrumentationKey `
+            --set-env-vars `
+              "Telemetry__Provider=ApplicationInsights" `
+              "Telemetry__ConnectionString=$appInsightsConnectionString" `
+              "APPLICATIONINSIGHTS_CONNECTION_STRING=$appInsightsConnectionString" `
+              "FhirServer__Operations__Import__InMemoryTestEnabled=$(importInMemoryTestEnabled)" `
+            --output none `
+            --only-show-errors
+
+          if ($LASTEXITCODE -ne 0) { throw "Failed to update container app '$containerAppName'" }
+          Write-Host "Container app image updated successfully."
+        }
 
   - template: ../tasks/container-app-health-check.yml
     parameters:

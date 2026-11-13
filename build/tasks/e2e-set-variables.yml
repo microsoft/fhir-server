@@ -5,12 +5,19 @@ parameters:
   type: string
 - name: appServiceType
   type: string
+- name: resourceIdProfile
+  type: string
+  default: None
 
 steps:
 - task: AzurePowerShell@5
   displayName: 'Set Variables (ACA)'
   # Recover from transient Connect-AzAccount failures before the read-only script runs.
   retryCountOnTaskFailure: 1
+  ${{ if eq(parameters.resourceIdProfile, 'Runtime') }}:
+    env:
+      SQLREVISIONPROFILE: $(SqlRevisionProfile)
+      SQLREVISIONBINDING: $(SqlRevisionBinding)
   inputs:
     azureSubscription: $(ConnectedServiceName)
     azurePowerShellVersion: latestVersion
@@ -61,19 +68,14 @@ steps:
         function Set-TestEnvironmentUrlVariables {
             param(
                 [Parameter(Mandatory = $true)]
-                [psobject]$ContainerAppData,
+                [string]$Url,
                 [Parameter(Mandatory = $true)]
                 [string]$Version,
                 [Parameter(Mandatory = $true)]
                 [string]$AppServiceType
             )
 
-            $fqdn = $ContainerAppData.Properties.configuration.ingress.fqdn
-            if ([string]::IsNullOrEmpty($fqdn) -or $fqdn -eq 'null') {
-                throw "Container App '$containerAppName' does not have an ingress FQDN configured."
-            }
-
-            $url = "https://$fqdn"
+            $url = $Url
             if ($AppServiceType -eq 'SqlServer') {
                 $defaultVariableName = 'TestEnvironmentUrl_Sql'
                 $versionVariableName = "TestEnvironmentUrl_${Version}_Sql"
@@ -98,24 +100,163 @@ steps:
             throw "Container App '$containerAppName' was not found in resource group '$(UniqueResourceGroupName)'"
         }
 
-        $containerAppData = $containerApp | ConvertTo-Json -Depth 100 | ConvertFrom-Json
-        $envSettings = $containerAppData.Properties.template.containers[0].env
-        if ($null -eq $envSettings) {
-            throw "Container App '$containerAppName' has no environment variables configured."
+        $revisionProfile = '${{ parameters.resourceIdProfile }}'
+        if ($revisionProfile -ceq 'Runtime') {
+            $revisionProfile = $env:SQLREVISIONPROFILE
         }
 
-        Set-TestEnvironmentUrlVariables -ContainerAppData $containerAppData -Version '${{ parameters.version }}' -AppServiceType '${{ parameters.appServiceType }}'
+        if ([string]::IsNullOrWhiteSpace($revisionProfile)) {
+            throw 'The runtime SQL revision profile matrix variable SqlRevisionProfile is not set.'
+        }
 
-        $acrLoginServer = Get-ContainerEnvValue -EnvSettings $envSettings -Name "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"
+        if ('${{ parameters.resourceIdProfile }}' -ceq 'None' -and '${{ parameters.appServiceType }}' -ceq 'SqlServer') {
+            $revisionProfile = 'Standard64'
+        }
 
-        $exportStoreUri = Get-ContainerEnvValue -EnvSettings $envSettings -Name "FhirServer__Operations__Export__StorageAccountUri"
+        $endpointSettings = @{}
+        if ('${{ parameters.resourceIdProfile }}' -ceq 'None' -and '${{ parameters.appServiceType }}' -cne 'SqlServer') {
+            $containerAppData = $containerApp | ConvertTo-Json -Depth 100 | ConvertFrom-Json
+            $envSettings = $containerAppData.Properties.template.containers[0].env
+            if ($null -eq $envSettings) {
+                throw "Container App '$containerAppName' has no environment variables configured."
+            }
+
+            $fqdn = $containerAppData.Properties.configuration.ingress.fqdn
+            if ([string]::IsNullOrEmpty($fqdn) -or $fqdn -eq 'null') {
+                throw "Container App '$containerAppName' does not have an ingress FQDN configured."
+            }
+
+            $endpointUrl = "https://$fqdn"
+            foreach ($name in @('FhirServer__Operations__ConvertData__ContainerRegistryServers__0', 'FhirServer__Operations__Export__StorageAccountUri', 'FhirServer__Operations__IntegrationDataStore__StorageAccountUri')) {
+                $endpointSettings[$name] = Get-ContainerEnvValue -EnvSettings $envSettings -Name $name
+            }
+        }
+        else {
+            if ('${{ parameters.appServiceType }}' -cne 'SqlServer') {
+                throw "Revision profile '$revisionProfile' applies only to SQL Server container apps."
+            }
+
+            $armToken = (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').Token
+            if ($armToken -is [string]) {
+                $armToken = ConvertTo-SecureString -String $armToken -AsPlainText -Force
+            }
+
+            $selectArguments = @{
+                Goal = 'Resolve'
+                AppResourceId = $containerApp.ResourceId
+                AccessToken = $armToken
+                RevisionProfile = $revisionProfile
+            }
+            if ('${{ parameters.resourceIdProfile }}' -ceq 'Runtime') {
+                if ([string]::IsNullOrWhiteSpace($env:SQLREVISIONBINDING)) {
+                    throw 'The runtime SQL revision profile requires the producer binding SqlRevisionBinding.'
+                }
+
+                $selectArguments['Binding'] = $env:SQLREVISIONBINDING
+                $selectArguments['Expect'] = $true
+            }
+
+            $evidenceDirectory = "$(Agent.TempDirectory)/resource-id-endpoint-${{ parameters.version }}-$revisionProfile"
+            [void](New-Item $evidenceDirectory -ItemType Directory -Force)
+            $evidence = [ordered]@{
+                profile = $revisionProfile
+                version = '${{ parameters.version }}'
+                containerAppName = $containerAppName
+                status = 'SelectionFailed'
+            }
+            [IO.File]::WriteAllText("$evidenceDirectory/endpoint.json", ($evidence | ConvertTo-Json))
+            Write-Host "##vso[task.setvariable variable=ResourceIdEndpointDirectory]$evidenceDirectory"
+            Write-Host "##vso[task.setvariable variable=ResourceIdEndpointArtifact]ResourceIdEndpoint_${{ parameters.version }}_$($revisionProfile)_$(System.JobName)_attempt$(System.JobAttempt)"
+
+            $selection = & "$(System.DefaultWorkingDirectory)/build/jobs/scripts/Sync-SqlRevisions.ps1" @selectArguments
+            $armToken = $null
+
+            $evidence = [ordered]@{
+                profile = $revisionProfile
+                resourceIdProfile = $selection.ResourceIdProfile
+                version = '${{ parameters.version }}'
+                containerAppName = $containerAppName
+                status = 'Selected'
+                revision = $selection.Revision
+                label = $selection.Label
+                url = $selection.Url
+                image = $selection.Image
+                ready = $selection.Ready
+                fingerprint = $selection.Fingerprint
+                baselineRevision = $selection.BaselineRevision
+                database = 'FHIR${{ parameters.version }}'
+                sqlServer = '$(DeploymentEnvironmentName)'
+            }
+            [IO.File]::WriteAllText("$evidenceDirectory/endpoint.json", ($evidence | ConvertTo-Json))
+            Write-Host "Selected revision '$($selection.Revision)' (label '$($selection.Label)', baseline '$($selection.BaselineRevision)') at $($selection.Url)"
+
+            if (-not $selection.Ready) {
+                throw "Selected revision '$($selection.Revision)' is not active, provisioned and healthy."
+            }
+
+            $expectedImage = "$(azureContainerRegistry)/$("${{ parameters.version }}".ToLowerInvariant())_fhir-server:$(ImageTag)"
+            $matchesImage = if ($expectedImage.Contains('@')) {
+                $selection.Image -ceq $expectedImage
+            }
+            else {
+                $selection.Image -cmatch ('^' + [regex]::Escape($expectedImage) + '@sha256:[a-f0-9]{64}$')
+            }
+            if (-not $matchesImage) {
+                throw "Selected revision '$($selection.Revision)' does not run the digest-pinned image for this build."
+            }
+
+            if ($selection.Settings['FhirServer__Security__Authentication__Audience'] -cne '$(TestApplicationResource)') {
+                throw 'The selected revision changed the authentication audience.'
+            }
+
+            if (@($selection.EnvironmentNames | Where-Object { $_ -ieq 'SqlServer__ConnectionString' }).Count -ne 0) {
+                throw 'A revision SQL connection override is not permitted.'
+            }
+
+            $vaultName = ([uri]$selection.Settings['KeyVault__Endpoint']).Host.Split('.')[0]
+            $declaredNames = @($selection.Settings.Keys) + @($selection.EnvironmentNames)
+            $overrides = @(Get-AzKeyVaultSecret -VaultName $vaultName -ErrorAction Stop |
+                ForEach-Object { $_.Name.Replace('--', '__') } |
+                Where-Object { $_ -ine 'SqlServer__ConnectionString' -and $declaredNames -icontains $_ })
+            if ($overrides.Count -ne 0) {
+                throw "Key Vault '$vaultName' holds secrets that would override declared revision settings: $($overrides -join ', ')."
+            }
+
+            $connection = Get-AzKeyVaultSecret -VaultName $vaultName -Name 'SqlServer--ConnectionString' -AsPlainText -ErrorAction Stop
+            $builder = [System.Data.Common.DbConnectionStringBuilder]::new()
+            $builder.set_ConnectionString($connection)
+            $connection = $null
+            $routedToVersionDatabase = $builder['Initial Catalog'] -ceq 'FHIR${{ parameters.version }}' -and $builder['Server'] -ieq 'tcp:$(DeploymentEnvironmentName).database.windows.net,1433'
+            $builder.Clear()
+            if (-not $routedToVersionDatabase) {
+                throw 'The selected revision is not routed to the intended shared version database.'
+            }
+
+            $selectedBinding = if ('${{ parameters.resourceIdProfile }}' -ceq 'Runtime') {
+                $env:SQLREVISIONBINDING
+            }
+            else {
+                ConvertTo-Json -Compress -InputObject ([ordered]@{ Profile = $selection.Profile; Revision = $selection.Revision; Url = $selection.Url; Image = $selection.Image; Fingerprint = $selection.Fingerprint; BaselineRevision = $selection.BaselineRevision })
+            }
+            Write-Host "##vso[task.setvariable variable=ResourceIdSelectedProfile]$revisionProfile"
+            Write-Host "##vso[task.setvariable variable=ResourceIdSelectedBinding]$selectedBinding"
+
+            $endpointUrl = $selection.Url
+            $endpointSettings = $selection.Settings
+        }
+
+        Set-TestEnvironmentUrlVariables -Url $endpointUrl -Version '${{ parameters.version }}' -AppServiceType '${{ parameters.appServiceType }}'
+
+        $acrLoginServer = $endpointSettings['FhirServer__Operations__ConvertData__ContainerRegistryServers__0']
+
+        $exportStoreUri = $endpointSettings['FhirServer__Operations__Export__StorageAccountUri']
         if ([string]::IsNullOrEmpty($exportStoreUri) -or $exportStoreUri -eq "null") {
             throw "FhirServer__Operations__Export__StorageAccountUri is missing on container app '$containerAppName'."
         }
         Write-Host "$exportStoreUri"
         Write-Host "##vso[task.setvariable variable=TestExportStoreUri]$($exportStoreUri)"
 
-        $integrationStoreUri = Get-ContainerEnvValue -EnvSettings $envSettings -Name "FhirServer__Operations__IntegrationDataStore__StorageAccountUri"
+        $integrationStoreUri = $endpointSettings['FhirServer__Operations__IntegrationDataStore__StorageAccountUri']
         if ([string]::IsNullOrEmpty($integrationStoreUri) -or $integrationStoreUri -eq "null") {
             throw "FhirServer__Operations__IntegrationDataStore__StorageAccountUri is missing on container app '$containerAppName'."
         }
@@ -140,3 +281,11 @@ steps:
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_CLIENT_ID]$env:AZURESUBSCRIPTION_CLIENT_ID"
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
+
+- ${{ if or(eq(parameters.appServiceType, 'SqlServer'), ne(parameters.resourceIdProfile, 'None')) }}:
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish credential-free endpoint evidence'
+    condition: and(succeededOrFailed(), ne('', variables['ResourceIdEndpointArtifact']))
+    inputs:
+      pathToPublish: $(ResourceIdEndpointDirectory)
+      artifactName: $(ResourceIdEndpointArtifact)

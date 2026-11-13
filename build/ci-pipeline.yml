@@ -19,6 +19,10 @@ stages:
       minReplicas: 3
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
+      sqlAppNames:
+      - $(DeploymentEnvironmentNameSql)
+      - $(DeploymentEnvironmentNameR4Sql)
+      - $(DeploymentEnvironmentNameR5Sql)
 
 - stage: UpdateVersion
   displayName: 'Determine Semver'
@@ -164,6 +168,7 @@ stages:
     parameters: 
       version: Stu3
       webAppName: $(DeploymentEnvironmentNameSql)
+      pinImageDigest: true
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
       resourceGroup: $(ResourceGroupName)
@@ -221,6 +226,7 @@ stages:
     parameters: 
       version: R4
       webAppName: $(DeploymentEnvironmentNameR4Sql)
+      pinImageDigest: true
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
       resourceGroup: $(ResourceGroupName)
@@ -265,6 +271,7 @@ stages:
     parameters: 
       version: R5
       webAppName: $(DeploymentEnvironmentNameR5Sql)
+      pinImageDigest: true
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
       resourceGroup: $(ResourceGroupName)
@@ -284,6 +291,21 @@ stages:
       mainCategoryFilter: 'Category!=ExportLongRunning'
       runReindexJob: false
       runBulkUpdateJob: false
+
+- template: ./stages/sql-profile-tests.yml
+  parameters:
+    version: Stu3
+    appName: $(DeploymentEnvironmentNameSql)
+
+- template: ./stages/sql-profile-tests.yml
+  parameters:
+    version: R4
+    appName: $(DeploymentEnvironmentNameR4Sql)
+
+- template: ./stages/sql-profile-tests.yml
+  parameters:
+    version: R5
+    appName: $(DeploymentEnvironmentNameR5Sql)
 
 - stage: aggregateCoverage
   displayName: 'Aggregate All Coverage Reports'
@@ -314,6 +336,9 @@ stages:
   - testR4Cosmos
   - testR4Sql
   - testR5Sql
+  - testStu3SqlProfiles
+  - testR4SqlProfiles
+  - testR5SqlProfiles
   # Only scale down on success. On failure we leave the apps at min=3 so developers can investigate
   # via the live endpoints and ADO "Rerun failed stages" (which does NOT re-execute scaleUpContainerApps)
   # doesn't hit cold-started apps mid-test.
@@ -324,6 +349,10 @@ stages:
       minReplicas: 0
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
+      sqlAppNames:
+      - $(DeploymentEnvironmentNameSql)
+      - $(DeploymentEnvironmentNameR4Sql)
+      - $(DeploymentEnvironmentNameR5Sql)
 
 - stage: DockerAddTag
   displayName: 'Docker add main tag'
@@ -333,6 +362,9 @@ stages:
   - testR4Cosmos
   - testR4Sql
   - testR5Sql
+  - testStu3SqlProfiles
+  - testR4SqlProfiles
+  - testR5SqlProfiles
   jobs:
   - template: ./jobs/docker-add-tag.yml
     parameters:
