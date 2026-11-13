@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 var deletedResourceKey = await mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), DeleteOperation.SoftDelete);
 
                 // get resource changes
-                var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(sqlFixture.SqlConnectionWrapperFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, sqlFixture.SchemaInformation);
+                var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(sqlFixture.SqlConnectionWrapperFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, sqlFixture.SchemaInformation, sqlFixture.PartitionDatabaseResolver);
                 var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
 
                 Assert.NotNull(resourceChanges);

@@ -36,6 +36,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
 
         public string ResourceType { get; set; }
 
+        public string PartitionId { get; set; }
+
         public bool IncludePartiallyIndexedSearchParams { get; set; }
 
         public bool ExecutingBatchOrTransaction { get; set; }
@@ -65,6 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
             clone.AuditEventType = AuditEventType;
             clone.Principal = Principal?.Clone() ?? new ClaimsPrincipal();
             clone.ResourceType = ResourceType;
+            clone.PartitionId = PartitionId;
             clone.IncludePartiallyIndexedSearchParams = IncludePartiallyIndexedSearchParams;
             clone.ExecutingBatchOrTransaction = ExecutingBatchOrTransaction;
             clone.IsBackgroundTask = IsBackgroundTask;

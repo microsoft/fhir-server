@@ -3,11 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Context;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -25,7 +30,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         public FhirRequestContextAfterAuthenticationMiddlewareTests()
         {
             _fhirRequestContextAfterAuthenticationMiddleware = new FhirRequestContextAfterAuthenticationMiddleware(
-                httpContext => Task.CompletedTask);
+                httpContext => Task.CompletedTask,
+                CreatePartitionManager(),
+                Options.Create(new SecurityConfiguration()),
+                Substitute.For<ILogger<FhirRequestContextAfterAuthenticationMiddleware>>());
+        }
+
+        private static IPartitionManager CreatePartitionManager()
+        {
+            var manager = Substitute.For<IPartitionManager>();
+            manager.Partitions.Returns(new HashSet<string>());
+            return manager;
         }
 
         [Fact]

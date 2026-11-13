@@ -1828,6 +1828,44 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.All(capturedHeaders, value => Assert.Equal(headerValue, (string)value));
         }
 
+        [Theory]
+        [InlineData(BundleType.Batch, BundleProcessingLogic.Sequential)]
+        [InlineData(BundleType.Batch, BundleProcessingLogic.Parallel)]
+        [InlineData(BundleType.Transaction, BundleProcessingLogic.Sequential)]
+        [InlineData(BundleType.Transaction, BundleProcessingLogic.Parallel)]
+        public async Task GivenPartitionBundle_WhenProcessingEntries_ThenEntriesInheritTheOuterPartition(BundleType bundleType, BundleProcessingLogic processingLogic)
+        {
+            _bundleConfiguration.BatchDefaultProcessingLogic = processingLogic;
+            _bundleConfiguration.TransactionDefaultProcessingLogic = processingLogic;
+            _fhirRequestContext.PartitionId = "partition-a";
+            var capturedPartitionIds = new ConcurrentBag<string>();
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = bundleType,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "Patient/first" } },
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "Patient/second" } },
+                },
+            };
+            _router.When(router => router.RouteAsync(Arg.Any<RouteContext>())).Do(info =>
+            {
+                info.Arg<RouteContext>().Handler = context =>
+                {
+                    capturedPartitionIds.Add(_fhirRequestContextAccessor.RequestContext.PartitionId);
+                    context.Response.StatusCode = StatusCodes.Status200OK;
+                    return Task.CompletedTask;
+                };
+            });
+
+            var response = await _bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), CancellationToken.None);
+
+            Assert.Equal(2, capturedPartitionIds.Count);
+            Assert.All(capturedPartitionIds, partitionId => Assert.Equal("partition-a", partitionId));
+            Assert.All(response.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>().Entry, entry => Assert.Equal("200", entry.Response.Status));
+            Assert.Equal("partition-a", _fhirRequestContextAccessor.RequestContext.PartitionId);
+        }
+
         private static BundleRequest CreateBundleRequest(int entryCount)
         {
             var bundle = new Hl7.Fhir.Model.Bundle

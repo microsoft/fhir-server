@@ -5,15 +5,14 @@
 
 using System;
 using System.Linq;
-using System.Net;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
-using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Context
@@ -22,6 +21,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
     {
         private readonly RequestDelegate _next;
         private readonly ILogger<FhirRequestContextMiddleware> _logger;
+        private readonly IPartitionManager _partitionManager;
 
         internal const string XContentTypeOptions = "X-Content-Type-Options";
         private const string XContentTypeOptionsValue = "nosniff";
@@ -32,14 +32,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
         internal const string ContentSecurityPolicy = "Content-Security-Policy";
         private const string ContentSecurityPolicyValue = "frame-src 'self';";
 
+        internal static readonly object OriginalPathKey = new object();
+
         public FhirRequestContextMiddleware(
             RequestDelegate next,
-            ILogger<FhirRequestContextMiddleware> logger)
+            ILogger<FhirRequestContextMiddleware> logger,
+            IPartitionManager partitionManager)
         {
             EnsureArg.IsNotNull(next, nameof(next));
+            EnsureArg.IsNotNull(partitionManager, nameof(partitionManager));
 
             _next = next;
             _logger = logger;
+            _partitionManager = partitionManager;
         }
 
         public async Task Invoke(
@@ -47,6 +52,42 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IFhirServerInstanceConfiguration instanceConfiguration,
             CorrelationIdProvider correlationIdProvider)
+        {
+            HttpRequest request = context.Request;
+            PathString originalPath = request.Path;
+            PathString originalPathBase = request.PathBase;
+            context.Items[OriginalPathKey] = originalPath;
+
+            if (_partitionManager.Partitions.Count > 0
+                && request.Path.StartsWithSegments(new PathString("/partition"), StringComparison.OrdinalIgnoreCase, out PathString keyword, out PathString afterKeyword))
+            {
+                string partitionId = afterKeyword.Value?.Split('/', 3).ElementAtOrDefault(1);
+                if (!string.IsNullOrEmpty(partitionId))
+                {
+                    // Normalize all candidate IDs identically; validation must wait until after authentication.
+                    afterKeyword.StartsWithSegments(new PathString("/" + partitionId), StringComparison.Ordinal, out PathString idPath, out PathString remaining);
+                    request.PathBase = request.PathBase.Add(keyword).Add(idPath);
+                    request.Path = remaining;
+                }
+            }
+
+            try
+            {
+                await InvokeRequestAsync(context, fhirRequestContextAccessor, instanceConfiguration, correlationIdProvider, originalPathBase);
+            }
+            finally
+            {
+                request.Path = originalPath;
+                request.PathBase = originalPathBase;
+            }
+        }
+
+        private async Task InvokeRequestAsync(
+            HttpContext context,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
+            IFhirServerInstanceConfiguration instanceConfiguration,
+            CorrelationIdProvider correlationIdProvider,
+            PathString instancePathBase)
         {
             HttpRequest request = context.Request;
 
@@ -77,7 +118,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 if (!FhirRequestContextMiddlewareExtensions.IsLoopbackOrLocalRequest(context.Request.Host.Host))
                 {
                     // Initialize baseUri independently - this will only succeed once per app lifetime
-                    instanceConfiguration.InitializeBaseUri(baseUriInString);
+                    instanceConfiguration.InitializeBaseUri(UriHelper.BuildAbsolute(request.Scheme, request.Host, instancePathBase, "/"));
                 }
             }
             catch (Exception)

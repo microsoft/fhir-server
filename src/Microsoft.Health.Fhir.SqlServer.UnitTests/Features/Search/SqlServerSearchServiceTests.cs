@@ -18,6 +18,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -29,6 +30,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -70,6 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
         private readonly SqlServerSearchService _searchService;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration = new CoreFeatureConfiguration();
+        private readonly PartitionConfiguration _partitionConfiguration = new PartitionConfiguration();
 
         public SqlServerSearchServiceTests()
         {
@@ -127,6 +130,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
                 Options.Create(_coreFeatureConfiguration),
+                CreatePartitionDatabaseResolver(),
                 NullLogger<SqlServerSearchService>.Instance);
         }
 
@@ -399,6 +403,204 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Equal(cts.Token, exception.CancellationToken);
         }
 
+        [Theory]
+        [InlineData("partition-a", "FROM [database-a].[dbo].[Resource]", false)]
+        [InlineData("partition-b", "FROM [database-b].[dbo].[Resource]", false)]
+        [InlineData(null, "FROM dbo.Resource", false)]
+        [InlineData("partition-a", "FROM [database-a].[dbo].[Resource]", true)]
+        [InlineData("partition-b", "FROM [database-b].[dbo].[Resource]", true)]
+        [InlineData(null, "FROM dbo.Resource", true)]
+        public async Task GivenRequestPartition_WhenSearchSqlIsGenerated_ThenConfiguredDatabaseIsUsed(string partitionId, string expectedTable, bool includesOperation)
+        {
+            // Arrange
+            _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
+            _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-b", DatabaseName = "database-b" });
+            var context = Substitute.For<IFhirRequestContext>();
+            context.PartitionId.Returns(partitionId);
+            _requestContextAccessor.RequestContext.Returns(context);
+            _schemaInformation.Current = SchemaVersionConstants.Max;
+            var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
+            service.StoredProcedureLayerIsEnabled = false;
+            ExecuteSqlCallbacks();
+            string generatedSql = null;
+            var stopBeforeExecution = new OperationCanceledException("Query captured before database execution.");
+            _queryHashCalculator.CalculateHash(Arg.Any<string>()).Returns(call =>
+            {
+                generatedSql = call.Arg<string>();
+                throw stopBeforeExecution;
+            });
+            var options = includesOperation
+                ? CreateIncludesCountOptions(CreateIncludesExpression(CreateInclude("Patient", "Observation", reversed: false, iterate: false)))
+                : new SearchOptions { CountOnly = true, Sort = [], UnsupportedSearchParams = [] };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<OperationCanceledException>(() => service.SearchAsync(options, CancellationToken.None));
+
+            // Assert
+            Assert.Same(stopBeforeExecution, exception);
+            Assert.NotNull(generatedSql);
+            Assert.Contains(expectedTable, generatedSql, StringComparison.Ordinal);
+            if (partitionId != null)
+            {
+                Assert.DoesNotContain("dbo.", generatedSql, StringComparison.Ordinal);
+            }
+        }
+
+        [Theory]
+        [InlineData(null, false)]
+        [InlineData("", false)]
+        [InlineData("unused-partition", false)]
+        [InlineData(null, true)]
+        [InlineData("", true)]
+        [InlineData("unused-partition", true)]
+        public async Task GivenNoConfiguredPartitions_WhenSearchSqlIsGenerated_ThenTwoPartTableNamesAreUsed(string partitionId, bool includesOperation)
+        {
+            // Arrange
+            var context = Substitute.For<IFhirRequestContext>();
+            context.PartitionId.Returns(partitionId);
+            _requestContextAccessor.RequestContext.Returns(context);
+            _schemaInformation.Current = SchemaVersionConstants.Max;
+            var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
+            service.StoredProcedureLayerIsEnabled = false;
+            ExecuteSqlCallbacks();
+            string generatedSql = null;
+            var stopBeforeExecution = new OperationCanceledException("Query captured before database execution.");
+            _queryHashCalculator.CalculateHash(Arg.Any<string>()).Returns(call =>
+            {
+                generatedSql = call.Arg<string>();
+                throw stopBeforeExecution;
+            });
+            var options = includesOperation
+                ? CreateIncludesCountOptions(CreateIncludesExpression(CreateInclude("Patient", "Observation", reversed: false, iterate: false)))
+                : new SearchOptions { CountOnly = true, Sort = [], UnsupportedSearchParams = [] };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<OperationCanceledException>(() => service.SearchAsync(options, CancellationToken.None));
+
+            // Assert
+            Assert.Same(stopBeforeExecution, exception);
+            Assert.Contains("FROM dbo.Resource", generatedSql, StringComparison.Ordinal);
+            Assert.DoesNotContain("[dbo]", generatedSql, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenUnknownRequestPartition_WhenSearchSqlIsGenerated_ThenNoDefaultDatabaseQueryIsProduced(bool includesOperation)
+        {
+            // Arrange
+            _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
+            var context = Substitute.For<IFhirRequestContext>();
+            context.PartitionId.Returns("unknown-partition");
+            _requestContextAccessor.RequestContext.Returns(context);
+            _schemaInformation.Current = SchemaVersionConstants.Max;
+            var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
+            service.StoredProcedureLayerIsEnabled = false;
+            ExecuteSqlCallbacks();
+            var options = includesOperation
+                ? CreateIncludesCountOptions(CreateIncludesExpression(CreateInclude("Patient", "Observation", reversed: false, iterate: false)))
+                : new SearchOptions { CountOnly = true, Sort = [], UnsupportedSearchParams = [] };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SearchAsync(options, CancellationToken.None));
+
+            // Assert
+            Assert.Contains("unknown-partition", exception.Message, StringComparison.Ordinal);
+            _queryHashCalculator.DidNotReceive().CalculateHash(Arg.Any<string>());
+        }
+
+        [Fact]
+        public async Task GivenChangingRequestContexts_WhenGeneratingQueries_ThenPartitionDatabaseIsNotRetainedBetweenRequests()
+        {
+            // Arrange
+            _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
+            _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-b", DatabaseName = "database-b" });
+            _schemaInformation.Current = SchemaVersionConstants.Max;
+            var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
+            service.StoredProcedureLayerIsEnabled = false;
+            ExecuteSqlCallbacks();
+            string generatedSql = null;
+            _queryHashCalculator.CalculateHash(Arg.Any<string>()).Returns(call =>
+            {
+                generatedSql = call.Arg<string>();
+                throw new OperationCanceledException("Query captured before database execution.");
+            });
+            var options = new SearchOptions { CountOnly = true, Sort = [], UnsupportedSearchParams = [] };
+
+            foreach (var (partitionId, table) in new[]
+            {
+                ("partition-a", "[database-a].[dbo].[Resource]"),
+                ("partition-b", "[database-b].[dbo].[Resource]"),
+                (null, "dbo.Resource"),
+            })
+            {
+                var context = partitionId == null ? null : Substitute.For<IFhirRequestContext>();
+                if (context != null)
+                {
+                    context.PartitionId.Returns(partitionId);
+                }
+
+                _requestContextAccessor.RequestContext.Returns(context);
+
+                // Act
+                await Assert.ThrowsAsync<OperationCanceledException>(() => service.SearchAsync(options, CancellationToken.None));
+
+                // Assert
+                Assert.Contains("FROM " + table, generatedSql, StringComparison.Ordinal);
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenUnknownPartition_WhenSearchUsesStoredProcedureShortcut_ThenNoDefaultDatabaseCallIsExecuted(bool includesOperation)
+        {
+            // Arrange
+            _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
+            var context = Substitute.For<IFhirRequestContext>();
+            context.PartitionId.Returns("unknown-partition");
+            _requestContextAccessor.RequestContext.Returns(context);
+            _schemaInformation.Current = SchemaVersionConstants.Max;
+            var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
+            ExecuteSqlCallbacks();
+            var options = includesOperation
+                ? CreateIncludesCountOptions(CreateIncludesExpression(CreateInclude("Patient", "Observation", reversed: false, iterate: false)))
+                : new SearchOptions { CountOnly = true, Sort = [], UnsupportedSearchParams = [] };
+            options.QueryHints = new[]
+            {
+                (KnownQueryParameterNames.Type, "Patient"),
+                (KnownQueryParameterNames.StartSurrogateId, "100"),
+                (KnownQueryParameterNames.EndSurrogateId, "200"),
+            };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SearchAsync(options, CancellationToken.None));
+
+            // Assert
+            Assert.Contains("unsupported partition 'unknown-partition'", exception.Message, StringComparison.Ordinal);
+            _queryHashCalculator.DidNotReceive().CalculateHash(Arg.Any<string>());
+        }
+
+        private SqlPartitionDatabaseResolver CreatePartitionDatabaseResolver() => new(
+            _requestContextAccessor,
+            new PartitionManager(Options.Create(_partitionConfiguration)),
+            NullLogger<SqlPartitionDatabaseResolver>.Instance);
+
+        private void ExecuteSqlCallbacks()
+        {
+            _sqlRetryService.ExecuteSql(
+                Arg.Any<Func<SqlConnection, CancellationToken, SqlException, Task>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<Func<SqlException, bool>>())
+                .Returns(async call =>
+                {
+                    using var connection = new SqlConnection();
+                    await call.ArgAt<Func<SqlConnection, CancellationToken, SqlException, Task>>(0)(connection, call.Arg<CancellationToken>(), null);
+                });
+        }
+
         private static SqlServerFhirModel CreateConcreteModel(ISqlRetryService sqlRetryService)
         {
             var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max)
@@ -441,6 +643,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 .GetField("_resourceTypeIdRange", BindingFlags.NonPublic | BindingFlags.Instance)
                 ?.SetValue(model, ((short)1, (short)2));
 
+            typeof(SqlServerFhirModel)
+                .GetField("_searchParamUriToId", BindingFlags.NonPublic | BindingFlags.Instance)
+                ?.SetValue(model, new Dictionary<Uri, short>
+                {
+                    [new Uri("http://hl7.org/fhir/SearchParameter/reference")] = 40,
+                });
+
             return model;
         }
 
@@ -482,6 +691,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
                 Options.Create(_coreFeatureConfiguration),
+                CreatePartitionDatabaseResolver(),
                 NullLogger<SqlServerSearchService>.Instance);
         }
 
@@ -571,6 +781,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     Options.Create(new CoreFeatureConfiguration()),
+                    CreatePartitionDatabaseResolver(),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -621,6 +832,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     Options.Create(new CoreFeatureConfiguration()),
+                    CreatePartitionDatabaseResolver(),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -671,6 +883,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     Options.Create(new CoreFeatureConfiguration()),
+                    CreatePartitionDatabaseResolver(),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
