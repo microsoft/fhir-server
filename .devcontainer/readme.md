@@ -13,7 +13,7 @@ for compatibility builds.
 - Use an x64 host. The classic Linux Cosmos DB emulator requires `linux/amd64`.
   This setup does not support ARM hosts or the vNext emulator.
 - Give Docker at least two CPUs and enough memory for the emulator's 3 GB limit plus builds.
-- Allow access to MCR, GHCR, Ubuntu package repositories, .NET downloads, and the feeds in `NuGet.Config`.
+- Allow access to MCR, GHCR, Ubuntu package repositories, .NET downloads, and the feeds in `nuget.config`.
   If your network intercepts TLS, follow your organization's approved container certificate setup.
   Do not disable TLS validation.
 
