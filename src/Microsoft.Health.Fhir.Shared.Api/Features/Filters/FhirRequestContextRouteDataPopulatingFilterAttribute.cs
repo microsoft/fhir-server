@@ -49,7 +49,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             EnsureArg.IsNotNull(auditEventTypeMapping, nameof(auditEventTypeMapping));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
-            EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
+            EnsureArg.IsNotNull(securityConfiguration, nameof(securityConfiguration));
+            EnsureArg.IsNotNull(securityConfiguration.Value, nameof(securityConfiguration));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _auditEventTypeMapping = auditEventTypeMapping;
