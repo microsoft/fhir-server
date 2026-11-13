@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
+using Microsoft.Data.SqlClient.Server;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -34,6 +35,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger _logger;
         private readonly SchemaInformation _schemaInformation;
+        private readonly HashSet<(string TableName, short ResourceTypeId, short SearchParamId)> _createdSearchParameterIndexes = new();
+        private readonly object _searchParameterIndexCacheLock = new();
         private const string _invisibleResource = " ";
 
         public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlStoreClient> logger, SchemaInformation schemaInformation)
@@ -41,6 +44,83 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _schemaInformation = schemaInformation;
+        }
+
+        /// <summary>
+        /// Ensures granular secondary indexes exist before writing search parameter rows.
+        /// Shared indexes are disabled manually before the experiment, not by this method.
+        /// </summary>
+        public async Task CreateGranularSecondaryIndexesAsync(SqlParameterCollection parameters, CancellationToken cancellationToken)
+        {
+            if (_schemaInformation.Current < SchemaVersionConstants.GranularSearchParameterIndexes)
+            {
+                return;
+            }
+
+            var keys = GetSearchParameterIndexKeys(parameters);
+            List<(string TableName, short ResourceTypeId, short SearchParamId)> missing;
+            lock (_searchParameterIndexCacheLock)
+            {
+                missing = keys.Where(key => !_createdSearchParameterIndexes.Contains(key)).ToList();
+            }
+
+            if (missing.Count == 0)
+            {
+                return;
+            }
+
+            missing = missing.OrderBy(key => key.TableName, StringComparer.Ordinal).ThenBy(key => key.ResourceTypeId).ThenBy(key => key.SearchParamId).ToList();
+            try
+            {
+                foreach (var key in missing)
+                {
+                    using var command = new SqlCommand("dbo.CreateGranularSecondaryIndexes") { CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
+                    command.Parameters.Add(new SqlParameter("@TableName", SqlDbType.VarChar, 128) { Value = key.TableName });
+                    command.Parameters.Add(new SqlParameter("@ResourceTypeId", SqlDbType.SmallInt) { Value = key.ResourceTypeId });
+                    command.Parameters.Add(new SqlParameter("@SearchParamId", SqlDbType.SmallInt) { Value = key.SearchParamId });
+                    await command.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+                    lock (_searchParameterIndexCacheLock)
+                    {
+                        _createdSearchParameterIndexes.Add(key);
+                    }
+                }
+
+                _logger.LogInformation("Ensured granular secondary indexes for {Count} search parameter combinations.", missing.Count);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(exception, "Failed to ensure granular search parameter indexes; the write has not been started.");
+                throw;
+            }
+        }
+
+        internal static HashSet<(string TableName, short ResourceTypeId, short SearchParamId)> GetSearchParameterIndexKeys(SqlParameterCollection parameters)
+        {
+            const string schemaPrefix = "dbo.";
+            const string searchParamSuffix = "SearchParamList";
+            const string listSuffix = "List";
+            const string tokenTextType = "dbo.TokenTextList";
+
+            var keys = new HashSet<(string, short, short)>();
+            foreach (SqlParameter parameter in parameters)
+            {
+                var typeName = parameter.TypeName;
+                if (parameter.SqlDbType != SqlDbType.Structured
+                    || parameter.Value == null
+                    || !(typeName == tokenTextType
+                         || (typeName.Length > schemaPrefix.Length + searchParamSuffix.Length && typeName.EndsWith(searchParamSuffix, StringComparison.Ordinal))))
+                {
+                    continue;
+                }
+
+                var tableName = typeName.Substring(schemaPrefix.Length, typeName.Length - schemaPrefix.Length - listSuffix.Length);
+                foreach (var record in (IEnumerable<SqlDataRecord>)parameter.Value)
+                {
+                    keys.Add((tableName, record.GetInt16(0), record.GetInt16(2)));
+                }
+            }
+
+            return keys;
         }
 
         public async Task HardDeleteAsync(short resourceTypeId, string resourceId, bool keepCurrentVersion, bool isResourceChangeCaptureEnabled, CancellationToken cancellationToken)
