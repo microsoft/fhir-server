@@ -25,8 +25,10 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
@@ -301,14 +303,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
         private static IHost CreateHost(int partitionCount, string firstPartitionId = "partition-a", string pathBase = null, bool securityEnabled = false)
         {
-            var values = new Dictionary<string, string>();
+            var ids = new HashSet<string>(StringComparer.Ordinal);
             for (int i = 0; i < partitionCount; i++)
             {
-                values[$"FhirServer:PartitionConfiguration:Partitions:{i}:Id"] = i == 0 ? firstPartitionId : "partition-b";
-                values[$"FhirServer:PartitionConfiguration:Partitions:{i}:DatabaseName"] = $"database-{i}";
+                ids.Add(i == 0 ? firstPartitionId : "partition-b");
             }
 
-            IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+            var manager = Substitute.For<IPartitionManager>();
+            manager.Partitions.Returns(ids);
+            IConfiguration configuration = new ConfigurationBuilder().Build();
             return new HostBuilder().ConfigureWebHost(builder => builder.UseTestServer()
                 .ConfigureServices(services =>
                 {
@@ -320,6 +323,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                         server.Security.Enabled = securityEnabled;
                         server.Security.AddAuthenticationLibrary = (_, _) => { };
                     });
+                    services.AddSingleton(manager);
                     services.RemoveAll<IStartupFilter>();
                     services.RemoveAll<IHostedService>();
                     services.AddSingleton<CorrelationIdProvider>(() => Guid.NewGuid().ToString());

@@ -17,8 +17,9 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Partitions;
+using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             var services = new ServiceCollection();
             services.AddSingleton(accessor);
-            services.AddSingleton<IPartitionManager>(new PartitionManager(Options.Create(configuration)));
+            services.AddSingleton(new PartitionManager(Options.Create(configuration)));
             services.AddLogging();
             services.AddSingleton<SqlPartitionDatabaseResolver>();
             using var provider = services.BuildServiceProvider();

@@ -44,10 +44,5 @@ namespace Microsoft.Health.Fhir.Api.Configs
         public SmartIdentityProviderConfiguration SmartIdentityProvider { get; } = new SmartIdentityProviderConfiguration();
 
         public WatchdogConfiguration Watchdog { get; } = new WatchdogConfiguration();
-
-        /// <summary>
-        /// Gets the partitions available at startup.
-        /// </summary>
-        public PartitionConfiguration PartitionConfiguration { get; } = new PartitionConfiguration();
     }
 }

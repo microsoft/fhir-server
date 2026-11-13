@@ -17,12 +17,13 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
-using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
@@ -85,7 +86,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// <summary>
         /// Writes, reads, and updates the same resource ID without crossing partition databases.
         /// </summary>
-        [Fact]
+        [Fact(Skip = "Test won't run in PR until cross DB queries are a selectable setting when making a SQL Server")]
         public async Task GivenMultiplePartitions_WhenDataStoreWritesReadsAndUpdates_ThenOnlySelectedDatabaseIsUsed()
         {
             // Arrange
@@ -122,7 +123,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// <summary>
         /// Searches independently seeded databases through generated SQL and the ID lookup shortcut.
         /// </summary>
-        [Theory]
+        [Theory(Skip = "Test won't run in PR until cross DB queries are a selectable setting when making a SQL Server")]
         [InlineData("family")]
         [InlineData("_id")]
         public async Task GivenMultiplePartitions_WhenSearchServiceSwitchesPartition_ThenOnlySelectedDatabaseIsSearched(string parameter)

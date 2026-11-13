@@ -6,9 +6,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.Health.Fhir.Core.Features.Partitions;
+using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
 
-namespace Microsoft.Health.Fhir.Core.Configs
+namespace Microsoft.Health.Fhir.SqlServer.Registration
 {
     /// <summary>
     /// Configures the partitions available when the server starts.
@@ -31,17 +31,17 @@ namespace Microsoft.Health.Fhir.Core.Configs
                 if (partition == null || string.IsNullOrWhiteSpace(partition.Id) ||
                     partition.Id is "." or ".." || !partition.Id.All(IsUnreserved))
                 {
-                    throw new InvalidOperationException("FhirServer:PartitionConfiguration:Partitions requires an Id containing only ASCII letters, digits, '-', '_', '.', or '~', other than '.' or '..'.");
+                    throw new InvalidOperationException("FhirSqlSettings:PartitionConfiguration:Partitions requires an Id containing only ASCII letters, digits, '-', '_', '.', or '~', other than '.' or '..'.");
                 }
 
                 if (!ids.Add(partition.Id))
                 {
-                    throw new InvalidOperationException($"FhirServer:PartitionConfiguration:Partitions contains a duplicate Id '{partition.Id}'.");
+                    throw new InvalidOperationException($"FhirSqlSettings:PartitionConfiguration:Partitions contains a duplicate Id '{partition.Id}'.");
                 }
 
                 if (string.IsNullOrWhiteSpace(partition.DatabaseName))
                 {
-                    throw new InvalidOperationException($"FhirServer:PartitionConfiguration:Partitions requires a DatabaseName for partition '{partition.Id}'.");
+                    throw new InvalidOperationException($"FhirSqlSettings:PartitionConfiguration:Partitions requires a DatabaseName for partition '{partition.Id}'.");
                 }
             }
         }

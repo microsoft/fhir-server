@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor;
 using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
@@ -30,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Health;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
+using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -55,6 +57,14 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             IServiceCollection services = fhirServerBuilder.Services;
 
+            services.Add(provider =>
+                {
+                    var configuration = new PartitionConfiguration();
+                    provider.GetRequiredService<IConfiguration>().GetSection("FhirSqlSettings:PartitionConfiguration").Bind(configuration);
+                    return new PartitionManager(Options.Options.Create(configuration));
+                })
+                .Singleton()
+                .AsImplementedInterfaces();
             services.AddSqlServerConnection(configureSqlAction);
             services.AddSqlServerManagement<SchemaVersion>();
             services.AddSqlServerApi();

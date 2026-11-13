@@ -74,16 +74,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 var originalPath = (PathString)context.Items[FhirRequestContextMiddleware.OriginalPathKey];
                 if (!IsServiceAuthenticationEndpoint(originalPath))
                 {
-                    PartitionInfo partition = null;
+                    string partitionId = null;
                     bool partitionRequired = false;
                     if (originalPath.StartsWithSegments(new PathString("/partition"), StringComparison.OrdinalIgnoreCase, out PathString afterKeyword))
                     {
-                        string partitionId = afterKeyword.Value?.Split('/', 3).ElementAtOrDefault(1);
-                        partitionRequired = string.IsNullOrEmpty(partitionId) || !_partitionManager.Partitions.TryGetValue(partitionId, out partition);
+                        partitionId = afterKeyword.Value?.Split('/', 3).ElementAtOrDefault(1);
+                        partitionRequired = string.IsNullOrEmpty(partitionId) || !_partitionManager.Partitions.Contains(partitionId);
                     }
                     else if (_partitionManager.Partitions.Count == 1)
                     {
-                        partition = _partitionManager.Partitions.Values.Single();
+                        partitionId = _partitionManager.Partitions.Single();
                     }
                     else if (!originalPath.Equals(new PathString(KnownRoutes.HealthCheck), StringComparison.OrdinalIgnoreCase))
                     {
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                         return;
                     }
 
-                    fhirRequestContextAccessor.RequestContext.PartitionId = partition?.Id;
+                    fhirRequestContextAccessor.RequestContext.PartitionId = partitionId;
                 }
             }
 

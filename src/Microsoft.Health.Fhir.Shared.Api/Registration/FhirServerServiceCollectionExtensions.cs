@@ -88,13 +88,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
             fhirServerConfiguration.Bundle.Validate();
             fhirServerConfiguration.CircuitBreaker.Validate();
-            fhirServerConfiguration.PartitionConfiguration.Validate();
-
-            if (fhirServerConfiguration.PartitionConfiguration.Partitions.Count > 0 &&
-                string.Equals(dataStore, "CosmosDb", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException("FhirServer:PartitionConfiguration:Partitions is not supported with Cosmos DB storage. Partition database routing is not implemented for Cosmos DB.");
-            }
 
             services.AddSingleton(ResourceIdPolicy.From(fhirServerConfiguration.CoreFeatures.UseLongResourceIds));
 
@@ -116,8 +109,6 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.CircuitBreaker));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.SmartIdentityProvider));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Watchdog));
-            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.PartitionConfiguration));
-            services.AddSingleton<IPartitionManager, PartitionManager>();
             services.AddSingleton<ISearchParameterStatusManager, SearchParameterStatusManager>();
             services.AddSingleton(provider =>
             {

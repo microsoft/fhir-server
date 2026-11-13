@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Castle.Core.Logging;
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
     [Trait(Traits.Category, Categories.Web)]
     public class FhirRequestContextMiddlewareTests
     {
-        private readonly IPartitionManager _partitionManager = new PartitionManager(Options.Create(new PartitionConfiguration()));
+        private readonly IPartitionManager _partitionManager = CreatePartitionManager();
 
         [Fact]
         public async Task GivenAnHttpRequest_WhenExecutingFhirRequestContextMiddleware_ThenCorrectUriShouldBeSet()
@@ -136,9 +137,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         [InlineData(true)]
         public async Task GivenPartitionPrefixAndExistingPathBase_WhenMiddlewareCompletes_ThenPathsAreRestored(bool throwInNext)
         {
-            var configuration = new PartitionConfiguration();
-            configuration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
-            var manager = new PartitionManager(Options.Create(configuration));
+            var manager = CreatePartitionManager("partition-a");
             HttpContext httpContext = CreateHttpContext();
             httpContext.Request.Host = new HostString("api.example.com");
             httpContext.Request.Path = new PathString("/partition/partition-a/Patient");
@@ -189,8 +188,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         [InlineData("/partition/unknown/Patient")]
         public async Task GivenPartitionPrefix_WhenAuthenticationHasNotRun_ThenPathIsNormalizedWithoutSelectingPartition(string path)
         {
-            var configuration = new PartitionConfiguration();
-            configuration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
             HttpContext httpContext = CreateHttpContext();
             httpContext.Request.Path = new PathString(path);
             var accessor = new FhirRequestContextAccessor();
@@ -204,7 +201,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                     return Task.CompletedTask;
                 },
                 Substitute.For<ILogger<FhirRequestContextMiddleware>>(),
-                new PartitionManager(Options.Create(configuration)));
+                CreatePartitionManager("partition-a"));
 
             await middleware.Invoke(httpContext, accessor, new FhirServerInstanceConfiguration(), () => "request-id");
 
@@ -226,6 +223,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             Assert.Equal("partition-a", clone.PartitionId);
             Assert.NotSame(context, clone);
+        }
+
+        private static IPartitionManager CreatePartitionManager(params string[] ids)
+        {
+            var manager = Substitute.For<IPartitionManager>();
+            manager.Partitions.Returns(new HashSet<string>(ids, StringComparer.Ordinal));
+            return manager;
         }
 
         private async Task<IFhirRequestContext> SetupAsync(HttpContext httpContext)

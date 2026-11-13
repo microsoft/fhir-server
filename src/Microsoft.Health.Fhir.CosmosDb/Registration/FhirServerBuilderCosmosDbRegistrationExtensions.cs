@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
@@ -69,11 +70,12 @@ namespace Microsoft.Extensions.DependencyInjection
         private static IFhirServerBuilder AddCosmosDbPersistence(this IFhirServerBuilder fhirServerBuilder, Action<CosmosDataStoreConfiguration> configureAction = null)
         {
             IServiceCollection services = fhirServerBuilder.Services;
-
             if (services.Any(x => x.ImplementationType == typeof(CosmosContainerProvider)))
             {
                 return fhirServerBuilder;
             }
+
+            services.AddSingleton<IPartitionManager, CosmosPartitionManager>();
 
             services.Add(provider =>
                 {

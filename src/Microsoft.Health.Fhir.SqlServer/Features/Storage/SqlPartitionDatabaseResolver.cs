@@ -10,7 +10,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Partitions;
+using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     public sealed class SqlPartitionDatabaseResolver
     {
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
-        private readonly IPartitionManager _partitionManager;
+        private readonly PartitionManager _partitionManager;
         private readonly ILogger<SqlPartitionDatabaseResolver> _logger;
 
         /// <summary>
@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// </summary>
         public SqlPartitionDatabaseResolver(
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
-            IPartitionManager partitionManager,
+            PartitionManager partitionManager,
             ILogger<SqlPartitionDatabaseResolver> logger)
         {
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
@@ -52,13 +52,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return null;
             }
 
-            if (!_partitionManager.Partitions.TryGetValue(partitionId, out PartitionInfo partition))
+            if (!_partitionManager.TryGetDatabaseName(partitionId, out string databaseName))
             {
                 _logger.LogError("Cannot execute SQL for unsupported partition {PartitionId}.", partitionId);
                 throw new InvalidOperationException($"Cannot execute SQL for unsupported partition '{partitionId}'.");
             }
 
-            return partition.DatabaseName;
+            return databaseName;
         }
 
         /// <summary>

@@ -34,6 +34,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -188,7 +189,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _fhirRequestContextAccessor.RequestContext.PartitionId.Returns(_ => null);
             PartitionDatabaseResolver = new SqlPartitionDatabaseResolver(
                 _fhirRequestContextAccessor,
-                new Core.Features.Partitions.PartitionManager(Options.Create(_partitionConfiguration)),
+                new PartitionManager(Options.Create(_partitionConfiguration)),
                 NullLogger<SqlPartitionDatabaseResolver>.Instance);
             SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()), PartitionDatabaseResolver);
 
