@@ -390,11 +390,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 // NOTE: Append "/" to the end of the path base to workaround a known bug in UrlHelper.RouteUrl for endpoint routing.
                 //       Remove the workaround when we pick up the fix. (https://github.com/dotnet/aspnetcore/issues/53177)
                 var pathBase = httpContext.Request?.PathBase.ToString();
-#if NET11_0_OR_GREATER
-                if (!string.IsNullOrEmpty(pathBase) && !pathBase.EndsWith('/', StringComparison.Ordinal) && (string.IsNullOrEmpty(httpContext.Request?.Path) || string.Equals(httpContext.Request?.Path, "/", StringComparison.Ordinal)))
-#else
-                if (!string.IsNullOrEmpty(pathBase) && !pathBase.EndsWith('/') && (string.IsNullOrEmpty(httpContext.Request?.Path) || string.Equals(httpContext.Request?.Path, "/", StringComparison.Ordinal)))
-#endif
+                if (!string.IsNullOrEmpty(pathBase) && !pathBase.EndsWith("/", StringComparison.Ordinal) && (string.IsNullOrEmpty(httpContext.Request?.Path) || string.Equals(httpContext.Request?.Path, "/", StringComparison.Ordinal)))
                 {
                     pathBase += "/";
                 }

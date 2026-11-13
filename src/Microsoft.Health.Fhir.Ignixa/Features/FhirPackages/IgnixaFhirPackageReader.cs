@@ -231,11 +231,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.FhirPackages
 
         private static bool IsAtPackageRoot(string path) =>
             path.StartsWith(PackageRootPrefix, StringComparison.Ordinal) &&
-#if NET11_0_OR_GREATER
-            path.IndexOf('/', PackageRootPrefix.Length, StringComparison.Ordinal) < 0;
-#else
-            path.IndexOf('/', PackageRootPrefix.Length) < 0;
-#endif
+            path.IndexOf("/", PackageRootPrefix.Length, StringComparison.Ordinal) < 0;
 
         private static FhirPackageException ToFhirPackageException(PackageExtractionDiagnostic diagnostic)
         {
