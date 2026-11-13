@@ -16,10 +16,8 @@
             "stopAtEntry": false,
             "env": {
                 "ASPNETCORE_ENVIRONMENT": "Development",
-                "ASPNETCORE_URLS": "https://localhost:44348",
                 "DataStore": "CosmosDb",
                 "FhirServer:Security:Enabled": "false",
-                "FhirServer:Security:Authentication:Authority": "https://localhost",
                 // Not a real secret!
                 // https://docs.microsoft.com/en-us/azure/cosmos-db/local-emulator?tabs=ssl-netstd21#authenticate-requests
                 "CosmosDb:Host": "https://localhost:8081/",
@@ -65,10 +63,8 @@
             "stopAtEntry": false,
             "env": {
                 "ASPNETCORE_ENVIRONMENT": "Development",
-                "ASPNETCORE_URLS": "https://localhost:44348",
                 "DataStore": "CosmosDb",
                 "FhirServer:Security:Enabled": "false",
-                "FhirServer:Security:Authentication:Authority": "https://localhost",
                 // Not a real secret!
                 // https://docs.microsoft.com/en-us/azure/cosmos-db/local-emulator?tabs=ssl-netstd21#authenticate-requests
                 "CosmosDb:Host": "https://localhost:8081/",
@@ -114,10 +110,8 @@
             "stopAtEntry": false,
             "env": {
                 "ASPNETCORE_ENVIRONMENT": "Development",
-                "ASPNETCORE_URLS": "https://localhost:44348",
                 "DataStore": "CosmosDb",
                 "FhirServer:Security:Enabled": "false",
-                "FhirServer:Security:Authentication:Authority": "https://localhost",
                 // Not a real secret!
                 // https://docs.microsoft.com/en-us/azure/cosmos-db/local-emulator?tabs=ssl-netstd21#authenticate-requests
                 "CosmosDb:Host": "https://localhost:8081/",
