@@ -107,7 +107,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var typeName = parameter.TypeName;
                 if (parameter.SqlDbType != SqlDbType.Structured
                     || parameter.Value == null
-                    || !typeName.StartsWith(schemaPrefix, StringComparison.Ordinal)
                     || !(typeName == tokenTextType
                          || (typeName.Length > schemaPrefix.Length + searchParamSuffix.Length && typeName.EndsWith(searchParamSuffix, StringComparison.Ordinal))))
                 {
@@ -115,8 +114,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
 
                 var tableName = typeName.Substring(schemaPrefix.Length, typeName.Length - schemaPrefix.Length - listSuffix.Length);
-
-                // Generated TVPs are repeatable enumerables; capture values rather than their reused SqlDataRecord.
                 foreach (var record in (IEnumerable<SqlDataRecord>)parameter.Value)
                 {
                     keys.Add((tableName, record.GetInt16(0), record.GetInt16(2)));

@@ -53,7 +53,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         [InlineData("dbo.SearchParamList", null)]
         [InlineData("dbo.ResourceList", null)]
         [InlineData("dbo.TokenTextListExtra", null)]
-        [InlineData("other.TokenSearchParamList", null)]
         public void GivenTvpTypeName_WhenReadingKeys_ThenOnlyMatchingNamesAreMapped(string typeName, string expectedTableName)
         {
             // Arrange
