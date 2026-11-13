@@ -6,31 +6,31 @@ Feature 206292 · US 210971 (catalogue) · US 211098 (cache management) · ADR `
 
 - **FHIR service** = the product a customer provisions. One app (one or more instances) serves all of its partitions.
 - **Partition** = one independent FHIR server inside a FHIR service, with its own database. Addressed as `<base-url>/partition/<partition-name>/...`.
-- Each type of cached data gets its own cache, which holds the data for every partition (`PartitionCache<T>`), or one value per app for shared caches (`Cache<T>`). (Earlier drafts and PR #6017 call partitions "tenants".)
+- Each type of cached data gets its own cache, which holds the data for every partition (`PartitionCache<T>`), or one value per app for shared caches (`GlobalCache<T>`). (Earlier drafts and PR #6017 call partitions "tenants".)
 - The generic cache classes live in **Microsoft.Health.Fhir.Core**; SQL-loaded caches build on `SqlPartitionCache<T>` in **Microsoft.Health.Fhir.SqlServer**.
 - All code that reads cached data will go through these caches instead of keeping its own copy. Callers move over in phases, one cache type at a time.
 - The cache management design is described in [adr-2611-partition-cache-management.md](adr-2611-partition-cache-management.md). This document is the inventory of caches it covers.
 
 **Decisions**
-- Only FHIR spec search parameters (`search-parameters.json`) are shared, at global level. Microsoft default (`ms-search-parameters.json`) and custom search parameters are per partition, because they can change and need reindex per database.
+- Only FHIR spec search parameters (`search-parameters.json`) are shared, at built-in level. Microsoft default (`ms-search-parameters.json`) and custom search parameters are per partition, because they can change and need reindex per database.
 - Each cache keeps its current refresh behavior and timer, run per partition.
 - `dbo.Parameters` values stay per partition.
 - The customer-managed key is per FHIR service.
 - Every partition's caches stay loaded (no lazy loading or eviction).
 
 **Levels used below**
-- **Global** – built into the server, so identical for every FHIR service running the same build. One copy per app.
+- **Built-in** – built into the server, so identical for every FHIR service running the same build. One copy per app.
 - **FHIR service** – comes from the FHIR service's configuration. One copy per FHIR service (one per app today), shared by all of its partitions.
 - **Partition** – comes from one partition's database. One copy per partition.
 
-Global and FHIR service caches use `Cache<T>`; partition caches use `PartitionCache<T>`.
+Built-in and FHIR service caches use `GlobalCache<T>`; partition caches use `PartitionCache<T>`.
 
 ## Summary
 
 | # | Cache | What it does | Loaded | Refreshed | Level | Refactor effort | Phase |
 |---|---|---|---|---|---|---|---|
-| 1 | Spec search parameters | Search parameters defined by the FHIR specification | App startup | Never | Global | Medium | 2 |
-| 2 | Built-in reference data | Compartments, code system map, compiled FHIRPath, FHIR spec package | Startup or first use | Never (spec package re-read every 4 h) | Global | Medium | 2 |
+| 1 | Spec search parameters | Search parameters defined by the FHIR specification | App startup | Never | Built-in | Medium | 2 |
+| 2 | Built-in reference data | Compartments, code system map, compiled FHIRPath, FHIR spec package | Startup or first use | Never (spec package re-read every 4 h) | Built-in | Medium | 2 |
 | 3 | App configuration caches | RBAC roles, identity provider endpoints and keys, container registry tokens | Startup or first use | Roles never; endpoints, keys and tokens on expiry | FHIR service | Low | 1 |
 | 4 | Customer-managed key health | Whether the customer-managed encryption key is healthy | First health check | Set by the shared package | FHIR service | Low | 1 |
 | 5 | Custom and Microsoft default search parameters, and statuses | Search parameters that can change per database, and the status of every parameter | Startup | Every 20 s, and before any SearchParameter write | Partition | High | 2 |
@@ -56,13 +56,13 @@ Each phase is one PR. Phases are ordered by dependency, so each PR can merge on 
 
 | Phase | Caches | Why together |
 |---|---|---|
-| 1 | Cache classes + #3 App configuration caches, #4 Customer-managed key health, #13 Custom query procedures, #14 SQL statistics list, #15 `dbo.Parameters` values, #16 Skewed search parameters | Adds `Cache<T>`, `PartitionCache<T>`, `ScopedCache<T>`, `SqlPartitionCache<T>` and the `CacheInitializer`, and moves the small, mostly independent caches. Low risk; sets the pattern. |
+| 1 | Cache classes + #3 App configuration caches, #4 Customer-managed key health, #13 Custom query procedures, #14 SQL statistics list, #15 `dbo.Parameters` values, #16 Skewed search parameters | Adds `GlobalCache<T>`, `PartitionCache<T>`, `ScopedCache<T>`, `SqlPartitionCache<T>` and the `CacheInitializer`, and moves the small, mostly independent caches. Low risk; sets the pattern. |
 | 2 | #1 Spec search parameters, #2 Built-in reference data (except the FHIR spec package), #5 Custom and Microsoft default search parameters, #6 SQL ID maps, #7 Code system and unit IDs, #8 Schema version, #17 Change feed resource type names, #18 Search helper lookups | Tightly linked: they load together at startup, the search parameter refresh feeds the SQL ID maps, and the helper lookups are built from search parameters. Splits shared spec parameters from per-partition ones. Largest PR; can be split further if needed. #8 depends on the shared-package schema work. |
 | 3 | #9 Capability statement, #10 Metadata document, #11 Profiles, #12 Profile validator, FHIR spec package from #2 | Built on top of phase 2: the capability statement and metadata document use search parameters and profiles, and the validator uses profiles and the spec package. |
 
 ---
 
-## Global caches
+## Built-in caches
 
 ### 1. Spec search parameters
 - **What it does:** Definitions of the search parameters from the FHIR specification.
