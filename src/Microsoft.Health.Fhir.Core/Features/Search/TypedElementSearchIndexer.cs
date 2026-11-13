@@ -319,9 +319,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string fhirPathExpression,
             EvaluationContext context)
         {
-            // Contain provider compile failures (an expression this engine cannot compile) for every root and
-            // component expression, matching the pre-seam indexer; warning telemetry makes the missing index
-            // entries observable. Evaluation failures propagate so the write or reindex job fails and the broken
+            // Contain provider compile failures for component and simple-value expressions, matching the pre-seam
+            // indexer; this now also applies to composite roots. Warning telemetry makes the missing index entries
+            // observable. Evaluation failures propagate so the write or reindex job fails and the broken
             // definition stays visible instead of silently leaving resources unindexed. Cancellation and
             // OutOfMemoryException are not expression defects either: they propagate so the caller can cancel or
             // run its memory-pressure recovery rather than persist incomplete index entries.
