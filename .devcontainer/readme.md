@@ -75,10 +75,12 @@ Do not add a global certificate-validation bypass.
 
 ## Troubleshoot startup
 
-If bootstrap times out, inspect the emulator logs from a host terminal at the repository root.
+If bootstrap times out, open **Dev Containers: Show Container Log** and find the
+`--project-name` value in its Compose commands. Use that project name from a host
+terminal at the repository root to inspect the emulator logs.
 
 ```bash
-docker compose -f .devcontainer/docker-compose.yml logs cosmos
+docker compose --project-name <project-name> -f .devcontainer/docker-compose.yml logs cosmos
 ```
 
 Check Docker's CPU and memory allocation and confirm that it runs Linux x64 containers.

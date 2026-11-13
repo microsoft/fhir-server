@@ -13,7 +13,7 @@ until curl --insecure --fail --silent --show-error --connect-timeout 3 --max-tim
     "$endpoint" --output "$certificate" 2>"$error"; do
     if (( SECONDS >= deadline )); then
         cat "$error" >&2
-        echo "Cosmos DB emulator did not become ready. Check 'docker compose -f .devcontainer/docker-compose.yml logs cosmos', then restart the dev container." >&2
+        echo "Cosmos DB emulator did not become ready. Check the Cosmos container logs for the Compose project shown in the Dev Containers startup log, then restart the dev container." >&2
         exit 1
     fi
     sleep 2
