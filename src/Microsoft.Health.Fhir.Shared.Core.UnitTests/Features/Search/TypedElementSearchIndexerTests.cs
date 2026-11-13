@@ -280,6 +280,42 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             metricHandler.DidNotReceive().EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
+        [Theory]
+        [InlineData(typeof(OperationCanceledException))]
+        [InlineData(typeof(OutOfMemoryException))]
+        public void GivenCompositeRootCompilationFaultThatIsNotAnExpressionDefect_WhenExtract_ThenFaultIsRethrown(Type exceptionType)
+        {
+            // Cancellation and memory exhaustion are not defects of the expression. Swallowing them would skip the
+            // caller's recovery (for example the reindex memory-pressure batch-size reduction) and persist an
+            // incomplete set of index entries under the current search parameter hash.
+            var definitions = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            definitions.GetSearchParameters("Patient").Returns(
+            [
+                new SearchParameterInfo(
+                    "composite",
+                    "composite",
+                    ValueSets.SearchParamType.Composite,
+                    new Uri("http://hl7.org/fhir/SearchParameter/composite"),
+                    components: Array.Empty<SearchParameterComponentInfo>(),
+                    expression: "Patient.name"),
+            ]);
+            var provider = Substitute.For<IFhirPathProvider>();
+            provider.Compile("Patient.name").Returns(_ => throw (Exception)Activator.CreateInstance(exceptionType));
+            var metricHandler = Substitute.For<IFailureMetricHandler>();
+            var indexer = new TypedElementSearchIndexer(
+                definitions,
+                Substitute.For<ITypedElementToSearchValueConverterManager>(),
+                Substitute.For<IReferenceToElementResolver>(),
+                ModelInfoProvider.Instance,
+                provider,
+                Substitute.For<ILogger<TypedElementSearchIndexer>>(),
+                metricHandler);
+            ResourceElement patient = new Patient { Id = "patient-1" }.ToResourceElement();
+
+            Assert.Throws(exceptionType, () => indexer.Extract(patient));
+            metricHandler.DidNotReceive().EmitException(Arg.Any<IExceptionMetricNotification>());
+        }
+
         [Fact]
         public void GivenRepeatedExtraction_WhenExpressionsAreCompiled_ThenCachingIsDelegatedToProvider()
         {

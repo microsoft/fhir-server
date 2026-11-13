@@ -322,17 +322,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Contain provider compile failures (an expression this engine cannot compile) for every root and
             // component expression, matching the pre-seam indexer; warning telemetry makes the missing index
             // entries observable. Evaluation failures propagate so the write or reindex job fails and the broken
-            // definition stays visible instead of silently leaving resources unindexed.
+            // definition stays visible instead of silently leaving resources unindexed. Cancellation and
+            // OutOfMemoryException are not expression defects either: they propagate so the caller can cancel or
+            // run its memory-pressure recovery rather than persist incomplete index entries.
             ICompiledFhirPath expression;
             try
             {
                 expression = _fhirPathProvider.Compile(fhirPathExpression);
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not (OperationCanceledException or OutOfMemoryException))
             {
                 _logger.LogWarning(
                     ex,
