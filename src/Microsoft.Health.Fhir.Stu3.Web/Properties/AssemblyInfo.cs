@@ -7,3 +7,6 @@ using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Web.UnitTests")]
+
+// The Stu3 web unit test project builds as Microsoft.Health.Fhir.Web.UnitTests (see its AssemblyName).
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Web.UnitTests")]
