@@ -61,14 +61,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Theory]
-        [InlineData("Organization/", 129)]
-        [InlineData("", 129)]
-        [InlineData("https://example.org/", 108)]
-        public async Task GivenAReferenceThatIsTooLongToIndex_WhenCreated_ThenBadRequestIsReturned(string prefix, int length)
+        [InlineData("Organization/", 129, "")]
+        [InlineData("", 129, "")]
+        [InlineData("https://example.org/", 108, "/Organization/xyz")]
+        public async Task GivenAReferenceThatIsTooLongToIndex_WhenCreated_ThenBadRequestIsReturned(string prefix, int length, string suffix)
         {
-            string reference = prefix.StartsWith("https", StringComparison.Ordinal)
-                ? $"{prefix}{new string('a', length)}/Organization/xyz"
-                : $"{prefix}{new string('a', length)}";
+            string reference = $"{prefix}{new string('a', length)}{suffix}";
             var patient = new Patient { ManagingOrganization = new ResourceReference(reference) };
 
             using FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => Client.CreateAsync(patient));
