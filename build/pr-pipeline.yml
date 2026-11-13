@@ -286,22 +286,6 @@ stages:
       deploymentName: "IntegrationTests"
       nspName: 'nsp-$(UniqueResourceGroupName)'
 
-# Standalone PR databases are GP_Gen5_8; a small shared pool keeps the vNext SDK databases within subscription quota.
-- stage: deploySqlVNextElasticPool
-  displayName: 'Deploy SQL vNext Elastic Pool (PR)'
-  dependsOn:
-  - deploySqlServer
-  jobs:
-  - template: ./jobs/provision-sqlElasticPool.yml
-    parameters:
-      resourceGroup: $(UniqueResourceGroupName)
-      sqlServerName: $(DeploymentEnvironmentName)
-      elasticPoolName: $(DeploymentEnvironmentName)-vnext-pool
-      capacity: 4
-      maxSizeBytes: '68719476736'
-      dbMinCapacity: 0
-      dbMaxCapacity: 2
-
 - stage: deployStu3
   displayName: 'Deploy STU3 CosmosDB Site'
   dependsOn:
@@ -350,7 +334,6 @@ stages:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
-  - deploySqlVNextElasticPool
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters:
@@ -365,7 +348,6 @@ stages:
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
-      sqlElasticPoolName: $(DeploymentEnvironmentName)-vnext-pool
       sqlDatabaseName: FHIRStu3VNext
       fhirSdkProviderSystemDefault: Ignixa
       reindexEnabled: true
@@ -418,7 +400,6 @@ stages:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
-  - deploySqlVNextElasticPool
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters:
@@ -433,7 +414,6 @@ stages:
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       sqlServerName: $(DeploymentEnvironmentName)
-      sqlElasticPoolName: $(DeploymentEnvironmentName)-vnext-pool
       sqlDatabaseName: FHIRR4VNext
       fhirSdkProviderSystemDefault: Ignixa
       reindexEnabled: true
