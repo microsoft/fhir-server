@@ -16,6 +16,17 @@ longer the thing to fix.
 
 Versions still come from `Directory.Packages.props`, and that is still the file Dependabot edits.
 
+## Framework-specific updates
+
+Discovery targets `net11.0`. Dependabot updates the .NET 11 versions of packages whose versions
+depend on `TargetFramework`. Maintain their .NET 10 versions manually in
+`Directory.Packages.props`, including security updates. Shared, unconditional versions still
+apply to both targets.
+
+Keep the .NET 11 version properties before their .NET 10 counterparts. Dependabot follows
+property definitions in document order, not MSBuild conditions. A lower version before the
+active version can make an SDK-managed package update the wrong property.
+
 ## If Dependabot reports a feed authentication failure
 
 Check the job's proxy logs for `egress not allowlisted`. Dependabot's proxy blocks feeds declared
@@ -51,6 +62,6 @@ still worth knowing.
 - **Don't add this project to `Microsoft.Health.Fhir.sln`.** Dependabot searches upward for a
   solution that owns the project. If it finds one, it goes back to scanning everything.
 - **Don't move `TargetFramework` into the `.csproj`.** `Directory.Packages.props` reads it to pick
-  the ASP.NET version, and it does that before the `.csproj` is read. The ASP.NET packages would
-  end up with no version at all.
+  the ASP.NET and .NET versions before the `.csproj` is read. Their packages would end up with
+  no version at all.
 - **Don't put versions here.** Central Package Management supplies them.
