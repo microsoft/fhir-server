@@ -14,7 +14,6 @@
          these up; close that PR if it does. -->
     <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
-    <DotNetSdkPackageVersion>10.0.14</DotNetSdkPackageVersion>
     <OpenIddictPackageVersion>7.8.0</OpenIddictPackageVersion>
     <!-- OpenTelemetry core packages (SDK, API, hosting) must stay on one version. Azure.Monitor.OpenTelemetry.AspNetCore
          only sets a minimum, so these direct pins raise the whole set to what OpenTelemetry.Instrumentation.EventCounters needs. -->
@@ -23,14 +22,16 @@
   </PropertyGroup>
   <!-- SDK Packages -->
   <Choose>
-    <When Condition="'$(TargetFramework)' == 'net9.0'">
+    <When Condition="'$(TargetFramework)' == 'net11.0'">
       <PropertyGroup>
-        <AspNetPackageVersion>9.0.15</AspNetPackageVersion>
+        <AspNetPackageVersion>11.0.0</AspNetPackageVersion>
+        <DotNetSdkPackageVersion>11.0.0</DotNetSdkPackageVersion>
       </PropertyGroup>
     </When>
     <When Condition="'$(TargetFramework)' == 'net10.0'">
       <PropertyGroup>
         <AspNetPackageVersion>10.0.13</AspNetPackageVersion>
+        <DotNetSdkPackageVersion>10.0.14</DotNetSdkPackageVersion>
       </PropertyGroup>
     </When>
   </Choose>

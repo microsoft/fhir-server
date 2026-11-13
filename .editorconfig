@@ -142,6 +142,9 @@ dotnet_diagnostic.CA1848.severity = none
 # CA2254: Template should be a static expression
 dotnet_diagnostic.CA2254.severity = none
 
+# CA1865: Keep explicit ordinal string overloads shared by .NET 10 and 11.
+dotnet_diagnostic.CA1865.severity = none
+
 # C++ Files
 [*.{cpp,h,in}]
 curly_bracket_next_line = true

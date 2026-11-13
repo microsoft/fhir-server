@@ -9,7 +9,7 @@ parameters:
 
 steps:
 - task: UseDotNet@2
-  displayName: 'Use .NET SDK'
+  displayName: 'Use .NET SDKs from global.json files'
   inputs:
     useGlobalJson: true
 

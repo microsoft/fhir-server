@@ -16,8 +16,9 @@
       configured directory to any solution that claims the project; being claimed would silently
       restore the slow whole-repository behaviour.
     * Keep the discovery TargetFramework aligned with a framework the Choose in
-      Directory.Packages.props handles, since that is what selects AspNetPackageVersion. It lives
-      in Directory.Build.props because Directory.Packages.props is imported before this file.
+      Directory.Packages.props handles, since that selects AspNetPackageVersion and
+      DotNetSdkPackageVersion. It lives in Directory.Build.props because Directory.Packages.props
+      is imported before this file.
     * Keep the PackageReference list below in step with Directory.Packages.props.
     * Keep the nuget directory in .github/dependabot.yml pointing at this folder.
 
@@ -208,7 +209,7 @@
 
     <!-- An empty version means TargetFramework no longer matches the Choose in Directory.Packages.props. -->
     <Error Condition="'$(TargetFramework)' == ''"
-           Text="TargetFramework is empty, so Directory.Packages.props cannot select AspNetPackageVersion. It must be set in Directory.Build.props, not in $(MSBuildProjectFile) - see the comment there." />
+           Text="TargetFramework is empty, so Directory.Packages.props cannot select AspNetPackageVersion or DotNetSdkPackageVersion. It must be set in Directory.Build.props, not in $(MSBuildProjectFile) - see the comment there." />
     <Error Condition="'@(_VersionlessPackage)' != ''"
            Text="No version resolved for: @(_VersionlessPackage, ', '). TargetFramework '$(TargetFramework)' is not handled by the Choose in Directory.Packages.props, so Dependabot would see an unbounded range instead of a version." />
 

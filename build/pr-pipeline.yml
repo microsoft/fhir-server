@@ -60,7 +60,7 @@ stages:
     majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
     nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
   jobs:
-  - job: Windows_dotnet10
+  - job: Windows_dotnet11
     pool:
       name: '$(InternalPool)'
       demands:
@@ -71,6 +71,16 @@ stages:
         targetBuildFramework: $(defaultBuildFramework)
         unitTest: false
         codeCoverage: true
+
+  - job: Windows_dotnet10
+    pool:
+      name: '$(InternalPool)'
+      demands:
+        - ImageOverride -equals $(InternalWindowsImage)
+    steps:
+    - template: ./jobs/build.yml
+      parameters:
+        targetBuildFramework: 'net10.0'
 
 - stage: BuildArtifacts
   displayName: 'Build artifacts'
