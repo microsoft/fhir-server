@@ -64,6 +64,7 @@ namespace Microsoft.Extensions.DependencyInjection
                     return new PartitionManager(Options.Options.Create(configuration));
                 })
                 .Singleton()
+                .AsSelf()
                 .AsImplementedInterfaces();
             services.AddSqlServerConnection(configureSqlAction);
             services.AddSqlServerManagement<SchemaVersion>();
