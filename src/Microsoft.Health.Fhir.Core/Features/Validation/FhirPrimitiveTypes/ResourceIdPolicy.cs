@@ -67,14 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
         /// <param name="rejectLongReferences">Whether references that are too long to index whole are rejected or left unindexed, instead of cut off.</param>
         /// <returns>The matching policy.</returns>
         public static ResourceIdPolicy From(bool useLongResourceIds, bool rejectLongReferences = true)
-        {
-            if (rejectLongReferences)
-            {
-                return useLongResourceIds ? Extended : Standard;
-            }
-
-            return new ResourceIdPolicy(useLongResourceIds ? LongMaxLength : StandardMaxLength, rejectLongReferences: false);
-        }
+            => new ResourceIdPolicy(useLongResourceIds ? LongMaxLength : StandardMaxLength, rejectLongReferences);
 
         /// <summary>
         /// Determines whether a resource id is 1 to <see cref="MaxLength"/> letters, digits, dots or hyphens.
