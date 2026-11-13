@@ -891,6 +891,10 @@
   <data name="ReindexingNoSearchParameterstoReindex" xml:space="preserve">
     <value>There are no search parameters to reindex for job Id: {0}.</value>
   </data>
+  <data name="ReindexWarningsOmitted" xml:space="preserve">
+    <value>{0} more reindex warning(s) were not listed.</value>
+    <comment>{0} is the number of warnings not listed.</comment>
+  </data>
   <data name="SearchParameterDefinitionInvalidUriExceedsMaxLength" xml:space="preserve">
     <value>Search Parameter URL {0} exceeds the maximum length limit of {1}</value>
   </data>
@@ -1008,5 +1012,17 @@
   <data name="SmartScopeSearchParameterNotEnforceable" xml:space="preserve">
     <value>The granted SMART scope restricts access using the search parameter '{0}', which is not currently available on this server. The request cannot be authorized.</value>
     <comment>{0} is the code of the search parameter the SMART clinical scope depends on.</comment>
+  </data>
+  <data name="LongUriSearchValue" xml:space="preserve">
+    <value>URI parameter '{0}' exceeds {1} characters. Evaluation is limited to the first {1} characters, which may return broader search results.</value>
+    <comment>{0} is a comma-separated list of search parameter codes. {1} is the number of URI characters the data store compares.</comment>
+  </data>
+  <data name="LongReferenceId" xml:space="preserve">
+    <value>Reference parameter '{0}' ID exceeds {1} characters. Index truncation applied after {1} characters, which may yield over-inclusive results</value>
+    <comment>{0} is the code of the search parameter. {1} is the maximum resource id length.</comment>
+  </data>
+  <data name="LongReferenceIdAffectedResources" xml:space="preserve">
+    <value>Resource type '{0}': {1} resource(s) affected.</value>
+    <comment>{0} is a resource type. {1} is the number of resources with a reference id longer than the maximum resource id length.</comment>
   </data>
 </root>

@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -51,6 +53,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <param name="urlResolver">The url resolver.</param>
         /// <param name="returnPreference">The return preference.</param>
         /// <param name="operationOutcomeMessage">The operation outcome message.</param>
+        /// <param name="additionalIssues">Issues added to the operation outcome returned for <see cref="ReturnPreference.OperationOutcome"/>.</param>
         public static FhirResult Create(
             ILogger logger,
             IResourceElement resource,
@@ -60,7 +63,8 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             bool setLocationHeader = false,
             IUrlResolver urlResolver = null,
             ReturnPreference? returnPreference = null,
-            string operationOutcomeMessage = null)
+            string operationOutcomeMessage = null,
+            IEnumerable<OperationOutcomeIssue> additionalIssues = null)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -104,16 +108,24 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
                 else if (returnPreference == ReturnPreference.OperationOutcome)
                 {
                     var operationOutcome = new OperationOutcome();
-                    operationOutcome.Issue.Add(
-                        new OperationOutcome.IssueComponent()
-                        {
-                            Severity = OperationOutcome.IssueSeverity.Information,
-                            Diagnostics = operationOutcomeMessage,
-                            Details = new CodeableConcept()
+                    if (!string.IsNullOrEmpty(operationOutcomeMessage))
+                    {
+                        operationOutcome.Issue.Add(
+                            new OperationOutcome.IssueComponent()
                             {
-                                Text = operationOutcomeMessage,
-                            },
-                        });
+                                Severity = OperationOutcome.IssueSeverity.Information,
+                                Diagnostics = operationOutcomeMessage,
+                                Details = new CodeableConcept()
+                                {
+                                    Text = operationOutcomeMessage,
+                                },
+                            });
+                    }
+
+                    foreach (OperationOutcomeIssue issue in additionalIssues ?? Enumerable.Empty<OperationOutcomeIssue>())
+                    {
+                        operationOutcome.Issue.Add(issue.ToPoco());
+                    }
 
                     var operationOutcomeResult = new FhirResult(operationOutcome.ToResourceElement(), logger)
                     {

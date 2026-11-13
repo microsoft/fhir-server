@@ -160,5 +160,58 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
                     x => string.Equals(operationOutcomeMessage, x.Diagnostics, StringComparison.Ordinal) && string.Equals(operationOutcomeMessage, x.Details?.Text, StringComparison.Ordinal));
             }
         }
+
+        [Theory]
+        [InlineData(ReturnPreference.OperationOutcome, true)]
+        [InlineData(ReturnPreference.Representation, false)]
+        [InlineData(null, false)]
+        public void GivenAdditionalIssues_WhenCreatingFhirResult_ThenTheyAreAddedOnlyToAnOperationOutcome(ReturnPreference? returnPreference, bool expectOperationOutcome)
+        {
+            var additionalIssue = new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.Informational, "long uri warning");
+
+            var fhirResult = FhirResult.Create(
+                NullLogger.Instance,
+                _mockResource,
+                HttpStatusCode.Created,
+                returnPreference: returnPreference,
+                operationOutcomeMessage: "created",
+                additionalIssues: new[] { additionalIssue });
+
+            if (!expectOperationOutcome)
+            {
+                Assert.Equal(_mockResource, fhirResult.Result);
+                return;
+            }
+
+            var outcome = ((ResourceElement)fhirResult.Result).Instance.ToPoco<OperationOutcome>();
+            Assert.Collection(
+                outcome.Issue,
+                x => Assert.Equal("created", x.Diagnostics),
+                x =>
+                {
+                    Assert.Equal(OperationOutcome.IssueSeverity.Warning, x.Severity);
+                    Assert.Equal(OperationOutcome.IssueType.Informational, x.Code);
+                    Assert.Equal("long uri warning", x.Diagnostics);
+                });
+            Assert.Equal(HttpStatusCode.Created, fhirResult.StatusCode);
+        }
+
+        [Fact]
+        public void GivenNoOperationOutcomeMessage_WhenCreatingAnOperationOutcome_ThenOnlyTheAdditionalIssuesAreReturned()
+        {
+            var additionalIssue = new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.Informational, "long uri warning");
+
+            var fhirResult = FhirResult.Create(
+                NullLogger.Instance,
+                _mockResource,
+                HttpStatusCode.OK,
+                setETagheader: true,
+                returnPreference: ReturnPreference.OperationOutcome,
+                additionalIssues: new[] { additionalIssue });
+
+            var outcome = ((ResourceElement)fhirResult.Result).Instance.ToPoco<OperationOutcome>();
+            Assert.Equal("long uri warning", Assert.Single(outcome.Issue).Diagnostics);
+            Assert.Equal(WeakETag.FromVersionId(_mockResource.VersionId).ToString(), fhirResult.Headers[HeaderNames.ETag]);
+        }
     }
 }

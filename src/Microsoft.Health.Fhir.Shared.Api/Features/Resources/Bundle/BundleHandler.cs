@@ -947,7 +947,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 HttpStatusCode httpStatusCode = GetFinalHttpStatusCode(entryComponent);
                 statistics.RegisterNewEntry(httpVerb, resourceContext.ResourceType, resourceContext.Index, httpStatusCode, watch.Elapsed, resourceContext.IsConditionalOperation);
 
-                if (_bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
+                if (_bundleType.Equals(BundleType.Transaction) && BundleHandlerRuntime.IsFailedTransactionEntry(entryComponent, httpStatusCode))
                 {
                     RaiseFhirTransactionException(resourceContext, httpStatusCode, entryComponent, isOperationCancelledByClient: BundleHandlerRuntime.HasCancellationHappenedBeforeMaxExecutionTime(watch.Elapsed, _bundleConfiguration, cancellationToken));
                 }

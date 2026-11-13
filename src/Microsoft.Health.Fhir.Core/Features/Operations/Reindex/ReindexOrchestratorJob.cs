@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
@@ -89,6 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly SortedSet<long> _transientProcessingJobIds = [];
 
         private DateTimeOffset _searchParamLastUpdated;
+        private readonly HashSet<string> _seenWarnings = new(StringComparer.Ordinal);
 
         public ReindexOrchestratorJob(
             IQueueClient queueClient,
@@ -149,6 +151,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _result.SearchParameterUrls = _transientSearchParamResouceTypes.Select(_ => _.Key).Distinct().OrderBy(_ => _).ToList();
 
                 await CheckForCompletionAsync();
+
+                AddOmittedWarningsSummary();
 
                 await RefreshSearchParameterCache(false);
             }
@@ -333,6 +337,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var errorList = new List<OperationOutcomeIssue> { new OperationOutcomeIssue(severity, issueType, message) };
             errorList.AddRange(_result.Error);
             _result.Error = errorList;
+        }
+
+        /// <summary>
+        /// Reports warnings of a completed processing job as Warning issues, which show in the job status without failing the job.
+        /// Processing jobs report the same warning (one per resource type and search parameter), so each distinct warning is counted
+        /// once across all jobs. At most <see cref="ReindexProcessingJobResult.MaxWarnings"/> are listed; the rest are summarized once.
+        /// </summary>
+        private void AddProcessingJobWarnings(ReindexProcessingJobResult result)
+        {
+            if (result == null)
+            {
+                return;
+            }
+
+            foreach (string warning in (result.Warnings ?? Enumerable.Empty<string>()).Where(_seenWarnings.Add))
+            {
+                if (_seenWarnings.Count <= ReindexProcessingJobResult.MaxWarnings)
+                {
+                    AddErrorResult(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.Informational, warning);
+                }
+            }
+        }
+
+        private void AddOmittedWarningsSummary()
+        {
+            int omitted = _seenWarnings.Count - ReindexProcessingJobResult.MaxWarnings;
+            if (omitted > 0)
+            {
+                AddErrorResult(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.Informational, string.Format(CultureInfo.InvariantCulture, Core.Resources.ReindexWarningsOmitted, omitted));
+            }
         }
 
         private async Task<HashSet<string>> GetUsedResourceTypes()
@@ -615,6 +649,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         var result = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(job.Result);
                         _result.SucceededResources += result.SucceededResourceCount;
+                        AddProcessingJobWarnings(result);
                     }
                     else
                     {

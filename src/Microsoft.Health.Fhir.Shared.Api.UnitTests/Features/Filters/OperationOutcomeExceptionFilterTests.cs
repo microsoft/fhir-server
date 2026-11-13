@@ -597,6 +597,36 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             }
         }
 
+        [Fact]
+        public void GivenAPreconditionFailedExceptionAndALongUriWarning_WhenExecutingAnAction_ThenTheWarningIsAddedOnce()
+        {
+            OperationOutcomeIssue warning = LongUriSearchValueIssue.Create(new[] { "_profile" }, 256);
+            _fhirRequestContext.BundleIssues.Add(warning);
+            _fhirRequestContext.BundleIssues.Add(LongUriSearchValueIssue.Create(new[] { "_profile" }, 256));
+            _fhirRequestContext.BundleIssues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.Informational, "unrelated"));
+
+            OperationOutcomeResult result = ValidateOperationOutcome(new PreconditionFailedException("multiple matches"), HttpStatusCode.PreconditionFailed);
+
+            Assert.Collection(
+                result.Result.Issue,
+                i => Assert.Equal("multiple matches", i.Diagnostics),
+                i =>
+                {
+                    Assert.Equal(OperationOutcome.IssueSeverity.Warning, i.Severity);
+                    Assert.Equal(warning.Diagnostics, i.Diagnostics);
+                });
+        }
+
+        [Fact]
+        public void GivenABadRequestExceptionAndALongUriWarning_WhenExecutingAnAction_ThenTheWarningIsNotAdded()
+        {
+            _fhirRequestContext.BundleIssues.Add(LongUriSearchValueIssue.Create(new[] { "_profile" }, 256));
+
+            OperationOutcomeResult result = ValidateOperationOutcome(new BadRequestException("bad"), HttpStatusCode.BadRequest);
+
+            Assert.Equal("bad", Assert.Single(result.Result.Issue).Diagnostics);
+        }
+
         private OperationOutcomeResult ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)
         {
             var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor, _logger);

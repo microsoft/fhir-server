@@ -14,6 +14,7 @@ using EnsureThat;
 using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Import;
@@ -107,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 else // no failures here
                 {
                     var coordResult = JsonConvert.DeserializeObject<ImportOrchestratorJobResult>(coord.Result);
-                    var result = new ImportJobResult() { Request = coordResult.Request, TransactionTime = coord.CreateDate, Output = completedOutcomes, Error = failedOutcomes };
+                    var result = new ImportJobResult() { Request = coordResult.Request, TransactionTime = coord.CreateDate, Output = completedOutcomes, Error = failedOutcomes, Issues = GetIssues(jobResultsById.Values) };
 
                     // Include execution stats only for in-memory test imports
                     if (coordDefinition.InMemoryTestProcessingJobs > 0)
@@ -121,6 +122,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             else
             {
                 throw new OperationFailedException(Core.Resources.UnknownError, HttpStatusCode.InternalServerError);
+            }
+
+            // Builds one warning per resource type and search parameter for imported references with ids longer than the maximum
+            // resource id length. Returns null when there are none, so the field is omitted.
+            static List<ImportJobIssue> GetIssues(IEnumerable<ImportProcessingJobResult> jobResults)
+            {
+                var counts = new List<OverlongReferenceIdCount>();
+                foreach (ImportProcessingJobResult jobResult in jobResults)
+                {
+                    OverlongReferenceIdCount.Merge(counts, jobResult?.OverlongReferenceIds);
+                }
+
+                if (counts.Count == 0)
+                {
+                    return null;
+                }
+
+                return counts
+                    .Select(count => new ImportJobIssue
+                    {
+                        Severity = "information",
+                        Type = count.ResourceType,
+                        Count = count.Count,
+                        Diagnostics = LongReferenceIdIssue.CreateForJob(count).Diagnostics,
+                    })
+                    .ToList();
             }
 
             // Builds execution statistics for in-memory test imports: an aggregate line followed by one line per completed job.

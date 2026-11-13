@@ -125,6 +125,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 result.ErrorLogLocation = importErrorStore.ErrorFileLocation;
                 result.ProcessedBytes = importProgress.ProcessedBytes;
                 result.DatabaseMilliseconds = importProgress.DatabaseMilliseconds;
+                OverlongReferenceIdCount.Merge(result.OverlongReferenceIds, importProgress.OverlongReferenceIds);
 
                 _logger.LogJobInformation(jobInfo, "Import Job {JobId} progress: succeed {SucceedCount}, failed: {FailedCount}", jobInfo.Id, result.SucceededResources, result.FailedResources);
 

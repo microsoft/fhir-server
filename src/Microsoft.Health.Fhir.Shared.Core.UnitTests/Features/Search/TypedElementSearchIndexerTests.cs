@@ -105,6 +105,60 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(familyName, nameSearchValue.String);
          }
 
+        [Fact]
+        public async System.Threading.Tasks.Task GivenAnOverlongBareReferenceIdAndASingleTargetType_WhenExtract_ThenTheOverlongIdLengthIsKept()
+        {
+            ISearchIndexer searchIndexer = await CreateReferenceSearchIndexer("subject", "Observation.subject", "Patient");
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Subject = new ResourceReference(new string('a', 65));
+
+            ReferenceSearchValue value = Assert.IsType<ReferenceSearchValue>(Assert.Single(searchIndexer.Extract(observation.ToResourceElement())).Value);
+
+            Assert.Equal("Patient", value.ResourceType);
+            Assert.Equal(65, value.OverlongResourceIdLength);
+            Assert.Equal(64, value.MaxResourceIdLength);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async System.Threading.Tasks.Task GivenAValidAndAnOverlongReferenceWithTheSameTruncatedId_WhenExtract_ThenTheOverlongIdLengthIsKept(bool validFirst)
+        {
+            ISearchIndexer searchIndexer = await CreateReferenceSearchIndexer("performer", "Observation.performer", "Patient", "Practitioner");
+            string validId = new string('a', 64);
+            var references = new List<ResourceReference> { new ResourceReference("Patient/" + validId), new ResourceReference("Patient/" + validId + "x") };
+            if (!validFirst)
+            {
+                references.Reverse();
+            }
+
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Performer = references;
+
+            ReferenceSearchValue value = Assert.IsType<ReferenceSearchValue>(Assert.Single(searchIndexer.Extract(observation.ToResourceElement())).Value);
+
+            Assert.Equal(validId, value.ResourceId);
+            Assert.Equal(65, value.OverlongResourceIdLength);
+            Assert.Equal(64, value.MaxResourceIdLength);
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task GivenReferencesThatDifferOnlyInCase_WhenExtract_ThenTheFirstIdIsIndexedWithTheOverlongLength()
+        {
+            // Reference values compare ids case-insensitively, but SQL Server indexes them as written, so the first one must be kept.
+            ISearchIndexer searchIndexer = await CreateReferenceSearchIndexer("performer", "Observation.performer", "Patient", "Practitioner");
+            string firstId = new string('A', 64);
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Performer = new List<ResourceReference> { new ResourceReference("Practitioner/" + firstId), new ResourceReference("Practitioner/" + new string('a', 65)) };
+
+            ReferenceSearchValue value = Assert.IsType<ReferenceSearchValue>(Assert.Single(searchIndexer.Extract(observation.ToResourceElement())).Value);
+
+            Assert.Equal(firstId, value.ResourceId);
+            Assert.Equal("Practitioner", value.ResourceType);
+            Assert.Equal(65, value.OverlongResourceIdLength);
+            Assert.Equal(64, value.MaxResourceIdLength);
+        }
+
 #if !Stu3
         // For Stu3 - Coverage.status, Observation.status, and Claim.use are not required fields
         [Fact]
@@ -138,5 +192,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
         }
 #endif
+
+        private async System.Threading.Tasks.Task<ISearchIndexer> CreateReferenceSearchIndexer(string code, string expression, params string[] targetResourceTypes)
+        {
+            var supportedSearchParameterDefinitionManager = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            supportedSearchParameterDefinitionManager.GetSearchParameters(Arg.Any<string>()).Returns(new[]
+            {
+                new SearchParameterInfo(
+                    code,
+                    code,
+                    ValueSets.SearchParamType.Reference,
+                    new Uri("http://hl7.org/fhir/SearchParameter/Observation-" + code),
+                    expression: expression,
+                    targetResourceTypes: targetResourceTypes,
+                    baseResourceTypes: new List<string> { "Observation" }),
+            });
+
+            return new TypedElementSearchIndexer(
+                supportedSearchParameterDefinitionManager,
+                await GetTypeConverterAsync(),
+                Substitute.For<IReferenceToElementResolver>(),
+                ModelInfoProvider.Instance,
+                Substitute.For<ILogger<TypedElementSearchIndexer>>());
+        }
     }
 }

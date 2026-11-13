@@ -59,6 +59,42 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Single(result.JobResult.Error);
         }
 
+        [Fact]
+        public async Task WhenGettingCompletedJobWithOverlongReferenceIds_ThenOneIssuePerResourceTypeAndParameterIsReturned()
+        {
+            var coordResult = new ImportOrchestratorJobResult() { Request = "Request" };
+            var coord = new JobInfo() { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(coordResult), Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()) };
+            var workerResult1 = new ImportProcessingJobResult() { SucceededResources = 2 };
+            workerResult1.OverlongReferenceIds.Add(new OverlongReferenceIdCount("Observation", "performer", 64, 2));
+            var workerResult2 = new ImportProcessingJobResult() { SucceededResources = 1 };
+            workerResult2.OverlongReferenceIds.Add(new OverlongReferenceIdCount("Observation", "performer", 64, 1));
+            var worker1 = new JobInfo() { Id = 1, Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(workerResult1), Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }) };
+            var worker2 = new JobInfo() { Id = 2, Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(workerResult2), Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }) };
+
+            var result = await SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker1, worker2]);
+
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            ImportJobIssue issue = Assert.Single(result.JobResult.Issues);
+            Assert.Equal("information", issue.Severity);
+            Assert.Equal("Observation", issue.Type);
+            Assert.Equal(3, issue.Count);
+            Assert.Equal("Reference parameter 'performer' ID exceeds 64 characters. Index truncation applied after 64 characters, which may yield over-inclusive results", issue.Diagnostics);
+            Assert.Contains("\"issues\":", JsonConvert.SerializeObject(result.JobResult), StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task WhenGettingCompletedJobWithoutOverlongReferenceIds_ThenIssuesAreOmitted()
+        {
+            var coordResult = new ImportOrchestratorJobResult() { Request = "Request" };
+            var coord = new JobInfo() { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(coordResult), Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()) };
+            var worker = new JobInfo() { Id = 1, Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(new ImportProcessingJobResult() { SucceededResources = 1 }), Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }) };
+
+            var result = await SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]);
+
+            Assert.Null(result.JobResult.Issues);
+            Assert.DoesNotContain("\"issues\"", JsonConvert.SerializeObject(result.JobResult), StringComparison.Ordinal);
+        }
+
         [Theory]
         [InlineData(HttpStatusCode.BadRequest)]
         [InlineData(HttpStatusCode.InternalServerError)]

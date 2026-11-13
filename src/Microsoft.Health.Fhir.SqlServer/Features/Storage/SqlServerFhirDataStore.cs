@@ -32,6 +32,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -294,6 +295,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         setAsHistory = true;
                     }
 
+                    var previousResourceKey = prevResourceKey;
                     prevResourceKey = resource.ToResourceKey(true);
                     var weakETag = resourceExt.WeakETag;
                     int? eTag = weakETag == null
@@ -395,6 +397,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             if (ExistingRawResourceIsEqualToInput(resource.RawResource, existingResource.RawResource, resourceExt.KeepVersion))
                             {
                                 _logger.LogInformation("Update operation resulted in no changes for resource {ResourceType}/{ResourceId}.", resource.ResourceTypeName, resource.ResourceId);
+                                if (resources.Count == 1)
+                                {
+                                    AddLongUriWriteWarning(resource);
+                                }
 
                                 // Send the existing resource in the response
                                 results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
@@ -424,6 +430,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         {
                             resource.IsHistory = true;
                         }
+                    }
+
+                    // The URI search index compares only the first IndexedUriMaxLength characters, so two different values of the
+                    // same search parameter that share them can't be indexed for one resource. Only the current version is indexed,
+                    // so history versions are accepted. Reject the resource with 400.
+                    string collidingSearchParameter = resource.IsHistory || resource.IsDeleted ? null : UriSearchParamListRowGenerator.FindCollidingUriSearchParameter(resource);
+                    if (collidingSearchParameter != null)
+                    {
+                        _logger.LogWarning("BadRequest: CollidingUriSearchValues. ResourceType={ResourceType}, SearchParameter={SearchParameter}", resource.ResourceTypeName, collidingSearchParameter);
+                        results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new BadRequestException(string.Format(CultureInfo.InvariantCulture, Resources.CollidingUriSearchValues, collidingSearchParameter, UriSearchParamListRowGenerator.IndexedUriMaxLength))));
+
+                        // Not stored, so an older version of the same resource later in this batch can become current.
+                        prevResourceKey = previousResourceKey;
+                        continue;
                     }
 
                     long surrId;
@@ -583,14 +603,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        internal async Task<(IReadOnlyList<string> Errors, long? DatabaseMilliseconds)> ImportResourcesAsync(IReadOnlyList<ImportResource> resources, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)
+        internal async Task<(IReadOnlyList<string> Errors, long? DatabaseMilliseconds, IReadOnlyList<OverlongReferenceIdCount> OverlongReferenceIds)> ImportResourcesAsync(IReadOnlyList<ImportResource> resources, ImportMode importMode, bool allowNegativeVersions, bool eventualConsistency, CancellationToken cancellationToken)
         {
             if (resources.Count == 0) // do not go to the database
             {
-                return (new List<string>(), 0);
+                return (new List<string>(), 0, Array.Empty<OverlongReferenceIdCount>());
             }
 
             long? databaseMilliseconds = 0;
+            var rejectedCollisions = new List<ImportResource>();
             (List<ImportResource> Loaded, List<ImportResource> Conflicts) results;
             var maxRetries = GetMaxRetries(resources, importMode);
             var retries = 0;
@@ -627,9 +648,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
             }
 
-            var dups = resources.Except(results.Loaded).Except(results.Conflicts)?.ToList();
+            var dups = resources.Except(results.Loaded).Except(results.Conflicts).Except(rejectedCollisions)?.ToList();
 
-            return (GetErrors(dups, results.Conflicts), databaseMilliseconds);
+            // Only loaded current versions are indexed, so only they count as affected by truncated reference ids.
+            var overlongReferenceIds = new List<OverlongReferenceIdCount>();
+            foreach (ImportResource resource in results.Loaded)
+            {
+                OverlongReferenceIdCount.Add(overlongReferenceIds, resource.ResourceWrapper);
+            }
+
+            return (GetCollisionErrors().Concat(GetErrors(dups, results.Conflicts)).ToList(), databaseMilliseconds, overlongReferenceIds);
+
+            List<string> GetCollisionErrors()
+            {
+                if (rejectedCollisions.Count > 0)
+                {
+                    _logger.LogWarning("Import rejected {Count} resource(s) with URI search values that are identical in their first {IndexedLength} characters.", rejectedCollisions.Count, UriSearchParamListRowGenerator.IndexedUriMaxLength);
+                }
+
+                return rejectedCollisions
+                    .Select(resource => _importErrorSerializer.Serialize(
+                        resource.Index,
+                        string.Format(CultureInfo.InvariantCulture, Resources.FailedToImportCollidingUriSearchValues, UriSearchParamListRowGenerator.FindCollidingUriSearchParameter(resource.ResourceWrapper), UriSearchParamListRowGenerator.IndexedUriMaxLength, resource.ResourceWrapper.ResourceId, resource.Index),
+                        resource.Offset))
+                    .ToList();
+            }
 
             int GetMaxRetries(IReadOnlyList<ImportResource> resources, ImportMode importMode)
             {
@@ -654,6 +697,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             async Task<(List<ImportResource> Loaded, List<ImportResource> Conflicts)> ImportResourcesInternalAsync(bool useReplicasForReads)
             {
+                rejectedCollisions.Clear();
                 var loaded = new List<ImportResource>();
                 var conflicts = new List<ImportResource>();
                 if (importMode == ImportMode.InitialLoad)
@@ -721,6 +765,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     await MergeUnversioned(fullyDedupped.Where(_ => !_.KeepLastUpdated && !_.KeepVersion).ToList(), false, useReplicasForReads);
                 }
 
+                loaded.RemoveAll(rejectedCollisions.Contains);
                 return (loaded, conflicts);
 
                 List<ImportResource> RemoveVersionOutOfSyncWithLastUpdatedConflicts(IEnumerable<ImportResource> inputs)
@@ -895,8 +940,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             async Task Merge(IEnumerable<ImportResource> resources, bool keepLastUpdated, bool useReplicasForReads)
             {
-                var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, false, _.KeepVersion, null)).ToList();
-                await MergeInternalAsync(input, keepLastUpdated, true, false, useReplicasForReads, eventualConsistency, false, cancellationToken, elapsed => databaseMilliseconds += elapsed);
+                var inputResources = resources.ToList();
+                var input = inputResources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, false, _.KeepVersion, null)).ToList();
+                MergeOutcome outcome = await MergeInternalAsync(input, keepLastUpdated, true, false, useReplicasForReads, eventualConsistency, false, cancellationToken, elapsed => databaseMilliseconds += elapsed);
+
+                // Current versions whose URI search values can't be told apart by the index are rejected by the merge.
+                for (int i = 0; i < input.Count; i++)
+                {
+                    if (outcome.Results.TryGetValue(input[i].GetIdentifier(), out DataStoreOperationOutcome result) && result.Exception is BadRequestException)
+                    {
+                        rejectedCollisions.Add(inputResources[i]);
+                    }
+                }
             }
         }
 
@@ -925,10 +980,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
                 new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                ReferenceSearchParamListRowGenerator.LogTruncatedReferences(mergeWrappers, _model.ResourceIdPolicy.MaxLength, _logger);
                 new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new TokenSearchParamListTableValuedParameterDefinition("@TokenSearchParams").AddParameter(cmd.Parameters, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new TokenTextListTableValuedParameterDefinition("@TokenTexts").AddParameter(cmd.Parameters, new TokenTextListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new StringSearchParamListTableValuedParameterDefinition("@StringSearchParams").AddParameter(cmd.Parameters, new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                UriSearchParamListRowGenerator.LogTruncatedUris(mergeWrappers, _logger);
+                AddLongUriWriteWarning(mergeWrappers);
                 new UriSearchParamListTableValuedParameterDefinition("@UriSearchParams").AddParameter(cmd.Parameters, new UriSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new NumberSearchParamListTableValuedParameterDefinition("@NumberSearchParams").AddParameter(cmd.Parameters, new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new QuantitySearchParamListTableValuedParameterDefinition("@QuantitySearchParams").AddParameter(cmd.Parameters, new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
@@ -1041,12 +1099,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await _sqlStoreClient.HardDeleteAsync(_model.GetResourceTypeId(key.ResourceType), key.Id, keepCurrentVersion, _coreFeatures.SupportsResourceChangeCapture, cancellationToken);
         }
 
-        public async Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<string>> BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
             if (resources.Count == 0)
             {
-                return;
+                return Array.Empty<string>();
             }
+
+            IReadOnlyList<string> warnings = ExcludeCollidingUriSearchValues(resources, _logger);
 
             int? failedResourceCount;
             try
@@ -1059,10 +1119,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 using SqlCommand cmd = CreateBulkUpdateSearchParameterIndicesCommand(mergeWrappers.Count);
                 new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
                 new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                ReferenceSearchParamListRowGenerator.LogTruncatedReferences(mergeWrappers, _model.ResourceIdPolicy.MaxLength, _logger);
                 new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new TokenSearchParamListTableValuedParameterDefinition("@TokenSearchParams").AddParameter(cmd.Parameters, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new TokenTextListTableValuedParameterDefinition("@TokenTexts").AddParameter(cmd.Parameters, new TokenTextListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new StringSearchParamListTableValuedParameterDefinition("@StringSearchParams").AddParameter(cmd.Parameters, new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                UriSearchParamListRowGenerator.LogTruncatedUris(mergeWrappers, _logger);
                 new UriSearchParamListTableValuedParameterDefinition("@UriSearchParams").AddParameter(cmd.Parameters, new UriSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new NumberSearchParamListTableValuedParameterDefinition("@NumberSearchParams").AddParameter(cmd.Parameters, new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new QuantitySearchParamListTableValuedParameterDefinition("@QuantitySearchParams").AddParameter(cmd.Parameters, new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
@@ -1094,6 +1156,104 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 _logger.LogWarning(string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, failedResourceCount) + " " + Core.Resources.ReindexingUserAction);
             }
+
+            return warnings;
+        }
+
+        /// <summary>
+        /// When a single resource is written with URI values longer than the indexed length, adds the long URI warning to the
+        /// request context, so the API can return it to the caller. Writes of several resources at once (import, bulk update,
+        /// parallel bundles) only log, because the request context can't be tied to one resource.
+        /// </summary>
+        /// <param name="mergeWrappers">The resources being written.</param>
+        private void AddLongUriWriteWarning(IReadOnlyList<MergeResourceWrapper> mergeWrappers)
+        {
+            List<MergeResourceWrapper> current = mergeWrappers.Where(w => !w.ResourceWrapper.IsHistory).Take(2).ToList();
+            if (current.Count == 1)
+            {
+                AddLongUriWriteWarning(current[0].ResourceWrapper);
+            }
+        }
+
+        /// <summary>
+        /// Adds the long URI warning to the request context if <paramref name="resource"/> has URI values longer than the indexed length.
+        /// </summary>
+        /// <param name="resource">The single resource written by the request.</param>
+        private void AddLongUriWriteWarning(ResourceWrapper resource)
+        {
+            IFhirRequestContext requestContext = _requestContextAccessor.RequestContext;
+            IList<OperationOutcomeIssue> issues = requestContext?.BundleIssues;
+            if (issues == null || IsParallelBundleRequest(requestContext))
+            {
+                return;
+            }
+
+            IReadOnlyList<string> codes = UriSearchParamListRowGenerator.GetTruncatedUriSearchParameterCodes(resource);
+            if (codes.Count > 0)
+            {
+                LongUriSearchValueIssue.AddOrMerge(issues, codes, UriSearchParamListRowGenerator.IndexedUriMaxLength);
+            }
+        }
+
+        /// <summary>
+        /// Parallel bundles merge several entries in one call, under the request context of one of them, so a write warning
+        /// could be attached to the wrong entry.
+        /// </summary>
+        private static bool IsParallelBundleRequest(IFhirRequestContext requestContext)
+        {
+            return requestContext.Properties != null &&
+                requestContext.Properties.TryGetValue(BundleOrchestratorNamingConventions.HttpBundleInnerRequestExecutionContext, out object value) &&
+                value is BundleResourceContext { IsParallelBundle: true };
+        }
+
+        /// <summary>
+        /// Removes the values of URI search parameters that the index can't tell apart (two values of the same parameter that are
+        /// identical in their first <see cref="UriSearchParamListRowGenerator.IndexedUriMaxLength"/> characters) from the resources
+        /// being reindexed. New writes with such values are rejected, but resources stored before a URI search parameter was added
+        /// can still have them. The rest of the resource is indexed, so one resource doesn't fail the whole reindex.
+        /// </summary>
+        /// <param name="resources">The resources being reindexed.</param>
+        /// <param name="logger">The logger.</param>
+        /// <returns>A warning for each excluded resource and search parameter.</returns>
+        internal static List<string> ExcludeCollidingUriSearchValues(IReadOnlyCollection<ResourceWrapper> resources, ILogger logger)
+        {
+            // The warnings are shown in the reindex job status, which only requires the Reindex permission, so they name the
+            // resource type and search parameter but not resource ids. The ids are logged for support.
+            var warnings = new List<string>();
+            foreach (ResourceWrapper resource in resources)
+            {
+                IReadOnlyList<SearchParameterInfo> colliding = UriSearchParamListRowGenerator.GetCollidingUriSearchParameters(resource);
+                if (colliding.Count == 0)
+                {
+                    continue;
+                }
+
+                var collidingUrls = colliding.Select(p => p.Url).ToHashSet();
+                resource.UpdateSearchIndices(resource.SearchIndices.Where(e => !(e.Value is UriSearchValue && collidingUrls.Contains(e.SearchParameter.Url))).ToList());
+
+                foreach (SearchParameterInfo searchParameter in colliding)
+                {
+                    logger.LogWarning(
+                        "Reindex excluded URI search values that are identical in their indexed characters. ResourceType={ResourceType}, ResourceId={ResourceId}, SearchParameter={SearchParameter}, IndexedLength={IndexedLength}",
+                        resource.ResourceTypeName,
+                        resource.ResourceId,
+                        searchParameter.Url,
+                        UriSearchParamListRowGenerator.IndexedUriMaxLength);
+
+                    string warning = string.Format(
+                        CultureInfo.InvariantCulture,
+                        Resources.ReindexSkippedCollidingUriSearchValues,
+                        resource.ResourceTypeName,
+                        searchParameter.Code ?? searchParameter.Url?.ToString(),
+                        UriSearchParamListRowGenerator.IndexedUriMaxLength);
+                    if (!warnings.Contains(warning))
+                    {
+                        warnings.Add(warning);
+                    }
+                }
+            }
+
+            return warnings;
         }
 
         internal static bool ShouldUpdateVectorSearchIndices(IReadOnlyCollection<ResourceWrapper> resources, int? currentSchemaVersion)

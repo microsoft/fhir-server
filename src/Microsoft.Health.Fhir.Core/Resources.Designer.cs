@@ -981,6 +981,33 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Reference parameter &apos;{0}&apos; ID exceeds {1} characters. Index truncation applied after {1} characters, which may yield over-inclusive results.
+        /// </summary>
+        internal static string LongReferenceId {
+            get {
+                return ResourceManager.GetString("LongReferenceId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource type &apos;{0}&apos;: {1} resource(s) affected..
+        /// </summary>
+        internal static string LongReferenceIdAffectedResources {
+            get {
+                return ResourceManager.GetString("LongReferenceIdAffectedResources", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to URI parameter &apos;{0}&apos; exceeds {1} characters. Evaluation is limited to the first {1} characters, which may return broader search results..
+        /// </summary>
+        internal static string LongUriSearchValue {
+            get {
+                return ResourceManager.GetString("LongUriSearchValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Malformed search value &apos;{0}&apos;..
         /// </summary>
         internal static string MalformedSearchValue {
@@ -1427,6 +1454,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ReindexMultipleTargetsNotSupported {
             get {
                 return ResourceManager.GetString("ReindexMultipleTargetsNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} more reindex warning(s) were not listed..
+        /// </summary>
+        internal static string ReindexWarningsOmitted {
+            get {
+                return ResourceManager.GetString("ReindexWarningsOmitted", resourceCulture);
             }
         }
         

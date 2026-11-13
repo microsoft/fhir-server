@@ -7,9 +7,11 @@ using System;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -218,6 +220,59 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(expectedBaseUri == null ? null : new Uri(expectedBaseUri), value.BaseUri);
             Assert.Equal(ResourceType.Patient.ToString(), value.ResourceType);
             Assert.Equal(resourceId[..expectedLength], value.ResourceId);
+        }
+
+        [Theory]
+        [InlineData(false, 63, null)]
+        [InlineData(false, 64, null)]
+        [InlineData(false, 65, 65)]
+        [InlineData(false, 129, 129)]
+        [InlineData(true, 64, null)]
+        [InlineData(true, 128, null)]
+        [InlineData(true, 129, 129)]
+        [InlineData(true, 200, 200)]
+        public void GivenAReferenceWithAnIdNearTheLimits_WhenParsing_ThenTheOverlongIdLengthIsReported(bool useLongResourceIds, int length, int? expectedOverlongLength)
+        {
+            string resourceId = CreateResourceId(length);
+            ReferenceSearchValueParser parser = CreateParser(ResourceIdPolicy.From(useLongResourceIds));
+            int? expectedMaxLength = expectedOverlongLength == null ? null : (useLongResourceIds ? 128 : 64);
+
+            foreach (ReferenceSearchValue value in new[] { $"Patient/{resourceId}", $"https://localhost/stu3/Patient/{resourceId}", $"https://external-server.com/fhir/Patient/{resourceId}/_history/2", resourceId }.Select(parser.Parse))
+            {
+                Assert.Equal(expectedOverlongLength, value.OverlongResourceIdLength);
+                Assert.Equal(expectedMaxLength, value.MaxResourceIdLength);
+            }
+        }
+
+        [Fact]
+        public void GivenALongReferenceThatIsNotAResourceId_WhenParsing_ThenNoOverlongIdLengthIsReported()
+        {
+            ReferenceSearchValueParser parser = CreateParser(ResourceIdPolicy.Standard);
+
+            Assert.Null(parser.Parse("urn:oid:" + string.Join('.', Enumerable.Repeat("1234567890", 10))).OverlongResourceIdLength);
+            Assert.Null(parser.Parse("http://test.com/" + new string('a', 100)).OverlongResourceIdLength);
+            Assert.Null(parser.Parse("#" + new string('a', 100)).OverlongResourceIdLength);
+        }
+
+        [Theory]
+        [InlineData(KnownDataStores.SqlServer, 65)]
+        [InlineData(KnownDataStores.CosmosDb, null)]
+        public void GivenAnOverlongBareId_WhenParsing_ThenItIsFlaggedOnlyWhenTheDataStoreTruncatesIt(string dataStore, int? expectedOverlongLength)
+        {
+            var runtimeConfiguration = Substitute.For<IFhirRuntimeConfiguration>();
+            runtimeConfiguration.DataStore.Returns(dataStore);
+            var parser = new ReferenceSearchValueParser(_fhirRequestContextAccessor, _instanceConfig, ResourceIdPolicy.Standard, runtimeConfiguration);
+            string resourceId = CreateResourceId(65);
+
+            ReferenceSearchValue bare = parser.Parse(resourceId);
+            ReferenceSearchValue typed = parser.Parse($"Patient/{resourceId}");
+
+            Assert.Equal(resourceId, bare.ResourceId);
+            Assert.Equal(expectedOverlongLength, bare.OverlongResourceIdLength);
+
+            // A typed reference is truncated by the parser itself, so it is flagged on every data store.
+            Assert.Equal(64, typed.ResourceId.Length);
+            Assert.Equal(65, typed.OverlongResourceIdLength);
         }
 
         private static string CreateResourceId(int length)
