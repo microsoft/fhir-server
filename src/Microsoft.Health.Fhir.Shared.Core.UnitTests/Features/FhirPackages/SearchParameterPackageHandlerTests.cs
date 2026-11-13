@@ -12,12 +12,14 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.FhirPackages;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -741,6 +743,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
         }
 
         [Fact]
+        public async Task GivenTheIgnixaProvider_WhenAnExpressionHasASyntaxError_ThenItIsRejectedAsInvalidBeforeSupportIsResolved()
+        {
+            // Arrange
+            var entries = new[] { Entry("package/SearchParameter-a.json", SearchParameterJson(UrlA, "a", type: "string", expression: "Patient..name")) };
+            var ignixa = new IgnixaFhirPathProvider(new IgnixaSchemaContext(ModelInfoProvider.Instance));
+            var provider = Substitute.For<IFhirPathProvider>();
+            provider.Compile(Arg.Any<string>()).Returns(call => ignixa.Compile(call.Arg<string>()));
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateHandler(fhirPathProvider: provider).ValidateAsync(entries, _package, CancellationToken.None));
+
+            // Assert
+            provider.Received(1).Compile("Patient..name");
+            OperationOutcomeIssue issue = Assert.Single(exception.Issues);
+            Assert.Equal("Invalid", issue.Code);
+            Assert.Contains("Patient..name", issue.Diagnostics, StringComparison.Ordinal);
+            _supportResolver.DidNotReceiveWithAnyArgs().IsSearchParameterSupported(default);
+            await _writer.DidNotReceiveWithAnyArgs().WriteAsync(default, default, default, default);
+        }
+
+        [Fact]
         public async Task GivenAnExpressionTheModelCannotResolve_WhenValidating_ThenItIsRejectedAsInvalid()
         {
             // Arrange
@@ -796,7 +820,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             await _writer.DidNotReceiveWithAnyArgs().WriteAsync(default, default, default, default);
         }
 
-        private SearchParameterPackageHandler CreateHandler(ISearchParameterSupportResolver supportResolver = null) =>
+        private SearchParameterPackageHandler CreateHandler(ISearchParameterSupportResolver supportResolver = null, IFhirPathProvider fhirPathProvider = null) =>
             new SearchParameterPackageHandler(
                 _definitionManager,
                 _searchParameterOperations,
@@ -806,6 +830,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
                 _dataStoreValidator,
                 new ModelAttributeValidator(),
                 _writer,
+                fhirPathProvider ?? new FirelyFhirPathProvider(),
                 NullLogger<SearchParameterPackageHandler>.Instance);
 
         private void ConfigureResourceHierarchy()
