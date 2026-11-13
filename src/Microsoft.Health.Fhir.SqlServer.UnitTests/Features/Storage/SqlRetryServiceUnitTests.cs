@@ -515,6 +515,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         [Theory]
         [InlineData(0)]
         [InlineData(-1)]
+        [InlineData(1)]
+        [InlineData(SqlRetryService.MinimumMaxPoolSize - 1)]
         [InlineData(30000)]
         public void Constructor_WithOutOfRangeMaxPoolSize_ShouldThrowArgumentOutOfRangeException(int maxPoolSize)
         {
@@ -528,6 +530,24 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 Options.Create(new SqlRetryServiceOptions()),
                 new SqlRetryServiceDelegateOptions(),
                 _coreFeatureConfiguration));
+        }
+
+        [Fact]
+        public void Constructor_WithMinimumMaxPoolSize_ShouldSucceed()
+        {
+            // Arrange
+            var configuration = Options.Create(new SqlServerDataStoreConfiguration { MaxPoolSize = SqlRetryService.MinimumMaxPoolSize });
+
+            // Act
+            var service = new SqlRetryService(
+                _sqlConnectionBuilder,
+                configuration,
+                Options.Create(new SqlRetryServiceOptions()),
+                new SqlRetryServiceDelegateOptions(),
+                _coreFeatureConfiguration);
+
+            // Assert
+            Assert.Equal(SqlRetryService.MinimumMaxPoolSize, GetPrivateFieldValue<int?>(service, "_maxPoolSize"));
         }
 
         [Fact]

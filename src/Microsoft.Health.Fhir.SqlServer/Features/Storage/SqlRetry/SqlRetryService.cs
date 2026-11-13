@@ -38,6 +38,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// </summary>
     public class SqlRetryService : ISqlRetryService
     {
+        /// <summary>
+        /// Smallest accepted <see cref="SqlServerDataStoreConfiguration.MaxPoolSize"/>. Some operations, such as search include
+        /// expansion and event logging, open a second pooled connection while holding the first, so a request can need up to
+        /// three connections from the same pool. Very small pools would time out even under light load.
+        /// </summary>
+        internal const int MinimumMaxPoolSize = 10;
+
         private ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly IsExceptionRetriable _defaultIsExceptionRetriable = DefaultIsExceptionRetriable;
         private readonly bool _defaultIsExceptionRetriableOff;
@@ -79,7 +86,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _maxPoolSize = storeConfiguration.MaxPoolSize;
             if (_maxPoolSize.HasValue)
             {
-                EnsureArg.IsGt(_maxPoolSize.Value, 0, nameof(SqlServerDataStoreConfiguration.MaxPoolSize));
+                EnsureArg.IsGte(_maxPoolSize.Value, MinimumMaxPoolSize, nameof(SqlServerDataStoreConfiguration.MaxPoolSize));
                 EnsureArg.IsLt(_maxPoolSize.Value, SqlConstants.MaxPoolSizeLimit, nameof(SqlServerDataStoreConfiguration.MaxPoolSize));
             }
 
@@ -276,12 +283,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, applicationName, _maxPoolSize, logger, cancellationToken);
-                    //// only change if not default 30 seconds. This should allow to handle any explicitly set timeouts correctly.
-                    sqlCommand.CommandTimeout = sqlCommand.CommandTimeout == 30 ? _commandTimeout : sqlCommand.CommandTimeout;
-                    sqlCommand.Connection = sqlConnection;
+                    using (SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, applicationName, _maxPoolSize, logger, cancellationToken))
+                    {
+                        //// only change if not default 30 seconds. This should allow to handle any explicitly set timeouts correctly.
+                        sqlCommand.CommandTimeout = sqlCommand.CommandTimeout == 30 ? _commandTimeout : sqlCommand.CommandTimeout;
+                        sqlCommand.Connection = sqlConnection;
 
-                    await action(sqlCommand, cancellationToken);
+                        await action(sqlCommand, cancellationToken);
+                    }
+
+                    // Log after the connection is returned to the pool, so the event log does not hold a second connection from it.
                     if (retry > 0)
                     {
                         await TryLogEvent($"SuccessOnRetry:{sqlCommand.CommandText}", "Warn", $"retries={retry} error={lastException}", start, cancellationToken);
