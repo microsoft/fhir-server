@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private async Task<string> GetResourceId(EntryComponent entry, IDictionary<string, (string resourceId, string resourceType)> idDictionary, CancellationToken cancellationToken)
         {
             // If there is no search or conditional operations, then use the FullUrl for posts and the request url otherwise
-            if (!IsConditionalRequest(entry.Request))
+            if (!IsConditionalRequestUrl(entry.Request))
             {
                 return entry.Request.Method == HTTPVerb.POST ? entry.FullUrl : entry.Request.Url;
             }
@@ -163,9 +163,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     || requestUrl.Contains('$', StringComparison.InvariantCulture));
         }
 
-        private static bool IsConditionalRequest(RequestComponent request)
+        private static bool IsConditionalRequestUrl(RequestComponent request)
         {
-            var conditionalRequest = !string.IsNullOrWhiteSpace(request.IfNoneExist);
+            bool conditionalRequest = !string.IsNullOrWhiteSpace(request.IfNoneExist);
 
             if (request.Url.Contains('?', StringComparison.Ordinal))
             {

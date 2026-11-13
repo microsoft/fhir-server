@@ -92,6 +92,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         {
             IRouter router = Substitute.For<IRouter>();
 
+            var fhirRuntimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
+
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
 
@@ -153,7 +155,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var metricHandler = Substitute.For<IBundleMetricHandler>();
 
             var bundleHandler = new BundleHandler(
-                new AzureHealthDataServicesRuntimeConfiguration(),
+                fhirRuntimeConfiguration,
                 httpContextAccessor,
                 fhirRequestContextAccessor,
                 fhirJsonSerializer,
