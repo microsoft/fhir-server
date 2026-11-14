@@ -45,22 +45,22 @@ steps:
         $results = Join-Path "$(Agent.TempDirectory)" "testresults-$([guid]::NewGuid().ToString('N'))"
         [void](New-Item $results -ItemType Directory)
         $env:platformOptions__resultDirectory = $results
-        Write-Host "##vso[task.setvariable variable=ResourceIdResultsDirectory]$results"
+        Write-Host "##vso[task.setvariable variable=E2EResultsDirectory]$results"
         $started = [DateTimeOffset]::UtcNow
         $env:ResourceIdExpectedUrl = $env:TestEnvironmentUrl_${{ parameters.version }}_Sql
         $categoryFilter = $env:E2ECATEGORYFILTER
         $runTitle = '${{ parameters.version }} ${{ parameters.appServiceType }}${{ parameters.testRunTitleSuffix }}'
         $revisionProfile = $env:REVISIONPROFILE
         if ([string]::IsNullOrEmpty($revisionProfile) -and '${{ parameters.appServiceType }}' -ceq 'SqlServer') {
-          $revisionProfile = 'Standard64'
+          $revisionProfile = 'Baseline'
         }
-        $resultsArtifact = "ResourceIdResults_${{ parameters.version }}_$($revisionProfile)_$(System.JobName)_attempt$(System.JobAttempt)"
+        $resultsArtifact = "E2EResults_${{ parameters.version }}_$($revisionProfile)_$(System.JobName)_attempt$(System.JobAttempt)"
         $resourceIdProfile = $env:RESOURCEIDEXPECTATION
         if (-not [string]::IsNullOrEmpty($revisionProfile)) {
           $runTitle = "$runTitle $revisionProfile"
         }
 
-        Write-Host "##vso[task.setvariable variable=ResourceIdResultsArtifact]$resultsArtifact"
+        Write-Host "##vso[task.setvariable variable=E2EResultsArtifact]$resultsArtifact"
         if ($resourceIdProfile -cin @('Standard64', 'Long128')) {
           $env:ResourceIdProfile = $resourceIdProfile
         } elseif ($resourceIdProfile -ceq 'None') {
@@ -144,10 +144,10 @@ steps:
     - task: AzurePowerShell@5
       displayName: 'Recheck selected SQL revision after tests'
       retryCountOnTaskFailure: 1
-      condition: and(succeededOrFailed(), ne('', variables['ResourceIdSelectedBinding']))
+      condition: and(succeededOrFailed(), ne('', variables['E2ESelectedBinding']))
       env:
-        RESOURCEIDSELECTEDPROFILE: $(ResourceIdSelectedProfile)
-        RESOURCEIDSELECTEDBINDING: $(ResourceIdSelectedBinding)
+        E2ESELECTEDPROFILE: $(E2ESelectedProfile)
+        E2ESELECTEDBINDING: $(E2ESelectedBinding)
       inputs:
         azureSubscription: $(ConnectedServiceName)
         azurePowerShellVersion: latestVersion
@@ -165,7 +165,7 @@ steps:
             $armToken = ConvertTo-SecureString -String $armToken -AsPlainText -Force
           }
 
-          $selection = & "$(System.DefaultWorkingDirectory)/build/jobs/scripts/Sync-SqlRevisions.ps1" -Goal Resolve -AppResourceId $containerApp.ResourceId -AccessToken $armToken -RevisionProfile $env:RESOURCEIDSELECTEDPROFILE -Binding $env:RESOURCEIDSELECTEDBINDING -Expect
+          $selection = & "$(System.DefaultWorkingDirectory)/build/jobs/scripts/Sync-SqlRevisions.ps1" -Goal Resolve -AppResourceId $containerApp.ResourceId -AccessToken $armToken -RevisionProfile $env:E2ESELECTEDPROFILE -Binding $env:E2ESELECTEDBINDING -Expect
           $armToken = $null
           if (-not $selection.Ready) {
             throw "Selected revision '$($selection.Revision)' is no longer active, provisioned and healthy after the tests."
@@ -174,8 +174,8 @@ steps:
           Write-Host "After the tests revision '$($selection.Revision)' (label '$($selection.Label)', baseline '$($selection.BaselineRevision)') still serves $($selection.Url) with the captured template."
 
     - task: PublishBuildArtifacts@1
-      displayName: 'Publish resource ID contract TRX'
-      condition: and(succeededOrFailed(), ne('', variables['ResourceIdResultsArtifact']))
+      displayName: 'Publish E2E test results'
+      condition: and(succeededOrFailed(), ne('', variables['E2EResultsArtifact']))
       inputs:
-        pathToPublish: $(ResourceIdResultsDirectory)
-        artifactName: $(ResourceIdResultsArtifact)
+        pathToPublish: $(E2EResultsDirectory)
+        artifactName: $(E2EResultsArtifact)

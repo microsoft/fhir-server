@@ -42,7 +42,7 @@ function ConvertTo-CatalogProfile {
         Assert-CatalogRule ([string]$key -cin $script:ProfileFields) "profile #$Index has unsupported field '$key'."
     }
 
-    foreach ($field in @('Name', 'Slug', 'CategoryFilter', 'ResourceIdProfile')) {
+    foreach ($field in @('Name', 'Slug', 'CategoryFilter')) {
         Assert-CatalogRule ($Entry.Contains($field) -and (Test-NonEmptyString $Entry[$field])) "profile #$Index must declare string field '$field'."
     }
 
@@ -50,10 +50,15 @@ function ConvertTo-CatalogProfile {
     $slug = [string]$Entry['Slug']
     Assert-CatalogRule ($name -cmatch '^[A-Za-z][A-Za-z0-9]*$') "profile name '$name' must be alphanumeric and start with a letter."
     Assert-CatalogRule ($name.Length -le 100) "profile name '$name' exceeds the 100-character matrix-key budget."
-    Assert-CatalogRule ($name -inotmatch '^(Standard64|None|Runtime)$') "profile name '$name' is reserved for dispatch."
+    Assert-CatalogRule ($name -inotmatch '^(Baseline|None|Runtime)$') "profile name '$name' is reserved for dispatch."
     Assert-CatalogRule ($slug -cmatch '^[a-z][a-z0-9]{0,7}$') "profile '$name' slug '$slug' must be 1-8 lowercase alphanumerics starting with a letter."
     Assert-CatalogRule ($slug -cne 'base') "profile '$name' slug 'base' is reserved for baseline successors."
-    Assert-CatalogRule ([string]$Entry['ResourceIdProfile'] -cin $script:ResourceIdProfiles) "profile '$name' ResourceIdProfile must be one of $($script:ResourceIdProfiles -join ', ')."
+    $resourceIdProfile = 'None'
+    if ($Entry.Contains('ResourceIdProfile')) {
+        $resourceIdProfile = $Entry['ResourceIdProfile']
+    }
+
+    Assert-CatalogRule (($resourceIdProfile -is [string]) -and ($resourceIdProfile -cin $script:ResourceIdProfiles)) "profile '$name' ResourceIdProfile must be one of $($script:ResourceIdProfiles -join ', ')."
 
     Assert-CatalogRule ($Entry.Contains('Environment') -and $Entry['Environment'] -is [System.Collections.IDictionary]) "profile '$name' must declare an Environment hashtable."
     $source = $Entry['Environment']
@@ -74,7 +79,7 @@ function ConvertTo-CatalogProfile {
     }
 
     $long = $environment.Contains($script:LongIdKey) -and ([string]$environment[$script:LongIdKey] -ieq 'true')
-    if ([string]$Entry['ResourceIdProfile'] -ceq 'Long128') {
+    if ($resourceIdProfile -ceq 'Long128') {
         Assert-CatalogRule $long "profile '$name' declares Long128 and must set $($script:LongIdKey) to 'true'."
     }
     else {
@@ -85,7 +90,7 @@ function ConvertTo-CatalogProfile {
         Name = $name
         Slug = $slug
         CategoryFilter = [string]$Entry['CategoryFilter']
-        ResourceIdProfile = [string]$Entry['ResourceIdProfile']
+        ResourceIdProfile = $resourceIdProfile
         Environment = $environment
     }
 }
@@ -101,8 +106,7 @@ function Get-RevisionCatalog {
 
     $baseline = $data['Baseline']
     Assert-CatalogRule ($baseline -is [System.Collections.IDictionary]) 'Baseline must be a hashtable.'
-    Assert-CatalogRule ($baseline.Count -eq 2 -and $baseline.Contains('Name') -and $baseline.Contains('ResourceIdProfile')) 'Baseline must declare exactly Name and ResourceIdProfile.'
-    Assert-CatalogRule (([string]$baseline['Name'] -ceq 'Standard64') -and ([string]$baseline['ResourceIdProfile'] -ceq 'Standard64')) "Baseline must be Name 'Standard64' with ResourceIdProfile 'Standard64'."
+    Assert-CatalogRule ($baseline.Count -eq 1 -and $baseline.Contains('Name') -and ([string]$baseline['Name'] -ceq 'Baseline')) "Baseline must declare only Name 'Baseline'."
 
     Assert-CatalogRule ($data.Contains('Profiles')) 'Profiles must be declared.'
     $entries = @($data['Profiles'])
@@ -119,7 +123,7 @@ function Get-RevisionCatalog {
     }
 
     return [pscustomobject]@{
-        Baseline = [ordered]@{ Name = 'Standard64'; ResourceIdProfile = 'Standard64' }
+        Baseline = [ordered]@{ Name = 'Baseline'; ResourceIdProfile = 'None' }
         Profiles = $profiles.ToArray()
     }
 }
@@ -864,10 +868,6 @@ function Resolve-RevisionSelection {
     $revision = $State.Revisions[$name]
     if ($null -eq $revision) {
         throw "Conflict on '$($State.AppName)': selected revision '$name' does not exist."
-    }
-
-    if ($entry.ResourceIdProfile -ceq 'Standard64' -and -not (Test-Standard64Revision $revision)) {
-        throw "Conflict on '$($State.AppName)': selected revision '$name' is not a Standard64 revision."
     }
 
     foreach ($key in $entry.Environment.Keys) {

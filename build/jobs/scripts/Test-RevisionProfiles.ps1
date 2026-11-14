@@ -41,8 +41,8 @@ try {
     Invoke-Case 'shipped catalog contains exactly the Long128 deployment profile' {
         $profiles = @($script:Catalog.Profiles)
         Assert-Equal 1 $profiles.Count 'one shipped profile'
-        Assert-Equal 'Standard64' $script:Catalog.Baseline.Name 'baseline name'
-        Assert-Equal 'Standard64' $script:Catalog.Baseline.ResourceIdProfile 'baseline resource ID profile'
+        Assert-Equal 'Baseline' $script:Catalog.Baseline.Name 'baseline name'
+        Assert-Equal 'None' $script:Catalog.Baseline.ResourceIdProfile 'baseline selection has no test expectation'
         Assert-Equal 'Long128' $profiles[0].Name 'profile name'
         Assert-Equal 'long128' $profiles[0].Slug 'profile slug'
         Assert-Equal 'Category=ResourceIdBoundary' $profiles[0].CategoryFilter 'profile category filter'
@@ -55,9 +55,9 @@ try {
             'duplicate-name' = New-CatalogText @((New-ProfileText 'Alpha' 'alpha'), (New-ProfileText 'Alpha' 'beta'))
             'duplicate-slug' = New-CatalogText @((New-ProfileText 'Alpha' 'alpha'), (New-ProfileText 'Beta' 'alpha'))
             'reserved-base-slug' = New-CatalogText @((New-ProfileText 'Alpha' 'base'))
-            'reserved-baseline-name' = New-CatalogText @((New-ProfileText 'Standard64' 'std'))
+            'reserved-baseline-name' = New-CatalogText @((New-ProfileText 'Baseline' 'baseprof'))
             'unsupported-field' = New-CatalogText @((New-ProfileText 'Alpha' 'alpha' -Extra "; Weight = '10'"))
-            'missing-field' = "@{ Baseline = @{ Name = 'Standard64'; ResourceIdProfile = 'Standard64' }; Profiles = @(@{ Name = 'Alpha'; Slug = 'alpha'; ResourceIdProfile = 'None'; Environment = @{ A = 'b' } }) }"
+            'missing-field' = "@{ Baseline = @{ Name = 'Baseline' }; Profiles = @(@{ Name = 'Alpha'; Slug = 'alpha'; Environment = @{ A = 'b' } }) }"
             'non-string-value' = New-CatalogText @((New-ProfileText 'Alpha' 'alpha' -Environment 'FhirServer__Features__Alpha = 1'))
             'secret-reference' = New-CatalogText @((New-ProfileText 'Alpha' 'alpha' -Environment "FhirServer__Features__Alpha = @{ secretRef = 'x' }"))
             'empty-environment' = New-CatalogText @((New-ProfileText 'Alpha' 'alpha' -Environment ''))
@@ -65,8 +65,11 @@ try {
             'long-slug' = New-CatalogText @((New-ProfileText 'Alpha' 'abcdefghi'))
             'bad-name' = New-CatalogText @((New-ProfileText 'alpha profile' 'alpha' -Environment "FhirServer__Features__Alpha = 'true'"))
             'bad-resource-id-profile' = New-CatalogText @((New-ProfileText 'Alpha' 'alpha' -ResourceIdProfile 'Huge'))
+            'non-string-resource-id-profile' = New-CatalogText @("@{ Name = 'Alpha'; Slug = 'alpha'; CategoryFilter = 'Category=Search'; ResourceIdProfile = @('None'); Environment = @{ A = 'b' } }")
+            'missing-long-expectation' = New-CatalogText @((New-ProfileText 'Alpha' 'alpha' -Environment "FhirServer__CoreFeatures__UseLongResourceIds = 'true'"))
+            'missing-long-setting' = New-CatalogText @((New-ProfileText 'Alpha' 'alpha' -ResourceIdProfile 'Long128'))
             'bad-environment-name' = New-CatalogText @((New-ProfileText 'Alpha' 'alpha' -Environment "'Bad-Name' = 'x'"))
-            'bad-baseline' = "@{ Baseline = @{ Name = 'Other'; ResourceIdProfile = 'Standard64' }; Profiles = @($(New-ProfileText 'Alpha' 'alpha')) }"
+            'bad-baseline' = "@{ Baseline = @{ Name = 'Other' }; Profiles = @($(New-ProfileText 'Alpha' 'alpha')) }"
         }
         foreach ($key in @('SqlServer__ConnectionString', 'SqlServer__ConnectionStringSuffix', 'FhirServer__Security__Enabled', 'KeyVault__Endpoint', 'AZURE_CLIENT_ID', 'FhirServer__Operations__Export__StorageAccountUri', 'DataStore', 'ASPNETCORE_URLS', 'Telemetry__Provider', 'APPLICATIONINSIGHTS_CONNECTION_STRING')) {
             $invalid["forbidden-$key"] = New-CatalogText @((New-ProfileText 'Alpha' 'alpha' -Environment "$key = 'x'"))
@@ -76,6 +79,58 @@ try {
             $path = New-CatalogFile -Name $name -Content $invalid[$name]
             Assert-Throws { Get-RevisionCatalog -Path $path } 'Revision catalog' "catalog '$name' is rejected"
         }
+    }
+
+    Invoke-Case 'temporal settings create bound endpoints without resource ID metadata' {
+        New-Fake -Mode Multiple
+        $flags = @(
+            'FhirServer__CoreFeatures__EnableSearchParameterTemporalClassification',
+            'FhirSqlServer__EnableInstantDateTimeRewriter',
+            'FhirSqlServer__EnableScalarTemporalEqualityRewriter',
+            'FhirSqlServer__EnableFhirDateContainment')
+        $environments = [ordered]@{}
+        $profiles = foreach ($enabled in @($false, $true)) {
+            $name = if ($enabled) { 'TemporalOn' } else { 'TemporalOff' }
+            $slug = if ($enabled) { 'tempon' } else { 'tempoff' }
+            $environment = [ordered]@{
+                TaskHosting__Enabled = 'false'
+                SqlServer__AllowDatabaseCreation = 'false'
+                SqlServer__SchemaOptions__AutomaticUpdatesEnabled = 'false'
+                SqlServer__Initialize = 'true'
+                SqlServer__DeleteAllDataOnStartup = 'false'
+            }
+            foreach ($flag in $flags) {
+                $environment[$flag] = $enabled.ToString().ToLowerInvariant()
+            }
+            $environments[$name] = $environment
+            $settings = @($environment.Keys | ForEach-Object { "$_ = '$($environment[$_])'" }) -join '; '
+            "@{ Name = '$name'; Slug = '$slug'; CategoryFilter = 'Category=Search'; Environment = @{ $settings } }"
+        }
+        $catalog = Get-RevisionCatalog -Path (New-CatalogFile 'temporal' (New-CatalogText $profiles))
+        $baseline = Copy-Deep (Get-RevisionTemplate 'fx-sql--initial')
+        $result = Invoke-Goal @{ Goal = 'Converge'; BuildId = '4242'; Attempt = '1'; Catalog = $catalog }
+        $matrix = ConvertFrom-Json -InputObject $result.Matrix -AsHashtable
+        Assert-Equal 2 $matrix.Count 'each configuration produces one test job'
+        Assert-Equal 2 @(Get-TemplateWrites).Count 'each configuration creates one revision'
+        foreach ($profileBinding in $result.Bindings) {
+            $row = $matrix[$profileBinding.Profile]
+            Assert-Equal 'Category=Search' $row.SqlProfileCategoryFilter 'test selection is not a resource ID category'
+            Assert-Equal 'None' $row.SqlResourceIdProfile 'unrelated profiles require no boundary tests'
+            $selected = . $entryPath -Goal Resolve -AppResourceId $script:Fake.AppId -AccessToken $token -CatalogPath (Join-Path $tempRoot 'temporal.psd1') -RevisionProfile $row.SqlRevisionProfile -Binding $row.SqlRevisionBinding -Expect
+            Assert-Equal $profileBinding.Url $selected.Url 'the matrix binding resolves its own endpoint'
+            $expected = Get-ExpectedTemplate -Source $baseline -Suffix $profileBinding.Label -Environment $environments[$profileBinding.Profile] -MinReplicas 0
+            Assert-Equal (ConvertTo-CanonicalJson $expected) (ConvertTo-CanonicalJson (Get-RevisionTemplate $selected.Revision)) 'only the declared configuration differs from the baseline'
+            foreach ($flag in $flags) {
+                Assert-Equal $environments[$profileBinding.Profile][$flag] $selected.Settings[$flag] "selected endpoint declares $flag"
+            }
+            Assert-Equal 'https://fx-sql.example.test' $selected.Settings['FhirServer__Security__Authentication__Audience'] 'profile authentication is inherited'
+        }
+        Assert-Equal 'fx-sql--initial' (Get-RoutedRevision) 'configuration profiles do not move default traffic'
+        Assert-Equal (ConvertTo-CanonicalJson $baseline) (ConvertTo-CanonicalJson (Get-RevisionTemplate 'fx-sql--initial')) 'the baseline settings are unchanged'
+        $binding = @($result.Bindings)[0]
+        $environment = $script:Fake.Revisions[$binding.Revision].Template.containers[0].env
+        @($environment | Where-Object { $_.name -ceq $flags[0] })[0].value = 'changed'
+        Assert-NoWrites { Invoke-Goal @{ Goal = 'Resolve'; Catalog = $catalog; RevisionProfile = $binding.Profile; Binding = $binding; Expect = $true } } 'Conflict|drift' 'a temporal endpoint configuration change is refused'
     }
 
     Invoke-Case 'single adoption pins the healthy baseline before copying a profile' {
@@ -136,7 +191,7 @@ try {
         New-Fake -Mode Multiple
         Set-FakeTraffic @(@{ latestRevision = $true; weight = 100 })
         Assert-NoWrites { Invoke-Goal $converge.Clone() } 'Conflict' 'an existing Multiple latest route is not adopted'
-        Assert-NoWrites { Invoke-Goal @{ Goal = 'Resolve'; RevisionProfile = 'Standard64' } } 'Conflict' 'read-only selection refuses an existing Multiple latest route'
+        Assert-NoWrites { Invoke-Goal @{ Goal = 'Resolve'; RevisionProfile = 'Baseline' } } 'Conflict' 'read-only selection refuses an existing Multiple latest route'
 
         New-Fake -Mode Multiple
         $script:Fake.Revisions['fx-sql--initial'].Template = New-FixtureTemplate -Suffix 'initial' -Environment $longEnvironment
@@ -312,9 +367,9 @@ try {
     Invoke-Case 'resolve reads the routed Standard64 revision without writing or leaking secrets' {
         New-Fake -Mode Multiple
         Add-FakeRevision -Suffix 'poison' -Template $poisonTemplate -Latest | Out-Null
-        $resolved = Invoke-Goal @{ Goal = 'Resolve'; RevisionProfile = 'Standard64' }
+        $resolved = Invoke-Goal @{ Goal = 'Resolve'; RevisionProfile = 'Baseline' }
         Assert-Equal 0 @(Get-FakeWrites).Count 'resolve never writes'
-        Assert-Equal 'Standard64' $resolved.ResourceIdProfile 'baseline resource ID profile'
+        Assert-Equal 'None' $resolved.ResourceIdProfile 'baseline selection has no test expectation'
         Assert-Equal 'fx-sql--initial' $resolved.Revision 'routed revision, not latest'
         Assert-Equal "https://fx-sql.$envDomain" $resolved.Url 'baseline uses the app URL'
         Assert-Equal $baseImage $resolved.Image 'baseline image'
@@ -326,14 +381,14 @@ try {
         Assert-True (-not (ConvertTo-Json $resolved -Depth 20).Contains('fixture-secret')) 'resolve output contains no secrets'
 
         New-Fake -Mode Single
-        $single = Invoke-Goal @{ Goal = 'Resolve'; RevisionProfile = 'Standard64' }
+        $single = Invoke-Goal @{ Goal = 'Resolve'; RevisionProfile = 'Baseline' }
         Assert-Equal 'fx-sql--initial' $single.Revision 'a healthy Single-mode app resolves to its only revision'
         Assert-Equal 0 @(Get-FakeWrites).Count 'Single-mode resolve never adopts'
 
         New-Fake -Mode Multiple
         Add-FakeRevision -Suffix 'routed-long' -Template $poisonTemplate | Out-Null
         Set-FakeTraffic @(@{ revisionName = 'fx-sql--routed-long'; weight = 100 })
-        Assert-NoWrites { Invoke-Goal @{ Goal = 'Resolve'; RevisionProfile = 'Standard64' } } 'Conflict' 'a long-ID default route is not a Standard64 baseline'
+        Assert-NoWrites { Invoke-Goal @{ Goal = 'Resolve'; RevisionProfile = 'Baseline' } } 'Conflict' 'a long-ID default route is not a Standard64 baseline'
     }
 
     Invoke-Case 'resolve uses the captured profile identity and detects drift' {
@@ -452,12 +507,12 @@ try {
 
     Invoke-Case 'a baseline selection captured before the tests is rechecked after them' {
         New-Fake -Mode Multiple
-        $before = . $entryPath -Goal Resolve -AppResourceId $script:Fake.AppId -AccessToken $token -RevisionProfile 'Standard64'
+        $before = . $entryPath -Goal Resolve -AppResourceId $script:Fake.AppId -AccessToken $token -RevisionProfile 'Baseline'
         $captured = ConvertTo-Json -Compress -InputObject ([ordered]@{ Profile = $before.Profile; Revision = $before.Revision; Url = $before.Url; Image = $before.Image; Fingerprint = $before.Fingerprint; BaselineRevision = $before.BaselineRevision })
-        $after = . $entryPath -Goal Resolve -AppResourceId $script:Fake.AppId -AccessToken $token -RevisionProfile 'Standard64' -Binding $captured -Expect
+        $after = . $entryPath -Goal Resolve -AppResourceId $script:Fake.AppId -AccessToken $token -RevisionProfile 'Baseline' -Binding $captured -Expect
         Assert-Equal $before.Revision $after.Revision 'the unchanged baseline passes the after-check'
         Invoke-Goal $deploy.Clone() | Out-Null
-        Assert-NoWrites { . $entryPath -Goal Resolve -AppResourceId $script:Fake.AppId -AccessToken $token -RevisionProfile 'Standard64' -Binding $captured -Expect } 'Conflict' 'a baseline replaced during the tests fails the after-check'
+        Assert-NoWrites { . $entryPath -Goal Resolve -AppResourceId $script:Fake.AppId -AccessToken $token -RevisionProfile 'Baseline' -Binding $captured -Expect } 'Conflict' 'a baseline replaced during the tests fails the after-check'
     }
 
     $settle = @{ Goal = 'Settle'; BuildId = '4242'; Attempt = '1' }
@@ -516,7 +571,7 @@ try {
             Assert-NoWrites { Invoke-Goal @{ Goal = 'Resolve'; RevisionProfile = 'Long128'; Binding = $tampered; Expect = $true } } 'Conflict' "a tampered $field is refused after the tests"
         }
 
-        Assert-NoWrites { Invoke-Goal @{ Goal = 'Resolve'; RevisionProfile = 'Standard64'; Binding = @{ Profile = 'Standard64'; Revision = 'fx-sql--initial'; Url = 'https://tampered.example.test' } } } 'Conflict' 'a tampered baseline endpoint is refused'
+        Assert-NoWrites { Invoke-Goal @{ Goal = 'Resolve'; RevisionProfile = 'Baseline'; Binding = @{ Profile = 'Baseline'; Revision = 'fx-sql--initial'; Url = 'https://tampered.example.test' } } } 'Conflict' 'a tampered baseline endpoint is refused'
         Invoke-Goal $deploy.Clone() | Out-Null
         Assert-NoWrites { Invoke-Goal @{ Goal = 'Resolve'; RevisionProfile = 'Long128'; Binding = $binding } } 'Conflict' 'a moved baseline invalidates the captured binding'
     }
@@ -579,7 +634,7 @@ try {
         $lowerSettle['Goal'] = 'settle'
         $lowerSettle['Image'] = $newImage
         Assert-NoWrites { Invoke-Goal $lowerSettle } 'does not accept -Image' 'lowercase settle is still settle'
-        $resolved = Invoke-Goal @{ Goal = 'resolve'; RevisionProfile = 'Standard64' }
+        $resolved = Invoke-Goal @{ Goal = 'resolve'; RevisionProfile = 'Baseline' }
         Assert-Equal 0 @(Get-FakeWrites).Count 'lowercase resolve never writes'
         Assert-Equal 'fx-sql--initial' $resolved.Revision 'lowercase resolve selects the baseline'
 
@@ -691,7 +746,7 @@ try {
         try {
             $env:REVISIONPROFILE = ''
             $sqlDispatch = [scriptblock]::Create($dispatch.Replace('${{ parameters.appServiceType }}', 'SqlServer'))
-            Assert-Equal 'Standard64' (& $sqlDispatch) 'empty SQL selection resolves the named baseline'
+            Assert-Equal 'Baseline' (& $sqlDispatch) 'empty SQL selection resolves the named baseline'
             $cosmosDispatch = [scriptblock]::Create($dispatch.Replace('${{ parameters.appServiceType }}', 'CosmosDb'))
             Assert-Equal "https://$($containerApp.Properties.configuration.ingress.fqdn)" (& $cosmosDispatch) 'empty Cosmos selection keeps the app endpoint'
         }
@@ -812,7 +867,7 @@ try {
     Invoke-Case 'an implicit Single latest route reads the exact named source' {
         New-Fake -Mode Single
         Set-FakeTraffic @(@{ weight = 100 })
-        $selected = Invoke-Goal @{ Goal = 'Resolve'; RevisionProfile = 'Standard64' }
+        $selected = Invoke-Goal @{ Goal = 'Resolve'; RevisionProfile = 'Baseline' }
         $reads = @($script:Fake.Requests | Where-Object { $_.Method -ceq 'GET' -and $_.Path -ceq "$($script:Fake.AppId)/revisions/fx-sql--initial" })
         Assert-True ($reads.Count -gt 0) 'the accepted implicit-latest source is directly read even before adoption'
         Assert-Equal 'fx-sql--initial' $selected.Revision 'implicit read-only selection resolves the exact baseline'

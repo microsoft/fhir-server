@@ -5,7 +5,7 @@ Converges, resolves or settles the labeled revisions of one SQL container app.
 .DESCRIPTION
 Converge without -Image creates one build-and-attempt-scoped labeled revision per catalog profile
 and returns the captured bindings plus the runtime matrix. Converge with -Image deploys a new
-Standard64 baseline from the routed revision. Resolve reads one selected revision without writing.
+Baseline revision from the routed revision. Resolve reads one selected revision without writing.
 Settle moves the baseline to a zero-minimum successor and retires this build's test revisions.
 #>
 [CmdletBinding()]

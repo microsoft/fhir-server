@@ -1,7 +1,6 @@
 @{
     Baseline = @{
-        Name = 'Standard64'
-        ResourceIdProfile = 'Standard64'
+        Name = 'Baseline'
     }
     Profiles = @(
         @{

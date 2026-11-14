@@ -104,7 +104,7 @@ steps:
 
         $revisionProfile = $env:REVISIONPROFILE
         if ([string]::IsNullOrEmpty($revisionProfile) -and '${{ parameters.appServiceType }}' -ceq 'SqlServer') {
-            $revisionProfile = 'Standard64'
+            $revisionProfile = 'Baseline'
         }
 
         $endpointSettings = @{}
@@ -141,7 +141,7 @@ steps:
                 AccessToken = $armToken
                 RevisionProfile = $revisionProfile
             }
-            if ($revisionProfile -cne 'Standard64' -and [string]::IsNullOrWhiteSpace($env:REVISIONBINDING)) {
+            if ($revisionProfile -cne 'Baseline' -and [string]::IsNullOrWhiteSpace($env:REVISIONBINDING)) {
                 throw "Revision profile '$revisionProfile' requires the captured producer binding."
             }
 
@@ -150,7 +150,7 @@ steps:
                 $selectArguments['Expect'] = $true
             }
 
-            $evidenceDirectory = "$(Agent.TempDirectory)/resource-id-endpoint-${{ parameters.version }}-$revisionProfile"
+            $evidenceDirectory = "$(Agent.TempDirectory)/e2e-endpoint-${{ parameters.version }}-$revisionProfile"
             [void](New-Item $evidenceDirectory -ItemType Directory -Force)
             $evidence = [ordered]@{
                 profile = $revisionProfile
@@ -159,8 +159,8 @@ steps:
                 status = 'SelectionFailed'
             }
             [IO.File]::WriteAllText("$evidenceDirectory/endpoint.json", ($evidence | ConvertTo-Json))
-            Write-Host "##vso[task.setvariable variable=ResourceIdEndpointDirectory]$evidenceDirectory"
-            Write-Host "##vso[task.setvariable variable=ResourceIdEndpointArtifact]ResourceIdEndpoint_${{ parameters.version }}_$($revisionProfile)_$(System.JobName)_attempt$(System.JobAttempt)"
+            Write-Host "##vso[task.setvariable variable=E2EEndpointDirectory]$evidenceDirectory"
+            Write-Host "##vso[task.setvariable variable=E2EEndpointArtifact]E2EEndpoint_${{ parameters.version }}_$($revisionProfile)_$(System.JobName)_attempt$(System.JobAttempt)"
 
             $selection = & "$(System.DefaultWorkingDirectory)/build/jobs/scripts/Sync-SqlRevisions.ps1" @selectArguments
             $armToken = $null
@@ -232,8 +232,8 @@ steps:
             else {
                 ConvertTo-Json -Compress -InputObject ([ordered]@{ Profile = $selection.Profile; Revision = $selection.Revision; Url = $selection.Url; Image = $selection.Image; Fingerprint = $selection.Fingerprint; BaselineRevision = $selection.BaselineRevision })
             }
-            Write-Host "##vso[task.setvariable variable=ResourceIdSelectedProfile]$revisionProfile"
-            Write-Host "##vso[task.setvariable variable=ResourceIdSelectedBinding]$selectedBinding"
+            Write-Host "##vso[task.setvariable variable=E2ESelectedProfile]$revisionProfile"
+            Write-Host "##vso[task.setvariable variable=E2ESelectedBinding]$selectedBinding"
 
             $endpointUrl = $selection.Url
             $endpointSettings = $selection.Settings
@@ -278,8 +278,8 @@ steps:
 
 - ${{ if or(eq(parameters.appServiceType, 'SqlServer'), ne(parameters.revisionProfile, '')) }}:
   - task: PublishBuildArtifacts@1
-    displayName: 'Publish credential-free endpoint evidence'
-    condition: and(succeededOrFailed(), ne('', variables['ResourceIdEndpointArtifact']))
+    displayName: 'Publish credential-free E2E endpoint evidence'
+    condition: and(succeededOrFailed(), ne('', variables['E2EEndpointArtifact']))
     inputs:
-      pathToPublish: $(ResourceIdEndpointDirectory)
-      artifactName: $(ResourceIdEndpointArtifact)
+      pathToPublish: $(E2EEndpointDirectory)
+      artifactName: $(E2EEndpointArtifact)

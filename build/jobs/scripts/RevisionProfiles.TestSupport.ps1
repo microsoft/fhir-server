@@ -507,13 +507,14 @@ function New-CatalogFile {
 }
 
 function New-ProfileText {
-    param([string]$Name, [string]$Slug, [string]$ResourceIdProfile = 'None', [string]$Environment = "FhirServer__Features__$Name = 'true'", [string]$Extra = '')
-    "@{ Name = '$Name'; Slug = '$Slug'; CategoryFilter = 'Category=ResourceIdBoundary'; ResourceIdProfile = '$ResourceIdProfile'; Environment = @{ $Environment }$Extra }"
+    param([string]$Name, [string]$Slug, [string]$ResourceIdProfile, [string]$Environment = "FhirServer__Features__$Name = 'true'", [string]$Extra = '')
+    $expectation = if ($PSBoundParameters.ContainsKey('ResourceIdProfile')) { " ResourceIdProfile = '$ResourceIdProfile';" } else { '' }
+    "@{ Name = '$Name'; Slug = '$Slug'; CategoryFilter = 'Category=Search';$expectation Environment = @{ $Environment }$Extra }"
 }
 
 function New-CatalogText {
     param([string[]]$Profiles)
-    "@{ Baseline = @{ Name = 'Standard64'; ResourceIdProfile = 'Standard64' }; Profiles = @(`n$($Profiles -join ",`n")`n) }"
+    "@{ Baseline = @{ Name = 'Baseline' }; Profiles = @(`n$($Profiles -join ",`n")`n) }"
 }
 
 function Get-ExpectedTemplate {
