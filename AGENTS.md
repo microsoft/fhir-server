@@ -29,6 +29,13 @@ This is the **Microsoft FHIR Server** — an open-source, standards-compliant im
 - Unit tests for all new functionality; E2E tests when the feature touches the HTTP layer.
 - Validate inputs rigorously; handle exceptions gracefully with no unhandled runtime exceptions.
 
+### Devcontainer CLI
+
+When local SDKs or databases are unavailable, follow the [devcontainer workflow](.devcontainer/readme.md) for SQL-first CLI setup, optional Cosmos, and focused .NET 11/10 tests.
+Use one lifecycle owner per clone and a unique, saved Compose project name before first startup. Verify its workspace, service, and project before stopping resources.
+Select the framework explicitly and keep host and container build outputs separate.
+Load generated debugger environment files as data, never shell scripts. Do not log credentials or delete volumes/credentials during routine cleanup.
+
 ---
 
 ## Debugging
