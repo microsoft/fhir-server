@@ -75,4 +75,7 @@ stages:
         version: ${{ parameters.version }}
         containerAppName: ${{ parameters.appName }}
         appServiceType: SqlServer
-        resourceIdProfile: Runtime
+        revisionProfile: $(SqlRevisionProfile)
+        revisionBinding: $(SqlRevisionBinding)
+        categoryFilter: $(SqlProfileCategoryFilter)
+        resourceIdProfile: $(SqlResourceIdProfile)

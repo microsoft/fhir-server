@@ -8,6 +8,21 @@ parameters:
   targetBuildFramework: ''
 
 steps:
+- ${{ if or(eq(parameters.unitTest, 'true'), eq(parameters.codeCoverage, 'true')) }}:
+  - task: PowerShell@2
+    displayName: 'Validate offline revision and resource ID contracts'
+    inputs:
+      targetType: inline
+      pwsh: true
+      script: |
+        $ErrorActionPreference = 'Stop'
+        foreach ($script in @('Test-RevisionProfiles.ps1', 'Test-RevisionArmTransport.ps1', 'Test-ResourceIdResults.ps1', 'Test-ResourceIdCleanup.ps1')) {
+          & pwsh -NoLogo -NoProfile -File "$(System.DefaultWorkingDirectory)/build/jobs/scripts/$script"
+          if ($LASTEXITCODE -ne 0) {
+            throw "$script failed with exit code $LASTEXITCODE."
+          }
+        }
+
 - task: UseDotNet@2
   displayName: 'Use .NET SDK'
   inputs:

@@ -679,18 +679,79 @@ try {
     }
 
     Invoke-Case 'all ordinary SQL consumers select and recheck the named baseline without requiring boundary cases' {
+        New-Fake -Mode Multiple
         $path = Join-Path $PSScriptRoot '..\..\tasks\e2e-set-variables.yml'
         $source = Get-Content -LiteralPath $path -Raw
         $start = $source.IndexOf('$revisionProfile =', [StringComparison]::Ordinal)
         $end = $source.IndexOf('$armToken = (Get-AzAccessToken', $start, [StringComparison]::Ordinal)
-        $dispatch = $source.Substring($start, $end - $start) + "`nthrow 'NAMED_SQL_RESOLVE'`n}"
-        $dispatch = $dispatch.Replace('${{ parameters.resourceIdProfile }}', 'None').Replace('${{ parameters.appServiceType }}', 'SqlServer')
+        $dispatch = $source.Substring($start, $end - $start) + "`nreturn `$revisionProfile`n}`nreturn `$endpointUrl"
         $containerApp = Invoke-FakeArm -Method GET -Path $script:Fake.AppId -Body $null | ConvertTo-Json -Depth 100 | ConvertFrom-Json
         function Get-ContainerEnvValue { param($EnvSettings, $Name) return @($EnvSettings | Where-Object { $_.name -ceq $Name })[0].value }
-        Assert-Throws { & ([scriptblock]::Create($dispatch)) } 'NAMED_SQL_RESOLVE' 'SQL None dispatch must resolve the named baseline instead of latest settings'
+        $savedProfile = $env:REVISIONPROFILE
+        try {
+            $env:REVISIONPROFILE = ''
+            $sqlDispatch = [scriptblock]::Create($dispatch.Replace('${{ parameters.appServiceType }}', 'SqlServer'))
+            Assert-Equal 'Standard64' (& $sqlDispatch) 'empty SQL selection resolves the named baseline'
+            $cosmosDispatch = [scriptblock]::Create($dispatch.Replace('${{ parameters.appServiceType }}', 'CosmosDb'))
+            Assert-Equal "https://$($containerApp.Properties.configuration.ingress.fqdn)" (& $cosmosDispatch) 'empty Cosmos selection keeps the app endpoint'
+        }
+        finally {
+            $env:REVISIONPROFILE = $savedProfile
+        }
         $runner = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\e2e-tests.yml') -Raw
-        Assert-True $runner.Contains("if or(eq(parameters.appServiceType, 'SqlServer'), ne(parameters.resourceIdProfile, 'None'))") 'SQL None jobs include the selected-binding after-check'
+        Assert-True $runner.Contains("if or(eq(parameters.appServiceType, 'SqlServer'), ne(parameters.revisionProfile, ''))") 'SQL None jobs include the selected-binding after-check'
         Assert-True $runner.Contains("if (`$resourceIdProfile -cne 'None')") 'the boundary-result checker remains separate from baseline selection'
+    }
+
+    Invoke-Case 'named endpoint bindings and boundary expectations are independent' {
+        New-Fake -Mode Multiple
+        $binding = @((Invoke-Goal $converge.Clone()).Bindings)[0]
+        $source = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\..\tasks\e2e-set-variables.yml') -Raw
+        $start = $source.IndexOf('$revisionProfile =', [StringComparison]::Ordinal)
+        $end = $source.IndexOf('$evidenceDirectory =', $start, [StringComparison]::Ordinal)
+        $dispatch = $source.Substring($start, $end - $start) + "`nreturn `$selectArguments`n}"
+        $dispatch = [scriptblock]::Create($dispatch.Replace('${{ parameters.appServiceType }}', 'SqlServer'))
+        function Get-AzAccessToken { return @{ Token = 'fixture-token' } }
+        $containerApp = @{ ResourceId = $script:Fake.AppId }
+        $savedProfile = $env:REVISIONPROFILE
+        $savedBinding = $env:REVISIONBINDING
+        $savedExpectation = $env:ResourceIdProfile
+        $savedExpectationInput = $env:RESOURCEIDEXPECTATION
+        $savedCategory = $env:E2ECATEGORYFILTER
+        try {
+            $env:REVISIONPROFILE = 'Long128'
+            $env:REVISIONBINDING = ''
+            Assert-Throws { & $dispatch } 'requires the captured producer binding' 'a named endpoint cannot silently select another generation'
+            $env:REVISIONBINDING = ConvertTo-Json -InputObject $binding -Compress
+            $arguments = & $dispatch
+            Assert-True $arguments.Expect 'a named endpoint requires the exact captured image and template'
+            $selection = . $entryPath @arguments
+            Assert-Equal $longName $selection.Revision 'the inline consumer resolves its producer binding'
+
+            $runner = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\e2e-tests.yml') -Raw
+            $start = $runner.IndexOf('$categoryFilter =', [StringComparison]::Ordinal)
+            $end = $runner.IndexOf('$testName =', $start, [StringComparison]::Ordinal)
+            $configure = $runner.Substring($start, $end - $start) + "`nreturn @{ Category = `$categoryFilter; Artifact = `$resultsArtifact }"
+            $configure = $configure.Replace('${{ parameters.appServiceType }}', 'SqlServer')
+            $configure = $configure.Replace('${{ parameters.version }}', 'R4').Replace('${{ parameters.testRunTitleSuffix }}', '').Replace('$(System.JobName)', 'fixture').Replace('$(System.JobAttempt)', '1')
+            $env:E2ECATEGORYFILTER = "Category=SelectedCategory&Name='Quoted'"
+            foreach ($expectation in @('None', 'Long128')) {
+                $env:RESOURCEIDEXPECTATION = $expectation
+                $configured = & ([scriptblock]::Create($configure))
+                Assert-Equal "Category=SelectedCategory&Name='Quoted'" $configured.Category 'the caller category stays literal and independent of the endpoint and expectation'
+                Assert-True $configured.Artifact.Contains('_Long128_') 'result artifacts identify the endpoint even with None expectations'
+                Assert-Equal $(if ($expectation -ceq 'None') { $null } else { 'Long128' }) $env:ResourceIdProfile 'only the expectation selector controls the boundary driver'
+            }
+            $env:RESOURCEIDEXPECTATION = 'Invalid'
+            Assert-Throws { & ([scriptblock]::Create($configure)) } 'Unsupported resource ID profile' 'expanded matrix expectations are validated at runtime'
+        }
+        finally {
+            $env:REVISIONPROFILE = $savedProfile
+            $env:REVISIONBINDING = $savedBinding
+            $env:ResourceIdProfile = $savedExpectation
+            $env:RESOURCEIDEXPECTATION = $savedExpectationInput
+            $env:E2ECATEGORYFILTER = $savedCategory
+        }
     }
 
     Invoke-Case 'copying reads the exact named source before writing its successor' {
@@ -761,7 +822,7 @@ try {
 
     Invoke-Case 'ordinary SQL None jobs publish their selected endpoint evidence' {
         $source = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\..\tasks\e2e-set-variables.yml') -Raw
-        Assert-True $source.Contains("if or(eq(parameters.appServiceType, 'SqlServer'), ne(parameters.resourceIdProfile, 'None'))") 'SQL None endpoint evidence is not compiled out'
+        Assert-True $source.Contains("if or(eq(parameters.appServiceType, 'SqlServer'), ne(parameters.revisionProfile, ''))") 'SQL None endpoint evidence is not compiled out'
     }
 
     Invoke-Case 'an observed intervening baseline promotion cannot be erased by deploy overrides' {

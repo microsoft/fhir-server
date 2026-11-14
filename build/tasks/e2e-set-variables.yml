@@ -5,19 +5,21 @@ parameters:
   type: string
 - name: appServiceType
   type: string
-- name: resourceIdProfile
+- name: revisionProfile
   type: string
-  default: None
+  default: ''
+- name: revisionBinding
+  type: string
+  default: ''
 
 steps:
 - task: AzurePowerShell@5
   displayName: 'Set Variables (ACA)'
   # Recover from transient Connect-AzAccount failures before the read-only script runs.
   retryCountOnTaskFailure: 1
-  ${{ if eq(parameters.resourceIdProfile, 'Runtime') }}:
-    env:
-      SQLREVISIONPROFILE: $(SqlRevisionProfile)
-      SQLREVISIONBINDING: $(SqlRevisionBinding)
+  env:
+    REVISIONPROFILE: ${{ parameters.revisionProfile }}
+    REVISIONBINDING: ${{ parameters.revisionBinding }}
   inputs:
     azureSubscription: $(ConnectedServiceName)
     azurePowerShellVersion: latestVersion
@@ -100,21 +102,13 @@ steps:
             throw "Container App '$containerAppName' was not found in resource group '$(UniqueResourceGroupName)'"
         }
 
-        $revisionProfile = '${{ parameters.resourceIdProfile }}'
-        if ($revisionProfile -ceq 'Runtime') {
-            $revisionProfile = $env:SQLREVISIONPROFILE
-        }
-
-        if ([string]::IsNullOrWhiteSpace($revisionProfile)) {
-            throw 'The runtime SQL revision profile matrix variable SqlRevisionProfile is not set.'
-        }
-
-        if ('${{ parameters.resourceIdProfile }}' -ceq 'None' -and '${{ parameters.appServiceType }}' -ceq 'SqlServer') {
+        $revisionProfile = $env:REVISIONPROFILE
+        if ([string]::IsNullOrEmpty($revisionProfile) -and '${{ parameters.appServiceType }}' -ceq 'SqlServer') {
             $revisionProfile = 'Standard64'
         }
 
         $endpointSettings = @{}
-        if ('${{ parameters.resourceIdProfile }}' -ceq 'None' -and '${{ parameters.appServiceType }}' -cne 'SqlServer') {
+        if ([string]::IsNullOrEmpty($revisionProfile)) {
             $containerAppData = $containerApp | ConvertTo-Json -Depth 100 | ConvertFrom-Json
             $envSettings = $containerAppData.Properties.template.containers[0].env
             if ($null -eq $envSettings) {
@@ -147,12 +141,12 @@ steps:
                 AccessToken = $armToken
                 RevisionProfile = $revisionProfile
             }
-            if ('${{ parameters.resourceIdProfile }}' -ceq 'Runtime') {
-                if ([string]::IsNullOrWhiteSpace($env:SQLREVISIONBINDING)) {
-                    throw 'The runtime SQL revision profile requires the producer binding SqlRevisionBinding.'
-                }
+            if ($revisionProfile -cne 'Standard64' -and [string]::IsNullOrWhiteSpace($env:REVISIONBINDING)) {
+                throw "Revision profile '$revisionProfile' requires the captured producer binding."
+            }
 
-                $selectArguments['Binding'] = $env:SQLREVISIONBINDING
+            if (-not [string]::IsNullOrWhiteSpace($env:REVISIONBINDING)) {
+                $selectArguments['Binding'] = $env:REVISIONBINDING
                 $selectArguments['Expect'] = $true
             }
 
@@ -232,8 +226,8 @@ steps:
                 throw 'The selected revision is not routed to the intended shared version database.'
             }
 
-            $selectedBinding = if ('${{ parameters.resourceIdProfile }}' -ceq 'Runtime') {
-                $env:SQLREVISIONBINDING
+            $selectedBinding = if (-not [string]::IsNullOrWhiteSpace($env:REVISIONBINDING)) {
+                $env:REVISIONBINDING
             }
             else {
                 ConvertTo-Json -Compress -InputObject ([ordered]@{ Profile = $selection.Profile; Revision = $selection.Revision; Url = $selection.Url; Image = $selection.Image; Fingerprint = $selection.Fingerprint; BaselineRevision = $selection.BaselineRevision })
@@ -282,7 +276,7 @@ steps:
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_TENANT_ID]$env:AZURESUBSCRIPTION_TENANT_ID"
         Write-Host "##vso[task.setvariable variable=AZURESUBSCRIPTION_SERVICE_CONNECTION_ID]$env:AZURESUBSCRIPTION_SERVICE_CONNECTION_ID"
 
-- ${{ if or(eq(parameters.appServiceType, 'SqlServer'), ne(parameters.resourceIdProfile, 'None')) }}:
+- ${{ if or(eq(parameters.appServiceType, 'SqlServer'), ne(parameters.revisionProfile, '')) }}:
   - task: PublishBuildArtifacts@1
     displayName: 'Publish credential-free endpoint evidence'
     condition: and(succeededOrFailed(), ne('', variables['ResourceIdEndpointArtifact']))

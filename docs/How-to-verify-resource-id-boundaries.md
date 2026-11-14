@@ -97,18 +97,40 @@ remains valid for a differently named profile with its own category. Ordinary SQ
 jobs always select and recheck the named baseline, even when they do not run the
 resource-ID contract.
 
+In `e2e-tests.yml`, use `revisionProfile` to select the endpoint and
+`revisionBinding` to pass the producer's captured binding. A named alternate
+requires that binding and resolves it with `-Expect`. An empty selector uses
+`Standard64` for SQL and keeps the existing app endpoint for Cosmos DB.
+
+Set `resourceIdProfile` independently to `None`, `Standard64`, or `Long128`.
+`None` disables boundary expectations, not endpoint selection or binding checks.
+Set `categoryFilter` independently to choose the tests. The profile matrix passes
+all four inputs directly. It does not use a `Runtime` dispatch alias.
+
 ## Run the checks locally
+
+Ordinary PR and CI builds run all four offline suites once in `BuildUnitTests`,
+without Azure credentials. Each suite runs in a fresh PowerShell process.
+Packaging builds and individual version or profile jobs do not repeat them.
 
 Run the self-contained PowerShell checks without Azure credentials. The revision
 check fakes the ARM boundary and covers a second synthetic profile. The ARM
 transport check also uses a local HTTP server for response and timeout tests.
 
 ```powershell
-	& build/jobs/scripts/Test-RevisionProfiles.ps1
-	& build/jobs/scripts/Test-RevisionArmTransport.ps1
-	& build/jobs/scripts/Test-ResourceIdResults.ps1
-	& build/jobs/scripts/Test-ResourceIdCleanup.ps1
+	pwsh -NoLogo -NoProfile -File build/jobs/scripts/Test-RevisionProfiles.ps1
+	pwsh -NoLogo -NoProfile -File build/jobs/scripts/Test-RevisionArmTransport.ps1
+	pwsh -NoLogo -NoProfile -File build/jobs/scripts/Test-ResourceIdResults.ps1
+	pwsh -NoLogo -NoProfile -File build/jobs/scripts/Test-ResourceIdCleanup.ps1
 ```
+
+For source inspection, start at `RevisionProfiles.psm1`. It retains observation,
+waits, execution, dispatch, and the three public exports. It dot-sources
+`RevisionProfiles.Policy.ps1` for catalog, template, routing, plan, and binding
+rules, and `RevisionProfiles.Transport.ps1` for ARM requests and health probes.
+`RevisionProfiles.psd1` is the data catalog, not a module manifest.
+`Test-RevisionProfiles.ps1` owns the scenarios and dot-sources its simulator and
+assertions from `RevisionProfiles.TestSupport.ps1`.
 
 To recheck downloaded TRX files, supply the UTC start time of their invocation.
 

@@ -14,11 +14,12 @@ parameters:
 - name: resourceIdProfile
   type: string
   default: None
-  values:
-  - None
-  - Standard64
-  - Long128
-  - Runtime
+- name: revisionProfile
+  type: string
+  default: ''
+- name: revisionBinding
+  type: string
+  default: ''
 
 steps:
   - template: e2e-tests-extract.yml
@@ -30,7 +31,8 @@ steps:
       containerAppName: ${{ parameters.containerAppName }}
       version: ${{ parameters.version }}
       appServiceType: ${{ parameters.appServiceType }}
-      resourceIdProfile: ${{ parameters.resourceIdProfile }}
+      revisionProfile: ${{ parameters.revisionProfile }}
+      revisionBinding: ${{ parameters.revisionBinding }}
 
   - task: PowerShell@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
@@ -46,21 +48,16 @@ steps:
         Write-Host "##vso[task.setvariable variable=ResourceIdResultsDirectory]$results"
         $started = [DateTimeOffset]::UtcNow
         $env:ResourceIdExpectedUrl = $env:TestEnvironmentUrl_${{ parameters.version }}_Sql
-        $categoryFilter = '${{ parameters.categoryFilter }}'
+        $categoryFilter = $env:E2ECATEGORYFILTER
         $runTitle = '${{ parameters.version }} ${{ parameters.appServiceType }}${{ parameters.testRunTitleSuffix }}'
-        $resultsArtifact = 'ResourceIdResults_${{ parameters.version }}_${{ parameters.resourceIdProfile }}_$(System.JobName)_attempt$(System.JobAttempt)'
-        $resourceIdProfile = '${{ parameters.resourceIdProfile }}'
-        if ($resourceIdProfile -ceq 'Runtime') {
-          foreach ($name in @('SQLREVISIONPROFILE', 'SQLPROFILECATEGORYFILTER', 'SQLRESOURCEIDPROFILE')) {
-            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
-              throw "Runtime resource ID profile requires the matrix variable $name."
-            }
-          }
-
-          $categoryFilter = $env:SQLPROFILECATEGORYFILTER
-          $runTitle = "$runTitle $($env:SQLREVISIONPROFILE)"
-          $resultsArtifact = "ResourceIdResults_${{ parameters.version }}_$($env:SQLREVISIONPROFILE)_$(System.JobName)_attempt$(System.JobAttempt)"
-          $resourceIdProfile = $env:SQLRESOURCEIDPROFILE
+        $revisionProfile = $env:REVISIONPROFILE
+        if ([string]::IsNullOrEmpty($revisionProfile) -and '${{ parameters.appServiceType }}' -ceq 'SqlServer') {
+          $revisionProfile = 'Standard64'
+        }
+        $resultsArtifact = "ResourceIdResults_${{ parameters.version }}_$($revisionProfile)_$(System.JobName)_attempt$(System.JobAttempt)"
+        $resourceIdProfile = $env:RESOURCEIDEXPECTATION
+        if (-not [string]::IsNullOrEmpty($revisionProfile)) {
+          $runTitle = "$runTitle $revisionProfile"
         }
 
         Write-Host "##vso[task.setvariable variable=ResourceIdResultsArtifact]$resultsArtifact"
@@ -100,6 +97,9 @@ steps:
           throw "E2E tests failed with exit code $testExitCode"
         }
     env:
+      'E2ECATEGORYFILTER': ${{ parameters.categoryFilter }}
+      'REVISIONPROFILE': ${{ parameters.revisionProfile }}
+      'RESOURCEIDEXPECTATION': ${{ parameters.resourceIdProfile }}
       'TestEnvironmentUrl': $(TestEnvironmentUrl)
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
       'TestEnvironmentUrl_Sql': $(TestEnvironmentUrl_Sql)
@@ -139,12 +139,8 @@ steps:
       'AZURESUBSCRIPTION_TENANT_ID': $(AZURESUBSCRIPTION_TENANT_ID)
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': $(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
-      ${{ if eq(parameters.resourceIdProfile, 'Runtime') }}:
-        'SQLREVISIONPROFILE': $(SqlRevisionProfile)
-        'SQLPROFILECATEGORYFILTER': $(SqlProfileCategoryFilter)
-        'SQLRESOURCEIDPROFILE': $(SqlResourceIdProfile)
 
-  - ${{ if or(eq(parameters.appServiceType, 'SqlServer'), ne(parameters.resourceIdProfile, 'None')) }}:
+  - ${{ if or(eq(parameters.appServiceType, 'SqlServer'), ne(parameters.revisionProfile, '')) }}:
     - task: AzurePowerShell@5
       displayName: 'Recheck selected SQL revision after tests'
       retryCountOnTaskFailure: 1
