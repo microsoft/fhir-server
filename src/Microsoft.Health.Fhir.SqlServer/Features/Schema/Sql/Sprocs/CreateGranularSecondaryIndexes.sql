@@ -26,11 +26,12 @@ BEGIN TRY
     SELECT I.index_id, I.name, N.IndexName, P.PropertyValue
           ,'CREATE'+CASE WHEN I.is_unique = 1 THEN ' UNIQUE' ELSE '' END +' INDEX '+N.IndexName+' ON dbo.'+@TableName+' ('+C.KeyColumns+')'
            +CASE WHEN C.IncludeColumns IS NOT NULL THEN ' INCLUDE ('+C.IncludeColumns+')' ELSE '' END
-           +' WHERE ResourceTypeId = '+@ResourceTypeIdChar+' AND SearchParamId = '+@SearchParamIdChar
+           +' WHERE '+CASE WHEN @TableName = 'ReferenceSearchParam' THEN '' ELSE 'ResourceTypeId = '+@ResourceTypeIdChar+' AND ' END+'SearchParamId = '+@SearchParamIdChar
            +CASE WHEN I.filter_definition IS NOT NULL THEN ' AND ('+I.filter_definition+')' ELSE '' END
            +' WITH (DATA_COMPRESSION = '+P.PropertyValue+')'
+           +CASE WHEN @TableName = 'ReferenceSearchParam' THEN ' ON PartitionScheme_ResourceTypeId(ResourceTypeId)' ELSE '' END
       FROM sys.indexes I
-           CROSS APPLY (SELECT IndexName = replace(I.name,'_SearchParamId','')+'_WHERE_RT_'+@ResourceTypeIdChar+'_SP_'+@SearchParamIdChar) N
+           CROSS APPLY (SELECT IndexName = replace(I.name,'_SearchParamId','')+'_WHERE_'+CASE WHEN @TableName = 'ReferenceSearchParam' THEN '' ELSE 'RT_'+@ResourceTypeIdChar+'_' END+'SP_'+@SearchParamIdChar) N
            LEFT JOIN dbo.IndexProperties P ON P.TableName = @TableName AND P.IndexName = I.name AND P.PropertyName = 'DATA_COMPRESSION'
            CROSS APPLY
            (SELECT KeyColumns = string_agg(convert(nvarchar(max),CASE WHEN IC.key_ordinal > 0 AND C.name <> 'SearchParamId' THEN C.name+CASE WHEN IC.is_descending_key = 1 THEN ' DESC' ELSE '' END END), ',') WITHIN GROUP (ORDER BY IC.key_ordinal, IC.index_column_id)
