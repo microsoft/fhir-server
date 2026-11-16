@@ -18,27 +18,28 @@
 <rect x='215.0' y='40' width='186.0' height='291' rx='8' fill='#1a7f37' fill-opacity='0.06' stroke='#1a7f37'/>
 <rect x='215.0' y='40' width='186.0' height='42' rx='8' fill='#1a7f37'/>
 <text x='308.0' y='58' font-size='12' font-weight='600' fill='#fff' text-anchor='middle'>PR, path-triggered (Tier 1+)</text>
-<text x='308.0' y='74' font-size='10' fill='#fff' text-anchor='middle'>more containers, same wall time</text>
+<text x='308.0' y='74' font-size='10' fill='#fff' text-anchor='middle'>more containers, in parallel</text>
 <text x='224.0' y='102' font-size='11' fill='#1f2328'>• Full Stu3/R5 E2E</text>
-<text x='234.0' y='123' font-size='11' fill='#59636e'>packages, SDK, version src,</text>
-<text x='234.0' y='144' font-size='11' fill='#59636e'>search params, reindex</text>
-<text x='224.0' y='165' font-size='11' fill='#1f2328'>• Full reindex E2E</text>
-<text x='234.0' y='186' font-size='11' fill='#59636e'>search params, reindex</text>
-<text x='224.0' y='207' font-size='11' fill='#1f2328'>• Schema-compat (container)</text>
-<text x='234.0' y='228' font-size='11' fill='#59636e'>SqlServer/**, Persistence</text>
-<text x='224.0' y='249' font-size='11' fill='#1f2328'>• All 4 images + smoke</text>
-<text x='234.0' y='270' font-size='11' fill='#59636e'>Dockerfile, build/**</text>
+<text x='234.0' y='123' font-size='11' fill='#59636e'>packages, SDK, version src</text>
+<text x='224.0' y='144' font-size='11' fill='#1f2328'>• R4B SQL E2E</text>
+<text x='234.0' y='165' font-size='11' fill='#59636e'>R4B-specific src</text>
+<text x='224.0' y='186' font-size='11' fill='#1f2328'>• Full reindex E2E</text>
+<text x='234.0' y='207' font-size='11' fill='#59636e'>search params, reindex</text>
+<text x='224.0' y='228' font-size='11' fill='#1f2328'>• Schema-compat (container)</text>
+<text x='234.0' y='249' font-size='11' fill='#59636e'>SqlServer/**, Persistence</text>
+<text x='224.0' y='270' font-size='11' fill='#1f2328'>• All 4 images + smoke</text>
+<text x='234.0' y='291' font-size='11' fill='#59636e'>Dockerfile, build/**</text>
 <rect x='407.0' y='40' width='186.0' height='291' rx='8' fill='#9a6700' fill-opacity='0.06' stroke='#9a6700'/>
 <rect x='407.0' y='40' width='186.0' height='42' rx='8' fill='#9a6700'/>
 <text x='500.0' y='58' font-size='12' font-weight='600' fill='#fff' text-anchor='middle'>PR on request (Tier 2)</text>
-<text x='500.0' y='74' font-size='10' fill='#fff' text-anchor='middle'>fullDeployment = real Azure</text>
+<text x='500.0' y='74' font-size='10' fill='#fff' text-anchor='middle'>real Azure, fail-closed</text>
 <text x='416.0' y='102' font-size='11' fill='#1f2328'>• Today&#x27;s deployed matrix</text>
 <text x='416.0' y='123' font-size='11' fill='#1f2328'>• Real Azure SQL + Cosmos</text>
 <text x='416.0' y='144' font-size='11' fill='#1f2328'>• AAD, MI, Key Vault, ACA</text>
-<text x='416.0' y='165' font-size='11' fill='#1f2328'>Triggered by:</text>
+<text x='416.0' y='165' font-size='11' fill='#1f2328'>Requested by:</text>
 <text x='426.0' y='186' font-size='11' fill='#59636e'>full-matrix label</text>
 <text x='426.0' y='207' font-size='11' fill='#59636e'>fullDeployment parameter</text>
-<text x='426.0' y='228' font-size='11' fill='#59636e'>release/hotfix branches</text>
+<text x='426.0' y='228' font-size='11' fill='#59636e'>PRs into release/hotfix</text>
 <text x='416.0' y='249' font-size='11' fill='#1f2328'>• Runs in addition to Tier 1</text>
 <rect x='599.0' y='40' width='186.0' height='291' rx='8' fill='#8250df' fill-opacity='0.06' stroke='#8250df'/>
 <rect x='599.0' y='40' width='186.0' height='42' rx='8' fill='#8250df'/>
