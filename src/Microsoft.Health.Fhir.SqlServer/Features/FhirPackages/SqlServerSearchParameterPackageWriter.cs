@@ -43,8 +43,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
     /// <para>
     /// Known limitation: custom SearchParameters on the SearchParameter resource type aren't supported. The empty-store
     /// check ignores SearchParameter resources, so a package parameter whose base covers SearchParameter (directly or via
-    /// Resource/DomainResource) is enabled without indexing SearchParameter resources already in the store, and searches
-    /// on SearchParameter by that parameter miss them.
+    /// Resource/DomainResource) would miss SearchParameter resources already in the store. Package validation rejects
+    /// such parameters before they reach this writer.
     /// </para>
     /// </remarks>
     public sealed class SqlServerSearchParameterPackageWriter : ISearchParameterPackageWriter

@@ -2331,6 +2331,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The base &apos;{0}&apos; applies to SearchParameter resources, which package SearchParameters can&apos;t target because package installs don&apos;t reindex existing resources. Use base types that exclude SearchParameter..
+        /// </summary>
+        internal static string FhirPackageSearchParameterUnsupportedBase {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterUnsupportedBase", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The code &apos;{0}&apos; is used by more than one SearchParameter on base &apos;{1}&apos; in the package..
         /// </summary>
         internal static string FhirPackageSearchParameterDuplicateCode {

@@ -112,6 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
             List<Candidate> candidates = ParseAndCheckStructure(entries, issues);
 
             CheckDuplicatesWithinPackage(candidates, issues);
+            CheckUnsupportedBaseTypes(candidates, issues);
             CheckAgainstExistingDefinitions(candidates, issues);
             CheckComponentsAndSupport(candidates, issues);
 
@@ -328,6 +329,27 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
                             OperationOutcomeConstants.IssueType.Duplicate,
                             string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterDuplicateCode, collision.Key.Code, collision.Key.Type));
                     }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Rejects parameters whose effective base includes SearchParameter. Package installs enable parameters without
+        /// reindexing, and SearchParameter resources from earlier package installs are already in the store, so such a
+        /// parameter would silently miss them at search time.
+        /// </summary>
+        private void CheckUnsupportedBaseTypes(List<Candidate> candidates, List<OperationOutcomeIssue> issues)
+        {
+            foreach (Candidate candidate in candidates)
+            {
+                string coveringBase = candidate.BaseTypes.FirstOrDefault(x => GetEffectiveBaseTypes(x).Contains(KnownResourceTypes.SearchParameter, StringComparer.Ordinal));
+                if (coveringBase != null)
+                {
+                    AddIssue(
+                        issues,
+                        candidate,
+                        OperationOutcomeConstants.IssueType.NotSupported,
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterUnsupportedBase, coveringBase));
                 }
             }
         }
