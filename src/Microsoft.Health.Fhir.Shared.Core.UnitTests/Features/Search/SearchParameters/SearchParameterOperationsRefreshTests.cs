@@ -208,7 +208,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchParameters
             {
                 searchParameter.Component = new List<SearchParameter.ComponentComponent>
                 {
+#if Stu3
+                    new SearchParameter.ComponentComponent { Definition = new ResourceReference("http://test/SearchParameter/component-0"), Expression = "Patient" },
+#else
                     new SearchParameter.ComponentComponent { Definition = "http://test/SearchParameter/component-0", Expression = "Patient" },
+#endif
                 };
             }
 
