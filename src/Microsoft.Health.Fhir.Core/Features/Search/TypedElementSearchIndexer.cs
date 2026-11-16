@@ -16,7 +16,6 @@ using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
-using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Models;
 using EvaluationContext = Hl7.FhirPath.EvaluationContext;
 using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
@@ -33,7 +32,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly IReferenceToElementResolver _referenceToElementResolver;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IFhirPathProvider _fhirPathProvider;
-        private readonly IFailureMetricHandler _failureMetricHandler;
         private readonly ILogger<TypedElementSearchIndexer> _logger;
         private readonly ConcurrentDictionary<string, List<string>> _targetTypesLookup = new();
 
@@ -46,15 +44,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="modelInfoProvider">Model info provider</param>
         /// <param name="fhirPathProvider">FHIRPath provider</param>
         /// <param name="logger">The logger.</param>
-        /// <param name="failureMetricHandler">The failure metric handler.</param>
         public TypedElementSearchIndexer(
             ISupportedSearchParameterDefinitionManager searchParameterDefinitionManager,
             ITypedElementToSearchValueConverterManager fhirElementTypeConverterManager,
             IReferenceToElementResolver referenceToElementResolver,
             IModelInfoProvider modelInfoProvider,
             IFhirPathProvider fhirPathProvider,
-            ILogger<TypedElementSearchIndexer> logger,
-            IFailureMetricHandler failureMetricHandler)
+            ILogger<TypedElementSearchIndexer> logger)
         {
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(fhirElementTypeConverterManager, nameof(fhirElementTypeConverterManager));
@@ -62,14 +58,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(fhirPathProvider, nameof(fhirPathProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(failureMetricHandler, nameof(failureMetricHandler));
 
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _fhirElementTypeConverterManager = fhirElementTypeConverterManager;
             _referenceToElementResolver = referenceToElementResolver;
             _modelInfoProvider = modelInfoProvider;
             _fhirPathProvider = fhirPathProvider;
-            _failureMetricHandler = failureMetricHandler;
             _logger = logger;
         }
 
@@ -320,8 +314,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             EvaluationContext context)
         {
             // Contain provider compile failures for component and simple-value expressions, matching the pre-seam
-            // indexer; this now also applies to composite roots. Warning telemetry makes the missing index entries
-            // observable. Evaluation failures propagate so the write or reindex job fails and the broken
+            // indexer; this now also applies to composite roots. The warning, which carries the exception (and, where
+            // OpenTelemetry logging is enabled, the log enricher's filtered failure metric), makes the missing index
+            // entries observable. Evaluation failures propagate so the write or reindex job fails and the broken
             // definition stays visible instead of silently leaving resources unindexed. Cancellation and
             // OutOfMemoryException are not expression defects either: they propagate so the caller can cancel or
             // run its memory-pressure recovery rather than persist incomplete index entries.
@@ -338,13 +333,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     searchParameterDefinitionUrl,
                     fhirPathExpression,
                     element.InstanceType);
-                _failureMetricHandler.EmitException(
-                    new ExceptionMetricNotification
-                    {
-                        OperationName = "FhirPathSearchIndexEvaluation",
-                        ExceptionType = ex.GetType().Name,
-                        Severity = LogLevel.Warning.ToString(),
-                    });
 
                 return Array.Empty<ITypedElement>();
             }

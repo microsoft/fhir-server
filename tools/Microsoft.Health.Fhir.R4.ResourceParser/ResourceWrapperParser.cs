@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Diagnostics.Metrics;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -20,7 +19,6 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
-using Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.R4.ResourceParser.Code;
 
@@ -28,7 +26,6 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
 {
     public class ResourceWrapperParser
     {
-        private static readonly ResourceParserMeterFactory MeterFactory = new();
         private ResourceWrapperFactory _resourceWrapperFactory;
         private FhirJsonParser _fhirJsonParser;
         private FhirJsonSerializer _fhirJsonSerializer;
@@ -59,8 +56,7 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
                 referenceToElementResolver,
                 modelInfoProvider,
                 new FirelyFhirPathProvider(),
-                logger,
-                new DefaultFailureMetricHandler(MeterFactory));
+                logger);
 
             var compartmentDefinitionManager = new CompartmentDefinitionManager(modelInfoProvider);
 
@@ -138,15 +134,6 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
             fhirTypedElementConverters.Add(new UriToUriSearchValueConverter());
 
             return fhirTypedElementConverters;
-        }
-
-        private sealed class ResourceParserMeterFactory : IMeterFactory
-        {
-            public Meter Create(MeterOptions options) => new(options);
-
-            public void Dispose()
-            {
-            }
         }
     }
 }

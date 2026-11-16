@@ -10,8 +10,15 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.Metrics;
+using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
+using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Telemetry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
+using Microsoft.Health.Fhir.Core.Models;
 using NSubstitute;
 using NSubstitute.ReturnsExtensions;
 using OpenTelemetry.Logs;
@@ -285,6 +292,28 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             _failureMetricHandler.Received(1).EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
+        [Fact]
+        public void GivenFhirPathCompilationFailure_WhenIndexedThroughTheLoggingProcessor_ThenExactlyOneFailureMetricIsEmitted()
+        {
+            IndexPatientWithFhirPathCompilationFailure(Array.Empty<IExceptionMetricEmissionFilter>());
+
+            _failureMetricHandler.Received(1).EmitException(
+                Arg.Is<IExceptionMetricNotification>(notification => notification.ExceptionType == nameof(NotSupportedException)));
+        }
+
+        [Fact]
+        public void GivenFhirPathCompilationFailureSuppressedByAFilter_WhenIndexedThroughTheLoggingProcessor_ThenNoFailureMetricIsEmitted()
+        {
+            var suppressCompilationFailures = Substitute.For<IExceptionMetricEmissionFilter>();
+            suppressCompilationFailures
+                .ShouldEmit(Arg.Any<Exception>(), Arg.Any<HttpContext>())
+                .Returns(call => call.Arg<Exception>() is not NotSupportedException);
+
+            IndexPatientWithFhirPathCompilationFailure(new[] { suppressCompilationFailures });
+
+            _failureMetricHandler.DidNotReceive().EmitException(Arg.Any<IExceptionMetricNotification>());
+        }
+
         public static LogRecord CreateLogRecord()
         {
             var attributes = new List<KeyValuePair<string, object>>
@@ -324,6 +353,40 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             logRecord.Exception = exception;
             logRecord.Attributes = attributes;
             return logRecord;
+        }
+
+        // Runs the real indexer behind the real OpenTelemetry logging pipeline, with the enricher registered as
+        // Startup does, outside an HTTP request (as in reindex and import jobs).
+        private void IndexPatientWithFhirPathCompilationFailure(IEnumerable<IExceptionMetricEmissionFilter> filters)
+        {
+            _httpContextAccessor.HttpContext.ReturnsNull();
+            using ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder.AddOpenTelemetry(
+                options => options.AddProcessor(
+                    new AzureMonitorOpenTelemetryLogEnricher(_httpContextAccessor, _failureMetricHandler, filters))));
+
+            var definitions = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            definitions.GetSearchParameters("Patient").Returns(
+            [
+                new SearchParameterInfo(
+                    "name",
+                    "name",
+                    ValueSets.SearchParamType.String,
+                    new Uri("http://hl7.org/fhir/SearchParameter/individual-name"),
+                    expression: "Patient.name"),
+            ]);
+            var provider = Substitute.For<IFhirPathProvider>();
+            provider.Compile("Patient.name").Returns(_ => throw new NotSupportedException("Unsupported expression."));
+            var indexer = new TypedElementSearchIndexer(
+                definitions,
+                Substitute.For<ITypedElementToSearchValueConverterManager>(),
+                Substitute.For<IReferenceToElementResolver>(),
+                new VersionSpecificModelInfoProvider(),
+                provider,
+                loggerFactory.CreateLogger<TypedElementSearchIndexer>());
+
+            IReadOnlyCollection<SearchIndexEntry> entries = indexer.Extract(new Hl7.Fhir.Model.Patient { Id = "patient-1" }.ToResourceElement());
+
+            Assert.Empty(entries);
         }
     }
 }

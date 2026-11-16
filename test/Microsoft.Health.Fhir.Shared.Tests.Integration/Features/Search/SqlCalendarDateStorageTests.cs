@@ -29,7 +29,6 @@ using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
-using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Registration;
@@ -102,8 +101,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                 new LightweightReferenceToElementResolver(parser, ModelInfoProvider.Instance),
                 ModelInfoProvider.Instance,
                 new FirelyFhirPathProvider(),
-                NullLogger<TypedElementSearchIndexer>.Instance,
-                Substitute.For<IFailureMetricHandler>());
+                NullLogger<TypedElementSearchIndexer>.Instance);
             var compartments = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
             await compartments.StartAsync(CancellationToken.None);
             var claims = Substitute.For<IClaimsExtractor>();

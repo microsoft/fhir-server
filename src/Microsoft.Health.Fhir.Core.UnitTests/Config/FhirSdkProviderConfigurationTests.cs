@@ -131,6 +131,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
             Assert.Contains($"{Section}:{key}", exception.Message, StringComparison.Ordinal);
         }
 
+        [Theory]
+        [InlineData("SystemDefault")]
+        [InlineData("Import")]
+        [InlineData("FhirPath")]
+        public void GivenNestedKeyUnderProviderSettingFromSeparateSources_WhenValidated_ThenStartupFails(string key)
+        {
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => Bind(
+                new Dictionary<string, string> { [$"{Section}:{key}"] = "Ignixa" },
+                new Dictionary<string, string> { [$"{Section}:{key}:Provider"] = "Firely" }));
+
+            Assert.Contains($"{Section}:{key}:Provider", exception.Message, StringComparison.Ordinal);
+        }
+
         // Mirrors AddFhirServer: validate the provider section, then bind the configuration.
         private static FhirSdkProviderConfiguration Bind(params IDictionary<string, string>[] sources)
         {

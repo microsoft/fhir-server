@@ -19,7 +19,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
-using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
 using Microsoft.Health.Fhir.Ignixa;
@@ -115,10 +114,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             Assert.Equal(1, Volatile.Read(ref factoryInvocationCount));
         }
 
-        [Fact]
-        public async Task GivenConcurrentIgnixaCompileRequests_WhenCacheIsCold_ThenCompiledInstanceIsShared()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GivenWarmCache_WhenCompiledAgain_ThenSameCompiledInstanceIsReturned(bool useIgnixa)
         {
-            IFhirPathProvider provider = CreateIgnixaProvider();
+            IFhirPathProvider provider = useIgnixa ? CreateIgnixaProvider() : new FirelyFhirPathProvider();
+            ICompiledFhirPath first = provider.Compile("Patient.name.family");
+
+            ICompiledFhirPath second = provider.Compile("Patient.name.family");
+
+            Assert.Same(first, second);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenConcurrentCompileRequests_WhenCacheIsCold_ThenCompiledInstanceIsShared(bool useIgnixa)
+        {
+            IFhirPathProvider provider = useIgnixa ? CreateIgnixaProvider() : new FirelyFhirPathProvider();
             const int RequestCount = 8;
             using var gate = new Barrier(RequestCount);
 
@@ -143,29 +157,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             Assert.All(compiledExpressions, compiled => Assert.Same(compiledExpressions[0], compiled));
         }
 
-        [Fact]
-        public void GivenIgnixaCacheAtCapacity_WhenNewExpressionsAreCompiled_ThenOldestAreEvictedInInsertionOrder()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GivenCacheAtCapacity_WhenNewExpressionsAreCompiled_ThenOldestAreEvictedInInsertionOrder(bool useIgnixa)
         {
-            var provider = new IgnixaFhirPathProvider(new IgnixaSchemaContext(ModelInfoProvider.Instance));
+            IFhirPathProvider provider = useIgnixa ? CreateIgnixaProvider() : new FirelyFhirPathProvider();
             static string ExpressionFor(int index) => $"{index}";
 
-            ICompiledFhirPath[] firstGeneration = Enumerable.Range(0, IgnixaFhirPathProvider.CacheSize)
+            ICompiledFhirPath[] firstGeneration = Enumerable.Range(0, CompiledFhirPathCache.DefaultCapacity)
                 .Select(i => provider.Compile(ExpressionFor(i)))
                 .ToArray();
 
             // Every entry is still cached while the cache is exactly at capacity.
             Assert.Same(firstGeneration[0], provider.Compile(ExpressionFor(0)));
-            Assert.Same(firstGeneration[^1], provider.Compile(ExpressionFor(IgnixaFhirPathProvider.CacheSize - 1)));
+            Assert.Same(firstGeneration[^1], provider.Compile(ExpressionFor(CompiledFhirPathCache.DefaultCapacity - 1)));
 
             const int Overflow = 3;
-            for (int i = IgnixaFhirPathProvider.CacheSize; i < IgnixaFhirPathProvider.CacheSize + Overflow; i++)
+            for (int i = CompiledFhirPathCache.DefaultCapacity; i < CompiledFhirPathCache.DefaultCapacity + Overflow; i++)
             {
                 provider.Compile(ExpressionFor(i));
             }
 
             // The oldest entry that was not evicted is still shared.
             Assert.Same(firstGeneration[Overflow], provider.Compile(ExpressionFor(Overflow)));
-            Assert.Same(firstGeneration[^1], provider.Compile(ExpressionFor(IgnixaFhirPathProvider.CacheSize - 1)));
+            Assert.Same(firstGeneration[^1], provider.Compile(ExpressionFor(CompiledFhirPathCache.DefaultCapacity - 1)));
 
             // The oldest entries were evicted, so compiling them again produces new, working instances.
             for (int i = 0; i < Overflow; i++)
@@ -604,8 +620,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             var supportedDefinitions = new SupportedSearchParameterDefinitionManager(definitions);
             var converters = await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync();
             var resolver = new CorpusReferenceToElementResolver();
-            var firelyFailures = Substitute.For<IFailureMetricHandler>();
-            var ignixaFailures = Substitute.For<IFailureMetricHandler>();
             IFhirPathProvider firelyProvider = new FirelyFhirPathProvider();
             IFhirPathProvider ignixaProvider = CreateIgnixaProvider();
             var firelyIndexer = new TypedElementSearchIndexer(
@@ -614,16 +628,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                 resolver,
                 ModelInfoProvider.Instance,
                 firelyProvider,
-                NullLogger<TypedElementSearchIndexer>.Instance,
-                firelyFailures);
+                NullLogger<TypedElementSearchIndexer>.Instance);
             var ignixaIndexer = new TypedElementSearchIndexer(
                 supportedDefinitions,
                 converters,
                 resolver,
                 ModelInfoProvider.Instance,
                 ignixaProvider,
-                NullLogger<TypedElementSearchIndexer>.Instance,
-                ignixaFailures);
+                NullLogger<TypedElementSearchIndexer>.Instance);
             var firelyEntriesByResourceType = new Dictionary<string, IReadOnlyCollection<SearchIndexEntry>>(StringComparer.Ordinal);
             int totalFirelyEntryCount = 0;
             try
@@ -649,8 +661,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                 FhirPathProvider.SetProviderFactory(() => _originalAmbientProvider);
             }
 
-            firelyFailures.DidNotReceive().EmitException(Arg.Any<IExceptionMetricNotification>());
-            ignixaFailures.DidNotReceive().EmitException(Arg.Any<IExceptionMetricNotification>());
             Assert.True(
                 totalFirelyEntryCount >= 10,
                 "The index parity corpus must produce at least 10 search index entries.");
@@ -697,15 +707,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                 expression: "Patient.name");
             var definitions = Substitute.For<ISupportedSearchParameterDefinitionManager>();
             definitions.GetSearchParameters("Patient").Returns([composite]);
-            var failures = Substitute.For<IFailureMetricHandler>();
             var indexer = new TypedElementSearchIndexer(
                 definitions,
                 await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync(),
                 new CorpusReferenceToElementResolver(),
                 ModelInfoProvider.Instance,
                 useIgnixa ? CreateIgnixaProvider() : new FirelyFhirPathProvider(),
-                NullLogger<TypedElementSearchIndexer>.Instance,
-                failures);
+                NullLogger<TypedElementSearchIndexer>.Instance);
             ResourceElement patient = new Patient
             {
                 Id = "synthetic-patient",
@@ -723,7 +731,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             Assert.Equal(2, value.Components.Count);
             Assert.Equal("Complete", Assert.IsType<StringSearchValue>(Assert.Single(value.Components[0])).String);
             Assert.Equal("Demo", Assert.IsType<StringSearchValue>(Assert.Single(value.Components[1])).String);
-            failures.DidNotReceive().EmitException(Arg.Any<IExceptionMetricNotification>());
         }
 
         private static IFhirPathProvider CreateIgnixaProvider()

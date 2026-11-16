@@ -14,8 +14,8 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPath
     /// </summary>
     public sealed class FirelyFhirPathProvider : IFhirPathProvider
     {
-        private const int CacheSize = 4096;
-        private readonly FhirPathCompilerCache _cache;
+        private readonly FhirPathCompiler _compiler;
+        private readonly CompiledFhirPathCache _cache;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FirelyFhirPathProvider"/> class.
@@ -23,14 +23,17 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPath
         public FirelyFhirPathProvider()
         {
             ElementNavFhirExtensions.PrepareFhirSymbolTableFunctions();
-            _cache = new FhirPathCompilerCache(new FhirPathCompiler(FhirPathCompiler.DefaultSymbolTable), CacheSize);
+            _compiler = new FhirPathCompiler(FhirPathCompiler.DefaultSymbolTable);
+            _cache = new CompiledFhirPathCache(
+                CompiledFhirPathCache.DefaultCapacity,
+                expression => new FirelyCompiledFhirPath(expression, _compiler.Compile(expression)));
         }
 
         /// <inheritdoc />
         public ICompiledFhirPath Compile(string expression)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(expression);
-            return new FirelyCompiledFhirPath(expression, _cache.GetCompiledExpression(expression));
+            return _cache.GetOrAdd(expression);
         }
     }
 }

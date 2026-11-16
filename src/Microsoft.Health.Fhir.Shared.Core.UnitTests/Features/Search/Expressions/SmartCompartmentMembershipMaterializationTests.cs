@@ -23,7 +23,6 @@ using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
-using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -165,8 +164,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
                 resolver,
                 ModelInfoProvider.Instance,
                 fhirPathProvider,
-                NullLogger<TypedElementSearchIndexer>.Instance,
-                Substitute.For<IFailureMetricHandler>());
+                NullLogger<TypedElementSearchIndexer>.Instance);
 
             return indexer.Extract(resource.ToResourceElement())
                 .Where(entry => entry.Value is ReferenceSearchValue reference

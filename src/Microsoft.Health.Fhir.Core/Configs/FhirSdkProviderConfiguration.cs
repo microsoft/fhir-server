@@ -44,7 +44,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         /// <summary>
         /// Rejects provider settings that the configuration binder would otherwise ignore or misread:
-        /// a single value instead of an object, unknown keys, and values that are not provider names.
+        /// a single value instead of an object, unknown keys, nested keys under a provider setting, and values
+        /// that are not provider names.
         /// A rollback setting that is silently ignored would leave the server on the wrong provider.
         /// </summary>
         /// <param name="section">The <c>FhirServer:CoreFeatures:FhirSdkProvider</c> configuration section.</param>
@@ -65,6 +66,15 @@ namespace Microsoft.Health.Fhir.Core.Configs
                 {
                     throw new InvalidOperationException(
                         $"'{setting.Path}' is not a supported setting. Supported settings: {string.Join(", ", KnownKeys)}.");
+                }
+
+                // A child key (for example from another configuration source) is ignored by the binder, which reads
+                // only the scalar value, so a rollback written as a nested key would be silently lost.
+                IConfigurationSection nested = setting.GetChildren().FirstOrDefault();
+                if (nested is not null)
+                {
+                    throw new InvalidOperationException(
+                        $"'{nested.Path}' is not a supported setting. '{setting.Path}' must be a single provider name.");
                 }
 
                 // Match a single provider name exactly: Enum.TryParse would also accept numbers and
