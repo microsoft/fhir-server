@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Security.Claims;
+using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,19 +15,24 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 {
@@ -38,6 +45,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly DefaultFhirRequestContext _fhirRequestContext = new DefaultFhirRequestContext();
         private readonly IAuditEventTypeMapping _auditEventTypeMapping = Substitute.For<IAuditEventTypeMapping>();
+        private readonly IAuthorizationService<DataActions> _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+        private readonly SecurityConfiguration _securityConfiguration = new SecurityConfiguration();
         private readonly string _correlationId = Guid.NewGuid().ToString();
         private readonly HttpContext _httpContext = new DefaultHttpContext();
         private const string ControllerName = "controller";
@@ -74,7 +83,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _fhirRequestContext.CorrelationId = _correlationId;
             _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
 
-            _filterAttribute = new FhirRequestContextRouteDataPopulatingFilterAttribute(_fhirRequestContextAccessor, _auditEventTypeMapping, NullLogger<FhirRequestContextRouteDataPopulatingFilterAttribute>.Instance);
+            _filterAttribute = new FhirRequestContextRouteDataPopulatingFilterAttribute(
+                _fhirRequestContextAccessor,
+                _auditEventTypeMapping,
+                NullLogger<FhirRequestContextRouteDataPopulatingFilterAttribute>.Instance,
+                _authorizationService,
+                Options.Create(_securityConfiguration));
         }
 
         [Fact]
@@ -122,13 +136,76 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GivenPartialIndexHeader_WhenSearchReqeust_ThenFhirContextPropertySet()
+        public async Task GivenPartialIndexHeader_WhenAuthorizationIsDisabled_ThenFhirContextPropertySet()
         {
-            _httpContext.Request.Headers[KnownHeaders.PartiallyIndexedParamsHeaderName] = new Microsoft.Extensions.Primitives.StringValues(new string[] { "true" });
+            SetPartialIndexHeader();
 
-            _filterAttribute.OnActionExecuting(_actionExecutingContext);
+            await ExecuteFilterAsync();
 
             Assert.True(_fhirRequestContext.IncludePartiallyIndexedSearchParams);
+            await _authorizationService.DidNotReceive().CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenPartialIndexHeaderAndReindexPermission_WhenSearchRequest_ThenFhirContextPropertySet()
+        {
+            EnableAuthorization();
+            _fhirRequestContext.Principal = new ClaimsPrincipal(new ClaimsIdentity("test"));
+            _authorizationService.CheckAccess(DataActions.Reindex, Arg.Any<CancellationToken>()).Returns(DataActions.Reindex);
+            SetPartialIndexHeader();
+
+            await ExecuteFilterAsync();
+
+            Assert.True(_fhirRequestContext.IncludePartiallyIndexedSearchParams);
+            Assert.True(_httpContext.Request.Headers.ContainsKey(KnownHeaders.PartiallyIndexedParamsHeaderName));
+        }
+
+        [Fact]
+        public async Task GivenPartialIndexHeaderWithoutReindexPermission_WhenSearchRequest_ThenHeaderIsIgnored()
+        {
+            EnableAuthorization();
+            _fhirRequestContext.Principal = new ClaimsPrincipal(new ClaimsIdentity("test"));
+            _authorizationService.CheckAccess(DataActions.Reindex, Arg.Any<CancellationToken>()).Returns(DataActions.None);
+            SetPartialIndexHeader();
+            _fhirRequestContext.RequestHeaders = new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>
+            {
+                [KnownHeaders.PartiallyIndexedParamsHeaderName] = "true",
+            };
+
+            await ExecuteFilterAsync();
+
+            Assert.False(_fhirRequestContext.IncludePartiallyIndexedSearchParams);
+            Assert.False(_httpContext.Request.Headers.ContainsKey(KnownHeaders.PartiallyIndexedParamsHeaderName));
+            Assert.False(_fhirRequestContext.RequestHeaders.ContainsKey(KnownHeaders.PartiallyIndexedParamsHeaderName));
+        }
+
+        [Fact]
+        public async Task GivenPartialIndexHeaderAndNoPrincipal_WhenAuthorizationIsEnabled_ThenHeaderIsIgnored()
+        {
+            EnableAuthorization();
+            SetPartialIndexHeader();
+
+            await ExecuteFilterAsync();
+
+            Assert.False(_fhirRequestContext.IncludePartiallyIndexedSearchParams);
+            Assert.False(_httpContext.Request.Headers.ContainsKey(KnownHeaders.PartiallyIndexedParamsHeaderName));
+            await _authorizationService.DidNotReceive().CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>());
+        }
+
+        private void EnableAuthorization()
+        {
+            _securityConfiguration.Enabled = true;
+            _securityConfiguration.Authorization.Enabled = true;
+        }
+
+        private void SetPartialIndexHeader()
+        {
+            _httpContext.Request.Headers[KnownHeaders.PartiallyIndexedParamsHeaderName] = new Microsoft.Extensions.Primitives.StringValues(new string[] { "true" });
+        }
+
+        private Task ExecuteFilterAsync()
+        {
+            return _filterAttribute.OnActionExecutionAsync(_actionExecutingContext, () => Task.FromResult(_actionExecutedContext));
         }
 
         private void ExecuteAndValidateFilter(string auditEventTypeFromMapping, string expectedAuditEventType)
