@@ -1,0 +1,67 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1000' height='474' viewBox='0 0 1000 474' font-family='Segoe UI,Helvetica,Arial,sans-serif'>
+<rect width='100%' height='100%' fill='#ffffff'/>
+<text x='16' y='28' font-size='18' font-weight='600' fill='#1f2328'>TODAY — PR Build &amp; Deploy (median 82.5 min)</text>
+<text x='16' y='48' font-size='12' fill='#59636e'>Red = critical path. Median stage start/finish from 79 successful PR builds.</text>
+<line x1='250.0' y1='54' x2='250.0' y2='436' stroke='#d1d9e0' stroke-dasharray='2,3'/>
+<text x='250.0' y='452' font-size='11' fill='#59636e' text-anchor='middle'>0 min</text>
+<line x1='330.0' y1='54' x2='330.0' y2='436' stroke='#d1d9e0' stroke-dasharray='2,3'/>
+<text x='330.0' y='452' font-size='11' fill='#59636e' text-anchor='middle'>10 min</text>
+<line x1='410.0' y1='54' x2='410.0' y2='436' stroke='#d1d9e0' stroke-dasharray='2,3'/>
+<text x='410.0' y='452' font-size='11' fill='#59636e' text-anchor='middle'>20 min</text>
+<line x1='490.0' y1='54' x2='490.0' y2='436' stroke='#d1d9e0' stroke-dasharray='2,3'/>
+<text x='490.0' y='452' font-size='11' fill='#59636e' text-anchor='middle'>30 min</text>
+<line x1='570.0' y1='54' x2='570.0' y2='436' stroke='#d1d9e0' stroke-dasharray='2,3'/>
+<text x='570.0' y='452' font-size='11' fill='#59636e' text-anchor='middle'>40 min</text>
+<line x1='650.0' y1='54' x2='650.0' y2='436' stroke='#d1d9e0' stroke-dasharray='2,3'/>
+<text x='650.0' y='452' font-size='11' fill='#59636e' text-anchor='middle'>50 min</text>
+<line x1='730.0' y1='54' x2='730.0' y2='436' stroke='#d1d9e0' stroke-dasharray='2,3'/>
+<text x='730.0' y='452' font-size='11' fill='#59636e' text-anchor='middle'>60 min</text>
+<line x1='810.0' y1='54' x2='810.0' y2='436' stroke='#d1d9e0' stroke-dasharray='2,3'/>
+<text x='810.0' y='452' font-size='11' fill='#59636e' text-anchor='middle'>70 min</text>
+<line x1='890.0' y1='54' x2='890.0' y2='436' stroke='#d1d9e0' stroke-dasharray='2,3'/>
+<text x='890.0' y='452' font-size='11' fill='#59636e' text-anchor='middle'>80 min</text>
+<line x1='970.0' y1='54' x2='970.0' y2='436' stroke='#d1d9e0' stroke-dasharray='2,3'/>
+<text x='970.0' y='452' font-size='11' fill='#59636e' text-anchor='middle'>90 min</text>
+<text x='242' y='75' font-size='12' fill='#1f2328' text-anchor='end'>Semver / Provision RG</text>
+<rect x='250.0' y='63' width='14.4' height='16' rx='3' fill='#8c959f'/>
+<text x='269.4' y='75' font-size='10' fill='#59636e'>2m</text>
+<text x='242' y='101' font-size='12' fill='#1f2328' text-anchor='end'>Setup Test Env (AAD 10.6m)</text>
+<rect x='266.8' y='89' width='113.60000000000001' height='16' rx='3' fill='#d1242f'/>
+<text x='385.4' y='101' font-size='10' fill='#59636e'>14m</text>
+<text x='242' y='127' font-size='12' fill='#1f2328' text-anchor='end'>Build artifacts (Linux)</text>
+<rect x='286.8' y='115' width='100.00000000000001' height='16' rx='3' fill='#8c959f'/>
+<text x='391.8' y='127' font-size='10' fill='#59636e'>13m</text>
+<text x='242' y='153' font-size='12' fill='#1f2328' text-anchor='end'>Build images x4</text>
+<rect x='302.0' y='141' width='69.6' height='16' rx='3' fill='#8c959f'/>
+<text x='376.6' y='153' font-size='10' fill='#59636e'>9m</text>
+<text x='242' y='179' font-size='12' fill='#1f2328' text-anchor='end'>Deploy SQL servers</text>
+<rect x='395.6' y='167' width='23.200000000000017' height='16' rx='3' fill='#d1242f'/>
+<text x='423.8' y='179' font-size='10' fill='#59636e'>3m</text>
+<text x='242' y='205' font-size='12' fill='#1f2328' text-anchor='end'>Deploy 5 ACA sites</text>
+<rect x='422.0' y='193' width='62.400000000000006' height='16' rx='3' fill='#d1242f'/>
+<text x='489.4' y='205' font-size='10' fill='#59636e'>8m</text>
+<text x='242' y='231' font-size='12' fill='#1f2328' text-anchor='end'>Build + unit tests (Win x2)</text>
+<rect x='289.2' y='219' width='289.6' height='16' rx='3' fill='#8c959f'/>
+<text x='583.8' y='231' font-size='10' fill='#59636e'>36m</text>
+<text x='242' y='257' font-size='12' fill='#1f2328' text-anchor='end'>Stu3 Cosmos tests</text>
+<rect x='503.6' y='245' width='219.20000000000002' height='16' rx='3' fill='#8c959f'/>
+<text x='727.8' y='257' font-size='10' fill='#59636e'>27m</text>
+<text x='242' y='283' font-size='12' fill='#1f2328' text-anchor='end'>R4 Cosmos tests</text>
+<rect x='506.0' y='271' width='232.8' height='16' rx='3' fill='#8c959f'/>
+<text x='743.8' y='283' font-size='10' fill='#59636e'>29m</text>
+<text x='242' y='309' font-size='12' fill='#1f2328' text-anchor='end'>Stu3 SQL tests</text>
+<rect x='512.4' y='297' width='259.20000000000005' height='16' rx='3' fill='#8c959f'/>
+<text x='776.6' y='309' font-size='10' fill='#59636e'>32m</text>
+<text x='242' y='335' font-size='12' fill='#1f2328' text-anchor='end'>R5 SQL tests</text>
+<rect x='519.6' y='323' width='283.19999999999993' height='16' rx='3' fill='#8c959f'/>
+<text x='807.8' y='335' font-size='10' fill='#59636e'>35m</text>
+<text x='242' y='361' font-size='12' fill='#1f2328' text-anchor='end'>R4 SQL tests (E2E serial 39m)</text>
+<rect x='513.2' y='349' width='330.40000000000003' height='16' rx='3' fill='#d1242f'/>
+<text x='848.6' y='361' font-size='10' fill='#59636e'>41m</text>
+<text x='242' y='387' font-size='12' fill='#1f2328' text-anchor='end'>Guardian security scan</text>
+<rect x='622.8' y='375' width='185.59999999999997' height='16' rx='3' fill='#8c959f'/>
+<text x='813.4' y='387' font-size='10' fill='#59636e'>23m</text>
+<text x='242' y='413' font-size='12' fill='#1f2328' text-anchor='end'>Coverage aggregation</text>
+<rect x='865.2' y='401' width='44.799999999999955' height='16' rx='3' fill='#d1242f'/>
+<text x='915.0' y='413' font-size='10' fill='#59636e'>6m</text>
+</svg>

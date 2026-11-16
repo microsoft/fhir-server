@@ -1,0 +1,26 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1000' height='260' font-family='Segoe UI,Helvetica,Arial,sans-serif'><rect width='100%' height='100%' fill='#fff'/>
+<text x='16' y='28' font-size='18' font-weight='600' fill='#1f2328'>Phasing — expected PR median (min)</text>
+<rect x='40' y='51.5' width='70' height='148.5' rx='4' fill='#cf222e'/>
+<text x='75' y='45.5' font-size='14' font-weight='600' text-anchor='middle' fill='#1f2328'>82.5</text>
+<text x='75' y='218' font-size='13' text-anchor='middle' fill='#1f2328'>Today</text>
+<text x='120' y='140' font-size='10.5' fill='#59636e'>—</text>
+<rect x='280' y='113.6' width='70' height='86.4' rx='4' fill='#bf8700'/>
+<text x='315' y='107.6' font-size='14' font-weight='600' text-anchor='middle' fill='#1f2328'>~48</text>
+<text x='315' y='218' font-size='13' text-anchor='middle' fill='#1f2328'>Phase 1</text>
+<text x='360' y='140' font-size='10.5' fill='#59636e'>no coverage change: cache AAD</text>
+<text x='360' y='154' font-size='10.5' fill='#59636e'>modules, parallel unit tests,</text>
+<text x='360' y='168' font-size='10.5' fill='#59636e'>scan from build output,</text>
+<text x='360' y='182' font-size='10.5' fill='#59636e'>coverage off-gate, flake fixes</text>
+<rect x='520' y='149.6' width='70' height='50.4' rx='4' fill='#0969da'/>
+<text x='555' y='143.6' font-size='14' font-weight='600' text-anchor='middle' fill='#1f2328'>~28</text>
+<text x='555' y='218' font-size='13' text-anchor='middle' fill='#1f2328'>Phase 2</text>
+<text x='600' y='140' font-size='10.5' fill='#59636e'>in-proc SQL E2E + sharding +</text>
+<text x='600' y='154' font-size='10.5' fill='#59636e'>container SQL (after parity</text>
+<text x='600' y='168' font-size='10.5' fill='#59636e'>report)</text>
+<rect x='760' y='164.0' width='70' height='36.0' rx='4' fill='#1a7f37'/>
+<text x='795' y='158.0' font-size='14' font-weight='600' text-anchor='middle' fill='#1f2328'>~20</text>
+<text x='795' y='218' font-size='13' text-anchor='middle' fill='#1f2328'>Phase 3</text>
+<text x='840' y='140' font-size='10.5' fill='#59636e'>deployed matrix → triggered +</text>
+<text x='840' y='154' font-size='10.5' fill='#59636e'>post-merge; Cosmos leased pool;</text>
+<text x='840' y='168' font-size='10.5' fill='#59636e'>auto-bisect</text>
+</svg>
