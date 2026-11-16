@@ -4,7 +4,7 @@ During development there are multiple ways to test the project.
 
 ## Install the SDKs
 
-Install the .NET 11 SDK pinned in `global.json` and the .NET 10 SDK pinned in `build/dotnet10-compat/global.json`. The .NET 10 runtime is required by the SQL build generators and .NET 10 tests. CI and the dev container install both SDKs.
+Install the .NET 11 SDK pinned in `global.json` and the .NET 10 SDK pinned in `build/dotnet10-compat/global.json`. The .NET 10 runtime is required by .NET 10 tests. CI and the dev container install both SDKs.
 
 NuGet packages target `net11.0` and `net10.0`. Web archives, integration test archives, and Docker images use only `net11.0`, with the existing artifact names and image tags.
 
