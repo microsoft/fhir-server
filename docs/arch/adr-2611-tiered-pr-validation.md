@@ -21,6 +21,18 @@ Every PR runs the same matrix: Stu3, R4 and R5 on SQL, plus Stu3 and R4 on Cosmo
 
 Version divergence lives mostly in 206 `#if` directives in shared code, in per-version search-parameter definitions, and in per-version Firely SDK packages. Cosmos is the store behind Azure API for FHIR, and parts of Cosmos query generation live in Core. Post-merge CI (definition 27, [build/ci-pipeline.yml](../../build/ci-pipeline.yml)) runs as batched CI against one shared environment. A failure there cannot be traced to a single merge today.
 
+### Prior attempt: #5265
+
+[#5265](https://github.com/microsoft/fhir-server/pull/5265) (December 2025, closed unmerged) replaced the deployed R4B and R5 stages with Docker SQL Server 2022, the legacy Cosmos emulator and Azurite. Its Cosmos jobs failed after about 10 minutes. The build logs have aged out of ADO retention, so the root cause cannot be confirmed. The diff and the current test code point to these likely causes:
+
+- **Emulator overload.** `CosmosDbFhirStorageTestsFixture` creates a new container per fixture (`CollectionId = Guid.NewGuid()`, 1,500 RU/s). With roughly 54 fixture argument sets, xUnit runs these collections in parallel. The emulator was capped at two partitions, 3 GB of memory and 2 CPUs.
+- **Readiness checks that never failed.** The checks fetched `emulator.pem`, which is served before the partitions are ready. The wait loops reported "ready" even on timeout.
+- **One serial job.** A single job rebuilt the test projects, ran SQL and then Cosmos, and stopped and restarted SQL to free disk.
+- **Immediate cutover.** The deployed stages were removed in the same change, with no fallback.
+- **Name filters.** VSTest display-name filters (`DisplayName!~SqlServer`) selected the tests.
+
+It also established that the Linux emulator needed `ConnectionMode=Gateway`. This ADR addresses each of these explicitly. Container hosting is not more reliable by default.
+
 ## Options Considered
 
 1. **Optimize the current shape (deployed E2E on every PR)**: cache modules, parallelize unit tests, shard E2E against the per-PR deployment, and start scanners earlier. *(Rejected as the end state. Per-PR provisioning keeps the floor at ~45–50 minutes. Kept as Phase 1 because it changes no coverage.)*
@@ -91,9 +103,16 @@ Full Guardian and coverage aggregation with the Codecov upload move to a separat
 - **Which emulator.** Tier 1 uses `mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator` (the legacy image, pinned by digest), one instance per agent. It is already the repository's devcontainer Cosmos, and the product's `CosmosDbLocalEmulator` defaults target it. Each agent's emulator is private, so there is no shared state, leasing or cross-PR cleanup.
 - **Why not vNext.** The newer `vnext` emulator is not used. Its documentation lists stored procedures as "Not planned", and the server relies on four: `hardDelete`, `replaceSingleResource`, `acquireReindexJobs` and `updateUnsupportedSearchParameters`. It is also gateway-only, while the server defaults to Direct mode.
 - **What it covers.** The legacy emulator runs the Cosmos query engine and stored procedures. It therefore covers query generation, persistence and stored-procedure behavior, the main risk from Core changes.
+- **Connection mode.** Tests run in `Gateway` connection mode, as #5265 found necessary on Linux. The product defaults to Direct, so Direct-mode transport behavior is left to Tier 2 and Tier 3.
+- **Emulator-mode test hosting.** These are prerequisites, not tuning:
+  - **A fixed container set per shard.** In emulator mode, Cosmos fixtures draw from a small, fixed set of containers pre-created for each shard. They do not create a `Guid`-named container per fixture. Fixtures that assume an empty or exclusive container (reindex, search-parameter status, system-wide queries) get a dedicated container from that set, on the serial shard, with cleanup between uses. The inventory step identifies which fixtures need one.
+  - **Bounded concurrency.** Cosmos fixture initialization in each shard is capped, for example at two at a time.
+  - **Sizing.** The emulator's partition count and memory are configured for the per-shard container count. The pool's agent SKU must accommodate them.
+  - **Real readiness probe with a hard fail.** The probe creates a database and container, upserts and queries a document, and executes a stored procedure. Fetching `emulator.pem` does not count. A timeout fails the job instead of continuing.
+  - **Fresh container per shard.** No container is stopped or restarted within a job.
 - **What it misses.** Managed identity and data-plane RBAC, ARM-driven container setup, throttling and 429 retry behavior, partition splits, and current service query-engine behavior. Changes to Cosmos client initialization, collection setup or retry policies should use the `full-matrix` label. Tier 3 runs real Cosmos on every batch.
-- **Known constraints.** It is x64 only, has a slow start-up that needs a readiness probe, degrades beyond about ten containers (a partition count is set and per-fixture container creation is bounded), and has a history of unreliable starts.
-- **Stability spike.** Before the emulator becomes required, R4 Cosmos integration and E2E run against it as a non-required job for about two weeks. The spike measures start-up time, start failures, and first-attempt pass rate against the deployed run.
+- **Known constraints.** It is x64 only, has a slow start-up, degrades as containers increase, and has a history of unreliable starts, including in #5265.
+- **Stability spike.** Before the emulator becomes required, R4 Cosmos integration and E2E run against it as a non-required job for about two weeks, with the hosting changes above. Unlike #5265, nothing is removed until it passes. The spike measures start-up time, start failures, and first-attempt pass rate against the deployed run.
 - **Fallback.** If the spike fails, Tier 1 uses one pre-existing shared Cosmos account, or two to three if ARM throttling appears. No account is provisioned per PR, and the account keeps `disableLocalAuth = true`. Each run creates uniquely named containers through ARM, as fixtures do today, deletes them at the end, and relies on a sweeper for leaked containers. Test hosting must then use the pipeline's credential instead of the system-assigned managed identity. A leased, pre-provisioned container pool is a last resort if ARM throttling cannot be contained.
 
 **Cutover gates.** Tier 1 replaces today's default gate only when all of the following hold:
