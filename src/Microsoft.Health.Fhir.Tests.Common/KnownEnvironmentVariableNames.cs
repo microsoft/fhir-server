@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string TestEnvironmentUrl = "TestEnvironmentUrl";
         public const string TestTokenEndpoint = "TestTokenEndpoint";
         public const string TestExportStoreUri = "TestExportStoreUri";
+        public const string TestFhirPathProvider = "TestFhirPathProvider";
         public const string TestIntegrationStoreUri = "TestIntegrationStoreUri";
         public const string TestProxyForwardedHost = "TestProxyForwardedHost";
         public const string TestProxyForwardedPrefix = "TestProxyForwardedPrefix";

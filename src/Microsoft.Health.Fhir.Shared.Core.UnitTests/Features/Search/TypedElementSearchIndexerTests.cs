@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -358,13 +359,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public async System.Threading.Tasks.Task GivenAnExpressionThatFailsDuringEvaluation_WhenExtracted_ThenTheFailurePropagates()
+        public async System.Threading.Tasks.Task GivenAnExpressionThatFailsDuringEvaluation_WhenExtracted_ThenTheFailurePropagatesAsSearchParameterEvaluationException()
         {
             // Mirrors production custom SearchParameters whose matches() pattern is not a valid regex: the expression
             // compiles, but evaluating it against a matching resource throws. That must fail the write or reindex job
-            // so the broken definition is visible, rather than silently leaving the resource unindexed.
+            // so the broken definition is visible, rather than silently leaving the resource unindexed, and the
+            // failure must name the search parameter without exposing resource values.
             // Ignixa currently evaluates an invalid pattern to empty instead (brendankowitz/ignixa-fhir#519), so this
             // contract is asserted against the default Firely provider.
+            var url = new Uri("http://example.org/SearchParameter/bad-pattern");
             var definitions = Substitute.For<ISupportedSearchParameterDefinitionManager>();
             definitions.GetSearchParameters("Patient").Returns(
             [
@@ -372,7 +375,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     "bad-pattern",
                     "bad-pattern",
                     ValueSets.SearchParamType.String,
-                    new Uri("http://example.org/SearchParameter/bad-pattern"),
+                    url,
                     expression: "Patient.name.where(family.matches('abc['))"),
             ]);
             var indexer = new TypedElementSearchIndexer(
@@ -384,7 +387,43 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Substitute.For<ILogger<TypedElementSearchIndexer>>());
             ResourceElement patient = new Patient { Id = "patient-1", Name = [new HumanName { Family = "abc" }] }.ToResourceElement();
 
-            Assert.ThrowsAny<Exception>(() => indexer.Extract(patient));
+            var exception = Assert.Throws<SearchParameterEvaluationException>(() => indexer.Extract(patient));
+
+            Assert.Equal(url, exception.SearchParameterUrl);
+            Assert.NotNull(exception.InnerException);
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task GivenIgnixaProviderAndAnExpressionThatFailsDuringEvaluation_WhenExtracted_ThenTheFailurePropagatesAsSearchParameterEvaluationException()
+        {
+            // The wrapping is provider-independent: an Ignixa evaluation error (here single() over more than one item)
+            // must surface exactly like a Firely one.
+            var url = new Uri("http://example.org/SearchParameter/single-given");
+            var definitions = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            definitions.GetSearchParameters("Patient").Returns(
+            [
+                new SearchParameterInfo(
+                    "single-given",
+                    "single-given",
+                    ValueSets.SearchParamType.String,
+                    url,
+                    expression: "Patient.name.given.single()"),
+            ]);
+            var indexer = new TypedElementSearchIndexer(
+                definitions,
+                await GetTypeConverterAsync(),
+                Substitute.For<IReferenceToElementResolver>(),
+                ModelInfoProvider.Instance,
+                new IgnixaFhirPathProvider(new IgnixaSchemaContext(ModelInfoProvider.Instance)),
+                Substitute.For<ILogger<TypedElementSearchIndexer>>());
+            ResourceElement patient = new Patient { Id = "patient-1", Name = [new HumanName { Given = ["synthetic-one", "synthetic-two"] }] }.ToResourceElement();
+
+            var exception = Assert.Throws<SearchParameterEvaluationException>(() => indexer.Extract(patient));
+
+            Assert.Equal(url, exception.SearchParameterUrl);
+            Assert.Equal(string.Format(Core.Resources.SearchParameterEvaluationFailed, url), exception.Message);
+            Assert.NotNull(exception.InnerException);
+            Assert.DoesNotContain("synthetic-", exception.Message);
         }
 
         [Fact]
