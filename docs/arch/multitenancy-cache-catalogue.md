@@ -60,6 +60,16 @@ Each phase is one PR. Phases are ordered by dependency, so each PR can merge on 
 | 2 | #1 Spec search parameters, #2 Built-in reference data (except the FHIR spec package), #5 Custom and Microsoft default search parameters, #6 SQL ID maps, #7 Code system and unit IDs, #8 Schema version, #17 Change feed resource type names, #18 Search helper lookups | Tightly linked: they load together at startup, the search parameter refresh feeds the SQL ID maps, and the helper lookups are built from search parameters. Splits shared spec parameters from per-partition ones. Largest PR; can be split further if needed. #8 depends on the shared-package schema work. |
 | 3 | #9 Capability statement, #10 Metadata document, #11 Profiles, #12 Profile validator, FHIR spec package from #2 | Built on top of phase 2: the capability statement and metadata document use search parameters and profiles, and the validator uses profiles and the spec package. |
 
+## Sync or async access
+
+Caches are loaded at startup and refreshed in the background, so most reads are in-memory lookups. Where callers are synchronous, a sync `Get()` avoids making large parts of the code async for no benefit.
+
+| Access | Caches | Why |
+|---|---|---|
+| Sync `Get()` | #1, #2, #5, #8, #12, #18 | Read deep inside synchronous code: search URL parsing, the search indexer, sorting, the SQL query generator, TVP row generators and the Firely validator (about 25 files read search parameters alone). The data is preloaded or refreshed in the background, so a read never needs to fetch. |
+| Async once, then sync | #6, #7 | Read by the synchronous query generator and TVP row generators. The async search and merge methods call `GetAsync()` once and pass the value in; new system and unit IDs are resolved before rows are generated. |
+| `GetAsync()` | #3, #4, #9, #10, #11, #13, #14, #15, #16, #17 | Callers are already async (authorization, health checks, `/metadata`, profile resolver, SQL search, merge, change feed). #15 blocks on `.Result` today; async removes that. |
+
 ---
 
 ## Built-in caches
