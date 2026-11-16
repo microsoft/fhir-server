@@ -68,6 +68,9 @@ Full Guardian and coverage aggregation with the Codecov upload move to a separat
 - **One test-job template.** It takes a `target: container | azure` parameter, and only the setup steps differ by target. For `container`, setup starts the pinned SQL Server, Cosmos emulator and Azurite containers with readiness probes, and clears remote URLs. For `azure`, it reads Key Vault secrets and deployed URLs. Test selection, sharding, retry and result publishing are identical. The PR pipeline (definition 9) and post-merge CI (definition 27) share this template, so their test definitions stop diverging.
 - **One switch, `fullDeployment`.** A classifier job at time zero computes it as true when any of the following holds:
   - The PR has the `full-matrix` label. The job reads it through the GitHub API, and only at run start, so adding the label later requires re-queuing.
+    - **Reading the label.** It is one call to `GET /repos/microsoft/fhir-server/issues/{System.PullRequest.PullRequestNumber}/labels`, authenticated through the existing GitHub service connection to avoid rate limits on shared agents. `validate-prs.yml` already gates on PR labels.
+    - **Who can request it.** Applying labels needs triage or write permission. Fork and external contributors therefore cannot trigger Azure spend; a maintainer decides.
+    - **Re-queuing.** After adding the label mid-review, a `/azp run` comment re-queues the run. Optionally, a small GitHub Action on the `labeled` event does this automatically.
   - The run was queued manually with the `fullDeployment` runtime parameter set. A `/azp run` comment cannot pass parameters.
   - The source is a `release/*` or `hotfix/*` branch, or the run is CI.
 
