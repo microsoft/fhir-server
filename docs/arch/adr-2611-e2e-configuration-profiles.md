@@ -47,7 +47,7 @@ flowchart TD
     Tests -->|"label URL"| Profile
 ```
 
-The ordinary SQL E2E run selects `Baseline` and checks Standard64 resource ID boundaries. Profile-only classes are excluded from ordinary runs; an alternate profile selects its own category and fails if no tests are selected. Boundary results must contain fresh, final passing results for the expected cases. Cosmos keeps its existing app endpoint and does not use this SQL revision-profile mechanism.
+The ordinary SQL E2E run selects `Baseline` and checks Standard64 resource ID boundaries. Profile-only classes are excluded from ordinary runs; an alternate profile selects its own category and fails if no tests are selected or all selected tests are skipped. Boundary results must contain fresh, final passing results for the expected cases. Cosmos keeps its existing app endpoint and does not use this SQL revision-profile mechanism.
 
 For successful PR test stages, cleanup waits for both ordinary and profile consumers, then deletes the app before the version database. CI redeployment and scale-down use the same revision lifecycle. Failed PR stages preserve resources for investigation.
 
@@ -57,4 +57,4 @@ For successful PR test stages, cleanup waits for both ordinary and profile consu
 - The controller rejects protected security, Key Vault, SQL connection, and other infrastructure overrides. Inherited authentication is retained. This mechanism does not provision a SMART identity provider or change authentication, and it does not provide multiple endpoints to a single test. Those capabilities require separate design and implementation.
 - Long128 verifies product behavior at 64, 65, 128, and 129 characters. The baseline verifies acceptance at 64 and rejection at 65 and 128. This infrastructure does not change production resource ID validation.
 - The catalog can represent non-ID settings, but the current PR does not provide temporal query E2E coverage. [The temporal equality ADR](adr-2605-scalar-temporal-equality-rewriter.md) describes the related flag-dependent behavior; this decision does not change or supersede it. Likewise, [the SMART authorization ADR](adr-2609-smart-authorization-fail-closed.md) remains unchanged.
-- The proposed current implementation has offline controller and result-checker coverage. The updated pipeline expansion and live ACA deployment have not yet been verified for the current PR revision. Earlier successful live runs used earlier commits and do not establish that result.
+- The implementation has offline controller and result-checker coverage. [PR build 53346](https://microsofthealthoss.visualstudio.com/7621b231-1a7d-4364-935b-2f72b911c43d/_build/results?buildId=53346) succeeded for commit `9fda0a8cbd6d2f9751d33bb1e74cdb5da73cc589`, including Long128 profile jobs for Stu3, R4, and R5. Shared CI redeployment and SMART behavior remain unverified.
