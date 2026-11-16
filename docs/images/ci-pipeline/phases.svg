@@ -21,6 +21,6 @@
 <text x='795' y='158.0' font-size='14' font-weight='600' text-anchor='middle' fill='#1f2328'>~20</text>
 <text x='795' y='218' font-size='13' text-anchor='middle' fill='#1f2328'>Phase 3</text>
 <text x='840' y='140' font-size='10.5' fill='#59636e'>deployed matrix → triggered +</text>
-<text x='840' y='154' font-size='10.5' fill='#59636e'>post-merge; Cosmos leased pool;</text>
+<text x='840' y='154' font-size='10.5' fill='#59636e'>post-merge; Cosmos emulator;</text>
 <text x='840' y='168' font-size='10.5' fill='#59636e'>auto-bisect</text>
 </svg>

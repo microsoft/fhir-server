@@ -39,7 +39,7 @@ We will split validation into three tiers. Nothing that runs on PRs today stops 
 - **Unit tests.** All test projects for every FHIR version run in parallel. net10 runs as a separate parallel job.
 - **R4 SQL E2E, full suite, in-proc.** Tests run in `InProcTestFhirServer` against a pinned SQL Server 2025 container (the schema uses `vector(1536)`) and Azurite. They are split into disjoint shards by measured class time. Each shard runs collections serially and gets its own database and storage. Classes that touch server-global state (reindex, custom search parameters, server-wide history counts, import, bulk delete, system export) share one serial shard.
 - **R4 SQL integration tests** run against the container, excluding schema-compatibility tests.
-- **R4 Cosmos integration and E2E** run against a persistent account through a leased container pool, described below.
+- **R4 Cosmos integration and E2E** run against a Cosmos emulator container on each agent, described below.
 - **Stu3 and R5 version-sensitive subset.** This is an explicit, checked-in manifest of discovered tests covering search, bundle and transaction, conformance, validate, patch and CRUD.
 - **Reindex lifecycle check and BulkUpdate tests.**
 - **One R4 amd64 image**, built from the published output, with an authenticated container smoke test.
@@ -51,7 +51,7 @@ Full Guardian and coverage aggregation with the Codecov upload move to a separat
 
 **Tier 2 — the deployed matrix as it runs today, executed conditionally inside the same required run.** A classifier stage at time zero sets a variable that enables today's deployed stages. They run when any of the following applies:
 
-- **Changed paths:** `Directory.Packages.props`, `global.json`, `build/**`, the Dockerfile, `samples/templates/**`, Stu3/R4B/R5-specific source, SQL `Schema/**`, Cosmos stored procedures, search-parameter definitions and the registry, reindex code, auth code, or `appsettings*.json`.
+- **Changed paths:** `Directory.Packages.props`, `global.json`, `build/**`, the Dockerfile, `samples/templates/**`, Stu3/R4B/R5-specific source, SQL `Schema/**`, Cosmos registration, client initialization, collection setup, stored procedures and retry policies, search-parameter definitions and the registry, reindex code, auth code, or `appsettings*.json`.
 - **Opt-in:** a `full-matrix` label. Adding the label after the run has started requires re-queuing.
 - **Branches:** every release and hotfix branch.
 
@@ -66,19 +66,22 @@ Changes under `src/Microsoft.Health.Fhir.SqlServer/**` or Core persistence code 
 - CodeQL with a full build
 - net10 E2E
 
-**Cosmos leased pool.** The account keeps `disableLocalAuth = true`.
+**Cosmos in Tier 1: the legacy Linux emulator container.**
 
-- **Preparation.** An ARM-driven job prepares each pool version for a specific set of stored-procedure hashes and indexing settings. Stored-procedure names include a hash of their bodies. PRs that change stored procedures therefore take Tier 2.
-- **Leases.** Each isolated fixture or host takes its own lease, not one per PR. Every lease carries a generation token that locks out writers from earlier leases.
-- **Reset.** Releasing a lease first stops all writers. It then deletes every document by its `(id, partitionKey)`, including status, job, lock and version documents, and verifies the container is empty before reinitializing it.
-- **Failure.** A failed or cancelled reset quarantines the container rather than returning it to the pool. When the pool is exhausted, runs queue rather than fail.
-- **Test changes.** Test hosting must use the pipeline's credential instead of the system-assigned managed identity, and fixtures must stop creating and deleting their own containers.
+- **Which emulator.** Tier 1 uses `mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator` (the legacy image, pinned by digest), one instance per agent. It is already the repository's devcontainer Cosmos, and the product's `CosmosDbLocalEmulator` defaults target it. Each agent's emulator is private, so there is no shared state, leasing or cross-PR cleanup.
+- **Why not vNext.** The newer `vnext` emulator is not used. Its documentation lists stored procedures as "Not planned", and the server relies on four: `hardDelete`, `replaceSingleResource`, `acquireReindexJobs` and `updateUnsupportedSearchParameters`. It is also gateway-only, while the server defaults to Direct mode.
+- **What it covers.** The legacy emulator runs the Cosmos query engine and stored procedures. It therefore covers query generation, persistence and stored-procedure behavior, the main risk from Core changes.
+- **What it misses.** Managed identity and data-plane RBAC, ARM-driven container setup, throttling and 429 retry behavior, partition splits, and current service query-engine behavior. Tier 2 triggers on Cosmos paths (registration, client initialization, collection setup, stored procedures, retry policies), and Tier 3 runs real Cosmos on every batch.
+- **Known constraints.** It is x64 only, has a slow start-up that needs a readiness probe, degrades beyond about ten containers (a partition count is set and per-fixture container creation is bounded), and has a history of unreliable starts.
+- **Stability spike.** Before the emulator becomes required, R4 Cosmos integration and E2E run against it as a non-required job for about two weeks. The spike measures start-up time, start failures, and first-attempt pass rate against the deployed run.
+- **Fallback.** If the spike fails, Tier 1 uses one persistent Cosmos account, or two to three if ARM throttling appears. The account keeps `disableLocalAuth = true`. Each run creates uniquely named containers through ARM, as fixtures do today, deletes them at the end, and relies on a sweeper for leaked containers. Test hosting must then use the pipeline's credential instead of the system-assigned managed identity. A leased, pre-provisioned container pool is a last resort if ARM throttling cannot be contained.
 
 **Cutover gates.** Tier 1 replaces today's default gate only when all of the following hold:
 
 - **Parity.** A per-test-case inventory shows that everything skipped or behaving differently in-proc is covered by Tier 2 or Tier 3. Known differences: ACR anonymization and custom convert skip in-proc, OpenIddict replaces AAD, and import fault-injection assertions activate in-proc.
 - **Shadow period.** Tier 1 has run as a non-required shadow pipeline on all PRs. Its first-attempt pass rate is at least today's, and its rerun rate is below 3%.
 - **Bisect ready.** Auto-bisect is operational.
+- **Cosmos ready.** Either the emulator stability spike has passed, or the per-run-container fallback is in place.
 - **Shard validation.** Shard filters are generated as a single `--filter-query` per shard, never mixed with `--filter-class`. They are validated as disjoint and complete, and no shard may run zero tests.
 
 ![Phasing](../images/ci-pipeline/phases.svg)
@@ -91,12 +94,12 @@ Changes under `src/Microsoft.Health.Fhir.SqlServer/**` or Core persistence code 
   - In-proc configuration loading from packaged test artifacts. Today `InProcTestFhirServer` reads `launchSettings.json` from the source tree, and inherited remote test URLs must be cleared.
   - Generated shard manifests and the shard harness.
   - Container readiness probes for SQL schema and Azurite blob read/write; fixed sleeps don't count.
-  - The Cosmos lease service with reset and quarantine, and RU budgeting for tests plus resets that honors 429 retry delays.
+  - Cosmos emulator start-up, certificate trust and readiness handling. If the fallback is needed: a sweeper for leaked containers, and RU budgeting that honors 429 retry delays.
   - The bisect orchestrator.
 - **New failure modes:**
   - Container start-up and agent CPU/memory contention, including timing-sensitive import assertions.
   - Azurite addressing. Helpers recognize local storage by loopback address.
-  - Cosmos throttling, and lease leaks from cancelled builds.
+  - Emulator fidelity and start-up reliability: the emulator's query engine lags the service, and it does not emulate throttling. In the fallback, Cosmos throttling.
 
   Each needs measurement during the shadow period. Retries are not raised to compensate.
 - **Test burden.** Tests that rely on server-global state must be identified and kept on the serial shard. Cosmos fixtures change ownership semantics.

@@ -30,7 +30,7 @@
 <text x='242' y='205' font-size='12' fill='#1f2328' text-anchor='end'>R4 SQL E2E in-proc — shard 1..N</text>
 <rect x='514.0' y='193' width='216.0' height='16' rx='3' fill='#d1242f'/>
 <text x='735.0' y='205' font-size='10' fill='#59636e'>9m</text>
-<text x='242' y='231' font-size='12' fill='#1f2328' text-anchor='end'>R4 Cosmos integ + E2E (leased pool)</text>
+<text x='242' y='231' font-size='12' fill='#1f2328' text-anchor='end'>R4 Cosmos integ + E2E (emulator)</text>
 <rect x='514.0' y='219' width='216.0' height='16' rx='3' fill='#0969da'/>
 <text x='735.0' y='231' font-size='10' fill='#59636e'>9m</text>
 <text x='242' y='257' font-size='12' fill='#1f2328' text-anchor='end'>Stu3 + R5 version-sensitive subset</text>

@@ -8,7 +8,7 @@
 <text x='34.0' y='122' font-size='11.5' fill='#1f2328'>• Unit tests: all versions, net11+net10</text>
 <text x='34.0' y='144' font-size='11.5' fill='#1f2328'>• R4 SQL E2E full (in-proc, sharded)</text>
 <text x='34.0' y='166' font-size='11.5' fill='#1f2328'>• R4 SQL integration (container)</text>
-<text x='34.0' y='188' font-size='11.5' fill='#1f2328'>• R4 Cosmos integ + E2E (leased pool)</text>
+<text x='34.0' y='188' font-size='11.5' fill='#1f2328'>• R4 Cosmos integ + E2E (emulator)</text>
 <text x='34.0' y='210' font-size='11.5' fill='#1f2328'>• Stu3/R5 version-sensitive subset</text>
 <text x='34.0' y='232' font-size='11.5' fill='#1f2328'>• Reindex lifecycle + BulkUpdate</text>
 <text x='34.0' y='254' font-size='11.5' fill='#1f2328'>• R4 image + container smoke</text>
