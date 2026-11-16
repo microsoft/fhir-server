@@ -2,6 +2,8 @@
     Baseline = @{
         Name = 'Baseline'
     }
+    # Profile-only test classes need Category=ProfileOnly and a distinct category selected below.
+    # ResourceIdBoundary is shared with the baseline Standard64 contract.
     Profiles = @(
         @{
             Name = 'Long128'

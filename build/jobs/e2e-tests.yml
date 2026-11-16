@@ -74,9 +74,15 @@ steps:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $categoryPredicates = $categoryFilter.Split('&') | ForEach-Object { "($_)" }
+        $categoryPredicates = @($categoryFilter.Split('&') | ForEach-Object { "($_)" })
+        if ([string]::IsNullOrEmpty($env:REVISIONPROFILE)) {
+          $categoryPredicates += '(Category!=ProfileOnly)'
+        }
         $query = "/[(DataStore=${{ parameters.appServiceType }})&$($categoryPredicates -join '&')]"
         $args = @('--filter-query', $query, '--retry-failed-tests', '3', '--results-directory', $results, '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', $runTitle)
+        if (-not [string]::IsNullOrEmpty($env:REVISIONPROFILE)) {
+          $args += @('--zero-tests-policy', 'strict')
+        }
 
         Write-Host "Running dotnet $($dll.FullName)"
         & dotnet $dll.FullName @args

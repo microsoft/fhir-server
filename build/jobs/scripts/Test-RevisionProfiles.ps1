@@ -38,6 +38,37 @@ try {
     $longLabel = 'long128-b4242a1'
     $converge = @{ Goal = 'Converge'; BuildId = '4242'; Attempt = '1' }
 
+    Invoke-Case 'E2E jobs isolate profile-only tests and reject empty profile runs' {
+        $yaml = Get-Content (Join-Path $PSScriptRoot '..\e2e-tests.yml') -Raw
+        $match = [regex]::Match($yaml, '(?ms)^        \$categoryPredicates =.*?(?=^        Write-Host "Running dotnet)')
+        Assert-True $match.Success 'E2E runner argument construction is present'
+        $runnerCode = $match.Value.Replace('${{ parameters.appServiceType }}', 'SqlServer')
+        $previousProfile = $env:REVISIONPROFILE
+        try {
+            foreach ($case in @(
+                @{ Profile = ''; Filter = 'Category!=ExportLongRunning'; Query = '/[(DataStore=SqlServer)&(Category!=ExportLongRunning)&(Category!=ProfileOnly)]'; Strict = $false },
+                @{ Profile = ''; Filter = 'Category=Search&Category!=BulkUpdate'; Query = '/[(DataStore=SqlServer)&(Category=Search)&(Category!=BulkUpdate)&(Category!=ProfileOnly)]'; Strict = $false },
+                @{ Profile = 'Long128'; Filter = 'Category=ResourceIdBoundary'; Query = '/[(DataStore=SqlServer)&(Category=ResourceIdBoundary)]'; Strict = $true },
+                @{ Profile = 'Other'; Filter = 'Category=ProfileSpecific'; Query = '/[(DataStore=SqlServer)&(Category=ProfileSpecific)]'; Strict = $true }
+            )) {
+                $env:REVISIONPROFILE = $case.Profile
+                $categoryFilter = $case.Filter
+                $results = 'results'
+                $runTitle = 'test'
+                $invocation = & ([scriptblock]::Create("$runnerCode`n@{ Query = `$query; Arguments = `$args }"))
+                Assert-Equal $case.Query $invocation.Query 'category query'
+                $strictIndex = [array]::IndexOf($invocation.Arguments, '--zero-tests-policy')
+                Assert-Equal $case.Strict ($strictIndex -ge 0) 'strict zero-test policy applies only to profile jobs'
+                if ($case.Strict) {
+                    Assert-Equal 'strict' $invocation.Arguments[$strictIndex + 1] 'skipped tests do not count as executed'
+                }
+            }
+        }
+        finally {
+            $env:REVISIONPROFILE = $previousProfile
+        }
+    }
+
     Invoke-Case 'shipped catalog contains exactly the Long128 deployment profile' {
         $profiles = @($script:Catalog.Profiles)
         Assert-Equal 1 $profiles.Count 'one shipped profile'
