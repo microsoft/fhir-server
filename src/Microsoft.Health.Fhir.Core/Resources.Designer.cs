@@ -1330,6 +1330,15 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("ReindexFailedWithUnknownError", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to evaluate search parameter '{0}'. Review its expression..
+        /// </summary>
+        internal static string SearchParameterEvaluationFailed {
+            get {
+                return ResourceManager.GetString("SearchParameterEvaluationFailed", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Reindex job was cancelled by caller..

@@ -11,6 +11,7 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -106,11 +107,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private IEnumerable<SearchIndexEntry> ProcessCompositeSearchParameter(SearchParameterInfo searchParameter, ITypedElement resource, EvaluationContext context)
         {
             Debug.Assert(searchParameter?.Type == SearchParamType.Composite, "The search parameter must be composite.");
+            Uri searchParameterUrl = EnsureArg.IsNotNull(searchParameter.Url, nameof(searchParameter.Url));
 
             SearchParameterInfo compositeSearchParameterInfo = searchParameter;
 
             foreach (ITypedElement rootObject in EvaluateFhirPath(
-                searchParameter.Url.ToString(),
+                searchParameterUrl.ToString(),
+                searchParameterUrl,
                 resource,
                 searchParameter.Expression,
                 context))
@@ -134,7 +137,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         componentSearchParameterDefinition.TargetResourceTypes,
                         rootObject,
                         component.Expression,
-                        context);
+                        context,
+                        searchParameterUrl);
 
                     // Filter out any search value that's not valid as a composite component.
                     extractedComponentValues = extractedComponentValues
@@ -173,7 +177,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchParameter.TargetResourceTypes,
                 resource,
                 searchParameter.Expression,
-                context))
+                context,
+                searchParameter.Url))
             {
                 if (searchValue != null)
                 {
@@ -199,7 +204,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IReadOnlyList<string> allowedReferenceResourceTypes,
             ITypedElement element,
             string fhirPathExpression,
-            EvaluationContext context)
+            EvaluationContext context,
+            Uri evaluationErrorSearchParameterUrl)
         {
             Debug.Assert(searchParameterType != SearchParamType.Composite, "The search parameter must be non-composite.");
 
@@ -208,6 +214,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // For simple value type, we can parse the expression directly.
             IEnumerable<ITypedElement> extractedValues = EvaluateFhirPath(
                 searchParameterDefinitionUrl,
+                evaluationErrorSearchParameterUrl,
                 element,
                 fhirPathExpression,
                 context);
@@ -245,6 +252,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         {
                             return EvaluateFhirPath(
                                 searchParameterDefinitionUrl,
+                                evaluationErrorSearchParameterUrl,
                                 ev,
                                 "reference",
                                 null).SingleOrDefault()?.Value is string rr &&
@@ -309,17 +317,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         private ITypedElement[] EvaluateFhirPath(
             string searchParameterDefinitionUrl,
+            Uri evaluationErrorSearchParameterUrl,
             ITypedElement element,
             string fhirPathExpression,
             EvaluationContext context)
         {
-            // Contain provider compile failures for component and simple-value expressions, matching the pre-seam
-            // indexer; this now also applies to composite roots. The warning, which carries the exception (and, where
-            // OpenTelemetry logging is enabled, the log enricher's filtered failure metric), makes the missing index
-            // entries observable. Evaluation failures propagate so the write or reindex job fails and the broken
-            // definition stays visible instead of silently leaving resources unindexed. Cancellation and
-            // OutOfMemoryException are not expression defects either: they propagate so the caller can cancel or
-            // run its memory-pressure recovery rather than persist incomplete index entries.
+            // Compile failures are contained, matching the pre-seam indexer (now also for composite roots): the
+            // warning carries the exception (and, with OpenTelemetry logging, feeds the log enricher's failure metric)
+            // so the missing index entries stay observable. Evaluation failures from
+            // either provider are wrapped in SearchParameterEvaluationException, which names the owning search
+            // parameter without resource values, so the write or reindex job fails safely. Cancellation and
+            // OutOfMemoryException propagate unwrapped so the caller can cancel or recover from memory pressure.
             ICompiledFhirPath expression;
             try
             {
@@ -337,7 +345,53 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 return Array.Empty<ITypedElement>();
             }
 
-            return expression.Select(element, context).ToArray();
+            IEnumerable<ITypedElement> values;
+            try
+            {
+                values = expression.Select(element, context);
+            }
+            catch (Exception ex) when (ex is not (OperationCanceledException or OutOfMemoryException))
+            {
+                throw new SearchParameterEvaluationException(evaluationErrorSearchParameterUrl, ex);
+            }
+
+            return EnumerateSearchParameterValues(values, evaluationErrorSearchParameterUrl).ToArray();
+        }
+
+        internal static IEnumerable<ITypedElement> EnumerateSearchParameterValues(IEnumerable<ITypedElement> values, Uri searchParameterUrl)
+        {
+            IEnumerator<ITypedElement> enumerator;
+            try
+            {
+                enumerator = values.GetEnumerator();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException && ex is not OutOfMemoryException)
+            {
+                throw new SearchParameterEvaluationException(searchParameterUrl, ex);
+            }
+
+            using (enumerator)
+            {
+                while (true)
+                {
+                    ITypedElement current;
+                    try
+                    {
+                        if (!enumerator.MoveNext())
+                        {
+                            yield break;
+                        }
+
+                        current = enumerator.Current;
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException && ex is not OutOfMemoryException)
+                    {
+                        throw new SearchParameterEvaluationException(searchParameterUrl, ex);
+                    }
+
+                    yield return current;
+                }
+            }
         }
 
         internal static Type GetSearchValueTypeForSearchParamType(SearchParamType? searchParamType)

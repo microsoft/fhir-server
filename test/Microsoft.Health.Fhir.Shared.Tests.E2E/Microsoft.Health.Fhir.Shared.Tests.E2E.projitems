@@ -103,6 +103,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ChainingSortAndSearchValidationTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CustomSearchParamTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RequiresIsolatedDatabaseAttribute.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\RequiresTrustedForwardersAttribute.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\ForwardedHeaders\SmartScopeForwardedHeadersTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\ForwardedHeaders\StartupWithTrustedForwarders.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\ForwardedHeaders\TrustedForwardersTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\BasicSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CanonicalSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CanonicalSearchTests.cs" />

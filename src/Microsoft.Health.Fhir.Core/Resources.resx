@@ -876,6 +876,10 @@
     <value>Reindex failed with unknown error. Please resubmit to try again.</value>
     <comment>Error message when a reindex job fails with an unknown error</comment>
   </data>
+  <data name="SearchParameterEvaluationFailed" xml:space="preserve">
+    <value>Failed to evaluate search parameter '{0}'. Review its expression.</value>
+    <comment>Safe evaluation error identifying the search parameter, without resource values or underlying exception details.</comment>
+  </data>
   <data name="ReindexingFailedForResourcesListed" xml:space="preserve">
     <value>{0} resource(s) of the following type(s) failed to be reindexed: '{1}'.</value>
   </data>
