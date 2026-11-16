@@ -25,11 +25,12 @@ Version divergence lives mostly in 206 `#if` directives in shared code, in per-v
 
 1. **Optimize the current shape (deployed E2E on every PR)**: cache modules, parallelize unit tests, shard E2E against the per-PR deployment, and start scanners earlier. *(Rejected as the end state. Per-PR provisioning keeps the floor at ~45–50 minutes. Kept as Phase 1 because it changes no coverage.)*
 2. **Warm pool of pre-provisioned environments leased per PR**: removes provisioning time. *(Rejected. Search parameters and reindex state are server-global, so each lease needs a full reset. Idle environments cost money, and tests stay serial within an environment.)*
-3. **Tiered validation**: in-proc E2E and local containers on every PR, the deployed matrix run conditionally within the required pipeline, and post-merge plus nightly breadth. *(Chosen.)*
+3. **Tiered validation**: PRs run only against local containers (SQL Server, Cosmos emulator, Azurite) and never provision Azure. Real Azure SQL and Cosmos run post-merge, on request, and nightly. *(Chosen.)*
+4. **Tiered validation with path-triggered Azure deployment on PRs**: like option 3, but risky paths deploy today's Azure matrix on the PR. *(Rejected. Replaying the last 255 merges on `main` against the candidate path list, 59% would have triggered it (56% excluding Dependabot). Package bumps, auth/SMART, `build/**` and search-parameter changes are frequent, so most PRs would stay slow.)*
 
 ## Decision
 
-We will split validation into three tiers. Nothing that runs on PRs today stops running; only its trigger changes.
+We will split validation into tiers. **PRs never provision Azure resources.** Real Azure SQL and Cosmos run post-merge, nightly, or on explicit request. Nothing that runs on PRs today stops running; only its trigger and hosting change.
 
 ![Where each check runs](../images/ci-pipeline/tiers.svg)
 
@@ -37,7 +38,7 @@ We will split validation into three tiers. Nothing that runs on PRs today stops 
 
 - **Build once.** A single Linux build covers both target frameworks and captures analyzer results. Later jobs reuse its outputs.
 - **Unit tests.** All test projects for every FHIR version run in parallel. net10 runs as a separate parallel job.
-- **R4 SQL E2E, full suite, in-proc.** Tests run in `InProcTestFhirServer` against a pinned SQL Server 2025 container (the schema uses `vector(1536)`) and Azurite. They are split into disjoint shards by measured class time. Each shard runs collections serially and gets its own database and storage. Classes that touch server-global state (reindex, custom search parameters, server-wide history counts, import, bulk delete, system export) share one serial shard.
+- **R4 SQL E2E, full suite, in-proc.** Tests run in `InProcTestFhirServer` against a pinned SQL Server 2025 Linux container and Azurite. SQL Server 2025 is required because the schema uses the `vector(1536)` type; it uses no vector indexes or preview features. They are split into disjoint shards by measured class time. Each shard runs collections serially and gets its own database and storage. Classes that touch server-global state (reindex, custom search parameters, server-wide history counts, import, bulk delete, system export) share one serial shard.
 - **R4 SQL integration tests** run against the container, excluding schema-compatibility tests.
 - **R4 Cosmos integration and E2E** run against a Cosmos emulator container on each agent, described below.
 - **Stu3 and R5 version-sensitive subset.** This is an explicit, checked-in manifest of discovered tests covering search, bundle and transaction, conformance, validate, patch and CRUD.
@@ -49,13 +50,29 @@ Full Guardian and coverage aggregation with the Codecov upload move to a separat
 
 ![Target PR gate](../images/ci-pipeline/timeline-after.svg)
 
-**Tier 2 — the deployed matrix as it runs today, executed conditionally inside the same required run.** A classifier stage at time zero sets a variable that enables today's deployed stages. They run when any of the following applies:
+**Tier 1+ — wider container coverage, path-triggered on the PR.** A classifier stage at time zero adds container-hosted jobs; Azure is never provisioned. The extra jobs run in parallel with Tier 1, so wall time stays roughly the same.
 
-- **Changed paths:** `Directory.Packages.props`, `global.json`, `build/**`, the Dockerfile, `samples/templates/**`, Stu3/R4B/R5-specific source, SQL `Schema/**`, Cosmos registration, client initialization, collection setup, stored procedures and retry policies, search-parameter definitions and the registry, reindex code, auth code, or `appsettings*.json`.
-- **Opt-in:** a `full-matrix` label. Adding the label after the run has started requires re-queuing.
-- **Branches:** every release and hotfix branch.
+- **Full Stu3 and R5 SQL E2E suites, in-proc and sharded.** Triggered by `Directory.Packages.props`, `global.json`, Stu3/R4B/R5-specific source, search-parameter definitions and the registry, or reindex code.
+- **Full reindex E2E against containers.** Triggered by search-parameter or reindex code.
+- **`SqlServerSqlCompatibilityTests` against the SQL container.** Triggered by `src/Microsoft.Health.Fhir.SqlServer/**` (including `Schema/**`) or Core persistence code. In the merge history, that matches about 26% of commits.
+- **All four images built, with container smoke tests.** Triggered by the Dockerfile or `build/**`.
 
-Changes under `src/Microsoft.Health.Fhir.SqlServer/**` or Core persistence code also run the schema-compatibility tests. Tier 2 runs inside "PR Build & Deploy" because a separately triggered, non-required pipeline cannot block a merge. It keeps today's deployed cells and stays slower than 20 minutes.
+**Tier 2 — real Azure on a PR, on request.** When `fullDeployment` is true (see *Modular hosting* below), today's deployed stages run inside the same required run, with real Azure SQL, Cosmos, ACA, AAD, managed identity and Key Vault. The deployed tests run in addition to Tier 1, not instead of it. Running inside "PR Build & Deploy" means the deployed run blocks merging, which a separately triggered pipeline could not.
+
+- **When to use it.** It is expected, but not enforced, for changes to `samples/templates/**`, Cosmos client initialization and collection setup, authentication registration, or ACA/Key Vault configuration. These changed in under 5% of recent merges.
+- **Release and hotfix branches** always run Tier 2.
+
+**Modular hosting: one test definition, two targets.**
+
+- **The test code already switches on environment.** `TestFhirServerFactory` targets a deployed server when `TestEnvironmentUrl*` is set and starts `InProcTestFhirServer` otherwise. Integration fixtures use whatever `SqlServer:ConnectionString` provides, and fall back to the product's emulator defaults (`CosmosDbLocalEmulator`) when `CosmosDb__Host` is unset.
+- **One test-job template.** It takes a `target: container | azure` parameter, and only the setup steps differ by target. For `container`, setup starts the pinned SQL Server, Cosmos emulator and Azurite containers with readiness probes, and clears remote URLs. For `azure`, it reads Key Vault secrets and deployed URLs. Test selection, sharding, retry and result publishing are identical. The PR pipeline (definition 9) and post-merge CI (definition 27) share this template, so their test definitions stop diverging.
+- **One switch, `fullDeployment`.** A classifier job at time zero computes it as true when any of the following holds:
+  - The PR has the `full-matrix` label. The job reads it through the GitHub API, and only at run start, so adding the label later requires re-queuing.
+  - The run was queued manually with the `fullDeployment` runtime parameter set. A `/azp run` comment cannot pass parameters.
+  - The source is a `release/*` or `hotfix/*` branch, or the run is CI.
+
+  The classifier publishes the switch as an output variable. Provisioning, deployment, deployed-test and Azure cleanup stages are conditioned on it. Stages that depend on optional stages (cleanup, coverage, aggregation) accept `Skipped` as well as `Succeeded`, because ADO otherwise skips them.
+- **To verify in Phase 3.** Whether a manually queued run on `refs/pull/<n>/merge` reports its status to the GitHub PR. If it does not, the label is the only on-PR entry point.
 
 **Tier 3 — post-merge and nightly.** Definition 27 keeps batched CI and runs the full deployed matrix: real AAD, managed identity and Key Vault, multi-replica reindex, schema compatibility against Azure SQL, all images multi-arch, and full Guardian. It also re-enables the Cosmos `ReindexOperation` jobs that today run only on PRs. When a batch fails, a failure-triggered bisect replays the immutable merge SHAs in fresh environments. Before assigning a culprit it reproduces both the failure and a passing baseline. It reports an inconclusive result and never blames a PR for an infrastructure failure. The merging PR's author owns the fix. Revert is allowed except for applied schema migrations, which are forward-fixed. Nightly runs cover:
 
@@ -71,10 +88,10 @@ Changes under `src/Microsoft.Health.Fhir.SqlServer/**` or Core persistence code 
 - **Which emulator.** Tier 1 uses `mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator` (the legacy image, pinned by digest), one instance per agent. It is already the repository's devcontainer Cosmos, and the product's `CosmosDbLocalEmulator` defaults target it. Each agent's emulator is private, so there is no shared state, leasing or cross-PR cleanup.
 - **Why not vNext.** The newer `vnext` emulator is not used. Its documentation lists stored procedures as "Not planned", and the server relies on four: `hardDelete`, `replaceSingleResource`, `acquireReindexJobs` and `updateUnsupportedSearchParameters`. It is also gateway-only, while the server defaults to Direct mode.
 - **What it covers.** The legacy emulator runs the Cosmos query engine and stored procedures. It therefore covers query generation, persistence and stored-procedure behavior, the main risk from Core changes.
-- **What it misses.** Managed identity and data-plane RBAC, ARM-driven container setup, throttling and 429 retry behavior, partition splits, and current service query-engine behavior. Tier 2 triggers on Cosmos paths (registration, client initialization, collection setup, stored procedures, retry policies), and Tier 3 runs real Cosmos on every batch.
+- **What it misses.** Managed identity and data-plane RBAC, ARM-driven container setup, throttling and 429 retry behavior, partition splits, and current service query-engine behavior. Changes to Cosmos client initialization, collection setup or retry policies should use the `full-matrix` label. Tier 3 runs real Cosmos on every batch.
 - **Known constraints.** It is x64 only, has a slow start-up that needs a readiness probe, degrades beyond about ten containers (a partition count is set and per-fixture container creation is bounded), and has a history of unreliable starts.
 - **Stability spike.** Before the emulator becomes required, R4 Cosmos integration and E2E run against it as a non-required job for about two weeks. The spike measures start-up time, start failures, and first-attempt pass rate against the deployed run.
-- **Fallback.** If the spike fails, Tier 1 uses one persistent Cosmos account, or two to three if ARM throttling appears. The account keeps `disableLocalAuth = true`. Each run creates uniquely named containers through ARM, as fixtures do today, deletes them at the end, and relies on a sweeper for leaked containers. Test hosting must then use the pipeline's credential instead of the system-assigned managed identity. A leased, pre-provisioned container pool is a last resort if ARM throttling cannot be contained.
+- **Fallback.** If the spike fails, Tier 1 uses one pre-existing shared Cosmos account, or two to three if ARM throttling appears. No account is provisioned per PR, and the account keeps `disableLocalAuth = true`. Each run creates uniquely named containers through ARM, as fixtures do today, deletes them at the end, and relies on a sweeper for leaked containers. Test hosting must then use the pipeline's credential instead of the system-assigned managed identity. A leased, pre-provisioned container pool is a last resort if ARM throttling cannot be contained.
 
 **Cutover gates.** Tier 1 replaces today's default gate only when all of the following hold:
 
@@ -88,8 +105,11 @@ Changes under `src/Microsoft.Health.Fhir.SqlServer/**` or Core persistence code 
 
 ## Consequences
 
-- **Faster PRs.** Ordinary PRs get a required check of about 19–25 minutes, down from 82, after three phases. Phase 1 brings it to about 45–50 minutes with no coverage change. Phase 2 adds in-proc SQL and sharding. Phase 3 makes the deployed matrix conditional.
-- **Less real-deployment coverage on ordinary PRs.** Real AAD, managed identity, Key Vault, ACA configuration and multi-replica cache sync stop running on PRs that don't hit a Tier 2 trigger. Their regressions are caught post-merge and attributed by bisect, so main can be red for a batch before it is fixed.
+- **Faster PRs.** Every PR without the `full-matrix` label gets a required check of about 19–25 minutes, down from 82, after three phases. Phase 1 brings it to about 45–50 minutes with no coverage change. Phase 2 adds in-proc SQL and sharding. Phase 3 stops provisioning Azure for PRs.
+- **Fewer Azure resources and less cleanup.** PRs stop creating a resource group, NSP, Key Vault, AAD test applications, two SQL servers, an ACA environment, five container apps and a Cosmos account per build. The per-PR cleanup stages and the "Delete Old Resource Groups" job (p90 17 minutes) are no longer needed for unlabeled PRs.
+- **Less real-Azure coverage before merge.** Real AAD, managed identity, Key Vault, ACA configuration, multi-replica cache sync, Azure SQL behavior and Cosmos throttling stop running on PRs unless full deployment is requested (label or runtime parameter). Their regressions are caught post-merge and attributed by bisect, so main can be red for a batch before it is fixed.
+- **Label discipline.** Authors may forget the label on template, auth-registration or Cosmos-client changes. Post-merge CI catches these, and reviewers are expected to request the label.
+- **SQL container differences.** The container uses SQL authentication rather than Entra workload identity, and does not reproduce Azure SQL resource governance or Azure-only database options. Schema compatibility against Azure SQL runs in Tier 3.
 - **New test infrastructure to build and maintain:**
   - In-proc configuration loading from packaged test artifacts. Today `InProcTestFhirServer` reads `launchSettings.json` from the source tree, and inherited remote test URLs must be cleared.
   - Generated shard manifests and the shard harness.
@@ -103,5 +123,5 @@ Changes under `src/Microsoft.Health.Fhir.SqlServer/**` or Core persistence code 
 
   Each needs measurement during the shadow period. Retries are not raised to compensate.
 - **Test burden.** Tests that rely on server-global state must be identified and kept on the serial shard. Cosmos fixtures change ownership semantics.
-- **Faster than the current pipeline.** Tier 2 PRs (dependency bumps, build and schema changes, version-specific code) still take today's duration minus the Phase 1 savings.
+- **Full-deployment PRs stay slow.** PRs that request full deployment, and release and hotfix branches, still take today's duration minus the Phase 1 savings.
 - **Other ADRs.** This ADR changes CI policy only. It does not change product behavior or the FHIR contract, and it supersedes no existing ADR.

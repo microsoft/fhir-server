@@ -1,49 +1,64 @@
-<svg xmlns='http://www.w3.org/2000/svg' width='1000' height='308' font-family='Segoe UI,Helvetica,Arial,sans-serif'><rect width='100%' height='100%' fill='#fff'/>
-<text x='16' y='28' font-size='18' font-weight='600' fill='#1f2328'>Where each check runs after the change</text>
-<rect x='24.0' y='40' width='232.0' height='258' rx='8' fill='#0969da' fill-opacity='0.06' stroke='#0969da'/>
-<rect x='24.0' y='40' width='232.0' height='40' rx='8' fill='#0969da'/>
-<text x='140.0' y='58' font-size='13' font-weight='600' fill='#fff' text-anchor='middle'>Every PR (Tier 1)</text>
-<text x='140.0' y='73' font-size='10' fill='#fff' text-anchor='middle'>&lt; 20 min, in-proc + containers</text>
-<text x='34.0' y='100' font-size='11.5' fill='#1f2328'>• Build once, all TFMs</text>
-<text x='34.0' y='122' font-size='11.5' fill='#1f2328'>• Unit tests: all versions, net11+net10</text>
-<text x='34.0' y='144' font-size='11.5' fill='#1f2328'>• R4 SQL E2E full (in-proc, sharded)</text>
-<text x='34.0' y='166' font-size='11.5' fill='#1f2328'>• R4 SQL integration (container)</text>
-<text x='34.0' y='188' font-size='11.5' fill='#1f2328'>• R4 Cosmos integ + E2E (emulator)</text>
-<text x='34.0' y='210' font-size='11.5' fill='#1f2328'>• Stu3/R5 version-sensitive subset</text>
-<text x='34.0' y='232' font-size='11.5' fill='#1f2328'>• Reindex lifecycle + BulkUpdate</text>
-<text x='34.0' y='254' font-size='11.5' fill='#1f2328'>• R4 image + container smoke</text>
-<text x='34.0' y='276' font-size='11.5' fill='#1f2328'>• CredScan + fast scanners</text>
-<rect x='264.0' y='40' width='232.0' height='258' rx='8' fill='#9a6700' fill-opacity='0.06' stroke='#9a6700'/>
-<rect x='264.0' y='40' width='232.0' height='40' rx='8' fill='#9a6700'/>
-<text x='380.0' y='58' font-size='13' font-weight='600' fill='#fff' text-anchor='middle'>Risky-path PRs (Tier 2)</text>
-<text x='380.0' y='73' font-size='10' fill='#fff' text-anchor='middle'>today&#x27;s full deployed matrix</text>
-<text x='274.0' y='100' font-size='11.5' fill='#1f2328'>• Deployed: Stu3/R4 SQL+Cosmos, R5 SQL</text>
-<text x='274.0' y='122' font-size='11.5' fill='#1f2328'>• Real AAD, managed identity, Key Vault</text>
-<text x='274.0' y='144' font-size='11.5' fill='#1f2328'>• Full Reindex + BulkUpdate jobs</text>
-<text x='274.0' y='166' font-size='11.5' fill='#1f2328'>• SQL schema-compat tests</text>
-<text x='274.0' y='188' font-size='11.5' fill='#1f2328'>Triggers: packages, global.json, build/**,</text>
-<text x='274.0' y='210' font-size='11.5' fill='#1f2328'>  Dockerfile, templates, Stu3/R4B/R5 src,</text>
-<text x='274.0' y='232' font-size='11.5' fill='#1f2328'>  Schema/**, SqlServer/**, Reindex, auth</text>
-<text x='274.0' y='254' font-size='11.5' fill='#1f2328'>• full-matrix label, release/hotfix</text>
-<rect x='504.0' y='40' width='232.0' height='258' rx='8' fill='#8250df' fill-opacity='0.06' stroke='#8250df'/>
-<rect x='504.0' y='40' width='232.0' height='40' rx='8' fill='#8250df'/>
-<text x='620.0' y='58' font-size='13' font-weight='600' fill='#fff' text-anchor='middle'>Post-merge CI (Tier 3)</text>
-<text x='620.0' y='73' font-size='10' fill='#fff' text-anchor='middle'>batched + auto-bisect</text>
-<text x='514.0' y='100' font-size='11.5' fill='#1f2328'>• Full deployed matrix</text>
-<text x='514.0' y='122' font-size='11.5' fill='#1f2328'>• Multi-replica reindex / cache sync</text>
-<text x='514.0' y='144' font-size='11.5' fill='#1f2328'>• Schema compat vs Azure SQL</text>
-<text x='514.0' y='166' font-size='11.5' fill='#1f2328'>• All 4 images, multi-arch</text>
-<text x='514.0' y='188' font-size='11.5' fill='#1f2328'>• Full Guardian + TSA</text>
-<text x='514.0' y='210' font-size='11.5' fill='#1f2328'>• Cosmos ReindexOperation (re-enabled)</text>
-<text x='514.0' y='232' font-size='11.5' fill='#1f2328'>• Failure → bisect → PR author fixes</text>
-<rect x='744.0' y='40' width='232.0' height='258' rx='8' fill='#59636e' fill-opacity='0.06' stroke='#59636e'/>
-<rect x='744.0' y='40' width='232.0' height='40' rx='8' fill='#59636e'/>
-<text x='860.0' y='58' font-size='13' font-weight='600' fill='#fff' text-anchor='middle'>Nightly</text>
-<text x='860.0' y='73' font-size='10' fill='#fff' text-anchor='middle'>breadth &amp; long-running</text>
-<text x='754.0' y='100' font-size='11.5' fill='#1f2328'>• ExportLongRunning (exists)</text>
-<text x='754.0' y='122' font-size='11.5' fill='#1f2328'>• Full reindex breadth</text>
-<text x='754.0' y='144' font-size='11.5' fill='#1f2328'>• Large import perf tests</text>
-<text x='754.0' y='166' font-size='11.5' fill='#1f2328'>• Schema compat full range</text>
-<text x='754.0' y='188' font-size='11.5' fill='#1f2328'>• CodeQL full build</text>
-<text x='754.0' y='210' font-size='11.5' fill='#1f2328'>• net10 full E2E</text>
+<svg xmlns='http://www.w3.org/2000/svg' width='1000' height='339' font-family='Segoe UI,Helvetica,Arial,sans-serif'><rect width='100%' height='100%' fill='#fff'/>
+<text x='16' y='28' font-size='18' font-weight='600' fill='#1f2328'>Where each check runs: one test template, target = container | azure</text>
+<rect x='23.0' y='40' width='186.0' height='291' rx='8' fill='#0969da' fill-opacity='0.06' stroke='#0969da'/>
+<rect x='23.0' y='40' width='186.0' height='42' rx='8' fill='#0969da'/>
+<text x='116.0' y='58' font-size='12' font-weight='600' fill='#fff' text-anchor='middle'>Every PR (Tier 1)</text>
+<text x='116.0' y='74' font-size='10' fill='#fff' text-anchor='middle'>containers only, &lt; 20 min</text>
+<text x='32.0' y='102' font-size='11' fill='#1f2328'>• Build once, all TFMs</text>
+<text x='32.0' y='123' font-size='11' fill='#1f2328'>• Unit tests, all versions</text>
+<text x='32.0' y='144' font-size='11' fill='#1f2328'>• R4 SQL E2E full (in-proc)</text>
+<text x='32.0' y='165' font-size='11' fill='#1f2328'>• R4 SQL integration</text>
+<text x='32.0' y='186' font-size='11' fill='#1f2328'>• R4 Cosmos integ + E2E</text>
+<text x='42.0' y='207' font-size='11' fill='#59636e'>(legacy emulator)</text>
+<text x='32.0' y='228' font-size='11' fill='#1f2328'>• Stu3/R5 sensitive subset</text>
+<text x='32.0' y='249' font-size='11' fill='#1f2328'>• Reindex lifecycle</text>
+<text x='32.0' y='270' font-size='11' fill='#1f2328'>• BulkUpdate</text>
+<text x='32.0' y='291' font-size='11' fill='#1f2328'>• R4 image + smoke</text>
+<text x='32.0' y='312' font-size='11' fill='#1f2328'>• CredScan, source scanners</text>
+<rect x='215.0' y='40' width='186.0' height='291' rx='8' fill='#1a7f37' fill-opacity='0.06' stroke='#1a7f37'/>
+<rect x='215.0' y='40' width='186.0' height='42' rx='8' fill='#1a7f37'/>
+<text x='308.0' y='58' font-size='12' font-weight='600' fill='#fff' text-anchor='middle'>PR, path-triggered (Tier 1+)</text>
+<text x='308.0' y='74' font-size='10' fill='#fff' text-anchor='middle'>more containers, same wall time</text>
+<text x='224.0' y='102' font-size='11' fill='#1f2328'>• Full Stu3/R5 E2E</text>
+<text x='234.0' y='123' font-size='11' fill='#59636e'>packages, SDK, version src,</text>
+<text x='234.0' y='144' font-size='11' fill='#59636e'>search params, reindex</text>
+<text x='224.0' y='165' font-size='11' fill='#1f2328'>• Full reindex E2E</text>
+<text x='234.0' y='186' font-size='11' fill='#59636e'>search params, reindex</text>
+<text x='224.0' y='207' font-size='11' fill='#1f2328'>• Schema-compat (container)</text>
+<text x='234.0' y='228' font-size='11' fill='#59636e'>SqlServer/**, Persistence</text>
+<text x='224.0' y='249' font-size='11' fill='#1f2328'>• All 4 images + smoke</text>
+<text x='234.0' y='270' font-size='11' fill='#59636e'>Dockerfile, build/**</text>
+<rect x='407.0' y='40' width='186.0' height='291' rx='8' fill='#9a6700' fill-opacity='0.06' stroke='#9a6700'/>
+<rect x='407.0' y='40' width='186.0' height='42' rx='8' fill='#9a6700'/>
+<text x='500.0' y='58' font-size='12' font-weight='600' fill='#fff' text-anchor='middle'>PR on request (Tier 2)</text>
+<text x='500.0' y='74' font-size='10' fill='#fff' text-anchor='middle'>fullDeployment = real Azure</text>
+<text x='416.0' y='102' font-size='11' fill='#1f2328'>• Today&#x27;s deployed matrix</text>
+<text x='416.0' y='123' font-size='11' fill='#1f2328'>• Real Azure SQL + Cosmos</text>
+<text x='416.0' y='144' font-size='11' fill='#1f2328'>• AAD, MI, Key Vault, ACA</text>
+<text x='416.0' y='165' font-size='11' fill='#1f2328'>Triggered by:</text>
+<text x='426.0' y='186' font-size='11' fill='#59636e'>full-matrix label</text>
+<text x='426.0' y='207' font-size='11' fill='#59636e'>fullDeployment parameter</text>
+<text x='426.0' y='228' font-size='11' fill='#59636e'>release/hotfix branches</text>
+<text x='416.0' y='249' font-size='11' fill='#1f2328'>• Runs in addition to Tier 1</text>
+<rect x='599.0' y='40' width='186.0' height='291' rx='8' fill='#8250df' fill-opacity='0.06' stroke='#8250df'/>
+<rect x='599.0' y='40' width='186.0' height='42' rx='8' fill='#8250df'/>
+<text x='692.0' y='58' font-size='12' font-weight='600' fill='#fff' text-anchor='middle'>Post-merge CI (Tier 3)</text>
+<text x='692.0' y='74' font-size='10' fill='#fff' text-anchor='middle'>batched + auto-bisect</text>
+<text x='608.0' y='102' font-size='11' fill='#1f2328'>• Full deployed matrix</text>
+<text x='608.0' y='123' font-size='11' fill='#1f2328'>• Multi-replica reindex</text>
+<text x='608.0' y='144' font-size='11' fill='#1f2328'>• Schema compat, Azure SQL</text>
+<text x='608.0' y='165' font-size='11' fill='#1f2328'>• Multi-arch images</text>
+<text x='608.0' y='186' font-size='11' fill='#1f2328'>• Full Guardian + TSA</text>
+<text x='608.0' y='207' font-size='11' fill='#1f2328'>• Cosmos ReindexOperation</text>
+<text x='608.0' y='228' font-size='11' fill='#1f2328'>• Bisect: author fixes</text>
+<rect x='791.0' y='40' width='186.0' height='291' rx='8' fill='#59636e' fill-opacity='0.06' stroke='#59636e'/>
+<rect x='791.0' y='40' width='186.0' height='42' rx='8' fill='#59636e'/>
+<text x='884.0' y='58' font-size='12' font-weight='600' fill='#fff' text-anchor='middle'>Nightly</text>
+<text x='884.0' y='74' font-size='10' fill='#fff' text-anchor='middle'>breadth &amp; long-running</text>
+<text x='800.0' y='102' font-size='11' fill='#1f2328'>• ExportLongRunning</text>
+<text x='800.0' y='123' font-size='11' fill='#1f2328'>• Full reindex breadth</text>
+<text x='800.0' y='144' font-size='11' fill='#1f2328'>• Large import perf</text>
+<text x='800.0' y='165' font-size='11' fill='#1f2328'>• Schema compat full range</text>
+<text x='800.0' y='186' font-size='11' fill='#1f2328'>• CodeQL full build</text>
+<text x='800.0' y='207' font-size='11' fill='#1f2328'>• net10 full E2E</text>
 </svg>
