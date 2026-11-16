@@ -39,6 +39,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
     public class FhirPathProviderTests : IDisposable
     {
         private readonly IFhirPathProvider _originalAmbientProvider = FhirPathProvider.Instance;
+        private readonly IModelInfoProvider _originalModelInfoProvider = ModelInfoProvider.Instance;
+
+        public FhirPathProviderTests()
+        {
+            // Other classes in this assembly (e.g. VectorSearchExpressionParserTests) install a mock process-wide
+            // ModelInfoProvider and never restore it. Production code exercised here reads that global internally
+            // (ReferenceSearchValue, ReferenceSearchValueParser, MoneyToQuantitySearchValueConverter), so a local
+            // provider is not enough: install the real one for each test and restore the previous one in Dispose.
+            // This collection disables parallelization, so no other test observes the swap.
+            ModelExtensions.SetModelInfoProvider();
+        }
 
         [Fact]
         public void GivenProviderFactory_WhenProviderIsReadMultipleTimes_ThenItIsCreatedLazilyOnce()
@@ -781,7 +792,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             => $"{entry.SearchParameter.Url}|{entry.SearchParameter.Code}|{JsonConvert.SerializeObject(entry.Value)}";
 
         public void Dispose()
-            => FhirPathProvider.SetProviderFactory(() => _originalAmbientProvider);
+        {
+            FhirPathProvider.SetProviderFactory(() => _originalAmbientProvider);
+            ModelInfoProvider.SetProvider(_originalModelInfoProvider);
+        }
 
         private sealed class CorpusReferenceToElementResolver : IReferenceToElementResolver
         {
