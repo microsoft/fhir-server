@@ -48,6 +48,8 @@ try {
             foreach ($case in @(
                 @{ Profile = ''; Filter = 'Category!=ExportLongRunning'; Query = '/[(DataStore=SqlServer)&(Category!=ExportLongRunning)&(Category!=ProfileOnly)]'; Strict = $false },
                 @{ Profile = ''; Filter = 'Category=Search&Category!=BulkUpdate'; Query = '/[(DataStore=SqlServer)&(Category=Search)&(Category!=BulkUpdate)&(Category!=ProfileOnly)]'; Strict = $false },
+                @{ Profile = 'Baseline'; Filter = 'Category!=ExportLongRunning'; Query = '/[(DataStore=SqlServer)&(Category!=ExportLongRunning)&(Category!=ProfileOnly)]'; Strict = $false },
+                @{ Profile = 'Baseline'; Filter = 'Category=Search&Category!=BulkUpdate'; Query = '/[(DataStore=SqlServer)&(Category=Search)&(Category!=BulkUpdate)&(Category!=ProfileOnly)]'; Strict = $false },
                 @{ Profile = 'Long128'; Filter = 'Category=ResourceIdBoundary'; Query = '/[(DataStore=SqlServer)&(Category=ResourceIdBoundary)]'; Strict = $true },
                 @{ Profile = 'Other'; Filter = 'Category=ProfileSpecific'; Query = '/[(DataStore=SqlServer)&(Category=ProfileSpecific)]'; Strict = $true }
             )) {
