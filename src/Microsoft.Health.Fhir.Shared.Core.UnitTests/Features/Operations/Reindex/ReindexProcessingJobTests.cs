@@ -405,6 +405,51 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             Assert.False(exception.IsCustomerCaused);
         }
 
+        /// <summary>
+        /// A search parameter evaluation failure must be reported in the job result without exposing internal exception details.
+        /// </summary>
+        [Fact]
+        public async Task GivenEvaluationFailure_WhenProcessingResources_ThenResultContainsSafeError()
+        {
+            // Arrange
+            var url = new Uri("http://example.org/SearchParameter/evaluation-test");
+            var evaluationException = new SearchParameterEvaluationException(url, new InvalidOperationException("Internal evaluation details."));
+            var definition = new ReindexProcessingJobDefinition
+            {
+                MaximumNumberOfResourcesPerQuery = 100,
+                MaximumNumberOfResourcesPerWrite = 100,
+                ResourceType = "Patient",
+                ResourceCount = new SearchResultReindex { Count = 1, StartResourceSurrogateId = 1, EndResourceSurrogateId = 100 },
+                SearchParameterHash = "patientHash",
+                TypeId = (int)JobType.ReindexProcessing,
+            };
+            var jobInfo = new JobInfo
+            {
+                Id = 1,
+                GroupId = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+                QueueType = (byte)QueueType.Reindex,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+            _searchParameterOperations.GetSearchParameterHash("Patient").Returns(definition.SearchParameterHash);
+            _searchService.SearchBySurrogateIdRange(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+                .Returns(new SearchResult(new[] { CreateSearchResultEntry("1", "Patient") }, null, null, new List<Tuple<string, string>>()));
+            _resourceWrapperFactory.UpdateAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromException(evaluationException));
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionSoftFailureException>(
+                () => _reindexProcessingJobTaskFactory().ExecuteAsync(jobInfo, _cancellationToken));
+
+            // Assert
+            var result = Assert.IsType<ReindexProcessingJobResult>(exception.Error);
+            var persistedResult = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(JsonConvert.SerializeObject(result));
+            Assert.Equal(evaluationException.Message, persistedResult.Error);
+            Assert.Same(evaluationException, exception.InnerException);
+            Assert.False(exception.IsCustomerCaused);
+        }
+
         [Fact]
         public async Task ProcessQueryAsync_WithGeneralException_CatchesAndSetsError()
         {

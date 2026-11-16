@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
@@ -31,6 +32,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     public class TypedElementSearchIndexerTests
     {
         private readonly ISearchIndexer _searchIndexer;
+        private readonly ISupportedSearchParameterDefinitionManager _definitionManager;
 
         private static readonly string ResourceStaus = "http://hl7.org/fhir/SearchParameter/Resource-status";
         private static readonly string ResourceUse = "http://hl7.org/fhir/SearchParameter/Resource-use";
@@ -46,6 +48,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public TypedElementSearchIndexerTests()
         {
             var supportedSearchParameterDefinitionManager = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            _definitionManager = supportedSearchParameterDefinitionManager;
             var typedElementToSearchValueConverterManager = GetTypeConverterAsync().Result;
             var referenceToElementResolver = Substitute.For<IReferenceToElementResolver>();
             var modelInfoProvider = ModelInfoProvider.Instance;
@@ -70,6 +73,242 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             FhirTypedElementToSearchValueConverterManager fhirTypedElementToSearchValueConverterManager = await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync();
             return fhirTypedElementToSearchValueConverterManager;
+        }
+
+        /// <summary>
+        /// A deferred expression evaluation failure must identify the search parameter without exposing resource values.
+        /// </summary>
+        [Theory]
+        [InlineData("Observation.value.where(matches('['))", ValueSets.SearchParamType.String)]
+        [InlineData("Observation.value.where(matches('['))", ValueSets.SearchParamType.Composite)]
+        [InlineData("Observation.value.where(matches($this & '['))", ValueSets.SearchParamType.String)]
+        public void GivenExpressionEvaluationFailure_WhenExtract_ThenExceptionIdentifiesSearchParameter(string expression, ValueSets.SearchParamType searchParameterType)
+        {
+            // Arrange
+            var url = new Uri("http://example.org/SearchParameter/evaluation-test");
+            _definitionManager.GetSearchParameters("Observation").Returns(
+                new[] { new SearchParameterInfo("evaluation-test", "evaluation-test", searchParameterType, url, expression: expression) });
+            var observation = new Observation { Value = new FhirString("synthetic-value") };
+
+            // Act
+            var exception = Assert.Throws<SearchParameterEvaluationException>(() => _searchIndexer.Extract(observation.ToResourceElement()));
+
+            // Assert
+            Assert.Equal(url, exception.SearchParameterUrl);
+            Assert.Equal(string.Format(Core.Resources.SearchParameterEvaluationFailed, url), exception.Message);
+            Assert.NotNull(exception.InnerException);
+            Assert.DoesNotContain("synthetic-value", exception.Message);
+        }
+
+        /// <summary>
+        /// A failing composite component expression must be reported against the owning composite search parameter.
+        /// </summary>
+        [Fact]
+        public void GivenCompositeComponentExpressionFailure_WhenExtract_ThenExceptionIdentifiesOwningComposite()
+        {
+            // Arrange
+            var compositeUrl = new Uri("http://example.org/SearchParameter/composite");
+            var componentUrl = new Uri("http://hl7.org/fhir/SearchParameter/Observation-value");
+            var componentDefinition = new SearchParameterInfo(
+                "value",
+                "value",
+                ValueSets.SearchParamType.String,
+                componentUrl,
+                expression: "Observation.value");
+            var component = new SearchParameterComponentInfo(
+                componentUrl,
+                "value.where(matches($this & '['))")
+            {
+                ResolvedSearchParameter = componentDefinition,
+            };
+            var composite = new SearchParameterInfo(
+                "composite",
+                "composite",
+                ValueSets.SearchParamType.Composite,
+                compositeUrl,
+                components: new[] { component },
+                expression: "Observation");
+            _definitionManager.GetSearchParameters("Observation").Returns(new[] { composite });
+            var observation = new Observation { Value = new FhirString("synthetic-value") };
+
+            // Act
+            var exception = Assert.Throws<SearchParameterEvaluationException>(() => _searchIndexer.Extract(observation.ToResourceElement()));
+
+            // Assert
+            Assert.Equal(compositeUrl, exception.SearchParameterUrl);
+            Assert.Equal(string.Format(Core.Resources.SearchParameterEvaluationFailed, compositeUrl), exception.Message);
+            Assert.DoesNotContain(componentUrl.ToString(), exception.Message);
+            Assert.DoesNotContain("synthetic-value", exception.Message);
+        }
+
+        /// <summary>
+        /// A composite search parameter without a URL cannot be identified in errors and must be rejected.
+        /// </summary>
+        [Fact]
+        public void GivenCompositeSearchParameterWithoutUrl_WhenExtract_ThenThrowsArgumentNullException()
+        {
+            // Arrange
+            var composite = new SearchParameterInfo(
+                "composite",
+                "composite",
+                ValueSets.SearchParamType.Composite,
+                expression: "Observation");
+            _definitionManager.GetSearchParameters("Observation").Returns(new[] { composite });
+
+            // Act
+            var exception = Assert.Throws<ArgumentNullException>(() => _searchIndexer.Extract(new Observation().ToResourceElement()));
+
+            // Assert
+            Assert.Equal("Url", exception.ParamName);
+        }
+
+        /// <summary>
+        /// An expression that fails immediately is skipped and must not prevent other search parameters from being indexed.
+        /// </summary>
+        [Theory]
+        [InlineData("Observation.value.where(")]
+        [InlineData("Observation.value.nonExistingFunction()")]
+        public void GivenImmediateExpressionFailure_WhenExtract_ThenOtherSearchParametersAreStillIndexed(string expression)
+        {
+            // Arrange
+            var invalidParameter = new SearchParameterInfo(
+                "invalid",
+                "invalid",
+                ValueSets.SearchParamType.String,
+                new Uri("http://example.org/SearchParameter/invalid"),
+                expression: expression);
+            var validParameter = new SearchParameterInfo(
+                "status",
+                "status",
+                ValueSets.SearchParamType.Token,
+                new Uri(ResourceStaus),
+                expression: ObservationStausExpression);
+            _definitionManager.GetSearchParameters("Observation").Returns(new[] { invalidParameter, validParameter });
+            var observation = new Observation { Status = ObservationStatus.Final };
+
+            // Act
+            var entries = _searchIndexer.Extract(observation.ToResourceElement());
+
+            // Assert
+            var entry = Assert.Single(entries);
+            Assert.Equal("final", Assert.IsType<TokenSearchValue>(entry.Value).Code);
+        }
+
+        /// <summary>
+        /// Composite compilation failures are not evaluation failures and must not be wrapped.
+        /// </summary>
+        [Fact]
+        public void GivenCompositeCompilationFailure_WhenExtract_ThenOriginalExceptionIsNotWrapped()
+        {
+            // Arrange
+            _definitionManager.GetSearchParameters("Observation").Returns(
+                new[]
+                {
+                    new SearchParameterInfo(
+                        "invalid",
+                        "invalid",
+                        ValueSets.SearchParamType.Composite,
+                        new Uri("http://example.org/SearchParameter/invalid"),
+                        expression: "Observation.value.where("),
+                });
+            var observation = new Observation { Value = new FhirString("synthetic-value") };
+
+            // Act
+            var exception = Record.Exception(() => _searchIndexer.Extract(observation.ToResourceElement()));
+
+            // Assert
+            Assert.NotNull(exception);
+            Assert.IsNotType<SearchParameterEvaluationException>(exception);
+        }
+
+        /// <summary>
+        /// Converter failures are not evaluation failures and must not be wrapped.
+        /// </summary>
+        [Fact]
+        public void GivenConverterFailure_WhenExtract_ThenOriginalExceptionIsNotWrapped()
+        {
+            // Arrange
+            var converterManager = Substitute.For<ITypedElementToSearchValueConverterManager>();
+            var converter = Substitute.For<ITypedElementToSearchValueConverter>();
+            converterManager.TryGetConverter("string", typeof(StringSearchValue), out Arg.Any<ITypedElementToSearchValueConverter>())
+                .Returns(call =>
+                {
+                    call[2] = converter;
+                    return true;
+                });
+            var expectedException = new InvalidOperationException("Conversion failed.");
+            converter.ConvertTo(Arg.Any<ITypedElement>()).Returns(_ => throw expectedException);
+            _definitionManager.GetSearchParameters("Observation").Returns(
+                new[]
+                {
+                    new SearchParameterInfo(
+                        "value",
+                        "value",
+                        ValueSets.SearchParamType.String,
+                        new Uri("http://example.org/SearchParameter/value"),
+                        expression: "Observation.value"),
+                });
+            var indexer = new TypedElementSearchIndexer(
+                _definitionManager,
+                converterManager,
+                Substitute.For<IReferenceToElementResolver>(),
+                ModelInfoProvider.Instance,
+                Substitute.For<ILogger<TypedElementSearchIndexer>>());
+            var observation = new Observation { Value = new FhirString("synthetic-value") };
+
+            // Act
+            var exception = Assert.Throws<InvalidOperationException>(() => indexer.Extract(observation.ToResourceElement()));
+
+            // Assert
+            Assert.Same(expectedException, exception);
+        }
+
+        [Theory]
+        [InlineData(typeof(OperationCanceledException))]
+        [InlineData(typeof(OutOfMemoryException))]
+        public void GivenCriticalExceptionFromGetEnumerator_WhenEnumerated_ThenOriginalExceptionEscapes(Type exceptionType)
+        {
+            // Arrange
+            var expectedException = (Exception)Activator.CreateInstance(exceptionType);
+            var values = Substitute.For<IEnumerable<ITypedElement>>();
+            values.GetEnumerator().Returns(_ => throw expectedException);
+
+            // Act
+            var exception = Record.Exception(() => TypedElementSearchIndexer.EnumerateSearchParameterValues(values, new Uri("http://example.org/SearchParameter/test")).ToList());
+
+            // Assert
+            Assert.Same(expectedException, exception);
+        }
+
+        [Theory]
+        [InlineData(typeof(OperationCanceledException), false)]
+        [InlineData(typeof(OperationCanceledException), true)]
+        [InlineData(typeof(OutOfMemoryException), false)]
+        [InlineData(typeof(OutOfMemoryException), true)]
+        public void GivenCriticalExceptionFromMoveNextOrCurrent_WhenEnumerated_ThenOriginalExceptionEscapes(Type exceptionType, bool throwFromCurrent)
+        {
+            // Arrange
+            var expectedException = (Exception)Activator.CreateInstance(exceptionType);
+            var enumerator = Substitute.For<IEnumerator<ITypedElement>>();
+            if (throwFromCurrent)
+            {
+                enumerator.MoveNext().Returns(true);
+                enumerator.Current.Returns(_ => throw expectedException);
+            }
+            else
+            {
+                enumerator.MoveNext().Returns(_ => throw expectedException);
+            }
+
+            var values = Substitute.For<IEnumerable<ITypedElement>>();
+            values.GetEnumerator().Returns(enumerator);
+
+            // Act
+            var exception = Record.Exception(() => TypedElementSearchIndexer.EnumerateSearchParameterValues(values, new Uri("http://example.org/SearchParameter/test")).ToList());
+
+            // Assert
+            Assert.Same(expectedException, exception);
+            enumerator.Received(1).Dispose();
         }
 
         [Fact]

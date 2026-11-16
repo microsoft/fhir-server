@@ -12,6 +12,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
@@ -102,6 +103,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private IEnumerable<SearchIndexEntry> ProcessCompositeSearchParameter(SearchParameterInfo searchParameter, ITypedElement resource, EvaluationContext context)
         {
             Debug.Assert(searchParameter?.Type == SearchParamType.Composite, "The search parameter must be composite.");
+            Uri searchParameterUrl = EnsureArg.IsNotNull(searchParameter.Url, nameof(searchParameter.Url));
 
             SearchParameterInfo compositeSearchParameterInfo = searchParameter;
 
@@ -109,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             IEnumerable<ITypedElement> rootObjects = expression.Invoke(resource, context);
 
-            foreach (var rootObject in rootObjects)
+            foreach (var rootObject in EnumerateSearchParameterValues(rootObjects, searchParameterUrl))
             {
                 int numberOfComponents = searchParameter.Component.Count;
                 bool skip = false;
@@ -130,7 +132,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         componentSearchParameterDefinition.TargetResourceTypes,
                         rootObject,
                         component.Expression,
-                        context);
+                        context,
+                        searchParameterUrl);
 
                     // Filter out any search value that's not valid as a composite component.
                     extractedComponentValues = extractedComponentValues
@@ -169,7 +172,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchParameter.TargetResourceTypes,
                 resource,
                 searchParameter.Expression,
-                context))
+                context,
+                searchParameter.Url))
             {
                 if (searchValue != null)
                 {
@@ -195,7 +199,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IReadOnlyList<string> allowedReferenceResourceTypes,
             ITypedElement element,
             string fhirPathExpression,
-            EvaluationContext context)
+            EvaluationContext context,
+            Uri evaluationErrorSearchParameterUrl)
         {
             Debug.Assert(searchParameterType != SearchParamType.Composite, "The search parameter must be non-composite.");
 
@@ -225,6 +230,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 _logger.LogWarning("The extracted values should not be null.");
                 return results;
             }
+
+            extractedValues = EnumerateSearchParameterValues(extractedValues, evaluationErrorSearchParameterUrl);
 
             // If there is target set, then filter the extracted values to only those types.
             if (searchParameterType == SearchParamType.Reference &&
@@ -312,6 +319,42 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             return results;
+        }
+
+        internal static IEnumerable<ITypedElement> EnumerateSearchParameterValues(IEnumerable<ITypedElement> values, Uri searchParameterUrl)
+        {
+            IEnumerator<ITypedElement> enumerator;
+            try
+            {
+                enumerator = values.GetEnumerator();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException && ex is not OutOfMemoryException)
+            {
+                throw new SearchParameterEvaluationException(searchParameterUrl, ex);
+            }
+
+            using (enumerator)
+            {
+                while (true)
+                {
+                    ITypedElement current;
+                    try
+                    {
+                        if (!enumerator.MoveNext())
+                        {
+                            yield break;
+                        }
+
+                        current = enumerator.Current;
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException && ex is not OutOfMemoryException)
+                    {
+                        throw new SearchParameterEvaluationException(searchParameterUrl, ex);
+                    }
+
+                    yield return current;
+                }
+            }
         }
 
         internal static Type GetSearchValueTypeForSearchParamType(SearchParamType? searchParamType)
