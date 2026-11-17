@@ -115,6 +115,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 {
                     Status = Specimen.SpecimenStatus.Available,
                     Type = new CodeableConcept("http://example.org", "diagnostics-test") { Text = marker },
+                    Subject = new ResourceReference($"Patient/{Guid.NewGuid():N}"),
                 })).Resource;
 
                 var readback = await client.ReadAsync<Specimen>($"Specimen/{specimen.Id}");
