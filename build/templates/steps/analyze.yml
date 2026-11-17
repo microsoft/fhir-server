@@ -4,6 +4,7 @@ parameters:
   analyzePackages: true
   runAntiMalware: true
   credScanDirectory: '$(Build.SourcesDirectory)'
+  fastCleanup: false
 
 steps:
 - task: UseDotNet@2
@@ -187,11 +188,36 @@ steps:
     GdnPublishTsaConfigFile: '$(Build.SourcesDirectory)\build\jobs\tsaconfig.gdntsa'
     GdnPublishTsaExportedResultsPublishable: true
 
-- task: DeleteFiles@1
-  displayName: 'Delete files to make space'
-  inputs:
-    SourceFolder: '$(Build.SourcesDirectory)'
-    Contents: '**\*'
+- ${{ if eq(parameters.fastCleanup, true) }}:
+  - task: PowerShell@2
+    displayName: 'Delete files to make space'
+    inputs:
+      targetType: 'inline'
+      pwsh: true
+      script: |
+        Get-ChildItem -LiteralPath "$(Build.SourcesDirectory)" -Force |
+          Where-Object { -not $_.Name.StartsWith('.') } |
+          Remove-Item -Recurse -Force -ErrorAction Continue
+
+        $remainingEntries = @(Get-ChildItem -LiteralPath "$(Build.SourcesDirectory)" -Force)
+        $remainingNames = @($remainingEntries | ForEach-Object { $_.Name })
+        if ($remainingNames.Count -eq 0) {
+          Write-Host 'Remaining top-level entries: (none)'
+        } else {
+          Write-Host "Remaining top-level entries: $($remainingNames -join ', ')"
+        }
+
+        $unexpectedEntries = @($remainingEntries | Where-Object { -not $_.Name.StartsWith('.') })
+        if ($unexpectedEntries.Count -gt 0) {
+          throw "Fast cleanup left non-dot top-level entries: $($unexpectedEntries.Name -join ', ')"
+        }
+
+- ${{ if eq(parameters.fastCleanup, false) }}:
+  - task: DeleteFiles@1
+    displayName: 'Delete files to make space'
+    inputs:
+      SourceFolder: '$(Build.SourcesDirectory)'
+      Contents: '**\*'
 
 - task: DropValidatorTask@0
   displayName: 'SBOM Validator and Publisher Task'

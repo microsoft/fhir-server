@@ -101,7 +101,6 @@ stages:
 - stage: AnalyzeSecurity
   displayName: 'Run Security Analysis and Validate'
   dependsOn:
-  - BuildUnitTests
   - BuildArtifacts
   jobs:
   - job: Guardian
@@ -111,6 +110,8 @@ stages:
         - ImageOverride -equals $(InternalWindowsImage)
     steps:
     - template: ./templates/steps/analyze.yml
+      parameters:
+        fastCleanup: true
 
 - stage: DockerBuild  
   displayName: 'Build images'
