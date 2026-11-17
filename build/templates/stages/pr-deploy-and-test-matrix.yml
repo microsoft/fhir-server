@@ -36,6 +36,7 @@ parameters:
     testParameters:
       keyVaultName: $(KeyVaultBaseName)
       containerAppName: $(DeploymentEnvironmentName)
+      exclusiveCategory: History
   - version: Stu3
     dataStore: sql
     deployStage: deployStu3Sql
@@ -69,6 +70,7 @@ parameters:
       keyVaultName: $(KeyVaultNameSql)
       containerAppName: $(DeploymentEnvironmentNameSql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      exclusiveCategory: History
   - version: R4
     dataStore: cosmos
     deployStage: deployR4
@@ -99,6 +101,7 @@ parameters:
     testParameters:
       keyVaultName: $(KeyVaultNameR4)
       containerAppName: $(DeploymentEnvironmentNameR4)
+      exclusiveCategory: History
   - version: R4
     dataStore: sql
     deployStage: deployR4Sql
@@ -132,6 +135,7 @@ parameters:
       keyVaultName: $(KeyVaultNameR4Sql)
       containerAppName: $(DeploymentEnvironmentNameR4Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      exclusiveCategory: History
   - version: R5
     dataStore: sql
     deployStage: deployR5Sql
@@ -165,6 +169,7 @@ parameters:
       keyVaultName: $(KeyVaultNameR5Sql)
       containerAppName: $(DeploymentEnvironmentNameR5Sql)
       integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      exclusiveCategory: History
 
 stages:
 - ${{ each cell in parameters.cells }}:
