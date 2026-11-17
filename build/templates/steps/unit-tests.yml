@@ -1,0 +1,27 @@
+# Runs all unit test modules for one target framework in parallel (see Invoke-ParallelUnitTests.ps1).
+# Opt-in via parallelUnitTests in dotnet-build.yml. The TFM directory in each module path provides
+# isolation, so -f must not be passed.
+parameters:
+  targetFramework: ''
+  codeCoverage: false
+  maxParallel: 4
+
+steps:
+- ${{ if eq(parameters.codeCoverage, 'true') }}:
+  - pwsh: |
+      & "$(System.DefaultWorkingDirectory)/build/scripts/Invoke-ParallelUnitTests.ps1" -Framework "${{ parameters.targetFramework }}" -Configuration "$(buildConfiguration)" -SourceRoot "$(Build.SourcesDirectory)/src" -MaxParallel ${{ parameters.maxParallel }} -TestArguments '--retry-failed-tests','3','--coverage','--coverage-output-format','cobertura','--coverage-settings',"$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml",'--report-trx','--publish-azdo-test-results','--publish-azdo-run-name','Unit Tests'
+      exit $LASTEXITCODE
+    displayName: 'dotnet test with coverage'
+    workingDirectory: $(System.DefaultWorkingDirectory)
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
+
+- ${{ else }}:
+  - pwsh: |
+      & "$(System.DefaultWorkingDirectory)/build/scripts/Invoke-ParallelUnitTests.ps1" -Framework "${{ parameters.targetFramework }}" -Configuration "$(buildConfiguration)" -SourceRoot "$(Build.SourcesDirectory)/src" -MaxParallel ${{ parameters.maxParallel }} -TestArguments '--retry-failed-tests','3','--report-trx','--publish-azdo-test-results','--publish-azdo-run-name','Unit Tests'
+      exit $LASTEXITCODE
+    displayName: 'dotnet test'
+    workingDirectory: $(System.DefaultWorkingDirectory)
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)

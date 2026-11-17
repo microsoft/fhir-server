@@ -71,6 +71,7 @@ stages:
         targetBuildFramework: $(defaultBuildFramework)
         unitTest: false
         codeCoverage: true
+        parallelUnitTests: true
 
 - stage: BuildArtifacts
   displayName: 'Build artifacts'

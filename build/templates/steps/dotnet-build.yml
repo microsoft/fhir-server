@@ -6,6 +6,8 @@ parameters:
   packageArtifacts: false
   packageIntegrationTests: false
   targetBuildFramework: ''
+  # Opt-in: run unit test modules in parallel via unit-tests.yml (PR pipeline only).
+  parallelUnitTests: false
 
 steps:
 - task: UseDotNet@2
@@ -29,7 +31,13 @@ steps:
       arguments: '--configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="$(assemblySemVer)" -p:FileVersion="$(assemblySemFileVer)" -p:InformationalVersion="$(informationalVersion)" -p:Version="$(majorMinorPatch)" -warnaserror -f ${{parameters.targetBuildFramework}}'
       workingDirectory: $(System.DefaultWorkingDirectory)
 
-- ${{ if or(eq(parameters.unitTest, 'true'), eq(parameters.codeCoverage, 'true')) }}:
+- ${{ if and(or(eq(parameters.unitTest, 'true'), eq(parameters.codeCoverage, 'true')), eq(parameters.parallelUnitTests, 'true')) }}:
+  - template: unit-tests.yml
+    parameters:
+      targetFramework: ${{ parameters.targetBuildFramework }}
+      codeCoverage: ${{ parameters.codeCoverage }}
+
+- ${{ if and(or(eq(parameters.unitTest, 'true'), eq(parameters.codeCoverage, 'true')), ne(parameters.parallelUnitTests, 'true')) }}:
   - task: DotNetCoreCLI@2
     ${{ if eq(parameters.codeCoverage, 'true') }}:
       displayName: 'dotnet test with coverage'
