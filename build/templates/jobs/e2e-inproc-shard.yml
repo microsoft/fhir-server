@@ -76,6 +76,10 @@ jobs:
 
   - pwsh: |
       $ErrorActionPreference = 'Stop'
+
+      # InProcTestFhirServer requires testconfiguration.json beside the test dll; it is a source file the E2E zip omits.
+      Copy-Item -LiteralPath (Join-Path $env:BUILD_SOURCESDIRECTORY 'test/Configuration/testconfiguration.json') -Destination (Join-Path $env:BUILD_SOURCESDIRECTORY '_e2e/${{ parameters.version }}/') -Force
+
       $manifest = Join-Path $env:BUILD_SOURCESDIRECTORY 'build/test-shards/${{ parameters.manifest }}'
       $shardCount = @((Get-Content -Raw $manifest | ConvertFrom-Json).shards).Count
       if ($shardCount -ne [int] $env:SHARD_LEG_COUNT) {
