@@ -116,7 +116,7 @@ wait_until_ready
 token_response=$(curl -sS --cacert "$CERT" "$BASE_URL/connect/token" \
   -d grant_type=client_credentials -d client_id=globalAdminServicePrincipal -d client_secret=globalAdminServicePrincipal \
   -d scope=fhir-api)
-token=$(printf '%s' "$token_response" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || true)
+token=$(printf '%s' "$token_response" | grep -o '"access_token"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4 || true)
 if [ -z "$token" ]; then
   fail "No access token from /connect/token. Response: $token_response"
 fi
