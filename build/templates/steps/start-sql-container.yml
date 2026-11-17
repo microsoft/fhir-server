@@ -10,10 +10,6 @@ parameters:
 - name: shadow
   type: boolean
   default: false
-# TODO(next task, revert before merge): shadow-measurement only; remove with the controlFailure job in container-tests.yml.
-- name: imageOverride
-  type: string
-  default: ''
 
 steps:
 - pwsh: |
@@ -37,10 +33,6 @@ steps:
     }
 
     $image = $fromLines[0].Matches[0].Groups[1].Value
-    if ('${{ parameters.imageOverride }}') {
-      $image = '${{ parameters.imageOverride }}'
-    }
-
     $name = 'fhir-sql-$(System.JobId)'
 
     $probe = [Net.Sockets.TcpClient]::new()

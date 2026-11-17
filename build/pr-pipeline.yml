@@ -9,8 +9,7 @@ parameters:
 - name: containerShadow
   displayName: 'Run shadow container test stages'
   type: boolean
-  # TODO(next task, revert before merge): true only for the shadow measurement runs; the final default is false.
-  default: true
+  default: false
 
 variables:
 - template: pr-variables.yml
