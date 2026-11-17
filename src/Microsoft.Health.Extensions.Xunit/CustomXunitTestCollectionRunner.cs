@@ -15,16 +15,21 @@ namespace Microsoft.Health.Extensions.Xunit
     /// </summary>
     internal sealed class CustomXunitTestCollectionRunner : XunitTestCollectionRunner
     {
-        protected override ValueTask<RunSummary> RunTestClass(XunitTestCollectionRunnerContext context, IXunitTestClass testClass, IReadOnlyCollection<IXunitTestCase> testCases)
+        protected override async ValueTask<RunSummary> RunTestClass(XunitTestCollectionRunnerContext context, IXunitTestClass testClass, IReadOnlyCollection<IXunitTestCase> testCases)
         {
             if (testClass == null)
             {
-                return base.RunTestClass(context, testClass, testCases);
+                return await base.RunTestClass(context, testClass, testCases);
             }
 
-            var orderer = context.TestCaseOrderer ?? DefaultTestCaseOrderer.Instance;
             var runner = new CustomXunitTestClassRunner();
-            return runner.Run(testClass, testCases, context.ExplicitOption, context.MessageBus, orderer, context.Aggregator.Clone(), context.CancellationTokenSource, context.CollectionFixtureMappings);
+            if (testClass is not FixtureArgumentSetTestClass variantClass)
+            {
+                return await runner.Run(testClass, testCases, context.ExplicitOption, context.MessageBus, context.Aggregator.Clone(), context.CancellationTokenSource, context.ParallelMode, context.Scheduler, context.CollectionFixtureMappings);
+            }
+
+            await using var arguments = CustomXunitTestClassRunner.CreateFixtureArguments(variantClass, context.CollectionFixtureMappings);
+            return await runner.Run(testClass, testCases, context.ExplicitOption, context.MessageBus, context.Aggregator.Clone(), context.CancellationTokenSource, context.ParallelMode, context.Scheduler, arguments);
         }
     }
 }
