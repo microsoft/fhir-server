@@ -36,6 +36,15 @@
 .PARAMETER OutDir
     Directory for diff artifacts. Defaults to the system temp directory (outside the repo).
 
+.PARAMETER TemplateParameters
+    Runtime parameters of the pipeline (name = value), sent as templateParameters in the preview of both refs.
+    Omitted: each pipeline renders at its parameter defaults.
+
+.PARAMETER HeadTemplateParameters
+    Runtime parameters sent for the head ref only, over -TemplateParameters. Compares a new parameter value
+    against the defaults; the base ref may not even declare the parameter, so compare a commit with itself
+    (-BaseRef and -HeadRef the same SHA) to see what the value changes.
+
 .PARAMETER SortStages
     Orders the top-level `stages:` entries by stage name before diffing, so a pure stage
     reordering is not reported as a difference. Text-based: entries are split on top-level
@@ -81,6 +90,8 @@ param(
     [Parameter(Mandatory)] [string] $HeadRef,
     [string] $ShaBranch = 'refs/heads/main',
     [string] $OutDir = [IO.Path]::GetTempPath(),
+    [hashtable] $TemplateParameters = @{},
+    [hashtable] $HeadTemplateParameters = @{},
     [switch] $SortStages
 )
 
@@ -93,7 +104,7 @@ $adoResourceId = '499b84ac-1321-427f-aa17-267ca6975798'
 
 $headers = $null
 
-function Get-PreviewBody([string] $Ref) {
+function Get-PreviewBody([string] $Ref, [hashtable] $Parameters) {
     $self = @{}
     if ($Ref -match '^[0-9a-fA-F]{40}$') {
         $self.refName = $ShaBranch
@@ -103,14 +114,19 @@ function Get-PreviewBody([string] $Ref) {
         $self.refName = $Ref
     }
 
-    return @{ previewRun = $true; resources = @{ repositories = @{ self = $self } } } | ConvertTo-Json -Depth 6 -Compress
+    $body = @{ previewRun = $true; resources = @{ repositories = @{ self = $self } } }
+    if ($Parameters.Count -gt 0) {
+        $body.templateParameters = $Parameters
+    }
+
+    return $body | ConvertTo-Json -Depth 6 -Compress
 }
 
-function Get-FinalYaml([int] $Id, [string] $Ref) {
+function Get-FinalYaml([int] $Id, [string] $Ref, [hashtable] $Parameters) {
     # The only call this script makes: the read-only Preview endpoint.
     $uri = "https://dev.azure.com/$organization/$project/_apis/pipelines/$Id/preview?api-version=7.1"
     try {
-        $response = Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -ContentType 'application/json' -Body (Get-PreviewBody $Ref)
+        $response = Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -ContentType 'application/json' -Body (Get-PreviewBody $Ref $Parameters)
     }
     catch {
         $detail = if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
@@ -173,6 +189,8 @@ try {
         throw 'Unable to get an Azure DevOps token; run "az login" first.'
     }
     $headers = @{ Authorization = "Bearer $tokenText" }
+    $headParameters = $TemplateParameters.Clone()
+    foreach ($name in $HeadTemplateParameters.Keys) { $headParameters[$name] = $HeadTemplateParameters[$name] }
 
     $null = New-Item -ItemType Directory -Force -Path $OutDir
     $differing = [System.Collections.Generic.List[int]]::new()
@@ -184,8 +202,8 @@ try {
         $diffFile = Join-Path $OutDir "$id.diff"
 
         try {
-            $base = Format-Yaml (Get-FinalYaml $id $BaseRef)
-            $head = Format-Yaml (Get-FinalYaml $id $HeadRef)
+            $base = Format-Yaml (Get-FinalYaml $id $BaseRef $TemplateParameters)
+            $head = Format-Yaml (Get-FinalYaml $id $HeadRef $headParameters)
             if ($SortStages) {
                 $base = Sort-StageEntries $base
                 $head = Sort-StageEntries $head
