@@ -19,6 +19,8 @@ stages:
     parameters:
       version: R5
       shadow: true
+  # Checks that build/test-shards/sql-e2e.json still partitions the E2E tests; warns, never fails.
+  - template: ../jobs/shard-lint.yml
   # TODO(next task, revert before merge): controlled shadow-failure check. A nonexistent SQL image digest
   # must leave this job "succeeded with issues" and the run and GitHub check green.
   - template: ../jobs/sql-integration-container.yml
