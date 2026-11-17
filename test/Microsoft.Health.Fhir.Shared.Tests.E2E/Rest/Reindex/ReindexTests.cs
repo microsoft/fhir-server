@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ReindexTests : IClassFixture<HttpIntegrationTestFixture>, IAsyncLifetime
     {
-        private static readonly TimeSpan JobTimeout = TimeSpan.FromMinutes(10);
+        private static readonly TimeSpan JobTimeout = TimeSpan.FromMinutes(5);
         private readonly HttpIntegrationTestFixture _fixture;
         private readonly bool _isSql;
         private readonly ITestOutputHelper _output;
