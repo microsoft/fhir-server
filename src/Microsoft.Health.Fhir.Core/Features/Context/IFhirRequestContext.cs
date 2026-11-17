@@ -12,6 +12,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 {
     public interface IFhirRequestContext : IRequestContext, ICloneable
     {
+        /// <summary>
+        /// Gets or sets the FHIR base URI, finalized after endpoint routing.
+        /// </summary>
+        new Uri BaseUri { get; set; }
+
         string ResourceType { get; set; }
 
         /// <summary>

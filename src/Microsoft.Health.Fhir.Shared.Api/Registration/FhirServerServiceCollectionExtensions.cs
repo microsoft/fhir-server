@@ -12,6 +12,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -79,6 +80,14 @@ namespace Microsoft.Extensions.DependencyInjection
                 });
 
             mvcBuilderAction?.Invoke(builder);
+
+            services.AddOptions<MvcOptions>().Configure<IPartitionManager>((options, partitions) =>
+            {
+                if (partitions.Partitions.Count > 0)
+                {
+                    options.Conventions.Add(new PartitionRouteConvention());
+                }
+            });
 
             var fhirServerConfiguration = new FhirServerConfiguration();
 
@@ -298,8 +307,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
                     // Add FHIR runtime middleware, that runs validations on top of the state of the FHIR service.
                     app.UseFhirRuntimeState(_fhirServerConfiguration);
-
-                    app.UseMiddleware<SearchPostReroutingMiddleware>();
 
                     app.UseInitialImportLock();
 

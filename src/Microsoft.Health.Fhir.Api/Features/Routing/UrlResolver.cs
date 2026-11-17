@@ -395,6 +395,37 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     pathBase += "/";
                 }
 
+                if (httpContext.GetEndpoint()?.Metadata.GetMetadata<PartitionRouteMetadata>()?.HasPrefix == true)
+                {
+                    var partitionValues = new RouteValueDictionary(routeValues)
+                    {
+                        [PartitionRouteMetadata.PartitionId] = httpContext.Request.RouteValues[PartitionRouteMetadata.PartitionId],
+                    };
+                    string partitionRouteName = PartitionRouteMetadata.NamePrefix + routeName;
+                    uriString = address == null ?
+                        _linkGenerator.GetUriByRouteValues(
+                            httpContext,
+                            partitionRouteName,
+                            partitionValues,
+                            scheme,
+                            new HostString(host),
+                            pathBase) :
+                        _linkGenerator.GetUriByAddress(
+                            httpContext,
+                            new RouteValuesAddress { RouteName = partitionRouteName, ExplicitValues = partitionValues, AmbientValues = address.AmbientValues },
+                            partitionValues,
+                            address.AmbientValues,
+                            scheme,
+                            new HostString(host),
+                            pathBase);
+                    if (uriString != null)
+                    {
+                        return new Uri(uriString);
+                    }
+
+                    // Service-wide endpoints have no partition-prefixed route.
+                }
+
                 uriString = address == null ?
                     _linkGenerator.GetUriByRouteValues(
                         httpContext,

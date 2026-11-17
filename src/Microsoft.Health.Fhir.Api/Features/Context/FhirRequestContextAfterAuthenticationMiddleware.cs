@@ -4,18 +4,18 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Partitions;
-using Microsoft.Health.Fhir.Core.Features.Routing;
 
 namespace Microsoft.Health.Fhir.Api.Features.Context
 {
@@ -28,18 +28,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
         private readonly IPartitionManager _partitionManager;
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly ILogger<FhirRequestContextAfterAuthenticationMiddleware> _logger;
-
-        private static readonly HashSet<string> ServiceAuthenticationPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "/connect/token",
-            "/connect/introspect",
-            "/.well-known/openid-configuration",
-            "/.well-known/oauth-authorization-server",
-            "/.well-known/jwks",
-            "/" + KnownRoutes.WellKnownSmartConfiguration,
-            "/AadSmartOnFhirProxy/authorize",
-            "/AadSmartOnFhirProxy/token",
-        };
 
         public FhirRequestContextAfterAuthenticationMiddleware(
             RequestDelegate next,
@@ -71,23 +59,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             if (_partitionManager.Partitions.Count > 0
                 && (!_securityConfiguration.Enabled || context.User?.Identity?.IsAuthenticated == true))
             {
-                var originalPath = (PathString)context.Items[FhirRequestContextMiddleware.OriginalPathKey];
-                if (!IsServiceAuthenticationEndpoint(originalPath))
+                var endpoint = context.GetEndpoint();
+                if (endpoint?.Metadata.GetMetadata<PartitionIndependentAttribute>() == null)
                 {
-                    string partitionId = null;
-                    bool partitionRequired = false;
-                    if (originalPath.StartsWithSegments(new PathString("/partition"), StringComparison.OrdinalIgnoreCase, out PathString afterKeyword))
+                    string partitionId = context.Request.RouteValues[PartitionRouteMetadata.PartitionId]?.ToString();
+                    bool partitionRequired;
+                    if (partitionId != null)
                     {
-                        partitionId = afterKeyword.Value?.Split('/', 3).ElementAtOrDefault(1);
-                        partitionRequired = string.IsNullOrEmpty(partitionId) || !_partitionManager.Partitions.Contains(partitionId);
+                        partitionRequired = !_partitionManager.Partitions.Contains(partitionId);
                     }
                     else if (_partitionManager.Partitions.Count == 1)
                     {
                         partitionId = _partitionManager.Partitions.Single();
+                        partitionRequired = false;
                     }
-                    else if (!originalPath.Equals(new PathString(KnownRoutes.HealthCheck), StringComparison.OrdinalIgnoreCase))
+                    else
                     {
-                        partitionRequired = true;
+                        partitionRequired = endpoint?.Metadata.GetMetadata<PartitionRouteMetadata>() != null;
                     }
 
                     if (partitionRequired)
@@ -100,26 +88,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                     }
 
                     fhirRequestContextAccessor.RequestContext.PartitionId = partitionId;
+                    if (endpoint?.Metadata.GetMetadata<PartitionRouteMetadata>()?.HasPrefix == true)
+                    {
+                        fhirRequestContextAccessor.RequestContext.BaseUri = new Uri(UriHelper.BuildAbsolute(
+                            context.Request.Scheme,
+                            context.Request.Host,
+                            context.Request.PathBase.Add(PartitionRouteMetadata.GetPrefix(context.Request)),
+                            "/"));
+                    }
                 }
             }
 
             // Call the next delegate/middleware in the pipeline
             await _next(context);
-        }
-
-        private static bool IsServiceAuthenticationEndpoint(PathString path)
-        {
-            string value = path.Value?.TrimEnd('/');
-            if (ServiceAuthenticationPaths.Contains(value))
-            {
-                return true;
-            }
-
-            const string callbackPrefix = "/AadSmartOnFhirProxy/callback/";
-            return value != null
-                && value.StartsWith(callbackPrefix, StringComparison.OrdinalIgnoreCase)
-                && value.Length > callbackPrefix.Length
-                && value.IndexOf('/', callbackPrefix.Length) < 0;
         }
     }
 }

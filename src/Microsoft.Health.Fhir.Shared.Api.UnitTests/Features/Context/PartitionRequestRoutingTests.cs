@@ -5,15 +5,21 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Reflection;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ApplicationParts;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
@@ -22,10 +28,15 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.Context;
+using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Partitions;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -38,6 +49,106 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
     public class PartitionRequestRoutingTests
     {
         private const string AuthenticationScheme = "PartitionTest";
+
+        [Fact]
+        public async Task GivenPartitionRoute_WhenRequestingPatients_ThenPathsAreUnchangedAndPartitionIsARouteValue()
+        {
+            using var host = CreateHost(2, pathBase: "/fhir");
+            using var client = host.GetTestClient();
+
+            using var response = await client.GetAsync(new Uri("/fhir/partition/partition-a/Patient", UriKind.Relative));
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("/partition/partition-a/Patient", Assert.Single(response.Headers.GetValues("X-Test-Path")));
+            Assert.Equal("/fhir", Assert.Single(response.Headers.GetValues("X-Test-PathBase")));
+            Assert.Equal("partition-a", Assert.Single(response.Headers.GetValues("X-Test-Route-Partition")));
+        }
+
+        [Fact]
+        public async Task GivenProductionControllers_WhenPartitionsAreConfigured_ThenNamedRoutesAndAuthenticationRemainValid()
+        {
+            using var host = CreateHost(2, securityEnabled: true, productionControllers: true);
+            using var client = host.GetTestClient();
+            var links = host.Services.GetRequiredService<LinkGenerator>();
+            var endpoints = host.Services.GetRequiredService<EndpointDataSource>().Endpoints.OfType<RouteEndpoint>().ToArray();
+
+            Assert.Equal("/partition/partition-a/metadata", links.GetPathByName(
+                PartitionRouteMetadata.NamePrefix + RouteNames.Metadata,
+                new RouteValueDictionary { ["partitionId"] = "partition-a" }));
+            Assert.DoesNotContain(endpoints, endpoint =>
+                endpoint.Metadata.GetMetadata<PartitionRouteMetadata>()?.HasPrefix == true
+                && endpoint.Metadata.GetMetadata<PartitionIndependentAttribute>() != null);
+
+            foreach (string id in new[] { "partition-a", "unknown" })
+            {
+                using var response = await client.PostAsync(new Uri($"/partition/{id}/", UriKind.Relative), content: null);
+                Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            }
+        }
+
+        [Theory]
+        [InlineData(0, "/Patient/_search", "http://localhost/")]
+        [InlineData(1, "/Patient/_search", "http://localhost/")]
+        [InlineData(2, "/partition/partition-a/Patient/_search", "http://localhost/partition/partition-a/")]
+        public async Task GivenPostSearch_WhenRoutingRequest_ThenSearchTransformationPrecedesPartitionRouting(int partitionCount, string path, string baseUri)
+        {
+            using var host = CreateHost(partitionCount);
+            using var client = host.GetTestClient();
+            using var content = new FormUrlEncodedContent(new[] { new KeyValuePair<string, string>("name", "Alice") });
+
+            using var response = await client.PostAsync(new Uri(path, UriKind.Relative), content);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(baseUri, await response.Content.ReadAsStringAsync());
+            Assert.Equal(baseUri + "Patient", Assert.Single(response.Headers.GetValues("X-Test-Link")));
+        }
+
+        [Theory]
+        [InlineData("/partition/partition-a/metadata", "http://localhost/partition/partition-a/")]
+        [InlineData("/metadata", "http://localhost/")]
+        public async Task GivenAbsoluteActionRoute_WhenRequestingMetadata_ThenControllerPrefixIsNotDuplicated(string path, string baseUri)
+        {
+            using var host = CreateHost(1);
+            using var client = host.GetTestClient();
+
+            using var response = await client.GetAsync(new Uri(path, UriKind.Relative));
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(baseUri, await response.Content.ReadAsStringAsync());
+            Assert.Equal(baseUri + "metadata", Assert.Single(response.Headers.GetValues("X-Test-Metadata-Link")));
+            Assert.Equal("http://localhost/.well-known/smart-configuration", Assert.Single(response.Headers.GetValues("X-Test-Service-Link")));
+        }
+
+        [Theory]
+        [InlineData("/fhir/Patient", "http://localhost/fhir/")]
+        [InlineData("/fhir/partition/partition-a/Patient", "http://localhost/fhir/partition/partition-a/")]
+        public async Task GivenPartitionRoute_WhenGeneratingResourceAndPagingLinks_ThenLinksRetainTheSelectedBase(string path, string baseUri)
+        {
+            using var host = CreateHost(1, pathBase: "/fhir");
+            using var client = host.GetTestClient();
+
+            using var response = await client.GetAsync(new Uri(path, UriKind.Relative));
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(baseUri + "Patient/example", Assert.Single(response.Headers.GetValues("X-Test-Resource-Link")));
+            Assert.Equal(baseUri + "Patient/example/_history/7", Assert.Single(response.Headers.GetValues("X-Test-Version-Link")));
+            Assert.Equal(baseUri + "Patient?ct=next", Assert.Single(response.Headers.GetValues("X-Test-Paging-Link")));
+            Assert.Equal("patients", Assert.Single(response.Headers.GetValues("X-Test-Route-Name")));
+        }
+
+        [Theory]
+        [InlineData("/partition/partition-a/")]
+        [InlineData("/partition/partition-a")]
+        public async Task GivenPartitionRoot_WhenPostingBundle_ThenRootActionIsMatched(string path)
+        {
+            using var host = CreateHost(2);
+            using var client = host.GetTestClient();
+
+            using var response = await client.PostAsync(new Uri(path, UriKind.Relative), content: null);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("http://localhost/partition/partition-a/", await response.Content.ReadAsStringAsync());
+        }
 
         [Theory]
         [InlineData(1)]
@@ -66,6 +177,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
         [Theory]
         [InlineData(0, "/Patient", HttpStatusCode.OK, null)]
+        [InlineData(0, "/partition/partition-a/Patient", HttpStatusCode.NotFound, null)]
         [InlineData(1, "/Patient", HttpStatusCode.OK, "partition-a")]
         [InlineData(2, "/Patient", HttpStatusCode.NotFound, null)]
         [InlineData(2, "/partition/partition-a/Patient", HttpStatusCode.OK, "partition-a")]
@@ -132,7 +244,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal(baseUri, await response.Content.ReadAsStringAsync());
-            Assert.Equal(baseUri + "Patient", Assert.Single(response.Headers.GetValues("X-Test-Link")));
+            string expectedLink = path.StartsWith("/PARTITION/", StringComparison.Ordinal)
+                ? "http://localhost/partition/partition-a/Patient"
+                : baseUri + "Patient";
+            Assert.Equal(expectedLink, Assert.Single(response.Headers.GetValues("X-Test-Link")));
             Assert.Equal(new Uri(client.BaseAddress, path).AbsoluteUri, Assert.Single(response.Headers.GetValues("X-Test-Uri")));
             if (partitionId == null)
             {
@@ -142,6 +257,25 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             {
                 Assert.Equal(partitionId, Assert.Single(response.Headers.GetValues("X-Test-Partition")));
             }
+        }
+
+        [Theory]
+        [InlineData("/partition/partition-a/Patient", "partition-a")]
+        [InlineData("/partition/partition-b/Patient", "partition-b")]
+        public async Task GivenPartitionControllerEndpoints_WhenRoutingBundleEntry_ThenPartitionRouteIsMatched(string path, string partitionId)
+        {
+            using var host = CreateHost(2);
+            using var scope = host.Services.CreateScope();
+            var context = new DefaultHttpContext { RequestServices = scope.ServiceProvider };
+            context.Request.Method = HttpMethods.Get;
+            context.Request.Path = path;
+            var route = new RouteContext(context);
+
+            await scope.ServiceProvider.GetRequiredService<IRouter>().RouteAsync(route);
+
+            Assert.NotNull(route.Handler);
+            Assert.Equal(partitionId, route.RouteData.Values["partitionId"]);
+            Assert.Equal("PartitionPatients", route.RouteData.Values["controller"]);
         }
 
         [Theory]
@@ -156,7 +290,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         [InlineData("/partition/")]
         [InlineData("/partition//Patient")]
         [InlineData("/health/check/extra")]
-        [InlineData("/health/check/")]
         [InlineData("/connect/token/extra")]
         [InlineData("/connect/introspect/extra")]
         [InlineData("/connect/Patient")]
@@ -225,15 +358,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         }
 
         [Theory]
-        [InlineData(0)]
-        [InlineData(1)]
-        [InlineData(2)]
-        public async Task GivenConfiguredPartitions_WhenRequestingHealthCheckWithoutPartition_ThenHealthCheckIsAccessible(int partitionCount)
+        [InlineData(0, "/health/check")]
+        [InlineData(1, "/health/check")]
+        [InlineData(2, "/health/check")]
+        [InlineData(0, "/health/check/")]
+        [InlineData(1, "/health/check/")]
+        [InlineData(2, "/health/check/")]
+        public async Task GivenConfiguredPartitions_WhenRequestingHealthCheckWithoutPartition_ThenHealthCheckIsAccessible(int partitionCount, string path)
         {
             using var host = CreateHost(partitionCount);
             using var client = host.GetTestClient();
 
-            using var response = await client.GetAsync(new Uri("/health/check", UriKind.Relative));
+            using var response = await client.GetAsync(new Uri(path, UriKind.Relative));
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal("healthy", await response.Content.ReadAsStringAsync());
@@ -301,7 +437,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             Assert.Equal("http://localhost/fhir/connect/token", Assert.Single(response.Headers.GetValues("X-Test-Uri")));
         }
 
-        private static IHost CreateHost(int partitionCount, string firstPartitionId = "partition-a", string pathBase = null, bool securityEnabled = false)
+        [Theory]
+        [InlineData("/partition/partition-a/connect/token", "POST")]
+        [InlineData("/partition/partition-a/connect/introspect", "POST")]
+        [InlineData("/partition/partition-a/.well-known/smart-configuration", "GET")]
+        public async Task GivenServiceWideEndpoint_WhenUsingPartitionPrefix_ThenServiceOperationIsNotExecuted(string path, string method)
+        {
+            using var host = CreateHost(2);
+            using var client = host.GetTestClient();
+
+            using var request = new HttpRequestMessage(new HttpMethod(method), new Uri(path, UriKind.Relative));
+            using var response = await client.SendAsync(request);
+
+            Assert.Contains(response.StatusCode, new[] { HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed });
+        }
+
+        private static IHost CreateHost(int partitionCount, string firstPartitionId = "partition-a", string pathBase = null, bool securityEnabled = false, bool productionControllers = false)
         {
             var ids = new HashSet<string>(StringComparer.Ordinal);
             for (int i = 0; i < partitionCount; i++)
@@ -324,6 +475,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                         server.Security.AddAuthenticationLibrary = (_, _) => { };
                     });
                     services.AddSingleton(manager);
+                    services.AddSingleton(Substitute.For<IAuditEventTypeMapping>());
+                    services.AddControllers().ConfigureApplicationPartManager(parts =>
+                    {
+                        parts.ApplicationParts.Clear();
+                        if (productionControllers)
+                        {
+                            parts.ApplicationParts.Add(new AssemblyPart(typeof(FhirController).Assembly));
+                            parts.ApplicationParts.Add(new AssemblyPart(typeof(AadSmartOnFhirProxyController).Assembly));
+                        }
+                        else
+                        {
+                            parts.FeatureProviders.Add(new PartitionControllerFeatureProvider());
+                        }
+                    });
                     services.RemoveAll<IStartupFilter>();
                     services.RemoveAll<IHostedService>();
                     services.AddSingleton<CorrelationIdProvider>(() => Guid.NewGuid().ToString());
@@ -336,25 +501,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                     }
 
                     app.UseFhirRequestContext();
-                    app.UseAuthentication();
-                    app.UseMiddleware<FhirRequestContextAfterAuthenticationMiddleware>();
-                    app.UseRouting();
+                    app.UseFhirRequestContextAuthentication();
                     app.UseAuthorization();
                     app.UseEndpoints(endpoints =>
                     {
-                        var patients = endpoints.MapGet("/Patient", async context =>
-                        {
-                            var accessor = context.RequestServices.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
-                            if (accessor.RequestContext.PartitionId != null)
-                            {
-                                context.Response.Headers["X-Test-Partition"] = accessor.RequestContext.PartitionId;
-                            }
-
-                            var linkGenerator = context.RequestServices.GetRequiredService<LinkGenerator>();
-                            context.Response.Headers["X-Test-Link"] = linkGenerator.GetUriByName(context, "patients", values: null);
-                            context.Response.Headers["X-Test-Uri"] = accessor.RequestContext.Uri.AbsoluteUri;
-                            await context.Response.WriteAsync(accessor.RequestContext.BaseUri.AbsoluteUri);
-                        }).WithName("patients");
+                        var patients = endpoints.MapControllers();
                         if (securityEnabled)
                         {
                             patients.RequireAuthorization();
@@ -372,12 +523,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                         });
                         foreach (string route in new[]
                         {
-                            "/connect/token",
-                            "/connect/introspect",
                             "/.well-known/openid-configuration",
                             "/.well-known/oauth-authorization-server",
                             "/.well-known/jwks",
-                            "/.well-known/smart-configuration",
                             "/AadSmartOnFhirProxy/authorize",
                             "/AadSmartOnFhirProxy/token",
                             "/AadSmartOnFhirProxy/callback/{encodedRedirect}",
@@ -393,11 +541,98 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
                                 context.Response.Headers["X-Test-Uri"] = accessor.RequestContext.Uri.AbsoluteUri;
                                 return context.Response.WriteAsync(accessor.RequestContext.BaseUri.AbsoluteUri);
-                            });
+                            }).WithMetadata(new PartitionIndependentAttribute());
                         }
                     });
-                    app.Run(context => context.Response.WriteAsync("unmatched route"));
+                    app.Run(context =>
+                    {
+                        context.Response.StatusCode = StatusCodes.Status404NotFound;
+                        return Task.CompletedTask;
+                    });
                 })).Start();
+        }
+
+        private sealed class PartitionControllerFeatureProvider : IApplicationFeatureProvider<ControllerFeature>
+        {
+            public void PopulateFeature(IEnumerable<ApplicationPart> parts, ControllerFeature feature)
+            {
+                feature.Controllers.Add(typeof(PartitionPatientsController).GetTypeInfo());
+                feature.Controllers.Add(typeof(PartitionServiceController).GetTypeInfo());
+            }
+        }
+
+        [PartitionIndependent]
+        [AllowAnonymous]
+        [Route("connect")]
+        public sealed class PartitionServiceController : ControllerBase
+        {
+            [HttpPost("token")]
+            [HttpPost("introspect")]
+            public Task Token()
+            {
+                var context = HttpContext.RequestServices.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>().RequestContext;
+                Response.Headers["X-Test-Uri"] = context.Uri.AbsoluteUri;
+                if (context.PartitionId != null)
+                {
+                    Response.Headers["X-Test-Partition"] = context.PartitionId;
+                }
+
+                return Response.WriteAsync(context.BaseUri.AbsoluteUri);
+            }
+        }
+
+        [Route("Patient")]
+        public sealed class PartitionPatientsController : ControllerBase
+        {
+            [HttpGet(Name = "patients")]
+            public Task Get() => WriteContext();
+
+            [HttpGet("/metadata", Name = RouteNames.Metadata)]
+            public Task Metadata() => WriteContext();
+
+            [HttpPost("/", Name = "batch")]
+            public Task Batch() => WriteContext();
+
+            [HttpGet("/", Name = "system-search")]
+            public Task SystemSearch() => WriteContext();
+
+            [HttpGet("/{typeParameter:regex(^Patient$)}/{idParameter}", Name = RouteNames.ReadResource)]
+            public Task Read() => WriteContext();
+
+            [HttpGet("/{typeParameter:regex(^Patient$)}/{idParameter}/_history/{vidParameter}", Name = RouteNames.ReadResourceWithVersionRoute)]
+            public Task ReadVersion() => WriteContext();
+
+            [PartitionIndependent]
+            [AllowAnonymous]
+            [HttpGet("/.well-known/smart-configuration", Name = RouteNames.WellKnownSmartConfiguration)]
+            public Task SmartConfiguration() => WriteContext();
+
+            private async Task WriteContext()
+            {
+                Response.Headers["X-Test-Path"] = Request.Path.Value;
+                Response.Headers["X-Test-PathBase"] = Request.PathBase.Value;
+                Response.Headers["X-Test-Route-Partition"] = Request.RouteValues["partitionId"]?.ToString();
+                var accessor = HttpContext.RequestServices.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
+                if (accessor.RequestContext.PartitionId != null)
+                {
+                    Response.Headers["X-Test-Partition"] = accessor.RequestContext.PartitionId;
+                }
+
+                var resolver = HttpContext.RequestServices.GetRequiredService<IUrlResolver>();
+                Response.Headers["X-Test-Link"] = resolver.ResolveRouteNameUrl("patients", new RouteValueDictionary()).AbsoluteUri;
+                Response.Headers["X-Test-Metadata-Link"] = resolver.ResolveMetadataUrl(false).AbsoluteUri;
+                Response.Headers["X-Test-Service-Link"] = resolver.ResolveRouteNameUrl(RouteNames.WellKnownSmartConfiguration, new RouteValueDictionary()).AbsoluteUri;
+                var resource = new Hl7.Fhir.Model.Patient { Id = "example", Meta = new Hl7.Fhir.Model.Meta { VersionId = "7" } }.ToResourceElement();
+                Response.Headers["X-Test-Resource-Link"] = resolver.ResolveResourceUrl(resource).AbsoluteUri;
+                Response.Headers["X-Test-Version-Link"] = resolver.ResolveResourceUrl(resource, includeVersion: true).AbsoluteUri;
+                Response.Headers["X-Test-Paging-Link"] = resolver.ResolveRouteUrl(
+                    continuationToken: "next",
+                    routeNameOverride: "patients",
+                    ambientRouteValuesOverride: new Dictionary<string, object> { ["partitionId"] = "partition-b" }).AbsoluteUri;
+                Response.Headers["X-Test-Route-Name"] = accessor.RequestContext.RouteName;
+                Response.Headers["X-Test-Uri"] = accessor.RequestContext.Uri.AbsoluteUri;
+                await Response.WriteAsync(accessor.RequestContext.BaseUri.AbsoluteUri);
+            }
         }
 
         private sealed class PartitionTestAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>

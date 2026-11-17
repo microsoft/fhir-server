@@ -39,6 +39,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
@@ -110,6 +111,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ApiExplorerSettings(IgnoreApi = true)]
         [Route(KnownRoutes.CustomError)]
         [AllowAnonymous]
+        [PartitionIndependent]
         public IActionResult CustomError(int? statusCode = null)
         {
             HttpStatusCode returnCode;
@@ -702,6 +704,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [FhirAnonymousOperation(FhirAnonymousOperationType.WellKnown)]
         [Route(KnownRoutes.WellKnownSmartConfiguration, Name = RouteNames.WellKnownSmartConfiguration)]
+        [PartitionIndependent]
         public async Task<IActionResult> WellKnownSmartConfiguration()
         {
             SmartConfigurationResult response = await _mediator.GetSmartConfigurationAsync(_fhirRequestContextAccessor.RequestContext.BaseUri, HttpContext.RequestAborted);

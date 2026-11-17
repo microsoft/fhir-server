@@ -1838,6 +1838,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             _bundleConfiguration.BatchDefaultProcessingLogic = processingLogic;
             _bundleConfiguration.TransactionDefaultProcessingLogic = processingLogic;
             _fhirRequestContext.PartitionId = "partition-a";
+            _fhirRequestContext.BaseUri = new Uri("https://localhost/fhir/partition/partition-a/");
+            _httpContext.Request.PathBase = new PathString("/fhir");
+            _httpContext.Request.Path = new PathString("/partition/partition-a/");
+            _httpContext.Request.RouteValues["partitionId"] = "partition-a";
+            var handler = CreateBundleHandler();
             var capturedPartitionIds = new ConcurrentBag<string>();
             var bundle = new Hl7.Fhir.Model.Bundle
             {
@@ -1850,7 +1855,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             };
             _router.When(router => router.RouteAsync(Arg.Any<RouteContext>())).Do(info =>
             {
-                info.Arg<RouteContext>().Handler = context =>
+                RouteContext route = info.Arg<RouteContext>();
+                Assert.Equal("/fhir", route.HttpContext.Request.PathBase);
+                Assert.StartsWith("/partition/partition-a/Patient/", route.HttpContext.Request.Path.Value, StringComparison.Ordinal);
+                route.Handler = context =>
                 {
                     capturedPartitionIds.Add(_fhirRequestContextAccessor.RequestContext.PartitionId);
                     context.Response.StatusCode = StatusCodes.Status200OK;
@@ -1858,7 +1866,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 };
             });
 
-            var response = await _bundleHandler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), CancellationToken.None);
+            var response = await handler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), CancellationToken.None);
 
             Assert.Equal(2, capturedPartitionIds.Count);
             Assert.All(capturedPartitionIds, partitionId => Assert.Equal("partition-a", partitionId));

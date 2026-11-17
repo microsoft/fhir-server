@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Api;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -28,6 +29,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
     [TypeFilter(typeof(OAuth2ExceptionFilterAttribute))]
     [ValidateModelState]
+    [PartitionIndependent]
     public class TokenIntrospectionController : Controller
     {
         private const string FormUrlEncodedContentType = "application/x-www-form-urlencoded";

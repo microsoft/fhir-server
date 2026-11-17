@@ -145,17 +145,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             }
         }
 
-        [Fact]
-        public async Task GivenABundleWithUnknownElementsAndInvalidEnums_WhenParsing_ThenAllUnknownElementErrorShouldBeAddedToModelState()
+        [Theory]
+        [InlineData("/")]
+        [InlineData("/partition/partition-a/")]
+        [InlineData("/partition/partition-a")]
+        public async Task GivenABundleWithUnknownElementsAndInvalidEnums_WhenParsing_ThenAllUnknownElementErrorShouldBeAddedToModelState(string bundlePath)
         {
             var modelStateDictionary = new ModelStateDictionary();
             var bundle = Samples.GetJson("Bundle-BatchWithInvalidEleEnums");
-            var result = await ReadRequestBody(bundle, modelStateDictionary, true);
+            var result = await ReadRequestBody(bundle, modelStateDictionary, true, bundlePath);
 
             Assert.Equal(4, modelStateDictionary.ErrorCount);
         }
 
-        private static async Task<InputFormatterResult> ReadRequestBody(string sampleJson, ModelStateDictionary modelStateDictionary, bool isBundle)
+        private static async Task<InputFormatterResult> ReadRequestBody(string sampleJson, ModelStateDictionary modelStateDictionary, bool isBundle, string bundlePath = null)
         {
             var formatter = new FhirJsonInputFormatter(new FhirJsonParser(), ArrayPool<char>.Shared);
 
@@ -173,7 +176,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             if (isBundle)
             {
                 context.HttpContext.Request.Method = "POST";
-                context.HttpContext.Request.Path = "/";
+                context.HttpContext.Request.Path = bundlePath ?? "/";
+                if (bundlePath != null && bundlePath != "/")
+                {
+                    context.HttpContext.Request.RouteValues["partitionId"] = "partition-a";
+                }
             }
 
             return await formatter.ReadRequestBodyAsync(context);

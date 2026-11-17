@@ -46,7 +46,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public string Method { get; }
 
-        public Uri BaseUri => _baseUri ?? (_baseUri = new Uri(_baseUriString));
+        /// <inheritdoc />
+        public Uri BaseUri
+        {
+            get => _baseUri ??= new Uri(_baseUriString);
+            set => _baseUri = EnsureArg.IsNotNull(value, nameof(value));
+        }
 
         public Uri Uri => _uri ?? (_uri = new Uri(_uriString));
 
@@ -90,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             FhirRequestContext clone = new FhirRequestContext(
                 Method,
                 _uriString,
-                _baseUriString,
+                BaseUri.AbsoluteUri,
                 CorrelationId,
                 requestHeaders: new Dictionary<string, StringValues>(requestHeaders),
                 responseHeaders: new Dictionary<string, StringValues>(responseHeaders));

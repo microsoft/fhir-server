@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Logging;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Registration;
 using Newtonsoft.Json.Linq;
@@ -104,7 +105,7 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
                 return false;
             }
 
-            string[] segments = GetPathSegments(request.Path);
+            string[] segments = GetPathSegments(PartitionRouteMetadata.GetFhirPath(request));
 
             return IsHealthCheckRequest(segments) || IsMetadataRequest(segments) || IsExportStartRequest(segments) || IsExportStatusRequest(segments);
         }
