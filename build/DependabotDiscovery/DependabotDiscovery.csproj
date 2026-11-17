@@ -15,10 +15,7 @@
     * Never add this project to Microsoft.Health.Fhir.sln. Dependabot walks upward from the
       configured directory to any solution that claims the project; being claimed would silently
       restore the slow whole-repository behaviour.
-    * Keep the discovery TargetFramework aligned with a framework the Choose in
-      Directory.Packages.props handles, since that selects AspNetPackageVersion and
-      DotNetSdkPackageVersion. It lives in Directory.Build.props because Directory.Packages.props
-      is imported before this file.
+    * Keep the discovery TargetFramework aligned with the repository's supported framework.
     * Keep the PackageReference list below in step with Directory.Packages.props.
     * Keep the nuget directory in .github/dependabot.yml pointing at this folder.
 
@@ -30,7 +27,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- TargetFramework is deliberately set in Directory.Build.props; see the comment there. -->
     <!-- Never built, shipped or referenced; restore is the only operation that must succeed. -->
     <IsPackable>false</IsPackable>
     <IsTestProject>false</IsTestProject>
@@ -38,8 +34,8 @@
       Collapsing every package into one project creates version conflicts that do not exist in the
       real projects, where these packages never meet. NU1605 (downgrade) is an error by default and
       would fail a project whose only job is to be listed; NU1510 fires for packages the framework
-      already provides. Nothing else is suppressed - in particular NU1604 is left on, because an
-      unbounded version range here means TargetFramework has stopped matching Directory.Packages.props.
+      already provides. Nothing else is suppressed - in particular NU1604 is left on to catch
+      unresolved package versions.
     -->
     <NoWarn>$(NoWarn);NU1510;NU1605</NoWarn>
   </PropertyGroup>
@@ -207,11 +203,10 @@
     <Error Condition="'@(_UnexpectedPackage)' != ''"
            Text="$(MSBuildProjectFile) references packages absent from Directory.Packages.props: @(_UnexpectedPackage, ', '). Remove them." />
 
-    <!-- An empty version means TargetFramework no longer matches the Choose in Directory.Packages.props. -->
     <Error Condition="'$(TargetFramework)' == ''"
-           Text="TargetFramework is empty, so Directory.Packages.props cannot select AspNetPackageVersion or DotNetSdkPackageVersion. It must be set in Directory.Build.props, not in $(MSBuildProjectFile) - see the comment there." />
+           Text="TargetFramework is empty. Set it in Directory.Build.props so Dependabot can restore this project." />
     <Error Condition="'@(_VersionlessPackage)' != ''"
-           Text="No version resolved for: @(_VersionlessPackage, ', '). TargetFramework '$(TargetFramework)' is not handled by the Choose in Directory.Packages.props, so Dependabot would see an unbounded range instead of a version." />
+           Text="No version resolved for: @(_VersionlessPackage, ', '). Check Directory.Packages.props so Dependabot does not see an unbounded version range." />
 
     <!-- Being claimed by the solution silently restores the slow whole-repository scan. -->
     <Error Condition="Exists('$(_SolutionFile)') AND $([System.IO.File]::ReadAllText('$(_SolutionFile)').Contains('DependabotDiscovery'))"
