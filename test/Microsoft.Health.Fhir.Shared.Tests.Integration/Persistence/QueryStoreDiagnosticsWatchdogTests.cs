@@ -51,6 +51,121 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _fixture = fixture;
         }
 
+        [Theory]
+        [InlineData("RIGHT", 7, 8)]
+        [InlineData("LEFT", 6, 7)]
+        public async Task GivenResourcePartitionsAndANonalignedIndex_WhenReadingStorage_ThenRowsAndPagesAreNotDoubleCounted(string direction, int lowerBoundary, int upperBoundary)
+        {
+            string name = $"StorageProbe_{Guid.NewGuid():N}";
+            await using SqlConnection connection = await _fixture.SqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
+            await connection.OpenAsync(CancellationToken.None);
+            try
+            {
+                string createProbe = $@"
+CREATE PARTITION FUNCTION [{name}](int) AS RANGE {direction} FOR VALUES ({lowerBoundary}, {upperBoundary});
+CREATE PARTITION SCHEME [{name}] AS PARTITION [{name}] ALL TO ([PRIMARY]);
+CREATE PARTITION FUNCTION [{name}_Other](int) AS RANGE {direction} FOR VALUES ({lowerBoundary}, {upperBoundary});
+CREATE PARTITION SCHEME [{name}_Other] AS PARTITION [{name}_Other] ALL TO ([PRIMARY]);
+CREATE TABLE dbo.[{name}] (ResourceTypeId int NOT NULL, Id int NOT NULL) ON [{name}](ResourceTypeId);
+CREATE CLUSTERED INDEX [Base] ON dbo.[{name}](ResourceTypeId, Id) ON [{name}](ResourceTypeId);
+CREATE INDEX [Aligned] ON dbo.[{name}](Id) ON [{name}](ResourceTypeId);
+CREATE INDEX [Nonaligned] ON dbo.[{name}](Id) ON [PRIMARY];
+CREATE INDEX [DifferentColumn] ON dbo.[{name}](Id, ResourceTypeId) ON [{name}](Id);
+CREATE INDEX [DifferentFunction] ON dbo.[{name}](Id) ON [{name}_Other](ResourceTypeId);
+INSERT dbo.[{name}] VALUES (7, 1), (7, 2), (200, 3);
+CREATE TABLE dbo.[{name}_Empty] (Id int NOT NULL);
+CREATE TABLE dbo.[{name}_Nullable] (ResourceTypeId int NULL) ON [{name}](ResourceTypeId);
+INSERT dbo.[{name}_Nullable] VALUES (7), (NULL);";
+                await ExecuteNonQueryAsync(connection, createProbe, CancellationToken.None);
+
+                await using SqlCommand command = connection.CreateCommand();
+                command.CommandType = CommandType.StoredProcedure;
+                command.CommandText = "dbo.GetQueryStoreDiagnosticsStorage";
+                await using SqlDataReader reader = await command.ExecuteReaderAsync();
+                StorageDiagnosticsSnapshot snapshot = await StorageDiagnosticsSnapshot.ReadAsync(reader, CancellationToken.None);
+
+                TableStorageDiagnostics table = Assert.Single(snapshot.Tables, row => row.TableName == name);
+                List<IndexStorageDiagnostics> indexes = snapshot.Indexes.Where(row => row.TableName == name).ToList();
+                List<ResourceTypeStorageDiagnostics> segments = snapshot.ResourceTypes.Where(row => row.TableName == name).ToList();
+                Assert.Equal(3L, table.ApproximateRowCount);
+                Assert.Equal(5, indexes.Count);
+                Assert.All(indexes, index => Assert.Equal(3L, index.ApproximateIndexRowCount));
+                Assert.Equal(table.UsedBytes, indexes.Sum(index => index.UsedBytes));
+                Assert.Equal(table.ReservedBytes, indexes.Sum(index => index.ReservedBytes));
+                Assert.Equal(table.UsedBytes, segments.Sum(segment => segment.UsedBytes));
+                Assert.Equal(table.ReservedBytes, segments.Sum(segment => segment.ReservedBytes));
+                Assert.Equal(table.ApproximateRowCount, segments.Sum(segment => segment.ApproximateRowCount));
+                ResourceTypeStorageDiagnostics singleton = Assert.Single(segments, segment => segment.Attribution == "ResourceType");
+                Assert.Equal(7L, singleton.ResourceTypeId);
+                Assert.Equal(2L, singleton.ApproximateRowCount);
+                Assert.Equal(1L, Assert.Single(segments, segment => segment.Attribution == "SharedRange").ApproximateRowCount);
+                ResourceTypeStorageDiagnostics nonaligned = Assert.Single(segments, segment => segment.Attribution == "NonalignedIndex");
+                Assert.Null(nonaligned.ApproximateRowCount);
+                Assert.Equal(indexes.Where(index => index.IndexName == "Nonaligned" || index.IndexName.StartsWith("Different", StringComparison.Ordinal)).Sum(index => index.ReservedBytes), nonaligned.ReservedBytes);
+                TableStorageDiagnostics empty = Assert.Single(snapshot.Tables, row => row.TableName == name + "_Empty");
+                Assert.Equal(0L, empty.ApproximateRowCount);
+                IndexStorageDiagnostics heap = Assert.Single(snapshot.Indexes, row => row.TableName == name + "_Empty");
+                Assert.Equal(0, heap.IndexId);
+                Assert.Null(heap.IndexName);
+                ResourceTypeStorageDiagnostics nullable = Assert.Single(snapshot.ResourceTypes, row => row.TableName == name + "_Nullable");
+                Assert.Equal("UnpartitionedOrOther", nullable.Attribution);
+                Assert.Null(nullable.ResourceTypeId);
+                Assert.Equal(2L, nullable.ApproximateRowCount);
+
+                await reader.DisposeAsync();
+                var logger = new CapturingLogger();
+                var configuration = new WatchdogConfiguration();
+                configuration.QueryStoreDiagnostics.SlowQueryCount = 0;
+                configuration.QueryStoreDiagnostics.IncludeStatisticsHealth = false;
+                configuration.QueryStoreDiagnostics.IncludeStorageDiagnostics = true;
+                var watchdog = new QueryStoreDiagnosticsWatchdog(_fixture.SqlRetryService, logger, Options.Create(configuration), _fixture.SchemaInformation);
+                await watchdog.CollectDiagnosticsAsync(DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, CancellationToken.None);
+
+                List<TableStorageDiagnostics> loggedTables = logger.StoragePages
+                    .Where(page => Equals(page["StorageKind"], "Tables"))
+                    .SelectMany(page => JsonSerializer.Deserialize<List<TableStorageDiagnostics>>((string)page["StorageRows"]))
+                    .ToList();
+                Assert.Equal(3L, Assert.Single(loggedTables, row => row.TableName == name).ApproximateRowCount);
+                Assert.All(logger.StoragePages, page => Assert.Equal(false, page["StorageTruncated"]));
+
+                foreach (string disabledIndex in new[] { "Aligned", "Base" })
+                {
+                    await ExecuteNonQueryAsync(connection, $"ALTER INDEX [{disabledIndex}] ON dbo.[{name}] DISABLE", CancellationToken.None);
+                    await using SqlDataReader disabledReader = await command.ExecuteReaderAsync();
+                    snapshot = await StorageDiagnosticsSnapshot.ReadAsync(disabledReader, CancellationToken.None);
+                    table = Assert.Single(snapshot.Tables, row => row.TableName == name);
+                    indexes = snapshot.Indexes.Where(row => row.TableName == name).ToList();
+                    segments = snapshot.ResourceTypes.Where(row => row.TableName == name).ToList();
+                    Assert.NotNull(table.UsedBytes);
+                    Assert.NotNull(table.ReservedBytes);
+                    Assert.Equal(3L, table.ApproximateRowCount);
+                    Assert.Equal(5, indexes.Count);
+                    Assert.Equal(table.ApproximateRowCount, segments.Sum(segment => segment.ApproximateRowCount));
+                    Assert.Equal(table.UsedBytes, indexes.Sum(index => index.UsedBytes));
+                    Assert.Equal(table.ReservedBytes, indexes.Sum(index => index.ReservedBytes));
+                    Assert.Equal(table.UsedBytes, segments.Sum(segment => segment.UsedBytes));
+                    Assert.Equal(table.ReservedBytes, segments.Sum(segment => segment.ReservedBytes));
+                    Assert.All(
+                        indexes.Where(index => disabledIndex == "Base" ? index.IndexId > 1 : index.IndexName == disabledIndex),
+                        index =>
+                        {
+                            Assert.Equal(0L, index.ApproximateIndexRowCount);
+                            Assert.Equal(0L, index.UsedBytes);
+                            Assert.Equal(0L, index.ReservedBytes);
+                        });
+                }
+            }
+            finally
+            {
+                string dropProbe = $@"DROP TABLE IF EXISTS dbo.[{name}], dbo.[{name}_Empty], dbo.[{name}_Nullable];
+IF EXISTS (SELECT 1 FROM sys.partition_schemes WHERE name = '{name}') DROP PARTITION SCHEME [{name}];
+IF EXISTS (SELECT 1 FROM sys.partition_functions WHERE name = '{name}') DROP PARTITION FUNCTION [{name}];
+IF EXISTS (SELECT 1 FROM sys.partition_schemes WHERE name = '{name}_Other') DROP PARTITION SCHEME [{name}_Other];
+IF EXISTS (SELECT 1 FROM sys.partition_functions WHERE name = '{name}_Other') DROP PARTITION FUNCTION [{name}_Other];";
+                await ExecuteNonQueryAsync(connection, dropProbe, CancellationToken.None);
+            }
+        }
+
         [Fact]
         public async Task GivenEnabledWatchdogAndCapturedProbe_WhenRun_ThenLogsSlowQuerySanitizedPlanAndStatisticsHealth()
         {
@@ -497,7 +612,8 @@ WHERE queryStoreQuery.object_id IN
     OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsSlowQueries'),
     OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsWaitStatistics'),
     OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsPlans'),
-    OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsStatisticsHealth')
+    OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsStatisticsHealth'),
+    OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsStorage')
 )
     AND runtimeStatistics.execution_type = 0
     AND runtimeStatistics.count_executions > 0
@@ -552,6 +668,18 @@ WHERE queryStoreQuery.object_id IN
             private readonly List<SlowQueryDiagnostics> _slowQueries = new List<SlowQueryDiagnostics>();
             private readonly List<QueryPlanDiagnostics> _queryPlans = new List<QueryPlanDiagnostics>();
             private readonly List<StatisticsHealthPage> _statisticsHealthPages = new List<StatisticsHealthPage>();
+            private readonly List<IReadOnlyDictionary<string, object>> _storagePages = new List<IReadOnlyDictionary<string, object>>();
+
+            internal IReadOnlyList<IReadOnlyDictionary<string, object>> StoragePages
+            {
+                get
+                {
+                    lock (_syncRoot)
+                    {
+                        return _storagePages.ToList();
+                    }
+                }
+            }
 
             internal IReadOnlyList<string> Messages
             {
@@ -626,6 +754,10 @@ WHERE queryStoreQuery.object_id IN
                     else if (message.StartsWith(StatisticsHealthPrefix, StringComparison.Ordinal))
                     {
                         _statisticsHealthPages.Add(ToStatisticsHealthPage(properties));
+                    }
+                    else if (properties.ContainsKey("StorageRows"))
+                    {
+                        _storagePages.Add(properties);
                     }
                 }
             }

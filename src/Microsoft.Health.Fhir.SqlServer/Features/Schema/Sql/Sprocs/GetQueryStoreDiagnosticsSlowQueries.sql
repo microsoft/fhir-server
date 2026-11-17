@@ -57,7 +57,8 @@ BEGIN
                     (OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsSlowQueries')),
                     (OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsWaitStatistics')),
                     (OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsPlans')),
-                    (OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsStatisticsHealth'))
+                    (OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsStatisticsHealth')),
+                    (OBJECT_ID(N'dbo.GetQueryStoreDiagnosticsStorage'))
             ) AS diagnosticsProcedures(object_id)
             WHERE diagnosticsProcedures.object_id = queryStoreQuery.object_id
         )

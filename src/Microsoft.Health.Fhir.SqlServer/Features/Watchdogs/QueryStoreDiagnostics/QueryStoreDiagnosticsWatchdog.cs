@@ -554,13 +554,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
                     cancellationToken);
             }
 
+            StorageDiagnosticsSnapshot storage = null;
+            var storageDiagnosticsFailed = false;
+            if (_configuration.IncludeStorageDiagnostics)
+            {
+                (_, storageDiagnosticsFailed) = await CollectOptionalSectionAsync(
+                    async token =>
+                    {
+                        storage = await GetStorageDiagnosticsAsync(token);
+                        LogStorageDiagnosticsBatches(storage, token);
+                        return storage.Tables.Count + storage.Indexes.Count + storage.ResourceTypes.Count;
+                    },
+                    "storage diagnostics",
+                    cancellationToken);
+            }
+
             // A completed tick logs unconditionally, including zero counts: without this, "the watchdog has been
             // dead for three days" and "there were no slow queries" are indistinguishable downstream. QueryPlans
             // counts the plans that actually carried sanitized XML, so it is deliberately lower than SlowQueries
             // whenever Query Store had no plan for a query or sanitization rejected one.
             cancellationToken.ThrowIfCancellationRequested();
             _logger.LogInformation(
-                "QueryStoreDiagnosticsWatchdog completed a collection. WindowStart={WindowStart}, WindowEnd={WindowEnd}, SlowQueries={SlowQueryCount}, QueryPlans={QueryPlanCount}, StatisticsHealth={StatisticsHealthCount}, WaitStatisticsFailed={WaitStatisticsFailed}, QueryPlansFailed={QueryPlansFailed}, StatisticsHealthFailed={StatisticsHealthFailed}",
+                "QueryStoreDiagnosticsWatchdog completed a collection. WindowStart={WindowStart}, WindowEnd={WindowEnd}, SlowQueries={SlowQueryCount}, QueryPlans={QueryPlanCount}, StatisticsHealth={StatisticsHealthCount}, WaitStatisticsFailed={WaitStatisticsFailed}, QueryPlansFailed={QueryPlansFailed}, StatisticsHealthFailed={StatisticsHealthFailed}, StorageDiagnosticsIncluded={StorageDiagnosticsIncluded}, StorageTables={StorageTables}, StorageIndexes={StorageIndexes}, StorageResourceTypeSegments={StorageResourceTypeSegments}, StorageDiagnosticsFailed={StorageDiagnosticsFailed}",
                 startTime,
                 collectionTime,
                 slowQueries.Count,
@@ -568,7 +583,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
                 statisticsHealthCount,
                 waitStatisticsFailed,
                 queryPlansFailed,
-                statisticsHealthFailed);
+                statisticsHealthFailed,
+                _configuration.IncludeStorageDiagnostics,
+                storage?.Tables.Count ?? 0,
+                storage?.Indexes.Count ?? 0,
+                storage?.ResourceTypes.Count ?? 0,
+                storageDiagnosticsFailed);
         }
 
         private async Task<(int Count, bool Failed)> CollectOptionalSectionAsync(Func<CancellationToken, Task<int>> collect, string section, CancellationToken cancellationToken)
@@ -587,6 +607,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
                 _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: the {Section} section exceeded its SQL read budget.", section);
                 return (0, true);
             }
+            catch (InvalidOperationException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex, "QueryStoreDiagnosticsWatchdog: the {Section} section returned an invalid diagnostics result.", section);
+                return (0, true);
+            }
         }
 
         private SqlCommand ConfigureDiagnosticsCommand(SqlCommand command)
@@ -597,10 +622,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
             return command;
         }
 
-        private async Task<IReadOnlyList<TResult>> ExecuteDiagnosticsReaderAsync<TResult>(
+        private Task<IReadOnlyList<TResult>> ExecuteDiagnosticsReaderAsync<TResult>(
             SqlCommand command,
             Func<SqlDataReader, TResult> readerToResult,
             string message,
+            CancellationToken cancellationToken) =>
+            ExecuteDiagnosticsReadAsync(
+                command,
+                token => _sqlRetryService.ExecuteReaderAsync(command, readerToResult, _logger, message, token),
+                cancellationToken);
+
+        private async Task<TResult> ExecuteDiagnosticsReadAsync<TResult>(
+            SqlCommand command,
+            Func<CancellationToken, Task<TResult>> read,
             CancellationToken cancellationToken)
         {
             using var readCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -608,7 +642,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
             try
             {
                 readCancellation.Token.ThrowIfCancellationRequested();
-                return await _sqlRetryService.ExecuteReaderAsync(command, readerToResult, _logger, message, readCancellation.Token);
+                return await read(readCancellation.Token);
             }
             catch (OperationCanceledException ex) when (readCancellation.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
@@ -795,6 +829,67 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs.QueryStoreDiagnosti
             }
 
             return emittedPlanCount;
+        }
+
+        private async Task<StorageDiagnosticsSnapshot> GetStorageDiagnosticsAsync(CancellationToken cancellationToken)
+        {
+            await using var command = ConfigureDiagnosticsCommand(new SqlCommand("dbo.GetQueryStoreDiagnosticsStorage"));
+            return await ExecuteDiagnosticsReadAsync(
+                command,
+                async token =>
+                {
+                    StorageDiagnosticsSnapshot snapshot = null;
+                    await _sqlRetryService.ExecuteSql(
+                        command,
+                        async (sqlCommand, readToken) =>
+                        {
+                            await using SqlDataReader reader = await sqlCommand.ExecuteReaderAsync(readToken);
+                            snapshot = await StorageDiagnosticsSnapshot.ReadAsync(reader, readToken);
+                        },
+                        _logger,
+                        "Failed to read storage diagnostics",
+                        token);
+                    return snapshot;
+                },
+                cancellationToken);
+        }
+
+        internal void LogStorageDiagnosticsBatches(StorageDiagnosticsSnapshot snapshot, CancellationToken cancellationToken)
+        {
+            var configuredBatchSize = _configuration.StorageDiagnosticsBatchSize;
+            var batchSize = configuredBatchSize <= 0 ? 20 : Math.Min(configuredBatchSize, 32);
+            if (batchSize != configuredBatchSize)
+            {
+                _logger.LogWarning(
+                    "QueryStoreDiagnosticsWatchdog: StorageDiagnosticsBatchSize={ConfiguredStorageDiagnosticsBatchSize} is outside 1..32. Using {StorageDiagnosticsBatchSize}; all rows are retained.",
+                    configuredBatchSize,
+                    batchSize);
+            }
+
+            LogStorageRows("Tables", snapshot.Tables, batchSize, cancellationToken);
+            LogStorageRows("Indexes", snapshot.Indexes, batchSize, cancellationToken);
+            LogStorageRows("ResourceTypes", snapshot.ResourceTypes, batchSize, cancellationToken);
+        }
+
+        private void LogStorageRows<T>(string kind, IReadOnlyList<T> rows, int batchSize, CancellationToken cancellationToken)
+        {
+            var pageCount = rows.Count == 0 ? 0 : ((rows.Count - 1) / batchSize) + 1;
+            for (var page = 0; page < pageCount; page++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var pageRows = rows.Skip(page * batchSize).Take(batchSize).ToList();
+                _logger.LogInformation(
+                    "QueryStoreDiagnosticsWatchdog storage. StorageCatalogScope={StorageCatalogScope}, StorageKind={StorageKind}, StoragePage={StoragePage}, StoragePageCount={StoragePageCount}, StoragePageRowCount={StoragePageRowCount}, StorageTotalAvailable={StorageTotalAvailable}, StorageEmitted={StorageEmitted}, StorageTruncated={StorageTruncated}, StorageRows={StorageRows}",
+                    "VisibleUserTables",
+                    kind,
+                    page + 1,
+                    pageCount,
+                    pageRows.Count,
+                    rows.Count,
+                    rows.Count,
+                    false,
+                    JsonSerializer.Serialize(pageRows));
+            }
         }
 
         private async Task<int> EmitStatisticsHealthAsync(CancellationToken cancellationToken)

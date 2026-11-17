@@ -29,6 +29,7 @@ FHIR server instance (lease holder)
         ├── dbo.GetQueryStoreDiagnosticsWaitStatistics   best effort
         ├── dbo.GetQueryStoreDiagnosticsPlans
         ├── dbo.GetQueryStoreDiagnosticsStatisticsHealth
+        ├── dbo.GetQueryStoreDiagnosticsStorage           optional metadata inventory
         └── QueryPlanSanitizer (C#)               removes specified parameter metadata
               │
               └── ILogger<QueryStoreDiagnosticsWatchdog>   structured log records
@@ -79,6 +80,8 @@ The shared `dbo.AcquireWatchdogLease` procedure coordinates collection through `
 | `MinDurationMilliseconds` | `1000` | Minimum weighted average duration for a plan to be reported. A negative value is treated as `0` — which makes every query qualify — and warns. |
 | `IncludeQueryPlans` | `true` | Whether sanitized Showplan XML is emitted. |
 | `IncludeStatisticsHealth` | `true` | Whether statistics metadata is emitted. |
+| `IncludeStorageDiagnostics` | `false` | Whether approximate physical row counts and used and reserved storage are emitted. Requires the watchdog's `Enabled` switch too. |
+| `StorageDiagnosticsBatchSize` | `20` | Storage rows per JSON log line. Non-positive values use 20. Values above 32 use 32. Both adjustments warn and retain all rows across pages. |
 | `StatisticsHealthCount` | `20` | Worst-ranked statistics rows **collected and reported** per tick; see [Why the count is capped](#why-the-count-is-capped). |
 | `StatisticsHealthBatchSize` | `20` | How many of those rows are packed into each log line. This is **not** a second cap on what is collected: rows beyond the batch size are emitted on further lines, paginated. A non-positive value is reported with a warning and the `20` default is used, because a batch size cannot pack a row. Values above `64` are clamped, also with a warning; see [Batch size is capped](#batch-size-is-capped). |
 | `RunStartDate` | `null` (unset) | Inclusive start of the optional run window. Ticks before it collect nothing. `null` means no lower bound. |
@@ -179,6 +182,75 @@ Carrying the totals on **every** line is what lets a reader distinguish a legiti
 
 `DiagnosticsTimestamp` on the slow-query and query-plan lines, and `Timestamp` inside each statistics row, are the moment the watchdog collected the data. They are deliberately not named `Timestamp` at the log-property level, because that name collides with the ingestion timestamp log pipelines supply for every record.
 
+### Storage inventory
+
+Set `FhirServer:Watchdog:QueryStoreDiagnostics:IncludeStorageDiagnostics` to `true`, with `Enabled=true`, and restart the host.
+Storage remains off by default. The existing Query Store state, schema 120, run-window, SQL-read, and collection-deadline gates still apply.
+
+`dbo.GetQueryStoreDiagnosticsStorage` reads `sys.dm_db_partition_stats` and catalog metadata, not resource data or query plans.
+The three result sets become typed `StorageDiagnosticsSnapshot` collections and are fully read before any storage page is logged.
+An independent SQL failure or read timeout emits a warning and `StorageDiagnosticsFailed=true`, without discarding the other diagnostics.
+Overall collection and host cancellation propagate instead of becoming successful partial collections.
+
+Each `QueryStoreDiagnosticsWatchdog storage.` line carries `StorageRows`, a JSON array, and `StorageKind`:
+
+| `StorageKind` | JSON row fields and semantics |
+| --- | --- |
+| `Tables` | `SchemaName`, `TableName`, `ApproximateRowCount`, `UsedBytes`, `ReservedBytes`. Rows come only from the heap or clustered index, index 0 or 1. Space includes all inventoried indexes. |
+| `Indexes` | `SchemaName`, `TableName`, `IndexId`, `IndexName`, `ApproximateIndexRowCount`, `UsedBytes`, `ReservedBytes`. Every index sums its own partitions. A heap has index 0 and a null name. Filtered indexes report their own approximate counts, not table counts. |
+| `ResourceTypes` | `SchemaName`, `TableName`, `Attribution`, `ResourceTypeId`, `ResourceTypeName`, `ApproximateRowCount`, `UsedBytes`, `ReservedBytes`. Rows come only from base partitions. Space includes base partitions and physically aligned indexes, with explicit unattributed remainders. |
+
+These are approximate physical row counts, including historical versions and deleted-resource rows still stored by FHIR.
+They are not distinct active-resource counts. Bytes use 8,192 bytes per metadata page and include LOB and row-overflow pages.
+Null means missing or unsupported metadata, not zero. Memory-optimized storage and internal allocations are not measured.
+Disabled nonclustered indexes remain in the index inventory with zero rows and bytes because their allocations are deallocated.
+Disabled clustered indexes retain their stored rows and space in the inventory.
+This inventory does not report database-file size, free file space, transaction-log size, or whole-database storage.
+
+Resource attribution requires the actual index partition column to be non-nullable integral `ResourceTypeId`.
+Only consecutive finite integer boundaries prove one ID.
+RANGE RIGHT `[a,a+1)` identifies `a`; RANGE LEFT `(a-1,a]` identifies `a`.
+Names resolve through `dbo.ResourceType`.
+Aligned indexes must use the base index's partition function and `ResourceTypeId` partition column.
+`ResourceType` means a proven, named singleton.
+`SharedRange` combines shared, unbounded, null-boundary, or unresolved resource ranges within the table.
+`NonalignedIndex` contains indexes that fail alignment with a resource-partitioned base.
+`UnpartitionedOrOther` contains unpartitioned tables and other partitioning, including time-based partitions.
+Secondary-index rows never increase table or resource counts.
+A remainder containing no base partitions has a null `ApproximateRowCount`.
+No proportional storage estimates are made.
+
+There is no top-N inventory or segment cap. All visible non-system tables and non-hypothetical indexes are included, including empty tables.
+A resource segment is omitted only when its rows, used space, and reserved space are all zero.
+Each page carries `StoragePage`, `StoragePageCount`, `StoragePageRowCount`, `StorageTotalAvailable`, `StorageEmitted`, and `StorageTruncated=false`.
+The available and emitted counts describe the complete collection for that `StorageKind`.
+Missing pages mean incomplete delivery even when `StorageTruncated` is false.
+Empty collections emit no pages.
+The completion summary carries `StorageDiagnosticsIncluded`, `StorageTables`, `StorageIndexes`, `StorageResourceTypeSegments`, and `StorageDiagnosticsFailed`.
+
+The existing managed identity needs `EXECUTE` permission and the engine's partition-statistics DMV permissions.
+SQL Server before 2022 requires `VIEW DATABASE STATE` and `VIEW DEFINITION`.
+SQL Server 2022 and later require `VIEW DATABASE PERFORMANCE STATE` and `VIEW SECURITY DEFINITION` for the DMV.
+This procedure additionally requires database `VIEW DEFINITION` and fails the optional section when that check fails.
+It does not grant permissions or impersonate an owner.
+The log labels the catalog scope `VisibleUserTables`.
+Explicit object-level metadata denials can still hide objects, so verify effective permissions before treating the inventory as database-wide.
+Concurrent DDL and DML can change the separately read result sets. They are not a transactionally consistent point-in-time snapshot.
+
+For a sink exposing structured properties as `customDimensions`, read index pages with:
+
+```kusto
+traces
+| where message startswith "QueryStoreDiagnosticsWatchdog storage."
+| where tostring(customDimensions.StorageKind) == "Indexes"
+| mv-expand row = parse_json(tostring(customDimensions.StorageRows))
+| project timestamp, TableName=tostring(row.TableName), IndexName=tostring(row.IndexName),
+          ApproximateIndexRows=tolong(row.ApproximateIndexRowCount),
+          UsedBytes=tolong(row.UsedBytes), ReservedBytes=tolong(row.ReservedBytes)
+```
+
+Keep the collection time and page metadata when comparing inventories. Do not sum repeated collections or add index counts to table counts.
+
 ### Field size
 
 Query text and sanitized plan XML are capped at **32,768 UTF-16 code units** per field. Values exceeding the cap are truncated and flagged (`QueryTextTruncated`, `QueryPlanTruncated`). This character limit is not a byte limit, and the destination's size limit has not been verified here.
@@ -209,7 +281,7 @@ Results are ordered by total duration descending and limited to `SlowQueryCount`
 
 ### Self-exclusion
 
-The watchdog excludes statements belonging to its five diagnostics procedures by their Query Store `object_id`. This leaves other catalog queries visible, including the request-triggered Query Store lookups. Ad hoc statements have no containing procedure and are not excluded. Procedure metadata must be visible to the service identity for `OBJECT_ID` to resolve; historical entries from a dropped and recreated procedure may also remain visible.
+The watchdog excludes statements belonging to its six diagnostics procedures by their Query Store `object_id`. This leaves other catalog queries visible, including the request-triggered Query Store lookups. Ad hoc statements have no containing procedure and are not excluded. Procedure metadata must be visible to the service identity for `OBJECT_ID` to resolve; historical entries from a dropped and recreated procedure may also remain visible.
 
 ### Wait statistics
 
@@ -221,7 +293,7 @@ Wait statistics are collected by a **separate, best-effort** query and merged in
 
 Each diagnostics SQL read has a configurable deadline across its attempts and retry delays, plus a SQL command timeout for each attempt. The wait read also has its own deadline, while a collection-wide deadline covers the state read and subsequent sections. If the configured SQL read budget is exactly 30 seconds, the SQL command timeout is set to 31 seconds to avoid substitution by the shared retry service; the cancellation token still requests cancellation at 30 seconds. A wait deadline produces `Failed` wait status and preserves the runtime records. If the collection deadline expires during that wait, runtime records are emitted before the tick reports an incomplete collection. Host shutdown cancellation propagates instead.
 
-An independent SQL failure or read timeout in the plan or statistics-health section logs a warning without suppressing the other section. The collection summary reports `QueryPlansFailed` and `StatisticsHealthFailed` alongside the section counts and `WaitStatisticsFailed`.
+An independent SQL failure or read timeout in a plan, statistics-health, or storage section logs a warning without suppressing the other sections. The collection summary reports `QueryPlansFailed`, `StatisticsHealthFailed`, and `StorageDiagnosticsFailed` alongside the section counts and `WaitStatisticsFailed`.
 
 These are cooperative cancellation requests, not guaranteed server-side CPU limits: cancellation and synchronous work such as plan sanitization may take additional time. SQL retries remain governed by the shared retry service within these deadlines. The collection deadline is reported as a failed tick, and a successful completion log is not written.
 
@@ -345,7 +417,7 @@ The watchdog skips collection on older or unknown schema versions and checks aga
 
 Recorded deliberately; each is a candidate for a follow-up.
 
-- **Stored procedures run under the existing service identity.** The five procedures are part of schema version 120. They do not create an external caller role.
+- **Stored procedures run under the existing service identity.** The six procedures are part of schema version 120. They do not create an external caller role.
 - **Plans are re-emitted every tick.** There is no cross-tick deduplication by `plan_id`, so a persistently slow plan is emitted repeatedly. Accepted for v1; the duplication is bounded by `SlowQueryCount` and the tick interval, and suppression can be added once real emission volume is known.
 - **Slow-query selection is total-duration only.** There is no configuration for selecting by CPU, reads, waits, or regression against a baseline. `MinDurationMilliseconds` and `SlowQueryCount` are the only tuning knobs. Richer selection is the expected first enhancement.
 - **Cancellation is not fencing or a CPU quota.** A deadline requests cancellation, but does not guarantee immediate termination of SQL work or plan sanitization. Lease loss can still allow overlapping collectors.

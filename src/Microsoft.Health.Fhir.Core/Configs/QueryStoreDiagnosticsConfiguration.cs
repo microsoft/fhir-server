@@ -66,6 +66,16 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public bool IncludeStatisticsHealth { get; set; } = true;
 
         /// <summary>
+        /// Gets or sets a value indicating whether approximate metadata row counts and storage are reported.
+        /// </summary>
+        public bool IncludeStorageDiagnostics { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets the storage rows per JSON log batch. Defaults to 20 and is capped at 32 without dropping rows.
+        /// </summary>
+        public int StorageDiagnosticsBatchSize { get; set; } = 20;
+
+        /// <summary>
         /// Gets or sets the maximum number of table statistics rows reported per collection.
         /// </summary>
         public int StatisticsHealthCount { get; set; } = 20;
