@@ -7,7 +7,9 @@
     trait filters and once per shard (Get-TestShardFilter.ps1 arguments plus the same trait filters), then checks:
       * union equality: the shards together list exactly the tests of the unfiltered run (as a multiset);
       * pairwise disjointness: no test is listed by two shards;
-      * no shard is empty.
+      * no shard is empty;
+      * when the manifest has dedicatedShards and dedicatedCategories: no test of those categories is in a general
+        shard (the catch-all included), and the dedicated shards list nothing outside those categories.
 
     Never throws for a lint finding or for an unusable manifest or test application; those become entries in
     Problems. With -Pipeline each problem is also written as a ##vso[task.logissue type=warning] message and the
@@ -66,7 +68,7 @@ function Get-ListedTests {
     }
 
     # Test lines are indented two spaces; the discovery summary prints its own indented duration line.
-    return @($output | Where-Object { $_ -match '^  \S' -and $_ -notmatch '^  duration:' })
+    return ,@($output | Where-Object { $_ -match '^  \S' -and $_ -notmatch '^  duration:' })
 }
 
 $problems = [System.Collections.Generic.List[string]]::new()
@@ -74,20 +76,43 @@ $shardResults = [System.Collections.Generic.List[object]]::new()
 $unfiltered = @()
 
 try {
-    $shardCount = @((Get-Content -Path $Manifest -Raw | ConvertFrom-Json).shards).Count
+    $manifestDefinition = Get-Content -Path $Manifest -Raw | ConvertFrom-Json
+    $shardCount = @($manifestDefinition.shards).Count
+    $dedicatedCount = if ($manifestDefinition.PSObject.Properties['dedicatedShards']) { [int] $manifestDefinition.dedicatedShards } else { 0 }
+    $categories = if ($manifestDefinition.PSObject.Properties['dedicatedCategories']) { @($manifestDefinition.dedicatedCategories) } else { @() }
     $unfiltered = Get-ListedTests $TraitArgs
     if ($unfiltered.Count -eq 0) {
         $problems.Add('The unfiltered run lists no tests, so the shards cannot be checked.')
     }
 
     $listings = @()
+    $shardArguments = @()
     for ($index = 0; $index -lt $shardCount; $index++) {
         $shardArgs = @(& $getFilter -Manifest $Manifest -ShardIndex $index)
+        $shardArguments += , $shardArgs
         $tests = Get-ListedTests ($shardArgs + $TraitArgs)
         $listings += , $tests
         $shardResults.Add([pscustomobject]@{ Index = $index; Count = $tests.Count })
         if ($tests.Count -eq 0) {
             $problems.Add("Shard $index lists no tests.")
+        }
+    }
+
+    # Dedicated categories (for example search-parameter reindexing) change server-wide state, so they must run
+    # only in the dedicated shards, and the dedicated shards must run nothing else. Only --filter-not-trait is used
+    # to separate the categories: repeated --filter-trait filters are OR'd, so a positive category filter could not
+    # be combined with a positive trait in $TraitArgs.
+    $notDedicated = @($categories | ForEach-Object { '--filter-not-trait'; "Category=$_" })
+    for ($index = 0; $index -lt $shardCount -and $categories.Count -gt 0; $index++) {
+        $outsideCategories = Get-ListedTests ($shardArguments[$index] + $TraitArgs + $notDedicated)
+        if ($index -lt $dedicatedCount) {
+            if ($outsideCategories.Count -gt 0) {
+                $problems.Add("Dedicated shard $index lists $($outsideCategories.Count) test(s) outside the categories $($categories -join ', '), for example: $($outsideCategories[0].Trim())")
+            }
+        }
+        elseif ($outsideCategories.Count -ne $listings[$index].Count) {
+            $leaked = @(Compare-Object $listings[$index] $outsideCategories | Where-Object SideIndicator -eq '<=')
+            $problems.Add("Shard $index lists $($leaked.Count) test(s) of the dedicated categories $($categories -join ', '), for example: $($leaked[0].InputObject.Trim())")
         }
     }
 

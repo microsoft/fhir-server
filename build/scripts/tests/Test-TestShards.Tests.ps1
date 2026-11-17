@@ -11,10 +11,15 @@ BeforeAll {
 `$tests = 'Ns.Alpha.One', 'Ns.Alpha.Two', 'Ns.Beta.One', 'Ns.Gamma.One', 'Ns.Gamma.Two'
 `$included = @(for (`$i = 0; `$i -lt `$args.Count - 1; `$i++) { if (`$args[`$i] -eq '--filter-method') { `$args[`$i + 1] } })
 $notMethod
+`$category = @{ 'Ns.Alpha.One' = 'Special'; 'Ns.Alpha.Two' = 'Special' }
+`$onlyCategory = @(for (`$i = 0; `$i -lt `$args.Count - 1; `$i++) { if (`$args[`$i] -eq '--filter-trait') { `$args[`$i + 1] -replace '^Category=' } })
+`$notCategory = @(for (`$i = 0; `$i -lt `$args.Count - 1; `$i++) { if (`$args[`$i] -eq '--filter-not-trait') { `$args[`$i + 1] -replace '^Category=' } })
 `$selected = @(`$tests | Where-Object {
     `$name = `$_
     (`$included.Count -eq 0 -or @(`$included | Where-Object { `$name -like `$_ }).Count -gt 0) -and
-    @(`$excluded | Where-Object { `$name -like `$_ }).Count -eq 0
+    @(`$excluded | Where-Object { `$name -like `$_ }).Count -eq 0 -and
+    (`$onlyCategory.Count -eq 0 -or `$onlyCategory -contains `$category[`$name]) -and
+    (`$notCategory -notcontains `$category[`$name])
 })
 `$selected | ForEach-Object { "  `$(`$_.Substring(0, `$_.LastIndexOf('.')))(Sql, Json)`$(`$_.Substring(`$_.LastIndexOf('.')))" }
 "  duration: 1s"
@@ -25,9 +30,9 @@ exit 0
     }
 
     function New-Manifest {
-        param([object[]] $Shards)
+        param([object[]] $Shards, [hashtable] $Extra = @{})
         $path = Join-Path $TestDrive ([guid]::NewGuid().ToString('N') + '.json')
-        ConvertTo-Json -InputObject @{ suite = 'test-suite'; shards = $Shards } -Depth 6 | Set-Content -Path $path
+        ConvertTo-Json -InputObject (@{ suite = 'test-suite'; shards = $Shards } + $Extra) -Depth 6 | Set-Content -Path $path
         return $path
     }
 }
@@ -89,5 +94,28 @@ Describe 'Test-TestShards' {
         $failed | Should -Match 'variable=ShardLintFailed;isOutput=true\]true'
         $passed | Should -Match 'variable=ShardLintFailed;isOutput=true\]false'
         $passed | Should -Not -Match 'logissue'
+    }
+    It 'passes when dedicated tests are only in the dedicated shards' {
+        $manifest = New-Manifest @(
+            @{ classes = @('Ns.Alpha') },
+            @{ classes = @('Ns.Beta') },
+            @{}) @{ dedicatedShards = 1; dedicatedCategories = @('Special') }
+
+        $result = & $script:ScriptPath -TestExe (New-FakeTestApp) -Manifest $manifest
+
+        $result.Problems | Should -BeNullOrEmpty
+        $result.Passed | Should -BeTrue
+    }
+
+    It 'reports dedicated tests in a general shard and general tests in a dedicated shard' {
+        $manifest = New-Manifest @(
+            @{ classes = @('Ns.Beta') },
+            @{}) @{ dedicatedShards = 1; dedicatedCategories = @('Special') }
+
+        $result = & $script:ScriptPath -TestExe (New-FakeTestApp) -Manifest $manifest
+
+        $result.Passed | Should -BeFalse
+        ($result.Problems -join "`n") | Should -Match 'Dedicated shard 0 lists 1 test\(s\) outside the categories Special'
+        ($result.Problems -join "`n") | Should -Match 'Shard 1 lists 2 test\(s\) of the dedicated categories Special'
     }
 }

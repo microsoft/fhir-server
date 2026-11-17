@@ -16,8 +16,13 @@
     The Azure DevOps token comes from -Token, then $env:ADO_TOKEN, then `az account get-access-token`. It is only sent
     in the Authorization header and is never printed.
 
+    The first -DedicatedShardCount shards are dedicated: they hold only -DedicatedClasses, which are packed among them
+    by duration, and every other unit is packed among the remaining (general) shards. The manifest records
+    dedicatedShards and dedicatedCategories so that Test-TestShards.ps1 can check that no dedicated test leaks into a
+    general shard, in particular into the catch-all.
+
 .PARAMETER ShardCount
-    Number of shards, including the catch-all. At least 2.
+    Number of shards, including the dedicated shards and the catch-all. At least 2, and more than -DedicatedShardCount.
 
 .PARAMETER FromBuilds
     Number of recent builds (that have matching runs) whose durations are used.
@@ -55,6 +60,14 @@ param(
     [string[]] $SplitClasses = @('Microsoft.Health.Fhir.Tests.E2E.Rest.Import.ImportTests', 'Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests'),
     [string] $CatchAllAnchor = 'Microsoft.Health.Fhir.Tests.E2E.Rest.HistoryTests',
     [string[]] $KeepOutOfCatchAll = @('\.Import\.', '\.BulkDeleteTests'),
+
+    # The first -DedicatedShardCount shards hold only -DedicatedClasses (and their methods), and no other shard holds
+    # them: these classes change server-wide state (search parameters, bulk updates) that other tests would observe.
+    # -DedicatedCategories names their test categories; Test-TestShards.ps1 checks the rule with them.
+    [ValidateRange(0, 63)]
+    [int] $DedicatedShardCount = 2,
+    [string[]] $DedicatedClasses = @('Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests', 'Microsoft.Health.Fhir.Tests.E2E.Rest.Search.CustomSearchParamTests', 'Microsoft.Health.Fhir.Tests.E2E.Rest.BulkUpdateTests'),
+    [string[]] $DedicatedCategories = @('IndexAndReindex', 'BulkUpdate'),
 
     [string] $FromFile,
     [string] $OutFile,
@@ -144,6 +157,10 @@ if ($units.Count -eq 0) { throw 'No test durations were found.' }
 
 # Pack largest first; ties by name keep the result deterministic.
 $lastBin = $ShardCount - 1
+if ($DedicatedShardCount -ge $ShardCount) {
+    throw "-DedicatedShardCount ($DedicatedShardCount) must be smaller than -ShardCount ($ShardCount); the catch-all is a general shard."
+}
+
 $bins = @(0..$lastBin | ForEach-Object { [pscustomobject]@{ Load = 0.0; Units = [System.Collections.Generic.List[object]]::new() } })
 $anchor = $units | Where-Object { $_.Name -eq $CatchAllAnchor }
 if ($anchor) {
@@ -152,8 +169,14 @@ if ($anchor) {
 }
 
 foreach ($unit in ($units | Where-Object { $_.Name -ne $CatchAllAnchor } | Sort-Object @{ Expression = 'Ms'; Descending = $true }, Name)) {
+    $dedicated = $DedicatedShardCount -gt 0 -and @($DedicatedClasses | Where-Object { $unit.Name -eq $_ -or $unit.Name.StartsWith("$_.") }).Count -gt 0
     $keepOut = @($KeepOutOfCatchAll | Where-Object { $unit.Name -match $_ }).Count -gt 0
-    $candidates = if ($keepOut) { 0..($lastBin - 1) } else { 0..$lastBin }
+    $candidates = if ($dedicated) { 0..($DedicatedShardCount - 1) }
+    elseif ($keepOut) {
+        if ($DedicatedShardCount -gt $lastBin - 1) { throw "No general shard besides the catch-all can hold '$($unit.Name)'; use a larger -ShardCount." }
+        $DedicatedShardCount..($lastBin - 1)
+    }
+    else { $DedicatedShardCount..$lastBin }
     $target = $candidates | Sort-Object { $bins[$_].Load }, { $_ } | Select-Object -First 1
     $bins[$target].Units.Add($unit)
     $bins[$target].Load += $unit.Ms
@@ -169,9 +192,15 @@ $shards = for ($i = 0; $i -lt $lastBin; $i++) {
     $shard
 }
 
-$manifest = [ordered]@{ suite = $Suite; shards = @($shards) + @([ordered]@{}) }
+$manifest = [ordered]@{ suite = $Suite }
+if ($DedicatedShardCount -gt 0) {
+    $manifest.dedicatedShards = $DedicatedShardCount
+    $manifest.dedicatedCategories = @($DedicatedCategories)
+}
+
+$manifest.shards = @($shards) + @([ordered]@{})
 for ($i = 0; $i -le $lastBin; $i++) {
-    $suffix = if ($i -eq $lastBin) { ' (catch-all)' } else { '' }
+    $suffix = if ($i -eq $lastBin) { ' (catch-all)' } elseif ($i -lt $DedicatedShardCount) { ' (dedicated)' } else { '' }
     Write-Host ("Shard {0}{1}: {2,7:N0} s, {3} unit(s)" -f $i, $suffix, ($bins[$i].Load / 1000), $bins[$i].Units.Count)
 }
 

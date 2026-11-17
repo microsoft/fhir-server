@@ -29,7 +29,7 @@ Describe 'Update-TestShards' {
     }
 
     It 'packs units into shards and ends with a catch-all' {
-        & $script:ScriptPath -ShardCount 3 -FromBuilds 1 -FromFile (New-Fixture $script:rows) -OutFile $script:out | Out-Null
+        & $script:ScriptPath -ShardCount 3 -FromBuilds 1 -FromFile (New-Fixture $script:rows) -OutFile $script:out -DedicatedShardCount 0 | Out-Null
 
         $manifest = Get-Content $script:out -Raw | ConvertFrom-Json
         @($manifest.shards).Count | Should -Be 3
@@ -43,7 +43,7 @@ Describe 'Update-TestShards' {
     }
 
     It 'leaves HistoryTests in the catch-all and keeps import and bulk-delete tests out of it' {
-        & $script:ScriptPath -ShardCount 3 -FromBuilds 1 -FromFile (New-Fixture $script:rows) -OutFile $script:out | Out-Null
+        & $script:ScriptPath -ShardCount 3 -FromBuilds 1 -FromFile (New-Fixture $script:rows) -OutFile $script:out -DedicatedShardCount 0 | Out-Null
 
         $manifest = Get-Content $script:out -Raw | ConvertFrom-Json
         $listed = @($manifest.shards | ForEach-Object { $_.classes; $_.methods })
@@ -55,7 +55,7 @@ Describe 'Update-TestShards' {
     It 'uses the median of the builds' {
         $rows = @($script:rows) + @(
             (New-Row 2 'ReadTests.A' 1000), (New-Row 3 'ReadTests.A' 1000), (New-Row 2 'Search.BigTests.A' 100))
-        $output = & $script:ScriptPath -ShardCount 2 -FromBuilds 3 -FromFile (New-Fixture $rows) -OutFile $script:out -DryRun 6>&1 | ForEach-Object { "$_" }
+        $output = & $script:ScriptPath -ShardCount 2 -FromBuilds 3 -FromFile (New-Fixture $rows) -OutFile $script:out -DedicatedShardCount 0 -DryRun 6>&1 | ForEach-Object { "$_" }
 
         # Medians: BigTests (10000, 100) = 5050 ms, ReadTests (5000, 1000, 1000) = 1000 ms, others as in build 1: 17.05 s in total.
         $loads = $output | Where-Object { $_ -match '^Shard \d' } | ForEach-Object { [double]($_ -replace '^.*?:\s+([\d.]+) s.*$', '$1') }
@@ -64,15 +64,38 @@ Describe 'Update-TestShards' {
     }
 
     It 'does not write the manifest on a dry run' {
-        & $script:ScriptPath -ShardCount 3 -FromBuilds 1 -FromFile (New-Fixture $script:rows) -OutFile $script:out -DryRun | Out-Null
+        & $script:ScriptPath -ShardCount 3 -FromBuilds 1 -FromFile (New-Fixture $script:rows) -OutFile $script:out -DedicatedShardCount 0 -DryRun | Out-Null
 
         Test-Path $script:out | Should -BeFalse
     }
 
     It 'output passes the Get-TestShardFilter validation' {
-        & $script:ScriptPath -ShardCount 3 -FromBuilds 1 -FromFile (New-Fixture $script:rows) -OutFile $script:out | Out-Null
+        & $script:ScriptPath -ShardCount 3 -FromBuilds 1 -FromFile (New-Fixture $script:rows) -OutFile $script:out -DedicatedShardCount 0 | Out-Null
         $filter = Join-Path $PSScriptRoot '..' 'Get-TestShardFilter.ps1'
 
         { 0..2 | ForEach-Object { & $filter -Manifest $script:out -ShardIndex $_ } } | Should -Not -Throw
+    }
+    It 'packs dedicated classes only into the dedicated shards and records them in the manifest' {
+        $rows = @($script:rows) + @(
+            (New-Row 1 'Reindex.ReindexTests.A' 9000), (New-Row 1 'Reindex.ReindexTests.B' 8000), (New-Row 1 'Reindex.ReindexTests.C' 7000),
+            (New-Row 1 'Search.CustomSearchParamTests.A' 500), (New-Row 1 'BulkUpdateTests.A' 1500))
+
+        & $script:ScriptPath -ShardCount 4 -FromBuilds 1 -FromFile (New-Fixture $rows) -OutFile $script:out -DedicatedShardCount 2 | Out-Null
+
+        $manifest = Get-Content $script:out -Raw | ConvertFrom-Json
+        $manifest.dedicatedShards | Should -Be 2
+        $manifest.dedicatedCategories | Should -Be @('IndexAndReindex', 'BulkUpdate')
+        $dedicatedUnits = @($manifest.shards[0..1] | ForEach-Object { $_.classes; $_.methods })
+        $dedicatedUnits | Should -Contain "$script:Ns.Reindex.ReindexTests.A"
+        $dedicatedUnits | Should -Contain "$script:Ns.BulkUpdateTests"
+        $dedicatedUnits | Should -Not -Contain "$script:Ns.Search.BigTests"
+        @($dedicatedUnits | Where-Object { $_ -notmatch 'Reindex|CustomSearchParam|BulkUpdate' }) | Should -BeNullOrEmpty
+        @($manifest.shards[2] | ForEach-Object { $_.classes; $_.methods } | Where-Object { $_ -match 'Reindex|CustomSearchParam|BulkUpdate' }) | Should -BeNullOrEmpty
+        @($manifest.shards[0].methods).Count | Should -BeGreaterThan 0
+        @($manifest.shards[1].methods).Count | Should -BeGreaterThan 0
+    }
+
+    It 'rejects a shard count with no general shard' {
+        { & $script:ScriptPath -ShardCount 2 -FromBuilds 1 -FromFile (New-Fixture $script:rows) -OutFile $script:out -DedicatedShardCount 2 } | Should -Throw '*must be smaller*'
     }
 }
