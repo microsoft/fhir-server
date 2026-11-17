@@ -8,10 +8,18 @@ parameters:
 - name: shadow
   type: boolean
   default: false
+# TODO(next task, revert before merge): jobName and sqlImageOverride exist only for the controlFailure job
+# in container-tests.yml.
+- name: jobName
+  type: string
+  default: ''
+- name: sqlImageOverride
+  type: string
+  default: ''
 
 jobs:
-- job: SqlIntegrationContainer_${{ parameters.version }}
-  displayName: '${{ parameters.version }} SQL Integration (container)'
+- job: ${{ coalesce(parameters.jobName, format('SqlIntegrationContainer_{0}', parameters.version)) }}
+  displayName: ${{ coalesce(parameters.jobName, format('{0} SQL Integration (container)', parameters.version)) }}
   ${{ if parameters.shadow }}:
     timeoutInMinutes: 30
   pool:
@@ -50,6 +58,7 @@ jobs:
   - template: ../steps/start-sql-container.yml
     parameters:
       shadow: ${{ parameters.shadow }}
+      imageOverride: ${{ parameters.sqlImageOverride }}
 
   - template: ../steps/run-mtp-tests.yml
     parameters:
