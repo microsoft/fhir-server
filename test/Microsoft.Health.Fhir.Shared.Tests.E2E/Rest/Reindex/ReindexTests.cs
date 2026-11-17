@@ -104,35 +104,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
             // Arrange
             var client = _fixture.TestFhirClient;
             var marker = $"SYNTHETIC_CONFIDENTIAL_{Guid.NewGuid():N}";
-            Observation observation = null;
+            Specimen specimen = null;
             SearchParameter searchParameter = null;
             Uri jobUri = null;
             bool jobIsTerminal = false;
             var exceptions = new List<Exception>();
             var testFailure = await Record.ExceptionAsync(async () =>
             {
-                observation = (await client.CreateAsync(new Observation
+                specimen = (await client.CreateAsync(new Specimen
                 {
-                    Status = ObservationStatus.Final,
-                    Code = new CodeableConcept("http://example.org", "diagnostics-test"),
-                    Value = new FhirString(marker),
+                    Status = Specimen.SpecimenStatus.Available,
+                    Type = new CodeableConcept("http://example.org", "diagnostics-test") { Text = marker },
                 })).Resource;
 
-                var readback = await client.ReadAsync<Observation>($"Observation/{observation.Id}");
-                Assert.Equal(marker, Assert.IsType<FhirString>(readback.Resource.Value).Value);
+                var readback = await client.ReadAsync<Specimen>($"Specimen/{specimen.Id}");
+                Assert.Equal(marker, readback.Resource.Type.Text);
 
                 var code = $"diagnostics-{Guid.NewGuid():N}";
                 searchParameter = await CreateCustomSearchParameterAsync(
                     code,
-                    ["Observation"],
-                    $"Observation.where(id = '{observation.Id}').value.where(matches($this & '['))");
+                    ["Specimen"],
+                    $"Specimen.where(id = '{specimen.Id}').type.text.where(matches($this & '['))");
 
                 // Act
                 var (response, uri) = await client.PostReindexJobAsync(new Parameters
                 {
                     Parameter =
                     [
-                        new Parameters.ParameterComponent { Name = "targetResourceTypes", Value = new FhirString("Observation") },
+                        new Parameters.ParameterComponent { Name = "targetResourceTypes", Value = new FhirString("Specimen") },
                         new Parameters.ParameterComponent { Name = "maximumNumberOfResourcesPerWrite", Value = new Integer(1) },
                     ],
                 });
@@ -158,7 +157,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                     {
                         var diagnostic = Assert.IsType<FhirString>(failure.Value).Value;
                         Assert.StartsWith("Reindex: processing job = ", diagnostic);
-                        Assert.EndsWith($"failed. Resource type = Observation Error = {expectedMessage}", diagnostic);
+                        Assert.EndsWith($"failed. Resource type = Specimen Error = {expectedMessage}", diagnostic);
                     });
                     if (state == "Failed")
                     {
@@ -213,9 +212,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 }
             }
 
-            if (observation != null)
+            if (specimen != null)
             {
-                var cleanupFailure = await Record.ExceptionAsync(() => client.DeleteAsync(observation));
+                var cleanupFailure = await Record.ExceptionAsync(() => client.DeleteAsync(specimen));
                 if (cleanupFailure != null)
                 {
                     exceptions.Add(cleanupFailure);
