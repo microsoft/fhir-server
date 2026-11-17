@@ -81,8 +81,8 @@ steps:
     Write-Host "##vso[task.setvariable variable=SqlContainerConnectionString;issecret=true]Server=tcp:127.0.0.1,1433;Initial Catalog=master;User Id=sa;Password=$env:MSSQL_SA_PASSWORD;TrustServerCertificate=True;Encrypt=True;MultipleActiveResultSets=False;Connection Timeout=30;"
     Write-Host '##vso[task.setvariable variable=SqlContainerReady]true'
   displayName: 'Start SQL Server container'
-  # Bounds the image pull plus the 180-second readiness wait.
-  timeoutInMinutes: 10
+  # Bounds the image pull plus the readiness wait: 180 seconds, and a probe still running at the deadline adds up to 30.
+  timeoutInMinutes: 6
   continueOnError: ${{ parameters.shadow }}
   env:
     MSSQL_SA_PASSWORD: $(SqlSaPassword)

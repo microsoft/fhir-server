@@ -75,6 +75,19 @@ Describe 'Update-TestShards' {
 
         { 0..2 | ForEach-Object { & $filter -Manifest $script:out -ShardIndex $_ } } | Should -Not -Throw
     }
+    It 'groups theory cases whose arguments contain dots under their class' {
+        $rows = @($script:rows) + @(
+            (New-Row 1 'Search.TheoryTests.Case(value: "a.b.c", other: 1.5)' 20000),
+            (New-Row 1 'Search.TheoryTests.Case(value: "x.y", other: 2.5)' 10000))
+
+        & $script:ScriptPath -ShardCount 3 -FromBuilds 1 -FromFile (New-Fixture $rows) -OutFile $script:out -DedicatedShardCount 0 | Out-Null
+
+        $manifest = Get-Content $script:out -Raw | ConvertFrom-Json
+        $listed = @($manifest.shards | ForEach-Object { $_.classes; $_.methods })
+        $listed | Should -Contain "$script:Ns.Search.TheoryTests"
+        @($listed | Where-Object { $_ -match '[(")]|a\.b|x\.y' }) | Should -BeNullOrEmpty
+    }
+
     It 'packs dedicated classes only into the dedicated shards and records them in the manifest' {
         $rows = @($script:rows) + @(
             (New-Row 1 'Reindex.ReindexTests.A' 9000), (New-Row 1 'Reindex.ReindexTests.B' 8000), (New-Row 1 'Reindex.ReindexTests.C' 7000),

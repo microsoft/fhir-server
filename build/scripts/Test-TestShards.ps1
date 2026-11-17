@@ -12,8 +12,8 @@
         shard (the catch-all included), and the dedicated shards list nothing outside those categories.
 
     Never throws for a lint finding or for an unusable manifest or test application; those become entries in
-    Problems. With -Pipeline each problem is also written as a ##vso[task.logissue type=warning] message and the
-    output variable ShardLintFailed is set (true on any problem, otherwise false), so a lint job warns but never fails.
+    Problems. With -Pipeline each problem is also written as a ##vso[task.logissue type=warning] message, so a lint
+    job warns but never fails.
 
 .PARAMETER TestExe
     Path of the test application: a .dll (run with dotnet) or an executable.
@@ -150,8 +150,6 @@ if ($Pipeline) {
     foreach ($problem in $problems) {
         Write-Host "##vso[task.logissue type=warning]$prefix$problem"
     }
-
-    Write-Host "##vso[task.setvariable variable=ShardLintFailed;isOutput=true]$((-not $result.Passed).ToString().ToLowerInvariant())"
 }
 
 return $result

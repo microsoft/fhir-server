@@ -161,6 +161,8 @@ jobs:
 - ${{ if ne(parameters.exclusiveCategory, '') }}:
   - job: 'sqlE2eTests_Exclusive'
     timeoutInMinutes: 120
+    # Runs after a failed main job too, so one failure does not cost a rerun of the exclusive tests; skipped only on cancel.
+    condition: not(canceled())
     dependsOn:
     - sqlE2eTests
     - ${{ if eq(parameters.runReindexJob, true) }}:

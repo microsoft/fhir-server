@@ -83,7 +83,7 @@ Describe 'Test-TestShards' {
         ($result.Problems -join "`n") | Should -Match 'catch-all'
     }
 
-    It 'emits a warning and ShardLintFailed in pipeline mode' {
+    It 'emits a warning only when there are problems in pipeline mode' {
         $manifest = New-Manifest @(@{ classes = @('Ns.Missing') }, @{})
         $good = New-Manifest @(@{ classes = @('Ns.Alpha') }, @{})
 
@@ -91,10 +91,9 @@ Describe 'Test-TestShards' {
         $passed = & $script:ScriptPath -TestExe (New-FakeTestApp) -Manifest $good -Pipeline 6>&1 | Out-String
 
         $failed | Should -Match '##vso\[task\.logissue type=warning\]Shard lint: Shard 0 lists no tests\.'
-        $failed | Should -Match 'variable=ShardLintFailed;isOutput=true\]true'
-        $passed | Should -Match 'variable=ShardLintFailed;isOutput=true\]false'
         $passed | Should -Not -Match 'logissue'
     }
+
     It 'passes when dedicated tests are only in the dedicated shards' {
         $manifest = New-Manifest @(
             @{ classes = @('Ns.Alpha') },

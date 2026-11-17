@@ -60,8 +60,8 @@ jobs:
       shadow: ${{ parameters.shadow }}
       # Without a ready server every test would wait out its connection retries.
       condition: and(succeeded(), eq(variables['SqlContainerReady'], 'true'))
-      # Leaves room inside the 30-minute shadow job for setup and cleanup.
-      timeoutInMinutes: 20
+      # With the SQL Server step (6) and about 4 minutes of setup this stays under the 30-minute job timeout.
+      timeoutInMinutes: 18
       env:
         'SqlServer:ConnectionString': $(SqlContainerConnectionString)
 

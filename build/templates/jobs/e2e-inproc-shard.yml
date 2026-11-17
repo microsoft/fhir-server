@@ -10,11 +10,9 @@ parameters:
   type: object
 - name: manifest
   type: string
-  default: sql-e2e.json
 # Trait filters applied to every shard; keep them equal to the traitArgs of the shard-lint job.
 - name: traitArgs
   type: object
-  default: ['--filter-trait', 'DataStore=SqlServer', '--filter-not-trait', 'Category=ExportLongRunning']
 # Shadow jobs never fail the run: every step continues on error, the test step turns a failure into
 # a warning, and each leg is capped at 30 minutes.
 - name: shadow
@@ -115,9 +113,10 @@ jobs:
       shadow: ${{ parameters.shadow }}
       # Without SQL Server and Azurite most tests would wait out their retries.
       condition: and(succeeded(), eq(variables['SqlContainerReady'], 'true'), eq(variables['AzuriteReady'], 'true'), eq(variables['ShardReady'], 'true'))
-      # Invoke-InProcTests.ps1 gives each test attempt 20 minutes. This step timeout caps the attempts plus retries and
-      # fires before the 30-minute job timeout: a step that times out is tolerated by continueOnError, a job is not.
-      timeoutInMinutes: 22
+      # Invoke-InProcTests.ps1 gives each test attempt 14 minutes. This step timeout caps the attempts plus retries.
+      # Together with the SQL Server (6) and Azurite (3) steps and about 4 minutes of setup it stays under the
+      # 30-minute job timeout: a step that times out is tolerated by continueOnError, a job is not.
+      timeoutInMinutes: 16
       env:
         # InProcTestFhirServer reads this name and passes it to the server as SqlServer:ConnectionString.
         SqlServer__ConnectionString: $(SqlE2EConnectionString)

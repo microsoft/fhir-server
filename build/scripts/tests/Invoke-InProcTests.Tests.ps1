@@ -87,7 +87,7 @@ Describe 'Invoke-InProcTests' {
 
         $exitCode | Should -Be 3
         $received = Get-Content -Raw $env:FAKE_DOTNET_OUT | ConvertFrom-Json
-        $received.Arguments | Should -Be @($dll, '--filter-trait', 'DataStore=SqlServer', '--timeout', '20m')
+        $received.Arguments | Should -Be @($dll, '--filter-trait', 'DataStore=SqlServer', '--timeout', '14m')
         @($received.EnvironmentNames | Where-Object { $_ -match '^(TESTENVIRONMENTURL.*|TESTTOKENENDPOINT|RESOURCE)$' }) | Should -BeNullOrEmpty
         foreach ($name in $kept) {
             $received.EnvironmentNames | Should -Contain $name

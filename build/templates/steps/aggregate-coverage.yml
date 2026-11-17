@@ -42,8 +42,11 @@ steps:
 - script: |
     set -e
 
-    # Keep the pinned Codecov CLI release in one place; update deliberately with its checksum.
+    # Keep the pinned Codecov CLI release and its SHA-256 together. Bumping the version requires updating the hash:
+    # download https://cli.codecov.io/v<version>/linux/codecov, hash it, and cross-check the published codecov.SHA256SUM.
+    # The hash is embedded here (not downloaded) so a compromised download location cannot supply its own checksum.
     CODECOV_CLI_VERSION="11.3.2"
+    CODECOV_CLI_SHA256="8e1bfb71661378530f6ea21e82b414095899e565cbb4cf555c613064be17b973"
 
     # ADO can leave an undefined macro literal; split it here so configured secrets are not expanded in this script.
     if [ -z "$CODECOV_TOKEN" ] || [ "$CODECOV_TOKEN" = '$''(CODECOV_TOKEN)' ]; then
@@ -58,10 +61,9 @@ steps:
     REPORT="$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml"
     sed -i 's|/_/||g' "$REPORT"
 
-    # Download and verify the pinned Codecov CLI before executing it.
-    curl -Os "https://cli.codecov.io/v${CODECOV_CLI_VERSION}/linux/codecov"
-    curl -Os "https://cli.codecov.io/v${CODECOV_CLI_VERSION}/linux/codecov.SHA256SUM"
-    shasum -a 256 -c codecov.SHA256SUM
+    # Download and verify the pinned Codecov CLI before executing it; a mismatch fails the step (set -e).
+    curl -fsSL --retry 3 -o codecov "https://cli.codecov.io/v${CODECOV_CLI_VERSION}/linux/codecov"
+    echo "${CODECOV_CLI_SHA256}  codecov" | sha256sum -c -
     chmod +x codecov
 
     # Resolve commit SHA and branch for the upload.

@@ -137,7 +137,8 @@ $rows = if ($FromFile) { @(Get-Content -Path $FromFile -Raw | ConvertFrom-Json) 
 # Unit = class, or class.method for classes that are split across shards. Sum per build, then median across builds.
 $perBuild = @{}
 foreach ($row in $rows) {
-    $name = [string] $row.automatedTestName
+    # Theory names carry their arguments in parentheses, which may contain dots: strip them before taking the class.
+    $name = ([string] $row.automatedTestName) -replace '\(.*$', ''
     $dot = $name.LastIndexOf('.')
     if ($dot -lt 1) { continue }
     $class = $name.Substring(0, $dot)

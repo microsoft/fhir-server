@@ -138,5 +138,5 @@ steps:
     Write-Host '##vso[task.setvariable variable=AzuriteReady]true'
   displayName: 'Start Azurite container'
   # Bounds the image pull plus the 60-second readiness wait.
-  timeoutInMinutes: 5
+  timeoutInMinutes: 3
   continueOnError: ${{ parameters.shadow }}

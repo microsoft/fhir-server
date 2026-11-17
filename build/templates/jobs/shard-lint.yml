@@ -3,7 +3,7 @@
 # shards together list exactly the unfiltered tests, that no test is in two shards, and that no shard is empty
 # (build/scripts/Test-TestShards.ps1, which can also be run locally).
 #
-# Findings are warnings and the output variable ShardLintFailed=true; the job never fails. It is meant for shadow
+# Findings are warnings; the job never fails. It is meant for shadow
 # stages only: every step continues on error and the job is capped at 30 minutes.
 parameters:
 - name: versions
@@ -11,11 +11,9 @@ parameters:
   default: [Stu3, R4, R5]
 - name: manifest
   type: string
-  default: sql-e2e.json
 # Trait filters shared by the unfiltered run and every shard; keep them equal to the filters of the sharded test runs.
 - name: traitArgs
   type: object
-  default: ['--filter-trait', 'DataStore=SqlServer', '--filter-not-trait', 'Category=ExportLongRunning']
 
 jobs:
 - job: ShardLint
@@ -60,7 +58,6 @@ jobs:
       $manifest = Join-Path '$(Build.SourcesDirectory)' 'build/test-shards/${{ parameters.manifest }}'
       $lint = Join-Path '$(Build.SourcesDirectory)' 'build/scripts/Test-TestShards.ps1'
       $traitArgs = @($env:LINT_TRAIT_ARGS_JSON | ConvertFrom-Json)
-      $anyFailed = $false
 
       foreach ($version in @($env:LINT_VERSIONS_JSON | ConvertFrom-Json)) {
         try {
@@ -68,25 +65,22 @@ jobs:
           $dll = Get-ChildItem -Path (Join-Path '$(Agent.TempDirectory)' 'ShardLint' $version) -Recurse -Filter $name -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $dll) {
             Write-Host "##vso[task.logissue type=warning]Shard lint ($version): could not find $name"
-            $anyFailed = $true
             continue
           }
 
           $result = & $lint -TestExe $dll.FullName -Manifest $manifest -TraitArgs $traitArgs -Label $version -Pipeline
           Write-Host "$version`: $($result.UnfilteredCount) test(s); shards: $(($result.Shards | ForEach-Object { $_.Count }) -join ', ')"
-          if (-not $result.Passed) { $anyFailed = $true }
         }
         catch {
           Write-Host "##vso[task.logissue type=warning]Shard lint ($version) failed: $($_.Exception.Message)"
-          $anyFailed = $true
         }
       }
 
-      # One value for the whole job: the per-version values set by the lint script are superseded here.
-      Write-Host "##vso[task.setvariable variable=ShardLintFailed;isOutput=true]$("$anyFailed".ToLowerInvariant())"
       exit 0
     name: lint
     displayName: 'Lint test shards'
+    # With about 4 minutes of setup this stays under the 30-minute job timeout.
+    timeoutInMinutes: 20
     continueOnError: true
     env:
       LINT_VERSIONS_JSON: ${{ convertToJson(parameters.versions) }}
