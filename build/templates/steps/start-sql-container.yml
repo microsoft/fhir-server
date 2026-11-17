@@ -1,0 +1,89 @@
+# Starts SQL Server (image pinned in build/docker/test-dependencies.Dockerfile, stage "sql") on
+# 127.0.0.1:1433 and waits until it can create and drop a database.
+# Sets for later steps in the job:
+#   SqlSaPassword                 (secret) generated SA password
+#   SqlContainerConnectionString  (secret) SQL-auth connection string to master
+#   SqlContainerReady             'true' once the readiness probe passed; gate dependent steps on it
+# The container carries the label fhir-test-dependency=$(System.JobId); the job removes it by that label.
+parameters:
+# Shadow jobs must never fail the run: every step continues on error.
+- name: shadow
+  type: boolean
+  default: false
+
+steps:
+- pwsh: |
+    $ErrorActionPreference = 'Stop'
+    $random = (& openssl rand -base64 32) -replace '[^A-Za-z0-9]', ''
+    if ($LASTEXITCODE -ne 0 -or $random.Length -lt 32) {
+      throw 'openssl rand did not produce a password'
+    }
+
+    # The suffix guarantees SQL Server's complexity rule (upper, lower, digit, symbol) whatever the random part holds.
+    Write-Host "##vso[task.setvariable variable=SqlSaPassword;issecret=true]$($random)Aa1!"
+  displayName: 'Generate SQL Server SA password'
+  continueOnError: ${{ parameters.shadow }}
+
+- pwsh: |
+    $ErrorActionPreference = 'Stop'
+    $dockerfile = '$(Build.SourcesDirectory)/build/docker/test-dependencies.Dockerfile'
+    $fromLines = @(Select-String -Path $dockerfile -Pattern '^\s*FROM\s+(\S+)\s+AS\s+sql\s*$')
+    if ($fromLines.Count -ne 1) {
+      throw "Expected exactly one 'FROM <image> AS sql' line in $dockerfile, found $($fromLines.Count)"
+    }
+
+    $image = $fromLines[0].Matches[0].Groups[1].Value
+    $name = 'fhir-sql-$(System.JobId)'
+
+    $probe = [Net.Sockets.TcpClient]::new()
+    try {
+      if ($probe.ConnectAsync('127.0.0.1', 1433).Wait(2000)) {
+        throw '127.0.0.1:1433 is already bound on this agent; refusing to start a second SQL Server'
+      }
+    }
+    catch [AggregateException] {
+      # Connection refused: the port is free.
+    }
+    finally {
+      $probe.Dispose()
+    }
+
+    # MSSQL_SA_PASSWORD is passed by name; docker reads its value from this step's environment.
+    Write-Host "Starting $image as $name"
+    & docker run -d --name $name --label 'fhir-test-dependency=$(System.JobId)' -p 127.0.0.1:1433:1433 -e ACCEPT_EULA=Y -e MSSQL_PID=Developer -e MSSQL_MEMORY_LIMIT_MB=6144 -e MSSQL_SA_PASSWORD $image
+    if ($LASTEXITCODE -ne 0) {
+      throw "docker run failed with exit code $LASTEXITCODE"
+    }
+
+    # sqlcmd ships inside the image, so the agent needs no SQL tooling. SQLCMDPASSWORD is passed by name.
+    $probeSql = 'SELECT 1; DROP DATABASE IF EXISTS readiness_probe; CREATE DATABASE readiness_probe; DROP DATABASE readiness_probe;'
+    $deadline = [DateTime]::UtcNow.AddSeconds(180)
+    $lastError = ''
+    while ($true) {
+      $output = & docker exec -e SQLCMDPASSWORD $name /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -l 5 -t 30 -b -Q $probeSql 2>&1
+      if ($LASTEXITCODE -eq 0) {
+        break
+      }
+
+      $lastError = $output | Out-String
+      $running = & docker inspect -f '{{.State.Running}}' $name
+      if ($running -ne 'true' -or [DateTime]::UtcNow -ge $deadline) {
+        Write-Host '##[group]SQL Server container log'
+        & docker logs --tail 200 $name
+        Write-Host '##[endgroup]'
+        throw "SQL Server did not become ready within 180 seconds (running: $running). Last probe output: $lastError"
+      }
+
+      Start-Sleep -Seconds 3
+    }
+
+    Write-Host 'SQL Server is ready'
+    Write-Host "##vso[task.setvariable variable=SqlContainerConnectionString;issecret=true]Server=tcp:127.0.0.1,1433;Initial Catalog=master;User Id=sa;Password=$env:MSSQL_SA_PASSWORD;TrustServerCertificate=True;Encrypt=True;MultipleActiveResultSets=False;Connection Timeout=30;"
+    Write-Host '##vso[task.setvariable variable=SqlContainerReady]true'
+  displayName: 'Start SQL Server container'
+  # Bounds the image pull plus the 180-second readiness wait.
+  timeoutInMinutes: 10
+  continueOnError: ${{ parameters.shadow }}
+  env:
+    MSSQL_SA_PASSWORD: $(SqlSaPassword)
+    SQLCMDPASSWORD: $(SqlSaPassword)

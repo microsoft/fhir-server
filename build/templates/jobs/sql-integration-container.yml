@@ -1,0 +1,75 @@
+# SQL integration tests for one FHIR version against SQL Server in a container on the agent,
+# instead of the per-PR Azure SQL server used by run-sql-tests.yml.
+parameters:
+- name: version
+  type: string
+# Shadow jobs never fail the run: every step continues on error, the test step turns a failure into
+# a warning, and the job is capped at 30 minutes.
+- name: shadow
+  type: boolean
+  default: false
+
+jobs:
+- job: SqlIntegrationContainer_${{ parameters.version }}
+  displayName: '${{ parameters.version }} SQL Integration (container)'
+  ${{ if parameters.shadow }}:
+    timeoutInMinutes: 30
+  pool:
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
+  steps:
+  - checkout: self
+    fetchDepth: 1
+    fetchTags: false
+    continueOnError: ${{ parameters.shadow }}
+
+  - task: UseDotNet@2
+    displayName: 'Use .NET SDK'
+    continueOnError: ${{ parameters.shadow }}
+    inputs:
+      useGlobalJson: true
+
+  - task: DownloadBuildArtifacts@0
+    displayName: 'Download ${{ parameters.version }} integration tests'
+    continueOnError: ${{ parameters.shadow }}
+    inputs:
+      buildType: 'current'
+      downloadType: 'single'
+      artifactName: 'IntegrationTests'
+      itemPattern: 'IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.zip'
+      downloadPath: '$(System.ArtifactsDirectory)'
+
+  - task: ExtractFiles@1
+    displayName: 'Extract ${{ parameters.version }} integration tests'
+    continueOnError: ${{ parameters.shadow }}
+    inputs:
+      archiveFilePatterns: '$(System.ArtifactsDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.zip'
+      destinationFolder: '$(Agent.TempDirectory)/IntegrationTests/'
+
+  - template: ../steps/start-sql-container.yml
+    parameters:
+      shadow: ${{ parameters.shadow }}
+
+  - template: ../steps/run-mtp-tests.yml
+    parameters:
+      testDll: '$(Agent.TempDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.dll'
+      # Both filters are required to exclude CosmosDb traits and traitless CosmosDb classes.
+      filterArgs: ['--filter-not-trait', 'DataStore=CosmosDb', '--filter-not-class', '*CosmosDb*']
+      runName: '${{ parameters.version }} SQL Integration (container)'
+      shadow: ${{ parameters.shadow }}
+      # Without a ready server every test would wait out its connection retries.
+      condition: and(succeeded(), eq(variables['SqlContainerReady'], 'true'))
+      # Leaves room inside the 30-minute shadow job for setup and cleanup.
+      timeoutInMinutes: 20
+      env:
+        'SqlServer:ConnectionString': $(SqlContainerConnectionString)
+
+  - pwsh: |
+      $containers = @(& docker ps -aq --filter 'label=fhir-test-dependency=$(System.JobId)')
+      if ($containers.Count -gt 0) {
+        & docker rm -f @containers
+      }
+    displayName: 'Remove test dependency containers'
+    condition: always()
+    continueOnError: ${{ parameters.shadow }}

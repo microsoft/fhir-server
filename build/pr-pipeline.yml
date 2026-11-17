@@ -3,6 +3,14 @@
 
 trigger: none
 
+parameters:
+# Adds shadow stages that run tests against containers on the agent (build/templates/stages/container-tests.yml).
+# Nothing depends on them and their failures surface only as warnings.
+- name: containerShadow
+  displayName: 'Run shadow container test stages'
+  type: boolean
+  default: false
+
 variables:
 - template: pr-variables.yml
 - template: build-variables.yml
@@ -112,6 +120,9 @@ stages:
     - template: ./templates/steps/analyze.yml
       parameters:
         fastCleanup: true
+
+- ${{ if parameters.containerShadow }}:
+  - template: ./templates/stages/container-tests.yml
 
 - stage: DockerBuild  
   displayName: 'Build images'

@@ -1,0 +1,76 @@
+# Runs a Microsoft.Testing.Platform test application and publishes its results to Azure DevOps.
+# When shadow is true the run is named "[shadow] <runName>", a failing exit code becomes a warning,
+# and the step continues on error, so a shadow run never fails the pipeline.
+parameters:
+# Path of the test assembly. The extracted artifact may nest it, so it is found by file name under this directory.
+- name: testDll
+  type: string
+- name: filterArgs
+  type: object
+  default: []
+- name: runName
+  type: string
+- name: shadow
+  type: boolean
+  default: false
+# Extra environment variables for the test process, such as connection strings.
+- name: env
+  type: object
+  default: {}
+- name: condition
+  type: string
+  default: succeeded()
+- name: timeoutInMinutes
+  type: number
+  default: 0
+
+steps:
+- pwsh: |
+    $ErrorActionPreference = 'Stop'
+    $testDll = '${{ parameters.testDll }}'
+    $dll = Get-ChildItem -Path (Split-Path -Parent $testDll) -Recurse -Filter (Split-Path -Leaf $testDll) | Select-Object -First 1
+    if (-not $dll) {
+      throw "Could not find $testDll"
+    }
+
+    $arguments = @($env:MTP_FILTER_ARGS_JSON | ConvertFrom-Json) + @(
+      '--retry-failed-tests', '3',
+      '--report-trx',
+      '--publish-azdo-test-results',
+      '--publish-azdo-run-name', $env:MTP_RUN_NAME)
+
+    Write-Host "Running dotnet $($dll.FullName) $($arguments -join ' ')"
+    & dotnet $dll.FullName @arguments
+    $testExitCode = $LASTEXITCODE
+    if ($testExitCode -eq 0) {
+      exit 0
+    }
+
+    # Test dependency containers started by this job carry the job's label.
+    foreach ($container in @(& docker ps -aq --filter 'label=fhir-test-dependency=$(System.JobId)')) {
+      Write-Host "##[group]docker logs $container"
+      & docker logs --tail 300 $container
+      Write-Host '##[endgroup]'
+    }
+
+    if ($env:MTP_SHADOW -eq 'true') {
+      Write-Host "##vso[task.logissue type=warning]$env:MTP_RUN_NAME failed with exit code $testExitCode (shadow run; not failing the pipeline)"
+      exit 0
+    }
+
+    Write-Host "##vso[task.logissue type=error]$env:MTP_RUN_NAME failed with exit code $testExitCode"
+    exit $testExitCode
+  displayName: 'Run ${{ parameters.runName }}'
+  condition: ${{ parameters.condition }}
+  timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
+  continueOnError: ${{ parameters.shadow }}
+  env:
+    ${{ insert }}: ${{ parameters.env }}
+    MTP_FILTER_ARGS_JSON: ${{ convertToJson(parameters.filterArgs) }}
+    ${{ if parameters.shadow }}:
+      MTP_RUN_NAME: '[shadow] ${{ parameters.runName }}'
+      MTP_SHADOW: 'true'
+    ${{ else }}:
+      MTP_RUN_NAME: '${{ parameters.runName }}'
+      MTP_SHADOW: 'false'
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)

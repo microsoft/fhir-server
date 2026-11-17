@@ -1,0 +1,139 @@
+# Starts Azurite (image pinned in build/docker/test-dependencies.Dockerfile, stage "azurite") on
+# 127.0.0.1:10000-10002 and waits until a blob can be written and read back.
+# Clients use "UseDevelopmentStorage=true". Sets AzuriteReady = 'true' for later steps once ready.
+# The container carries the label fhir-test-dependency=$(System.JobId); the job removes it by that label.
+parameters:
+# Shadow jobs must never fail the run: every step continues on error.
+- name: shadow
+  type: boolean
+  default: false
+
+steps:
+- pwsh: |
+    $ErrorActionPreference = 'Stop'
+    $dockerfile = '$(Build.SourcesDirectory)/build/docker/test-dependencies.Dockerfile'
+    $fromLines = @(Select-String -Path $dockerfile -Pattern '^\s*FROM\s+(\S+)\s+AS\s+azurite\s*$')
+    if ($fromLines.Count -ne 1) {
+      throw "Expected exactly one 'FROM <image> AS azurite' line in $dockerfile, found $($fromLines.Count)"
+    }
+
+    $image = $fromLines[0].Matches[0].Groups[1].Value
+    $name = 'fhir-azurite-$(System.JobId)'
+    $ports = 10000, 10001, 10002
+
+    foreach ($port in $ports) {
+      $probe = [Net.Sockets.TcpClient]::new()
+      try {
+        if ($probe.ConnectAsync('127.0.0.1', $port).Wait(2000)) {
+          throw "127.0.0.1:$port is already bound on this agent; refusing to start a second Azurite"
+        }
+      }
+      catch [AggregateException] {
+        # Connection refused: the port is free.
+      }
+      finally {
+        $probe.Dispose()
+      }
+    }
+
+    Write-Host "Starting $image as $name"
+    $publish = $ports | ForEach-Object { '-p'; "127.0.0.1:$($_):$($_)" }
+    & docker run -d --name $name --label 'fhir-test-dependency=$(System.JobId)' @publish $image
+    if ($LASTEXITCODE -ne 0) {
+      throw "docker run failed with exit code $LASTEXITCODE"
+    }
+
+    # Shared Key requests against the emulator's documented, public development account.
+    $account = 'devstoreaccount1'
+    $key = [Convert]::FromBase64String('Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==')
+    $baseUri = "http://127.0.0.1:10000/$account"
+    # $body stays untyped: a [string] parameter would turn $null into '' and every request would look like an upload.
+    function Invoke-Blob([string] $method, [string] $path, [string] $query = '', $body = $null) {
+      $date = [DateTime]::UtcNow.ToString('R')
+      $headers = @{ 'x-ms-date' = $date; 'x-ms-version' = '2021-08-06' }
+      $contentLength = ''
+      $contentType = ''
+      if ($null -ne $body) {
+        $headers['x-ms-blob-type'] = 'BlockBlob'
+        $contentLength = [Text.Encoding]::UTF8.GetByteCount($body).ToString()
+        $contentType = 'text/plain'
+      }
+
+      $canonicalHeaders = ($headers.Keys | Sort-Object | ForEach-Object { "$($_):$($headers[$_])" }) -join "`n"
+      # Path-style emulator URIs repeat the account name in the canonicalized resource.
+      $canonicalResource = "/$account/$account/$path"
+      if ($query) {
+        $canonicalResource += "`n" + (($query -split '&' | Sort-Object | ForEach-Object { $_ -replace '=', ':' }) -join "`n")
+      }
+
+      $stringToSign = "$method`n`n`n$contentLength`n`n$contentType`n`n`n`n`n`n`n$canonicalHeaders`n$canonicalResource"
+      $hmac = [Security.Cryptography.HMACSHA256]::new($key)
+      try {
+        $signature = [Convert]::ToBase64String($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($stringToSign)))
+      }
+      finally {
+        $hmac.Dispose()
+      }
+
+      $headers['Authorization'] = "SharedKey $($account):$signature"
+      $uri = "$baseUri/$path"
+      if ($query) {
+        $uri += "?$query"
+      }
+
+      $request = @{ Method = $method; Uri = $uri; Headers = $headers; TimeoutSec = 5 }
+      if ($null -ne $body) {
+        $request.Body = $body
+        $request.ContentType = $contentType
+      }
+
+      Invoke-WebRequest @request
+    }
+
+    $container = 'readiness-probe'
+    $payload = 'readiness $(System.JobId)'
+    $deadline = [DateTime]::UtcNow.AddSeconds(60)
+    while ($true) {
+      try {
+        try {
+          $null = Invoke-Blob 'PUT' $container 'restype=container'
+        }
+        catch {
+          # 409: the container survives from an earlier attempt.
+          if ($_.Exception.Response.StatusCode -ne [Net.HttpStatusCode]::Conflict) {
+            throw
+          }
+        }
+
+        $null = Invoke-Blob 'PUT' "$container/probe.txt" '' $payload
+        $read = (Invoke-Blob 'GET' "$container/probe.txt").Content
+        if ($read -is [byte[]]) {
+          $read = [Text.Encoding]::UTF8.GetString($read)
+        }
+
+        if ($read -ne $payload) {
+          throw "Read back '$read', expected '$payload'"
+        }
+
+        break
+      }
+      catch {
+        $lastError = $_.Exception.Message
+        $running = & docker inspect -f '{{.State.Running}}' $name
+        if ($running -ne 'true' -or [DateTime]::UtcNow -ge $deadline) {
+          Write-Host '##[group]Azurite container log'
+          & docker logs --tail 200 $name
+          Write-Host '##[endgroup]'
+          throw "Azurite did not become ready within 60 seconds (running: $running). Last error: $lastError"
+        }
+
+        Start-Sleep -Seconds 2
+      }
+    }
+
+    Write-Host 'Azurite is ready'
+    Write-Host '##vso[task.setvariable variable=AzuriteReady]true'
+  displayName: 'Start Azurite container'
+  # Bounds the image pull plus the 60-second readiness wait.
+  timeoutInMinutes: 5
+  continueOnError: ${{ parameters.shadow }}

@@ -36,6 +36,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     public class SqlServerFhirStorageTestHelper : IFhirStorageTestHelper, ISqlServerFhirStorageTestHelper
     {
+        private const int DatabaseInUseErrorNumber = 3702;
+
         private readonly string _masterDatabaseName;
         private readonly string _initialConnectionString;
         private readonly SqlServerFhirModel _sqlServerFhirModel;
@@ -313,7 +315,17 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
                         // by the surrounding catch block left ghost DBs accumulating on the inttest server).
                         command.CommandTimeout = 300;
                         command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
-                        await command.ExecuteNonQueryAsync(cancellationToken);
+                        try
+                        {
+                            await command.ExecuteNonQueryAsync(cancellationToken);
+                        }
+                        catch (SqlException ex) when (ex.Number == DatabaseInUseErrorNumber)
+                        {
+                            // Background work (watchdogs, job hosting) can still hold sessions on a database this helper created.
+                            // Evict them and drop in the same batch so no new session can claim the single-user slot in between.
+                            command.CommandText = $"ALTER DATABASE [{databaseName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{databaseName}]";
+                            await command.ExecuteNonQueryAsync(cancellationToken);
+                        }
                     }
                     finally
                     {

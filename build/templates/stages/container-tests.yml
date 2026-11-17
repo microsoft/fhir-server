@@ -1,0 +1,21 @@
+# Shadow stage: runs SQL integration tests against SQL Server containers on the agent, to measure them
+# beside the Azure SQL integration jobs. Nothing depends on this stage and its failures surface only
+# as warnings. Included by pr-pipeline.yml when the containerShadow parameter is true.
+stages:
+- stage: containerSqlIntegration
+  displayName: 'SQL integration tests on containers (shadow)'
+  dependsOn:
+  - BuildArtifacts
+  jobs:
+  - template: ../jobs/sql-integration-container.yml
+    parameters:
+      version: Stu3
+      shadow: true
+  - template: ../jobs/sql-integration-container.yml
+    parameters:
+      version: R4
+      shadow: true
+  - template: ../jobs/sql-integration-container.yml
+    parameters:
+      version: R5
+      shadow: true
