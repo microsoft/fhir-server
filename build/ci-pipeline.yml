@@ -333,6 +333,7 @@ stages:
   - testR4Cosmos
   - testR4Sql
   - testR5Sql
+  - AnalyzeSecurity
   jobs:
   - template: ./templates/jobs/docker-add-tag.yml
     parameters:
