@@ -37,6 +37,15 @@ stages:
   displayName: 'Tier 1 tests (build once, SQL Server and Azurite containers)'
   dependsOn: []
   jobs:
+  # Source scanners (Windows) and the R4 image smoke wait for nothing and run beside the tests.
+  - template: ../jobs/tier1-source-scan.yml
+    parameters:
+      shadow: ${{ parameters.shadow }}
+
+  - template: ../jobs/tier1-image-smoke.yml
+    parameters:
+      shadow: ${{ parameters.shadow }}
+
   - ${{ each version in parameters.versions }}:
     - ${{ if or(eq(version, 'R4'), ne(parameters.scope, 'lean')) }}:
       - template: ../jobs/tier1-build.yml

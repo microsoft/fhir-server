@@ -1,0 +1,74 @@
+# Tier 1 image smoke (docs/arch/adr-2611-tiered-pr-validation.md): builds the R4 amd64 server image from
+# build/docker/Dockerfile and starts it against SQL Server and Azurite containers on the agent, to prove the image boots,
+# initializes its schema and enforces authentication. The image is only loaded into the local Docker daemon, never pushed,
+# so the job needs no registry login and no service connection.
+parameters:
+# Shadow jobs never fail the run: every step continues on error and the job is capped at 30 minutes.
+- name: shadow
+  type: boolean
+  default: false
+
+jobs:
+- job: Tier1ImageSmoke
+  displayName: 'R4 image smoke (build, start, authentication)'
+  ${{ if parameters.shadow }}:
+    timeoutInMinutes: 30
+  pool:
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
+  variables:
+    smokeImage: 'fhir-smoke-r4:$(Build.BuildId)'
+  steps:
+  - checkout: self
+    fetchDepth: 1
+    fetchTags: false
+    continueOnError: ${{ parameters.shadow }}
+
+  - template: ../steps/start-sql-container.yml
+    parameters:
+      shadow: ${{ parameters.shadow }}
+
+  - template: ../steps/start-azurite.yml
+    parameters:
+      shadow: ${{ parameters.shadow }}
+
+  # --load keeps the image in the local daemon; there is no --push. ASSEMBLY_VER only stamps the assembly version, which
+  # the real image build takes from GitVersion in the UpdateVersion stage; the smoke needs no version.
+  - bash: |
+      set -euo pipefail
+      docker buildx build --load --platform linux/amd64 \
+        --tag "$SMOKE_IMAGE" \
+        --file ./build/docker/Dockerfile \
+        --build-arg FHIR_VERSION=R4 \
+        --build-arg ASSEMBLY_VER=0.0.0 \
+        .
+    displayName: 'Build R4 image'
+    workingDirectory: '$(Build.SourcesDirectory)'
+    timeoutInMinutes: 20
+    continueOnError: ${{ parameters.shadow }}
+    env:
+      SMOKE_IMAGE: $(smokeImage)
+
+  # Without a ready SQL Server or Azurite the server could not start, and the image failing to build leaves nothing to run.
+  - bash: bash build/scripts/Invoke-ImageSmokeTest.sh
+    displayName: 'Smoke test R4 image'
+    workingDirectory: '$(Build.SourcesDirectory)'
+    condition: and(succeeded(), eq(variables['SqlContainerReady'], 'true'), eq(variables['AzuriteReady'], 'true'))
+    timeoutInMinutes: 15
+    continueOnError: ${{ parameters.shadow }}
+    env:
+      IMAGE: $(smokeImage)
+      SQL_CONNECTION_STRING: $(SqlContainerConnectionString)
+      REPO_ROOT: $(Build.SourcesDirectory)
+      WORK_DIR: $(Agent.TempDirectory)/image-smoke
+      JOB_ID: $(System.JobId)
+
+  - pwsh: |
+      $containers = @(& docker ps -aq --filter 'label=fhir-test-dependency=$(System.JobId)')
+      if ($containers.Count -gt 0) {
+        & docker rm -f @containers
+      }
+    displayName: 'Remove test dependency containers'
+    condition: always()
+    continueOnError: ${{ parameters.shadow }}

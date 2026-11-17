@@ -1,0 +1,85 @@
+# Tier 1 source scanners (docs/arch/adr-2611-tiered-pr-validation.md): the Guardian tools that need only the source
+# checkout, so they run beside the tests instead of after the BuildArtifacts stage. They block the PR; the tools that
+# need build output (BinSkim, RoslynAnalyzers, AntiMalware over binaries, the SBOM validator) run in the full pipeline
+# after merge. Task inputs are the same as in steps/analyze.yml; keep them equal.
+parameters:
+# Shadow jobs never fail the run: every step continues on error and the job is capped at 30 minutes.
+- name: shadow
+  type: boolean
+  default: false
+
+jobs:
+- job: Tier1SourceScan
+  displayName: 'Source security scan (CredScan, CSRF, PSScriptAnalyzer, Armory, TemplateAnalyzer)'
+  ${{ if parameters.shadow }}:
+    timeoutInMinutes: 30
+  pool:
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalWindowsImage)
+  steps:
+  - checkout: self
+    fetchDepth: 1
+    fetchTags: false
+    continueOnError: ${{ parameters.shadow }}
+
+  - task: Armory@2
+    continueOnError: ${{ parameters.shadow }}
+    inputs:
+      targetDirectory: '$(Build.SourcesDirectory)/samples/templates'
+      targetFiles: 'f|*.json'
+      excludePassesFromLog: false
+
+  - task: TemplateAnalyzer@3
+    displayName: 'Run Template Analyzer'
+    continueOnError: ${{ parameters.shadow }}
+    inputs:
+        ToolVersion: Latest
+        AnalyzeDirectory: '$(Build.SourcesDirectory)/samples/templates'
+        Verbose: false
+        IncludeNonSecurityRules: true
+
+  - task: CredScan@3
+    continueOnError: ${{ parameters.shadow }}
+    inputs:
+      scanFolder: '$(Build.SourcesDirectory)'
+      outputFormat: 'pre'
+      suppressionsFile: 'CredScanSuppressions.json'
+      verboseOutput: true
+
+  - task: CSRF@1
+    continueOnError: ${{ parameters.shadow }}
+    inputs:
+        Path: '$(Build.SourcesDirectory)'
+        ToolVersion: Latest
+
+  - task: PSScriptAnalyzer@1
+    displayName: 'Run PSScriptAnalyzer'
+    continueOnError: ${{ parameters.shadow }}
+    inputs:
+      Path: '$(Build.SourcesDirectory)'
+      Settings: required
+      IgnorePattern: .gdn
+      Recurse: true
+
+  - task: PublishSecurityAnalysisLogs@3
+    condition: succeededOrFailed()
+    continueOnError: True
+    inputs:
+      ArtifactName: 'Tier1CodeAnalysisLogs'
+      ArtifactType: 'Container'
+      AllTools: false
+      Armory: true
+      CredScan: true
+      CSRF: true
+      ToolLogsNotFoundAction: 'Standard'
+
+  - task: PostAnalysis@2
+    condition: succeededOrFailed()
+    continueOnError: ${{ parameters.shadow }}
+    inputs:
+      GdnBreakAllTools: false
+      GdnBreakGdnToolArmory: true
+      GdnBreakGdnToolCredScan: true
+      GdnBreakGdnToolCSRF: true
+      CredScan: true
