@@ -9,7 +9,7 @@ parameters:
 - name: containerShadow
   displayName: 'Run shadow container test stages'
   type: boolean
-  default: false
+  default: true # TEMP shadow measurement - revert before merge
 
 variables:
 - template: pr-variables.yml
