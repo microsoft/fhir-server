@@ -1,0 +1,51 @@
+# One share of the unit tests for one target framework (Tier 1): builds only the selected unit test projects and what they
+# reference, then runs them without code coverage. Needs nothing from the UpdateVersion stage (placeholder versions, as in
+# steps/dotnet-build-tests.yml), so it starts as soon as an agent is free.
+#
+# The share is chosen by Invoke-ParallelUnitTests.ps1 -ModuleShard from build/test-shards/unit-tests.json; the build and the
+# test step use the same selection. Analyzers and warnings-as-errors stay off: the legacy BuildUnitTests stage and the
+# build artifact stage still build the whole solution with them.
+parameters:
+- name: jobName
+  type: string
+- name: targetFramework
+  type: string
+# '<index>/<count>', for example '1/2'.
+- name: moduleShard
+  type: string
+
+jobs:
+- job: ${{ parameters.jobName }}
+  displayName: 'Unit tests ${{ parameters.targetFramework }} (${{ parameters.moduleShard }})'
+  pool:
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
+  steps:
+  - checkout: self
+    fetchDepth: 1
+    fetchTags: false
+
+  - task: UseDotNet@2
+    displayName: 'Use .NET SDKs from global.json files'
+    inputs:
+      useGlobalJson: true
+
+  - pwsh: |
+      & "$(System.DefaultWorkingDirectory)/build/scripts/Invoke-ParallelUnitTests.ps1" -Framework "${{ parameters.targetFramework }}" -Configuration "$(buildConfiguration)" -SourceRoot "$(Build.SourcesDirectory)/src" -ModuleShard "${{ parameters.moduleShard }}" -SolutionFilterPath "$(Agent.TempDirectory)/unit-tests-shard.slnf"
+    displayName: 'Select unit test projects (shard ${{ parameters.moduleShard }})'
+    workingDirectory: $(System.DefaultWorkingDirectory)
+
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet build shard ${{ parameters.moduleShard }}'
+    inputs:
+      command: build
+      projects: '$(Agent.TempDirectory)/unit-tests-shard.slnf'
+      arguments: '--configuration $(buildConfiguration) -f ${{ parameters.targetFramework }} -p:ContinuousIntegrationBuild=true -p:Version=0.0.0-pr -p:AssemblyVersion=0.0.0.0 -p:FileVersion=0.0.0.0 -p:RunAnalyzers=false -p:EnableNETAnalyzers=false -p:TreatWarningsAsErrors=false'
+      workingDirectory: $(System.DefaultWorkingDirectory)
+
+  - template: ../steps/unit-tests.yml
+    parameters:
+      targetFramework: ${{ parameters.targetFramework }}
+      moduleShard: ${{ parameters.moduleShard }}
+      runName: 'Unit Tests ${{ parameters.targetFramework }} (${{ parameters.moduleShard }})'

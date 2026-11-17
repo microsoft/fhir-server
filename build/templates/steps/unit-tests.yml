@@ -5,6 +5,9 @@ parameters:
   targetFramework: ''
   codeCoverage: false
   maxParallel: 4
+  # '<index>/<count>' of Invoke-ParallelUnitTests.ps1 -ModuleShard; empty runs every module. Only without codeCoverage.
+  moduleShard: ''
+  runName: 'Unit Tests'
 
 steps:
 - ${{ if eq(parameters.codeCoverage, 'true') }}:
@@ -16,6 +19,15 @@ steps:
     env:
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)
       platformOptions__resultDirectory: '$(Agent.TempDirectory)/coverage'
+
+- ${{ elseif ne(parameters.moduleShard, '') }}:
+  - pwsh: |
+      & "$(System.DefaultWorkingDirectory)/build/scripts/Invoke-ParallelUnitTests.ps1" -Framework "${{ parameters.targetFramework }}" -Configuration "$(buildConfiguration)" -SourceRoot "$(Build.SourcesDirectory)/src" -MaxParallel ${{ parameters.maxParallel }} -ModuleShard "${{ parameters.moduleShard }}" -TestArguments '--retry-failed-tests','3','--report-trx','--publish-azdo-test-results','--publish-azdo-run-name',"${{ parameters.runName }}"
+      exit $LASTEXITCODE
+    displayName: 'dotnet test (shard ${{ parameters.moduleShard }})'
+    workingDirectory: $(System.DefaultWorkingDirectory)
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
 - ${{ else }}:
   - pwsh: |

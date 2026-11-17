@@ -10,9 +10,34 @@
     src/*UnitTests/*.csproj (AssemblyName and TargetFrameworks are evaluated, not built) and runs one
     `dotnet test --test-modules` per module, MaxParallel at a time.
 
+    -ModuleShard runs only one share of the modules, so several jobs can split the suite. The shares are balanced by the
+    minutes recorded per project in build/test-shards/unit-tests.json (see -DurationsFile): projects are taken longest
+    first, each into the lighter share so far, with ties broken by project name (ordinal) and then by share number. A
+    project missing from the file counts as -UnknownMinutes, so it lands in the lighter share without being treated as free.
+
+    -ListProjects prints the csproj paths of the selected projects and -SolutionFilterPath writes a solution filter
+    (.slnf) of them; neither runs tests. A job that runs one share builds only that filter, not the whole solution.
+
     A project that does not target the framework is skipped with a message. A project that targets it but has no
     built module fails the script before any test runs. The TFM directory in the module path provides isolation,
     so -f is never passed. The script exits non-zero if any module fails.
+
+.PARAMETER ModuleShard
+    '<index>/<count>' (1-based, for example '2/3'): run only that share of the modules.
+
+.PARAMETER DurationsFile
+    Minutes per project for -ModuleShard: { "minutes": { "<csproj file name without extension>": <minutes> } }. The
+    project file name is the key because it is the same on every OS and framework.
+
+.PARAMETER UnknownMinutes
+    Weight of a project that DurationsFile does not list.
+
+.PARAMETER ListProjects
+    Print the selected csproj paths and exit.
+
+.PARAMETER SolutionFilterPath
+    Write a solution filter of the selected projects here and exit. The solution is -Solution, which defaults to
+    Microsoft.Health.Fhir.sln beside SourceRoot.
 
 .PARAMETER TestArguments
     Arguments passed to each test module after `--`.
@@ -23,6 +48,12 @@ param(
     [Parameter(Mandatory)] [string] $Configuration,
     [Parameter(Mandatory)] [string] $SourceRoot,
     [int] $MaxParallel = 4,
+    [ValidatePattern('^[1-9][0-9]*/[1-9][0-9]*$')] [string] $ModuleShard,
+    [string] $DurationsFile = (Join-Path $PSScriptRoot '..' 'test-shards' 'unit-tests.json'),
+    [double] $UnknownMinutes = 1,
+    [switch] $ListProjects,
+    [string] $SolutionFilterPath,
+    [string] $Solution = (Join-Path $SourceRoot '..' 'Microsoft.Health.Fhir.sln'),
     [string[]] $TestArguments = @()
 )
 
@@ -52,14 +83,93 @@ $evaluated = $projectFiles | ForEach-Object -ThrottleLimit 8 -Parallel {
     }
 }
 
-$modules = @()
-$missing = @()
+$targeted = @()
 foreach ($item in $evaluated | Sort-Object { $_.Project.FullName }) {
-    if ($Framework -notin $item.TargetFrameworks) {
+    if ($Framework -in $item.TargetFrameworks) {
+        $targeted += $item
+    }
+    else {
         Write-Host "Skipping $($item.AssemblyName): does not target $Framework ($($item.TargetFrameworks -join ', '))."
-        continue
+    }
+}
+
+# Greedy longest-first packing: each project goes to the share with the least minutes so far. Ordinal name order (not
+# the culture-sensitive Sort-Object) and the lowest share number on a tie keep the split identical on every OS.
+function Select-ModuleShard {
+    param([object[]] $Items, [string] $Shard)
+
+    $index, $count = $Shard -split '/' | ForEach-Object { [int] $_ }
+    if ($index -gt $count) {
+        throw "Module shard '$Shard' is out of range: the index must be between 1 and $count."
     }
 
+    if (-not (Test-Path -LiteralPath $DurationsFile -PathType Leaf)) {
+        throw "Durations file '$DurationsFile' not found."
+    }
+
+    $minutes = (Get-Content -Raw -LiteralPath $DurationsFile | ConvertFrom-Json -AsHashtable).minutes
+    $ordered = [System.Collections.Generic.List[object]]::new()
+    foreach ($item in $Items) {
+        $name = $item.Project.BaseName
+        $ordered.Add([pscustomobject]@{ Item = $item; Name = $name; Minutes = $minutes.ContainsKey($name) ? [double] $minutes[$name] : $UnknownMinutes })
+    }
+
+    $ordered.Sort([Comparison[object]] {
+        param($a, $b)
+        $byMinutes = $b.Minutes.CompareTo($a.Minutes)
+        $byMinutes -ne 0 ? $byMinutes : [string]::CompareOrdinal($a.Name, $b.Name)
+    })
+
+    $load = [double[]]::new($count)
+    $selected = @()
+    foreach ($entry in $ordered) {
+        $lightest = 0
+        for ($i = 1; $i -lt $count; $i++) {
+            if ($load[$i] -lt $load[$lightest]) { $lightest = $i }
+        }
+
+        $load[$lightest] += $entry.Minutes
+        if ($lightest -eq $index - 1) { $selected += $entry.Item }
+    }
+
+    Write-Host "Module shard ${Shard}: $($selected.Count) of $($Items.Count) projects, $($load[$index - 1]) minutes (shares: $($load -join ', '))."
+    return $selected
+}
+
+if ($ModuleShard) {
+    $targeted = @(Select-ModuleShard $targeted $ModuleShard | Sort-Object { $_.Project.FullName })
+}
+
+if ($ListProjects) {
+    $targeted | ForEach-Object { $_.Project.FullName }
+}
+
+if ($SolutionFilterPath) {
+    if (-not (Test-Path -LiteralPath $Solution -PathType Leaf)) {
+        throw "Solution '$Solution' not found."
+    }
+
+    $solutionFull = (Resolve-Path -LiteralPath $Solution).Path
+    $filterDirectory = Split-Path -Parent ([IO.Path]::GetFullPath($SolutionFilterPath))
+    $solutionDirectory = Split-Path -Parent $solutionFull
+    # Solution filters use backslash separators on every OS.
+    $filter = @{
+        solution = @{
+            path = [IO.Path]::GetRelativePath($filterDirectory, $solutionFull).Replace('/', '\')
+            projects = @($targeted | ForEach-Object { [IO.Path]::GetRelativePath($solutionDirectory, $_.Project.FullName).Replace('/', '\') })
+        }
+    }
+    ConvertTo-Json -InputObject $filter -Depth 4 | Set-Content -LiteralPath $SolutionFilterPath
+    Write-Host "Wrote solution filter $SolutionFilterPath with $($targeted.Count) projects."
+}
+
+if ($ListProjects -or $SolutionFilterPath) {
+    return
+}
+
+$modules = @()
+$missing = @()
+foreach ($item in $targeted) {
     $projectDirectory = $item.Project.Directory
     $relativePath = "$($projectDirectory.Name)/bin/$Configuration/$Framework/$($item.AssemblyName).dll"
     if (Test-Path -LiteralPath (Join-Path $SourceRoot $relativePath) -PathType Leaf) {

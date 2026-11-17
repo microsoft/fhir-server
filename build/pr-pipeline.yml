@@ -77,29 +77,34 @@ stages:
     - script: dotnet msbuild build/DependabotDiscovery -t:ValidateDependabotCoverage
       displayName: 'Validate Dependabot discovery project'
 
-- stage: BuildUnitTests
-  displayName: 'Build and run unit tests'
-  dependsOn:
-  - UpdateVersion
-  variables:
-    assemblySemVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemVer']]
-    assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
-    informationalVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.informationalVersion']]
-    majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
-    nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
-  jobs:
-  - job: Windows_dotnet11
-    pool:
-      name: '$(InternalPool)'
-      demands:
-        - ImageOverride -equals $(InternalWindowsImage)
-    steps:
-    - template: ./templates/steps/dotnet-build.yml
-      parameters:
-        targetBuildFramework: $(defaultBuildFramework)
-        unitTest: false
-        codeCoverage: true
-        parallelUnitTests: true
+# tier1 runs the unit tests as four shard jobs that wait for nothing; the other modes build the whole solution once per
+# framework (tier1Shadow keeps this stage unchanged and adds no shadow unit test jobs).
+- ${{ if eq(parameters.validationMode, 'tier1') }}:
+  - template: ./templates/stages/unit-tests-tier1.yml
+- ${{ else }}:
+  - stage: BuildUnitTests
+    displayName: 'Build and run unit tests'
+    dependsOn:
+    - UpdateVersion
+    variables:
+      assemblySemVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemVer']]
+      assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
+      informationalVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.informationalVersion']]
+      majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
+      nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
+    jobs:
+    - job: Windows_dotnet11
+      pool:
+        name: '$(InternalPool)'
+        demands:
+          - ImageOverride -equals $(InternalWindowsImage)
+      steps:
+      - template: ./templates/steps/dotnet-build.yml
+        parameters:
+          targetBuildFramework: $(defaultBuildFramework)
+          unitTest: false
+          codeCoverage: true
+          parallelUnitTests: true
 
 # Tier 1 (stages/tier1.yml): tier1Shadow adds it beside the stages below, as a shadow; tier1 runs it instead of them,
 # unless tier1Scope is full.
