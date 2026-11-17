@@ -167,6 +167,11 @@ The realistic expectation is a p50 of 19–22 minutes. The p90 will be higher, d
 
   Cosmos, version-specific and `build/**` changes together accounted for about 23% of merges in the observed window. Changes to `*.Shared.*` code alone add Stu3 and R5 on containers (Tier 1), not the deployed matrix.
 - **Fork PRs never receive privileged secrets.** Tier 2 for a fork means a maintainer pushes the reviewed SHA to a same-repository branch and opens or queues from there. Manually queueing a fork's `refs/pull/<n>/merge` is not allowed.
+- **Merge queue (future option, not adopted).** A GitHub merge queue could run the full matrix on every PR before it reaches `main`, which would remove post-merge breakage.
+  - **Support is unproven.** Azure Pipelines has no `merge_group` event. It would work only through a CI trigger on `gh-readonly-queue/main/*` that reports "PR Build & Deploy" from definition 9 itself, and no public repository is confirmed to enforce a queue this way.
+  - **Security.** Queue builds are base-repository CI builds, so fork code would reach service connections. The ADO approval check is required before any pilot.
+  - **Operations.** Ejected builds keep running, and every merge waits for a 60–90-minute run.
+  - **Next step.** Definition 9 is made queue-ready (the trigger, and a classifier that treats queue branches as full). A pilot on a test-branch ruleset needs a repository administrator.
 
 The classifier **fails closed** for honest failures: if labels cannot be read completely, the run fails rather than assuming "no label". The label read is authenticated for same-repository PRs. Fork PRs skip it, since they cannot take Tier 2. On the deployed target, tests that assert server-wide counts (`HistoryTests`) run in their own job after the reindex and bulk-update jobs, which write to the same server.
 
