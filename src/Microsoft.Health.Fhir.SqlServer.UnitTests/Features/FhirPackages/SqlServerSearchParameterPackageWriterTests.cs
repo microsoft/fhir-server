@@ -93,19 +93,21 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.FhirPackages
             await _searchParameterOperations.Received(1).GetAndApplySearchParameterUpdates(Arg.Any<CancellationToken>());
         }
 
-        [Fact]
-        public async Task GivenTheRecordLookupHitsATransportError_WhenWritten_ThenARetryableConflictIsReturned()
+        [Theory]
+        [InlineData("A transport-level error has occurred when receiving results from the server.")]
+        [InlineData("Execution Timeout Expired.  The timeout period elapsed prior to completion of the operation or the server is not responding.")]
+        public async Task GivenTheRecordLookupHitsATransientError_WhenWritten_ThenARetryableConflictIsReturned(string message)
         {
             // Arrange
-            SqlException transportError = SqlExceptionFactory.GetSqlException("A transport-level error has occurred when receiving results from the server.", null);
-            _recordStore.GetAsync(PackageId, Arg.Any<CancellationToken>()).Returns<FhirSpecificationPackageRecord>(_ => throw transportError);
+            SqlException transientError = SqlExceptionFactory.GetSqlException(message, null);
+            _recordStore.GetAsync(PackageId, Arg.Any<CancellationToken>()).Returns<FhirSpecificationPackageRecord>(_ => throw transientError);
 
             // Act
             FhirPackageWriteConflictException ex = await Assert.ThrowsAsync<FhirPackageWriteConflictException>(WriteAsync);
 
             // Assert
             Assert.True(ex.IsRetryable);
-            Assert.Same(transportError, ex.InnerException);
+            Assert.Same(transientError, ex.InnerException);
             _transactionHandler.DidNotReceive().BeginTransaction();
             await AssertNothingWrittenAsync();
         }

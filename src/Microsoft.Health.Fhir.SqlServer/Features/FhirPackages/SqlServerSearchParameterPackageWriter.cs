@@ -46,6 +46,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
     /// Resource/DomainResource) would miss SearchParameter resources already in the store. Package validation rejects
     /// such parameters before they reach this writer.
     /// </para>
+    /// <para>
+    /// Caller contract: install packages before the service accepts resource writes, and don't open it to writes until
+    /// every instance has refreshed its SearchParameter cache. A write that overlaps the install extracts its indexes with
+    /// the previous SearchParameter set. The empty-store check's range lock delays that write until the install commits,
+    /// but can't add the new parameters' indexes to it.
+    /// </para>
     /// </remarks>
     public sealed class SqlServerSearchParameterPackageWriter : ISearchParameterPackageWriter
     {
@@ -293,6 +299,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
         /// <remarks>
         /// Runs inside the write transaction. HOLDLOCK keeps range locks until it ends, so no counted row can be inserted
         /// before the package commits.
+        /// <para>
+        /// This intentionally differs from the startup rule in <c>SqlServerFhirModel.InitializeSearchParameterStatuses</c>,
+        /// which counts every row. Counting SearchParameter rows here would fail every package after the first. Ignoring
+        /// them is safe because package parameters that search SearchParameter resources are rejected during validation.
+        /// Startup keeps its rule so existing services' startup behavior doesn't change.
+        /// </para>
         /// </remarks>
         private async Task<bool> ContainsDataAsync(CancellationToken cancellationToken)
         {
@@ -369,8 +381,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
 
         private static bool IsTransientSqlError(Exception ex)
         {
-            // Same classification as SqlRetryService: transient error numbers plus transport and availability failures.
-            return ex is SqlException sqlEx && (sqlEx.IsSqlTransientException() || sqlEx.IsRetriable());
+            // Transient error numbers, transport and availability failures, and execution timeouts (error -2). The rollback
+            // leaves nothing written, so the caller can retry.
+            return ex is SqlException sqlEx && (sqlEx.IsSqlTransientException() || sqlEx.IsRetriable() || sqlEx.IsExecutionTimeout());
         }
 
         private static FhirRequestContext CreateBackgroundContext()
