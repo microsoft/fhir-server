@@ -472,7 +472,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidateBundle(
                 () => tempClient.PostBundleAsync(batch),
                 expectedList,
-                TestApplications.NativeClient.ClientId);
+                TestApplications.ReadOnlyUser.ClientId);
         }
 
         private async Task ExecuteAndValidateBundle<T>(Func<Task<FhirResponse<T>>> action, List<(string auditAction, string route, HttpStatusCode? statusCode, ResourceType? resourceType)> expectedList, string expectedAppId)
@@ -486,29 +486,44 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
             Assert.NotNull(correlationId);
 
-            var inspectors = new List<Action<AuditEntry>>();
+            IReadOnlyList<AuditEntry> auditEntries = _auditLogger.GetAuditEntriesByCorrelationId(correlationId);
+            Assert.True(auditEntries.Count >= 2, $"Expected the bundle request to be audited when executing and executed, got {auditEntries.Count} audit entries.");
 
-            int insertIndex = 0;
-            foreach ((string auditAction, string route, HttpStatusCode? statusCode, ResourceType? resourceType) in expectedList)
+            // The bundle request is audited first and last.
+            (string bundleAction, string bundleRoute, HttpStatusCode? bundleStatusCode, ResourceType? bundleResourceType) = expectedList[0];
+            var bundleUri = new Uri($"http://localhost/{bundleRoute}");
+            ValidateExecutingAuditEntry(auditEntries[0], bundleAction, bundleResourceType, bundleUri, correlationId, expectedAppId, ExpectedClaimKey);
+            ValidateExecutedAuditEntry(auditEntries[^1], bundleAction, bundleResourceType, bundleUri, bundleStatusCode, correlationId, expectedAppId, ExpectedClaimKey);
+
+            // Bundle entries can be processed in parallel, so their audit entries can interleave in any order:
+            // compare them ordered by request, executing before executed, and duplicates by status code.
+            var expectedEntryAudits = new List<(string Action, Uri Uri, AuditAction AuditAction, HttpStatusCode? StatusCode, ResourceType? ResourceType)>();
+            foreach ((string auditAction, string route, HttpStatusCode? statusCode, ResourceType? resourceType) in expectedList.Skip(1))
             {
-                if (insertIndex == 2 && inspectors.Count == 2)
-                {
-                    insertIndex--;
-                }
-
+                var uri = new Uri($"http://localhost/{route}");
                 if (statusCode != HttpStatusCode.Unauthorized)
                 {
-                    inspectors.Insert(insertIndex, ae => ValidateExecutingAuditEntry(ae, auditAction, resourceType, new Uri($"http://localhost/{route}"), correlationId, expectedAppId, ExpectedClaimKey));
-                    insertIndex++;
+                    expectedEntryAudits.Add((auditAction, uri, AuditAction.Executing, null, resourceType));
                 }
 
-                inspectors.Insert(insertIndex, ae => ValidateExecutedAuditEntry(ae, auditAction, resourceType, new Uri($"http://localhost/{route}"), statusCode, correlationId, expectedAppId, ExpectedClaimKey));
-                insertIndex++;
+                expectedEntryAudits.Add((auditAction, uri, AuditAction.Executed, statusCode, resourceType));
             }
 
             Assert.Collection(
-                _auditLogger.GetAuditEntriesByCorrelationId(correlationId),
-                inspectors.ToArray());
+                auditEntries
+                    .Skip(1)
+                    .Take(auditEntries.Count - 2)
+                    .OrderBy(ae => ae.Action, StringComparer.Ordinal)
+                    .ThenBy(ae => ae.RequestUri.ToString(), StringComparer.Ordinal)
+                    .ThenBy(ae => ae.AuditAction)
+                    .ThenBy(ae => ae.StatusCode),
+                expectedEntryAudits
+                    .OrderBy(e => e.Action, StringComparer.Ordinal)
+                    .ThenBy(e => e.Uri.ToString(), StringComparer.Ordinal)
+                    .ThenBy(e => e.AuditAction)
+                    .ThenBy(e => e.StatusCode)
+                    .Select(e => new Action<AuditEntry>(ae => ValidateAuditEntry(ae, e.AuditAction, e.Action, e.ResourceType, e.Uri, e.StatusCode, correlationId, expectedAppId, ExpectedClaimKey)))
+                    .ToArray());
         }
 
         [Fact]
@@ -553,10 +568,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionForRollBack");
 
+            // Process the entries sequentially (POST before GET): in parallel, the failing read can cancel the create before it
+            // completes, which audits the create as 408 instead of 201 depending on timing.
+            var sequential = new FhirBundleOptions { BundleProcessingLogic = FhirBundleProcessingLogic.Sequential };
+
             await ExecuteAndValidateBundle(
               async () =>
               {
-                  using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
+                  using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleAsync(requestBundle.ToPoco<Bundle>(), sequential));
 
                   return fhirException.Response;
               },

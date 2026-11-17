@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -133,6 +134,34 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
             // Assert
             var signIn = Assert.IsType<SignInResult>(result);
             Assert.Equal([expectedResource], signIn.Principal.GetResources());
+        }
+
+        [Fact]
+        public void GivenATestAuthEnvironment_WhenBuildingTheConfiguration_ThenTheClaimOpenIddictCarriesTheClientInIsAPrincipalClaim()
+        {
+            // Arrange
+            string filePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.json");
+            File.WriteAllText(filePath, """{ "users": [], "clientApplications": [ { "id": "client", "roles": [] } ] }""");
+            try
+            {
+                var existingConfiguration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string>
+                {
+                    ["TestAuthEnvironment:FilePath"] = filePath,
+                }).Build();
+
+                // Act
+                IConfigurationRoot configuration = new ConfigurationBuilder()
+                    .AddDevelopmentAuthEnvironmentIfConfigured(existingConfiguration)
+                    .Build();
+
+                // Assert
+                string[] principalClaims = configuration.GetSection("FhirServer:Security:PrincipalClaims").Get<string[]>();
+                Assert.Contains(OpenIddictConstants.Claims.ClientId, principalClaims);
+            }
+            finally
+            {
+                File.Delete(filePath);
+            }
         }
     }
 }
