@@ -23,6 +23,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         public string Tag { get; private set; }
 
+        /// <summary>
+        /// Gets a base URI that is exactly as long as the reference index holds.
+        /// </summary>
+        public string LongestBaseUri { get; } = $"https://example.org/{new string('a', 107)}/";
+
         protected override async Task OnInitializedAsync()
         {
             // Prepare the resources used for string search tests.
@@ -61,6 +66,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p =>
                 {
                     p.GeneralPractitioner = new List<ResourceReference> { new ResourceReference("p2") }; // type not specified and not known because it could be Practitioner, Organization, or PractitionerRole
+                    p.Meta = meta;
+                },
+                p =>
+                {
+                    p.ManagingOrganization = new ResourceReference($"{LongestBaseUri}Organization/xyz");
                     p.Meta = meta;
                 });
         }

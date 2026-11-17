@@ -4,11 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using EnsureThat;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -49,6 +51,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <inheritdoc />
         public ReferenceSearchValue Parse(string s)
         {
+            ReferenceSearchValue value = ParseUri(s);
+            if (value.ResourceType == null)
+            {
+                return value;
+            }
+
+            string resourceId = RejectOrTruncateLongResourceId(value.ResourceId);
+            return ReferenceEquals(resourceId, value.ResourceId)
+                ? value
+                : new ReferenceSearchValue(value.Kind, value.BaseUri, value.ResourceType, resourceId);
+        }
+
+        /// <inheritdoc />
+        public ReferenceSearchValue ParseUri(string s)
+        {
             EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
 
             Match match = ReferenceRegex.Match(s);
@@ -60,12 +77,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 ModelInfoProvider.EnsureValidResourceType(resourceTypeInString, nameof(s));
 
                 string resourceId = match.Groups[ResourceIdCapture].Value;
-
-                // Ids longer than the limit are cut off at the limit, as when the limit was fixed at 64.
-                if (resourceId.Length > _resourceIdPolicy.MaxLength)
-                {
-                    resourceId = resourceId[.._resourceIdPolicy.MaxLength];
-                }
 
                 int resourceTypeStartIndex = match.Groups[ResourceTypeCapture].Index;
 
@@ -121,6 +132,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 baseUri: null,
                 resourceType: null,
                 resourceId: s);
+        }
+
+        /// <inheritdoc />
+        public ReferenceSearchValue ParseResourceReference(string s)
+        {
+            ReferenceSearchValue value = Parse(s);
+
+            if (_resourceIdPolicy.RejectLongReferences &&
+                (value.ResourceId.Length > _resourceIdPolicy.MaxLength || value.BaseUri?.ToString().Length > ResourceIdPolicy.MaxReferenceBaseUriLength))
+            {
+                throw new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ReferenceTooLong, _resourceIdPolicy.MaxLength, ResourceIdPolicy.MaxReferenceBaseUriLength));
+            }
+
+            return value;
+        }
+
+        private string RejectOrTruncateLongResourceId(string resourceId)
+        {
+            if (resourceId.Length > _resourceIdPolicy.MaxLength)
+            {
+                if (_resourceIdPolicy.RejectLongReferences)
+                {
+                    throw new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ReferenceResourceIdTooLong, _resourceIdPolicy.MaxLength));
+                }
+
+                return resourceId[.._resourceIdPolicy.MaxLength];
+            }
+
+            return resourceId;
         }
     }
 }

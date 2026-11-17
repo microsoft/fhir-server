@@ -1314,11 +1314,29 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The resource id in a reference cannot be longer than {0} characters..
+        /// </summary>
+        internal static string ReferenceResourceIdTooLong {
+            get {
+                return ResourceManager.GetString("ReferenceResourceIdTooLong", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Resource type &apos;{0}&apos; in the reference &apos;{1}&apos; is not supported..
         /// </summary>
         internal static string ReferenceResourceTypeNotSupported {
             get {
                 return ResourceManager.GetString("ReferenceResourceTypeNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The reference is too long. A reference that is not in the form [type]/[id] cannot be longer than {0} characters, and the base URL of an absolute reference cannot be longer than {1} characters..
+        /// </summary>
+        internal static string ReferenceTooLong {
+            get {
+                return ResourceManager.GetString("ReferenceTooLong", resourceCulture);
             }
         }
         

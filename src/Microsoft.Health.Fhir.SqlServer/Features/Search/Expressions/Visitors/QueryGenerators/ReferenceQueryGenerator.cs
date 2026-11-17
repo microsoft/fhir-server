@@ -21,6 +21,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             switch (expression.FieldName)
             {
                 case FieldName.ReferenceBaseUri:
+                    if (expression.Value.Length > VLatest.ReferenceSearchParam.BaseUri.Metadata.MaxLength && context.Model.ResourceIdPolicy.RejectLongReferences)
+                    {
+                        context.StringBuilder.Append("0 = 1");
+                        return context;
+                    }
+
                     return VisitSimpleString(expression, context, VLatest.ReferenceSearchParam.BaseUri, expression.Value);
                 case FieldName.ReferenceResourceType:
                     if (context.Model.TryGetResourceTypeId(expression.Value, out short resourceTypeId))

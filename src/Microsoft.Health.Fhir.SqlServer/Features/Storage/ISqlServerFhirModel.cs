@@ -4,11 +4,17 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public interface ISqlServerFhirModel
     {
+        /// <summary>
+        /// Gets the resource id and reference length policy.
+        /// </summary>
+        ResourceIdPolicy ResourceIdPolicy { get; }
+
         (short lowestId, short highestId) ResourceTypeIdRange { get; }
 
         short GetResourceTypeId(string resourceTypeName);

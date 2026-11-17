@@ -30,12 +30,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             Assert.Equal(expectedLength, provider.GetRequiredService<ResourceIdPolicy>().MaxLength);
         }
 
-        private static ServiceProvider BuildProvider(string setting)
+        [Theory]
+        [InlineData(null, true)]
+        [InlineData("true", true)]
+        [InlineData("false", false)]
+        public void GivenConfiguration_WhenBuildingTheServerGraph_ThenLongReferencesAreRejectedUnlessDisabled(string setting, bool expected)
+        {
+            using ServiceProvider provider = BuildProvider(setting, "FhirServer:CoreFeatures:RejectLongReferences");
+
+            Assert.Equal(expected, provider.GetRequiredService<ResourceIdPolicy>().RejectLongReferences);
+        }
+
+        private static ServiceProvider BuildProvider(string setting, string settingKey = SettingKey)
         {
             var values = new Dictionary<string, string>();
             if (setting != null)
             {
-                values[SettingKey] = setting;
+                values[settingKey] = setting;
             }
 
             IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();

@@ -7,6 +7,7 @@ using System;
 using System.Text;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -35,6 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
         public ReferenceQueryGeneratorTests()
         {
             _model = Substitute.For<ISqlServerFhirModel>();
+            _model.ResourceIdPolicy.Returns(ResourceIdPolicy.Standard);
             _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             _schemaInformation.Current = SchemaVersionConstants.Max;
         }
@@ -103,6 +105,57 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             Assert.Contains(VLatest.ReferenceSearchParam.BaseUri.Metadata.Name, sql);
             Assert.True(context.Parameters.HasParametersToHash);
+        }
+
+        [Fact]
+        public void GivenAReferenceBaseUriOverTheLimit_WhenVisited_ThenGeneratesAlwaysFalsePredicateWithoutParameters()
+        {
+            // Arrange
+            var expression = new StringExpression(StringOperator.Equals, FieldName.ReferenceBaseUri, null, CreateBaseUri(129), true);
+            var context = CreateContext();
+
+            // Act
+            ReferenceQueryGenerator.Instance.VisitString(expression, context);
+
+            // Assert
+            Assert.Contains("0 = 1", context.StringBuilder.ToString());
+            Assert.Empty(context.Parameters.ParametersToHash);
+        }
+
+        [Fact]
+        public void GivenAReferenceBaseUriAtTheLimit_WhenVisited_ThenGeneratesEqualityWithTheWholeValue()
+        {
+            // Arrange
+            string baseUri = CreateBaseUri(128);
+            var expression = new StringExpression(StringOperator.Equals, FieldName.ReferenceBaseUri, null, baseUri, true);
+            var context = CreateContext();
+
+            // Act
+            ReferenceQueryGenerator.Instance.VisitString(expression, context);
+
+            // Assert
+            SqlParameter parameter = Assert.Single(context.Parameters.ParametersToHash);
+            Assert.Equal(baseUri, parameter.Value);
+            Assert.Contains($"{VLatest.ReferenceSearchParam.BaseUri.Metadata.Name} = {parameter.ParameterName}", context.StringBuilder.ToString());
+        }
+
+        [Fact]
+        public void GivenRejectionIsDisabled_WhenVisitingAReferenceBaseUriOverTheLimit_ThenBindsAParameter()
+        {
+            // Arrange
+            _model.ResourceIdPolicy.Returns(ResourceIdPolicy.From(false, rejectLongReferences: false));
+            string baseUri = CreateBaseUri(129);
+            var expression = new StringExpression(StringOperator.Equals, FieldName.ReferenceBaseUri, null, baseUri, true);
+            var context = CreateContext();
+
+            // Act
+            ReferenceQueryGenerator.Instance.VisitString(expression, context);
+
+            // Assert
+            Assert.DoesNotContain("0 = 1", context.StringBuilder.ToString());
+            SqlParameter parameter = Assert.Single(context.Parameters.ParametersToHash);
+            Assert.Equal(baseUri, parameter.Value);
+            Assert.Contains($"{VLatest.ReferenceSearchParam.BaseUri.Metadata.Name} = {parameter.ParameterName}", context.StringBuilder.ToString());
         }
 
         [Fact]
@@ -192,6 +245,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             var sql = context.StringBuilder.ToString();
 
             Assert.Contains("0 = 1", sql);
+        }
+
+        private static string CreateBaseUri(int length)
+        {
+            const string prefix = "https://example.org/";
+            string baseUri = prefix + new string('a', length - prefix.Length - 1) + "/";
+            Assert.Equal(length, baseUri.Length);
+            return baseUri;
         }
 
         private SearchParameterQueryGeneratorContext CreateContext(string tableAlias = null)

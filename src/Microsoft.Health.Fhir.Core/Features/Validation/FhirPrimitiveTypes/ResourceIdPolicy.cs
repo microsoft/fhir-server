@@ -23,11 +23,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
         /// </summary>
         public const int LongMaxLength = 128;
 
+        /// <summary>
+        /// The longest base URI of an external reference that the reference index holds.
+        /// </summary>
+        public const int MaxReferenceBaseUriLength = 128;
+
         private static readonly SearchValues<char> IdCharacters = SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.-");
 
-        private ResourceIdPolicy(int maxLength)
+        private ResourceIdPolicy(int maxLength, bool rejectLongReferences = true)
         {
             MaxLength = maxLength;
+            RejectLongReferences = rejectLongReferences;
         }
 
         /// <summary>
@@ -46,11 +52,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
         public int MaxLength { get; }
 
         /// <summary>
-        /// Selects the policy for the <c>UseLongResourceIds</c> setting.
+        /// Gets a value indicating whether a reference that is too long to index whole is rejected.
+        /// When true, a typed reference whose id is longer than <see cref="MaxLength"/> is rejected, and so is a Reference element
+        /// whose untyped value is longer than <see cref="MaxLength"/> or whose base URI is longer than <see cref="MaxReferenceBaseUriLength"/>.
+        /// Other values that do not fit the SQL index are not indexed and cannot be matched.
+        /// When false, values are cut off at their limits.
+        /// </summary>
+        public bool RejectLongReferences { get; }
+
+        /// <summary>
+        /// Selects the policy for the <c>UseLongResourceIds</c> and <c>RejectLongReferences</c> settings.
         /// </summary>
         /// <param name="useLongResourceIds">Whether ids up to 128 characters are allowed.</param>
+        /// <param name="rejectLongReferences">Whether references that are too long to index whole are rejected or left unindexed, instead of cut off.</param>
         /// <returns>The matching policy.</returns>
-        public static ResourceIdPolicy From(bool useLongResourceIds) => useLongResourceIds ? Extended : Standard;
+        public static ResourceIdPolicy From(bool useLongResourceIds, bool rejectLongReferences = true)
+            => new ResourceIdPolicy(useLongResourceIds ? LongMaxLength : StandardMaxLength, rejectLongReferences);
 
         /// <summary>
         /// Determines whether a resource id is 1 to <see cref="MaxLength"/> letters, digits, dots or hyphens.
