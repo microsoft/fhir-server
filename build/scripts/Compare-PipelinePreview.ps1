@@ -91,12 +91,7 @@ $organization = 'microsofthealthoss'
 $project = 'FhirServer'
 $adoResourceId = '499b84ac-1321-427f-aa17-267ca6975798'
 
-$tokenText = az account get-access-token --resource $adoResourceId --query accessToken -o tsv
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($tokenText)) {
-    Write-Error 'Unable to get an Azure DevOps token; run "az login" first.'
-    exit 2
-}
-$headers = @{ Authorization = "Bearer $tokenText" }
+$headers = $null
 
 function Get-PreviewBody([string] $Ref) {
     $self = @{}
@@ -123,6 +118,10 @@ function Get-FinalYaml([int] $Id, [string] $Ref) {
         }
         else { $_.Exception.Message }
         throw "Preview failed for definition $Id at '$Ref': $detail"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($response.finalYaml)) {
+        throw "Preview returned empty finalYaml for definition $Id at '$Ref'."
     }
 
     return [string] $response.finalYaml
@@ -165,48 +164,66 @@ function Sort-StageEntries([string] $Yaml) {
     return ($result -join "`n")
 }
 
-$null = New-Item -ItemType Directory -Force -Path $OutDir
-$differing = [System.Collections.Generic.List[int]]::new()
-$errors = [System.Collections.Generic.List[int]]::new()
+try {
+    $ids = @($DefinitionIds | ForEach-Object { $_ -split ',' } | Where-Object { $_.Trim() } | ForEach-Object { [int] $_.Trim() })
+    if ($ids.Count -eq 0) { throw 'No -DefinitionIds were provided.' }
 
-foreach ($id in ($DefinitionIds | ForEach-Object { $_ -split ',' } | Where-Object { $_ } | ForEach-Object { [int] $_ })) {
-    try {
-        $base = Format-Yaml (Get-FinalYaml $id $BaseRef)
-        $head = Format-Yaml (Get-FinalYaml $id $HeadRef)
-        if ($SortStages) {
-            $base = Sort-StageEntries $base
-            $head = Sort-StageEntries $head
+    $tokenText = az account get-access-token --resource $adoResourceId --query accessToken -o tsv
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($tokenText)) {
+        throw 'Unable to get an Azure DevOps token; run "az login" first.'
+    }
+    $headers = @{ Authorization = "Bearer $tokenText" }
+
+    $null = New-Item -ItemType Directory -Force -Path $OutDir
+    $differing = [System.Collections.Generic.List[int]]::new()
+    $errors = [System.Collections.Generic.List[int]]::new()
+
+    foreach ($id in $ids) {
+        $baseFile = Join-Path $OutDir "$id.base.yml"
+        $headFile = Join-Path $OutDir "$id.head.yml"
+        $diffFile = Join-Path $OutDir "$id.diff"
+
+        try {
+            $base = Format-Yaml (Get-FinalYaml $id $BaseRef)
+            $head = Format-Yaml (Get-FinalYaml $id $HeadRef)
+            if ($SortStages) {
+                $base = Sort-StageEntries $base
+                $head = Sort-StageEntries $head
+            }
         }
-    }
-    catch {
-        Write-Host "ERROR  $id : $($_.Exception.Message)"
-        $errors.Add($id)
-        continue
+        catch {
+            Write-Host "ERROR  $id : $($_.Exception.Message)"
+            $errors.Add($id)
+            continue
+        }
+
+        if ($base -ceq $head) {
+            # Remove artifacts left by an earlier differing run so they are not mistaken for current results.
+            Remove-Item -LiteralPath $baseFile, $headFile, $diffFile -Force -ErrorAction SilentlyContinue
+            Write-Host "SAME   $id"
+            continue
+        }
+
+        [IO.File]::WriteAllText($baseFile, $base, [Text.UTF8Encoding]::new($false))
+        [IO.File]::WriteAllText($headFile, $head, [Text.UTF8Encoding]::new($false))
+        $diff = git --no-pager diff --no-index --no-color -- $baseFile $headFile 2>$null
+        [IO.File]::WriteAllText($diffFile, (($diff -join "`n") + "`n"), [Text.UTF8Encoding]::new($false))
+        Write-Host "DIFF   $id -> $diffFile"
+        $differing.Add($id)
     }
 
-    if ($base -ceq $head) {
-        Write-Host "SAME   $id"
-        continue
+    if ($errors.Count -gt 0) {
+        Write-Host "Errors for definitions: $($errors -join ', ')"
+        exit 2
     }
-
-    $baseFile = Join-Path $OutDir "$id.base.yml"
-    $headFile = Join-Path $OutDir "$id.head.yml"
-    $diffFile = Join-Path $OutDir "$id.diff"
-    [IO.File]::WriteAllText($baseFile, $base, [Text.UTF8Encoding]::new($false))
-    [IO.File]::WriteAllText($headFile, $head, [Text.UTF8Encoding]::new($false))
-    $diff = git --no-pager diff --no-index --no-color -- $baseFile $headFile 2>$null
-    [IO.File]::WriteAllText($diffFile, (($diff -join "`n") + "`n"), [Text.UTF8Encoding]::new($false))
-    Write-Host "DIFF   $id -> $diffFile"
-    $differing.Add($id)
+    if ($differing.Count -gt 0) {
+        Write-Host "Differences in definitions: $($differing -join ', ')"
+        exit 1
+    }
+    Write-Host 'All definitions render identically.'
+    exit 0
 }
-
-if ($errors.Count -gt 0) {
-    Write-Host "Errors for definitions: $($errors -join ', ')"
+catch {
+    [Console]::Error.WriteLine($_.Exception.Message)
     exit 2
 }
-if ($differing.Count -gt 0) {
-    Write-Host "Differences in definitions: $($differing -join ', ')"
-    exit 1
-}
-Write-Host 'All definitions render identically.'
-exit 0
