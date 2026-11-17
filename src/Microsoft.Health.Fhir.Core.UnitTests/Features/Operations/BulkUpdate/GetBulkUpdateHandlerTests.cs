@@ -142,6 +142,37 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
+        public async Task GivenCompletedBulkUpdateJobsThatUpdatedResourcesWithOverlongReferenceIds_WhenStatusRequested_ThenOneIssuePerResourceTypeAndParameterIsReturned()
+        {
+            var result1 = new BulkUpdateResult();
+            result1.ResourcesUpdated.Add(KnownResourceTypes.Patient, 2);
+            result1.OverlongReferenceIds.Add(new OverlongReferenceIdCount(KnownResourceTypes.Patient, "general-practitioner", 64, 2));
+
+            var result2 = new BulkUpdateResult();
+            result2.ResourcesUpdated.Add(KnownResourceTypes.Patient, 1);
+            result2.OverlongReferenceIds.Add(new OverlongReferenceIdCount(KnownResourceTypes.Patient, "general-practitioner", 64, 1));
+
+            var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()
+            {
+                { _resourceUpdatedCountLabel, new List<Tuple<string, Base>> { new(KnownResourceTypes.Patient, new Integer64(3)) } },
+            };
+            var issues = new List<OperationOutcomeIssue>
+            {
+                LongReferenceIdIssue.CreateForJob(new OverlongReferenceIdCount(KnownResourceTypes.Patient, "general-practitioner", 64, 3)),
+            };
+
+            await RunGetBulkUpdateTest(
+                new List<Tuple<JobInfo, int>>
+                {
+                    new Tuple<JobInfo, int>(new() { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(result1) }, 2),
+                    new Tuple<JobInfo, int>(new() { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(result2) }, 1),
+                },
+                new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.OK));
+
+            Assert.Equal("Resource type 'Patient': 3 resource(s) affected.", issues.Single().DetailsText);
+        }
+
+        [Fact]
         public async Task GivenMixedStatusJobs_WhenStatusRequested_ThenAggregatedStatusIsReturned()
         {
             var completedResult = new BulkUpdateResult();
@@ -653,6 +684,42 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             var request = new GetBulkUpdateRequest(1);
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenAJobSubmittedWithSearchWarnings_WhenStatusRequested_ThenTheWarningsAreReturned()
+        {
+            const string warning = "URI parameter '_profile' exceeds 256 characters.";
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
+            var orchestratorJob = new JobInfo
+            {
+                Status = JobStatus.Completed,
+                Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, null, null, "test", "test", "test", null, searchWarnings: new List<string> { warning })),
+            };
+            var processingJob = new JobInfo
+            {
+                Status = JobStatus.Completed,
+                Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateProcessing, null, null, "test", "test", "test", null)),
+                Result = JsonConvert.SerializeObject(new BulkUpdateResult()),
+            };
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkUpdate, Arg.Any<long>(), true, Arg.Any<CancellationToken>()).Returns(new List<JobInfo> { orchestratorJob, processingJob });
+
+            GetBulkUpdateResponse response = await _handler.HandleAsync(new GetBulkUpdateRequest(1), CancellationToken.None);
+
+            Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
+            OperationOutcomeIssue issue = Assert.Single(response.Issues);
+            Assert.Equal(OperationOutcomeConstants.IssueSeverity.Information, issue.Severity);
+            Assert.Equal(OperationOutcomeConstants.IssueType.Informational, issue.Code);
+            Assert.Equal(warning, issue.Diagnostics);
+        }
+
+        [Fact]
+        public void GivenADefinitionWithoutSearchWarnings_WhenSerialized_ThenTheFieldIsOmitted()
+        {
+            string json = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, null, null, "test", "test", "test", null, searchWarnings: new List<string>()));
+
+            Assert.DoesNotContain(JobRecordProperties.SearchWarnings, json, StringComparison.Ordinal);
+            Assert.Null(JsonConvert.DeserializeObject<BulkUpdateDefinition>(json).SearchWarnings);
         }
 
         [Fact]

@@ -17,6 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             ResourcesIgnored = new Dictionary<string, long>();
             ResourcesPatchFailed = new Dictionary<string, long>();
             Issues = new List<string>();
+            OverlongReferenceIds = new List<OverlongReferenceIdCount>();
         }
 
         [JsonProperty(JobRecordProperties.ResourcesUpdated)]
@@ -30,5 +31,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
         [JsonProperty(JobRecordProperties.Issues)]
         public ICollection<string> Issues { get; }
+
+        /// <summary>
+        /// Gets the updated resources with a reference id longer than the maximum resource id length, by resource type and
+        /// search parameter. Callers that update it from several threads must lock it.
+        /// </summary>
+        [JsonProperty(JobRecordProperties.OverlongReferenceIds)]
+        public ICollection<OverlongReferenceIdCount> OverlongReferenceIds { get; }
+
+        /// <summary>
+        /// Omits <see cref="OverlongReferenceIds"/> from the serialized result when it's empty.
+        /// </summary>
+        /// <returns><c>true</c> if there are counts to serialize.</returns>
+        public bool ShouldSerializeOverlongReferenceIds() => OverlongReferenceIds?.Count > 0;
     }
 }

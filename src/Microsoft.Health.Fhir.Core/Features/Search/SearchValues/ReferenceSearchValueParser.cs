@@ -11,6 +11,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Registration;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 {
@@ -32,11 +33,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IFhirServerInstanceConfiguration _instanceConfiguration;
         private readonly ResourceIdPolicy _resourceIdPolicy;
+        private readonly bool _bareIdsTruncatedWhenIndexed;
 
         public ReferenceSearchValueParser(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IFhirServerInstanceConfiguration instanceConfiguration,
             ResourceIdPolicy resourceIdPolicy)
+            : this(fhirRequestContextAccessor, instanceConfiguration, resourceIdPolicy, runtimeConfiguration: null)
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ReferenceSearchValueParser"/> class.
+        /// </summary>
+        /// <param name="fhirRequestContextAccessor">The request context accessor.</param>
+        /// <param name="instanceConfiguration">The server instance configuration.</param>
+        /// <param name="resourceIdPolicy">The resource id policy.</param>
+        /// <param name="runtimeConfiguration">
+        /// The runtime configuration. Bare reference ids (without a resource type) are flagged as truncated only when the data store
+        /// truncates them when indexing: SQL Server does, Cosmos DB stores the full value. <c>null</c> assumes SQL Server.
+        /// </param>
+        public ReferenceSearchValueParser(
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
+            IFhirServerInstanceConfiguration instanceConfiguration,
+            ResourceIdPolicy resourceIdPolicy,
+            IFhirRuntimeConfiguration runtimeConfiguration)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(instanceConfiguration, nameof(instanceConfiguration));
@@ -44,6 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _instanceConfiguration = instanceConfiguration;
             _resourceIdPolicy = EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
+            _bareIdsTruncatedWhenIndexed = runtimeConfiguration == null || !KnownDataStores.IsCosmosDbDataStore(runtimeConfiguration.DataStore);
         }
 
         /// <inheritdoc />
@@ -60,10 +82,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 ModelInfoProvider.EnsureValidResourceType(resourceTypeInString, nameof(s));
 
                 string resourceId = match.Groups[ResourceIdCapture].Value;
+                int? overlongResourceIdLength = null;
 
                 // Ids longer than the limit are cut off at the limit, as when the limit was fixed at 64.
+                // The original length is kept so that callers can log and warn about the truncation.
                 if (resourceId.Length > _resourceIdPolicy.MaxLength)
                 {
+                    overlongResourceIdLength = resourceId.Length;
                     resourceId = resourceId[.._resourceIdPolicy.MaxLength];
                 }
 
@@ -76,7 +101,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                         ReferenceKind.InternalOrExternal,
                         null,
                         resourceTypeInString,
-                        resourceId);
+                        resourceId)
+                    {
+                        OverlongResourceIdLength = overlongResourceIdLength,
+                        MaxResourceIdLength = overlongResourceIdLength == null ? null : _resourceIdPolicy.MaxLength,
+                    };
                 }
 
                 Uri baseUri = null;
@@ -97,7 +126,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                             ReferenceKind.Internal,
                             null,
                             resourceTypeInString,
-                            resourceId);
+                            resourceId)
+                        {
+                            OverlongResourceIdLength = overlongResourceIdLength,
+                            MaxResourceIdLength = overlongResourceIdLength == null ? null : _resourceIdPolicy.MaxLength,
+                        };
                     }
                     else if (baseUri.IsAbsoluteUri &&
                         SupportedSchemes.Contains(baseUri.Scheme, StringComparer.OrdinalIgnoreCase))
@@ -107,7 +140,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                             ReferenceKind.External,
                             baseUri,
                             resourceTypeInString,
-                            resourceId);
+                            resourceId)
+                        {
+                            OverlongResourceIdLength = overlongResourceIdLength,
+                            MaxResourceIdLength = overlongResourceIdLength == null ? null : _resourceIdPolicy.MaxLength,
+                        };
                     }
                 }
                 catch (UriFormatException)
@@ -116,11 +153,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 }
             }
 
+            // A bare id (no resource type) isn't truncated here. SQL Server truncates it to the same limit when indexed;
+            // Cosmos DB stores and compares the full value, so it isn't flagged there.
+            bool isOverlongBareId = _bareIdsTruncatedWhenIndexed && _resourceIdPolicy.IsTooLong(s);
             return new ReferenceSearchValue(
                 ReferenceKind.InternalOrExternal,
                 baseUri: null,
                 resourceType: null,
-                resourceId: s);
+                resourceId: s)
+            {
+                OverlongResourceIdLength = isOverlongBareId ? s.Length : null,
+                MaxResourceIdLength = isOverlongBareId ? _resourceIdPolicy.MaxLength : null,
+            };
         }
     }
 }

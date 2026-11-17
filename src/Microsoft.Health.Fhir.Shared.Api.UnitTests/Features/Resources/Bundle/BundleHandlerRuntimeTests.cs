@@ -30,6 +30,36 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private readonly BundleConfiguration _bundleConfiguration = new BundleConfiguration();
 
         [Theory]
+        [InlineData("201", null, false)]
+        [InlineData("201", "information", false)]
+        [InlineData("200", "warning", false)]
+        [InlineData("204", "information,warning", false)]
+        [InlineData("201", "information,error", true)]
+        [InlineData("200", "fatal", true)]
+        [InlineData("400", "warning", true)]
+        [InlineData("412", "error", true)]
+        [InlineData("not-a-status", "warning", true)]
+        [InlineData("201", "", true)]
+        public void IsFailedTransactionEntry_ReturnsTrueOnlyForUnsuccessfulStatusesOrErrorOutcomes(string status, string severities, bool expected)
+        {
+            var entry = new EntryComponent { Response = new ResponseComponent { Status = status } };
+            if (severities != null)
+            {
+                var outcome = new OperationOutcome();
+                foreach (string severity in severities.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    outcome.Issue.Add(new OperationOutcome.IssueComponent { Severity = Enum.Parse<OperationOutcome.IssueSeverity>(severity, ignoreCase: true), Code = OperationOutcome.IssueType.Informational });
+                }
+
+                entry.Response.Outcome = outcome;
+            }
+
+            HttpStatusCode statusCode = Enum.TryParse(status, out HttpStatusCode parsed) ? parsed : HttpStatusCode.BadRequest;
+
+            Assert.Equal(expected, BundleHandlerRuntime.IsFailedTransactionEntry(entry, statusCode));
+        }
+
+        [Theory]
         [InlineData(BundleType.Transaction, BundleProcessingLogic.Parallel)]
         [InlineData(BundleType.Batch, BundleProcessingLogic.Sequential)]
         public void GetDefaultBundleProcessingLogic_BatchAndTransaction_ReturnsExpectedProcessingLogic(

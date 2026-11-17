@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -107,6 +108,37 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var request = GetReindexRequest(HttpGetName);
             await Assert.ThrowsAsync<ResourceNotFoundException>(() => _reindexHandler.HandleAsync(request, _cancellationToken));
+        }
+
+        [Theory]
+        [InlineData(HttpGetName)]
+        [InlineData(HttpPostName)]
+        public async Task GivenAResourceWithAnOverlongReferenceId_WhenHandle_ThenTheResponseHasAnIssuesParameterWithTheWarning(string httpMethodName)
+        {
+            SetupDataStoreToReturnDummyResourceWrapper();
+            var performer = new SearchParameterInfo("performer", "performer");
+            var reference = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, "Patient", new string('a', 64)) { OverlongResourceIdLength = 65, MaxResourceIdLength = 64 };
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new List<SearchIndexEntry> { new SearchIndexEntry(performer, reference), new SearchIndexEntry(performer, reference) });
+
+            ReindexSingleResourceResponse response = await _reindexHandler.HandleAsync(GetReindexRequest(httpMethodName), _cancellationToken);
+
+            Parameters parameters = response.ParameterResource.ToPoco<Parameters>();
+            var outcome = Assert.IsType<OperationOutcome>(Assert.Single(parameters.Parameter, p => p.Name == "Issues").Resource);
+            OperationOutcome.IssueComponent issue = Assert.Single(outcome.Issue);
+            Assert.Equal(OperationOutcome.IssueSeverity.Warning, issue.Severity);
+            Assert.Equal("Reference parameter 'performer' ID exceeds 64 characters. Index truncation applied after 64 characters, which may yield over-inclusive results", issue.Diagnostics);
+        }
+
+        [Fact]
+        public async Task GivenAResourceWithoutOverlongReferenceIds_WhenHandle_ThenTheResponseHasNoIssuesParameter()
+        {
+            SetupDataStoreToReturnDummyResourceWrapper();
+            var reference = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, "Patient", new string('a', 64));
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new List<SearchIndexEntry> { new SearchIndexEntry(new SearchParameterInfo("performer", "performer"), reference) });
+
+            ReindexSingleResourceResponse response = await _reindexHandler.HandleAsync(GetReindexRequest(HttpGetName), _cancellationToken);
+
+            Assert.DoesNotContain(response.ParameterResource.ToPoco<Parameters>().Parameter, p => p.Name == "Issues");
         }
 
         [Theory]
@@ -229,15 +261,42 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             return new ReindexSingleResourceRequest(httpMethod, resourceType, resourceId);
         }
 
+        [Fact]
+        public async Task GivenThePostDataStoreExcludesValues_WhenHandle_ThenTheResponseListsOnlyStoredValuesAndTheWarning()
+        {
+            SetupDataStoreToReturnDummyResourceWrapper();
+            var kept = new SearchIndexEntry(new SearchParameterInfo("kept", "kept"), new StringSearchValue("value"));
+            var excluded = new SearchIndexEntry(new SearchParameterInfo("ext-uri", "ext-uri"), new UriSearchValue("https://example.org/a", false));
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new List<SearchIndexEntry> { kept, excluded });
+            const string warning = "Resource Patient/1 was not indexed for the URI search parameter 'ext-uri'.";
+            _fhirDataStore.BulkUpdateSearchParameterIndicesAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    ResourceWrapper resource = callInfo.Arg<IReadOnlyCollection<ResourceWrapper>>().Single();
+                    resource.UpdateSearchIndices(new List<SearchIndexEntry> { kept });
+                    return Task.FromResult<IReadOnlyList<string>>(new List<string> { warning });
+                });
+
+            ReindexSingleResourceResponse response = await _reindexHandler.HandleAsync(GetReindexRequest(HttpPostName), _cancellationToken);
+
+            Parameters parameters = response.ParameterResource.ToPoco<Parameters>();
+            Assert.Contains(parameters.Parameter, p => p.Name == "kept");
+            Assert.DoesNotContain(parameters.Parameter, p => p.Name == "ext-uri");
+            var issues = Assert.IsType<OperationOutcome>(Assert.Single(parameters.Parameter, p => p.Name == "Issues").Resource);
+            OperationOutcome.IssueComponent issue = Assert.Single(issues.Issue);
+            Assert.Equal(OperationOutcome.IssueSeverity.Warning, issue.Severity);
+            Assert.Equal(warning, issue.Diagnostics);
+        }
+
         private async Task ValidateUpdateCallBasedOnHttpMethodType(string httpMethodName)
         {
             if (httpMethodName == HttpPostName)
             {
-                await _fhirDataStore.Received().UpdateSearchParameterIndicesAsync(Arg.Any<ResourceWrapper>(), _cancellationToken);
+                await _fhirDataStore.Received().BulkUpdateSearchParameterIndicesAsync(Arg.Is<IReadOnlyCollection<ResourceWrapper>>(r => r.Count == 1), _cancellationToken);
             }
             else if (httpMethodName == HttpGetName)
             {
-                await _fhirDataStore.DidNotReceive().UpdateSearchParameterIndicesAsync(Arg.Any<ResourceWrapper>(), _cancellationToken);
+                await _fhirDataStore.DidNotReceive().BulkUpdateSearchParameterIndicesAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>());
             }
         }
     }
