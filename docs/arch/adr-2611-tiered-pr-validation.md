@@ -170,7 +170,7 @@ The realistic expectation is a p50 of 19–22 minutes. The p90 will be higher, d
 - **Merge queue (future option, not adopted).** A GitHub merge queue could run the full matrix on every PR before it reaches `main`, which would remove post-merge breakage.
   - **Support is unproven.** Azure Pipelines has no `merge_group` event. It would work only through a CI trigger on `gh-readonly-queue/main/*` that reports "PR Build & Deploy" from definition 9 itself, and no public repository is confirmed to enforce a queue this way.
   - **Security.** Queue builds are base-repository CI builds, so fork code would reach service connections. The ADO approval check is required before any pilot.
-  - **Operations.** Ejected builds keep running, and every merge waits for a 60–90-minute run.
+  - **Operations.** Ejected builds keep running. At about 2.9 merges a day, a serial queue of 80–95-minute runs needs grouping and a timeout of at least 120 minutes.
   - **Next step.** Definition 9 is made queue-ready (the trigger, and a classifier that treats queue branches as full). A pilot on a test-branch ruleset needs a repository administrator.
 
 The classifier **fails closed** for honest failures: if labels cannot be read completely, the run fails rather than assuming "no label". The label read is authenticated for same-repository PRs. Fork PRs skip it, since they cannot take Tier 2. On the deployed target, tests that assert server-wide counts (`HistoryTests`) run in their own job after the reindex and bulk-update jobs, which write to the same server.
@@ -179,7 +179,7 @@ The classifier **fails closed** for honest failures: if labels cannot be read co
 
 **Tier 3 — post-merge and nightly.** Definition 27 keeps CI with the full deployed matrix on every merge to `main`: real AAD, managed identity, Key Vault, multi-replica reindex, Azure SQL, Cosmos for Stu3 and R4, multi-arch images and full Guardian. Image promotion (`DockerAddTag`) also depends on security analysis. Definition 27 re-enables the Cosmos `ReindexOperation` jobs that today run only on PRs. Release and hotfix PRs always run Tier 2 with full Guardian, because those branches have no post-merge CI.
 
-- **Revert first.** A definition 27 failure alerts the team channel. If a merged PR caused it, revert that PR first and investigate second, so `main` stays green for everyone. At about 0.6 merges a day, a failing CI run usually has one or two candidate commits.
+- **Revert first.** A definition 27 failure alerts the team channel. If a merged PR caused it, revert that PR first and investigate second, so `main` stays green for everyone. `main` took 86 merges in the 30 days to mid-November 2026, about 2.9 a day. Definition 27 ran 71 batched builds in that time, so a failing CI run usually has one or two candidate commits.
 - **30-day review.** For 30 days after cutover, record every definition 27 failure that Tier 1 would not have caught: Cosmos-only, version-only, or deployment-only. If Cosmos misses exceed about one a month, enable the shared-account contingency. If version misses do, widen the `*.Shared.*` trigger to a deployed run.
 
 - **When a batch fails,** the on-call engineer runs a bisect script. It accepts only SHAs that are ancestors of `origin/main`, queues definition 9 on `refs/heads/main` at that SHA with full deployment and `prName=bisect-<id>`, and deletes its own resource groups. Queue permission is restricted to on-call.
