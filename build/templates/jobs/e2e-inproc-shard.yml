@@ -18,6 +18,11 @@ parameters:
 - name: shadow
   type: boolean
   default: false
+# Legs of this version that run at the same time. Raise it to the shard count to run every shard at once, on a pool
+# that has the agents.
+- name: maxParallel
+  type: number
+  default: 4
 
 jobs:
 - job: SqlE2EInProc_${{ parameters.version }}
@@ -26,7 +31,7 @@ jobs:
     timeoutInMinutes: 30
   strategy:
     # Bounds the agents one version takes from the pool at a time.
-    maxParallel: 4
+    maxParallel: ${{ parameters.maxParallel }}
     matrix:
       ${{ each shard in parameters.shards }}:
         ${{ format('{0}_S{1}', parameters.version, shard) }}:
