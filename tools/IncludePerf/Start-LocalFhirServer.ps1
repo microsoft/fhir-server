@@ -87,4 +87,4 @@ Write-Host ""
 Write-Host "Starting FHIR server on http://localhost:$Port  (database: $DatabaseName)" -ForegroundColor Cyan
 Write-Host ""
 
-dotnet run --project $project --no-build --no-launch-profile -c Debug
+dotnet run --project $project --framework net11.0 --no-build --no-launch-profile -c Debug

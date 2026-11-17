@@ -175,6 +175,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             short referenceSearchParamId = context.Model.GetSearchParamId(expression.ReferenceSearchParameter.Url);
 
             context.StringBuilder.AppendLine($"{VLatest.Resource.ResourceTypeId} = {sourceResourceTypeId}");
+
+            // Reference index rows are removed when a version becomes history or is deleted, so absence of a
+            // reference only proves "unassigned" for the current, non-deleted version.
+            context.StringBuilder.AppendLine($"AND {VLatest.Resource.IsHistory} = 0");
+            context.StringBuilder.AppendLine($"AND {VLatest.Resource.IsDeleted} = 0");
             context.StringBuilder.AppendLine("AND NOT EXISTS ").AppendLine("(");
             using (context.StringBuilder.Indent())
             {

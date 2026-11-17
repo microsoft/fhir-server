@@ -547,7 +547,31 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                                         return;
                                     }
 
-                                    smartScopeSearchParameters.Add(paramKey, decodedParamValue);
+                                    // SearchParams.Add stores reserved names such as _text, _content, _filter, _query,
+                                    // _sort, _count, _summary, _elements and _contained in dedicated properties rather
+                                    // than in Parameters, which is the only collection enforced as a scope constraint.
+                                    // Reject any constraint that does not land in Parameters; dropping it would widen the
+                                    // scope to the whole resource type (fail-open).
+                                    int constraintCountBeforeAdd = smartScopeSearchParameters.Parameters.Count;
+                                    try
+                                    {
+                                        smartScopeSearchParameters.Add(paramKey, decodedParamValue);
+                                    }
+                                    catch (FormatException ex)
+                                    {
+                                        var error = string.Format(Api.Resources.SmartScopeInvalidSearchParameters, match.Value?.Trim());
+                                        _logger.LogWarning(ex, error);
+                                        await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, error);
+                                        return;
+                                    }
+
+                                    if (smartScopeSearchParameters.Parameters.Count == constraintCountBeforeAdd)
+                                    {
+                                        var error = string.Format(Api.Resources.SmartScopeSearchParameterResultParameterNotSupported, match.Value?.Trim(), $"{paramKey}={paramValue}");
+                                        _logger.LogWarning(error);
+                                        await WriteErrorResponseAsync(fhirRequestContext, context, HttpStatusCode.BadRequest, error);
+                                        return;
+                                    }
                                 }
 
                                 if (smartScopeSearchParameters.Parameters.Count > 0)

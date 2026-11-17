@@ -3,11 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -58,9 +60,51 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
             _httpContext.Request.Path = "/Observation";
             _fhirRequestContext.AuditEventType = "read";
 
+            using ActionTimer requestTimer = NullLogger<ActionTimer>.Instance.BeginTimedScope("Test");
+            _fhirRequestContext.RequestTimer = requestTimer;
+            _fhirRequestContext.ResourceType = "Observation";
+            ApiResponseNotification notification = null;
+
+            await Task.Delay(100);
+
+            await _mediator.PublishAsync(
+                Arg.Do<ApiResponseNotification>(value => notification = value),
+                Arg.Any<CancellationToken>());
+
             await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
 
             await _mediator.ReceivedWithAnyArgs(1).PublishAsync(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
+            Assert.NotNull(notification);
+            Assert.Equal("read", notification.FhirOperation);
+            Assert.Equal("Observation", notification.ResourceType);
+            Assert.Equal(_httpContext.Request.Scheme, notification.Protocol);
+            Assert.Equal((HttpStatusCode)_httpContext.Response.StatusCode, notification.StatusCode);
+            Assert.Equal(_fhirRequestContext.Principal?.Identity.AuthenticationType, notification.Authentication);
+            Assert.True(notification.Latency.Ticks > 100);
+        }
+
+        [Fact]
+        public async Task GivenAuditEventTypeNotNull_WhenInvokedWithoutATimer_EmitsMedinoApiAndStorageEvents()
+        {
+            _httpContext.Request.Path = "/Observation";
+            _fhirRequestContext.AuditEventType = "read";
+            _fhirRequestContext.ResourceType = "Observation";
+            ApiResponseNotification notification = null;
+
+            await _mediator.PublishAsync(
+                Arg.Do<ApiResponseNotification>(value => notification = value),
+                Arg.Any<CancellationToken>());
+
+            await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);
+
+            await _mediator.ReceivedWithAnyArgs(1).PublishAsync(Arg.Any<ApiResponseNotification>(), Arg.Any<CancellationToken>());
+            Assert.NotNull(notification);
+            Assert.Equal("read", notification.FhirOperation);
+            Assert.Equal("Observation", notification.ResourceType);
+            Assert.Equal(_httpContext.Request.Scheme, notification.Protocol);
+            Assert.Equal((HttpStatusCode)_httpContext.Response.StatusCode, notification.StatusCode);
+            Assert.Equal(_fhirRequestContext.Principal?.Identity.AuthenticationType, notification.Authentication);
+            Assert.True(notification.Latency.Ticks > 0);
         }
 
         [Fact]

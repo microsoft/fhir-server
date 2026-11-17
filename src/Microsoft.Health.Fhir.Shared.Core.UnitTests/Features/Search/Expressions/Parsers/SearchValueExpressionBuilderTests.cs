@@ -427,11 +427,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 () => _parser.Parse(CreateSearchParameter(SearchParamType.Date), modifier, "1980"));
         }
 
+        public static TheoryData<string, MultiaryOperator, BinaryOperator, BinaryOperator, decimal, decimal> GetNumberComparatorData()
+        {
+            return new TheoryData<string, MultiaryOperator, BinaryOperator, BinaryOperator, decimal, decimal>
+            {
+                { string.Empty, MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 14.95m, 15.05m },
+                { "eq", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 14.95m, 15.05m },
+                { "ap", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 13.45m, 16.55m },
+                { "ne", MultiaryOperator.Or, BinaryOperator.LessThan, BinaryOperator.GreaterThan, 14.95m, 15.05m },
+            };
+        }
+
         [Theory]
-        [InlineData("", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 14.95, 15.05)]
-        [InlineData("eq", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 14.95, 15.05)]
-        [InlineData("ap", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 13.45, 16.55)]
-        [InlineData("ne", MultiaryOperator.Or, BinaryOperator.LessThan, BinaryOperator.GreaterThan, 14.95, 15.05)]
+        [MemberData(nameof(GetNumberComparatorData))]
         public void GivenANumberWithComparatorOfMultipleBinaryOperator_WhenBuilt_ThenCorrectExpressionShouldBeCreated(
             string prefix,
             MultiaryOperator multiaryOperator,
@@ -477,11 +485,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 () => _parser.Parse(CreateSearchParameter(SearchParamType.Number), modifier, "123"));
         }
 
+        public static TheoryData<string, MultiaryOperator, BinaryOperator, BinaryOperator, decimal, decimal> GetQuantityComparatorData()
+        {
+            return new TheoryData<string, MultiaryOperator, BinaryOperator, BinaryOperator, decimal, decimal>
+            {
+                { string.Empty, MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 6.045m, 6.055m },
+                { "eq", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 6.045m, 6.055m },
+                { "ap", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 5.440m, 6.66m },
+                { "ne", MultiaryOperator.Or, BinaryOperator.LessThan, BinaryOperator.GreaterThan, 6.045m, 6.055m },
+            };
+        }
+
         [Theory]
-        [InlineData("", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 6.045, 6.055)]
-        [InlineData("eq", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 6.045, 6.055)]
-        [InlineData("ap", MultiaryOperator.And, BinaryOperator.GreaterThanOrEqual, BinaryOperator.LessThanOrEqual, 5.440, 6.66)]
-        [InlineData("ne", MultiaryOperator.Or, BinaryOperator.LessThan, BinaryOperator.GreaterThan, 6.045, 6.055)]
+        [MemberData(nameof(GetQuantityComparatorData))]
         public void GivenAQuantityWithComparatorOfMultipleBinaryOperator_WhenBuilt_ThenCorrectExpressionShouldBeCreated(
             string prefix,
             MultiaryOperator multiaryOperator,

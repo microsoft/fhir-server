@@ -299,8 +299,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             // Arrange
             using var cancellationTokenSource = new CancellationTokenSource();
             var mockLogger = Substitute.For<ILogger<SearchParameterCacheRefreshBackgroundService>>();
+            var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            mockLogger.When(logger => logger.Log(
+                LogLevel.Information,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(state => string.Equals(state.ToString(), "SearchParameterCacheRefreshBackgroundService starting...", StringComparison.Ordinal)),
+                null,
+                Arg.Any<Func<object, Exception, string>>()))
+                .Do(_ => started.TrySetResult());
 
-            var service = new SearchParameterCacheRefreshBackgroundService(
+            using var service = new SearchParameterCacheRefreshBackgroundService(
                 _searchParameterStatusManager,
                 _searchParameterOperations,
                 _coreFeatureConfiguration,
@@ -308,16 +316,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                 mockLogger);
 
             // Act
-            var executeTask = service.StartAsync(cancellationTokenSource.Token);
-
-            // Allow some time for service to start
-            await Task.Delay(100);
+            await service.StartAsync(cancellationTokenSource.Token);
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
             // Cancel the service
             cancellationTokenSource.Cancel();
 
             // Wait for the service to stop
-            await executeTask;
+            await service.StopAsync(CancellationToken.None);
 
             // Assert - Verify that stopping was logged
             mockLogger.Received().Log(

@@ -250,6 +250,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
+            AddLongUriSearchValueWarning(searchOptions.Expression, _requestContextAccessor.RequestContext, _logger);
+
             var isFirstPage = searchOptions.ContinuationToken == null;
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
             if (_vectorSearchQueryProcessor != null)
@@ -474,6 +476,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public override bool IsValidResourceType(string resourceType)
         {
             return _model.TryGetResourceTypeId(resourceType, out _);
+        }
+
+        /// <summary>
+        /// Warns the caller when a URI search value is too long for the URI search index to tell apart from
+        /// other values with the same prefix. The search still runs; this is a documented limitation.
+        /// </summary>
+        /// <param name="expression">The search expression, including any SMART scope restrictions.</param>
+        /// <param name="requestContext">The current request context, or <c>null</c> outside of a request.</param>
+        /// <param name="logger">The logger.</param>
+        internal static void AddLongUriSearchValueWarning(Expression expression, IFhirRequestContext requestContext, ILogger logger)
+        {
+            IList<OperationOutcomeIssue> bundleIssues = requestContext?.BundleIssues;
+            IReadOnlyCollection<string> parameterCodes = expression?.AcceptVisitor(LongUriSearchValueFinder.Instance, null);
+
+            if (bundleIssues == null || parameterCodes == null || parameterCodes.Count == 0)
+            {
+                return;
+            }
+
+            // A request can run several searches (for example $everything) and writes, so keep a single warning naming all parameters.
+            if (!LongUriSearchValueIssue.AddOrMerge(bundleIssues, parameterCodes, LongUriSearchValueFinder.IndexedUriMaxLength))
+            {
+                return;
+            }
+
+            logger.LogWarning(
+                "Search used URI values of at least {IndexedLength} characters. SearchParameters={SearchParameters}",
+                LongUriSearchValueFinder.IndexedUriMaxLength,
+                string.Join(", ", parameterCodes));
         }
 
         private async Task<SearchResult> RunSearch(SqlSearchOptions sqlSearchOptions, CancellationToken cancellationToken)
@@ -2382,9 +2413,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 .AcceptVisitor(_compartmentSearchRewriter)
                 .AcceptVisitor(_smartCompartmentSearchRewriter);
 
-            // Date/time equality resolves to exactly one of three mutually-exclusive paths — legacy overlap,
-            // birthdate End-only optimization, or Core containment range — none of which emits a temporal
-            // UNION ALL. See ApplyDateEqualitySemantics for the matrix.
             Expression afterDateEquality = ApplyDateEqualitySemantics(
                 afterSmartCompartment,
                 _fhirSqlServerConfiguration.EnableFhirDateContainment,
@@ -2457,10 +2485,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         /// <summary>
-        /// Selects exactly one of three mutually-exclusive date/time equality strategies — legacy overlap
-        /// (<see cref="DateTimeEqualityRewriter"/>), the birthdate End-only optimization
-        /// (<see cref="ScalarTemporalEqualityRewriter"/>), or Core's containment range. The strategies are
-        /// never layered and no path emits a temporal UNION ALL.
+        /// Applies the optional calendar-date optimization without changing the selected date equality semantics.
+        /// No path introduces a temporal <see cref="UnionExpression"/>.
         /// </summary>
         /// <param name="expression">The expression tree to transform. May be null.</param>
         /// <param name="enableFhirDateContainment">Whether spec-compliant date containment is enabled.</param>
@@ -2473,20 +2499,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 return null;
             }
 
-            if (!enableFhirDateContainment)
-            {
-                // Legacy overlap (== main). The scalar-temporal rewriter never runs without containment.
-                return expression.AcceptVisitor(DateTimeEqualityRewriter.Instance);
-            }
-
             if (enableScalarTemporalRewriter)
             {
-                // Birthdate End-only optimization overrides containment for allow-listed params only.
-                return expression.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance);
+                expression = expression.AcceptVisitor(ScalarTemporalEqualityRewriter.Instance, !enableFhirDateContainment);
             }
 
-            // Core's containment range form flows straight to SQL for all date params.
-            return expression;
+            return enableFhirDateContainment
+                ? expression
+                : expression.AcceptVisitor(DateTimeEqualityRewriter.Instance);
         }
 
         private static void PopulateGetResourcesByTokensCommand(SqlCommand cmd, short resourceTypeId, short searchParamId, IList<Token> tokens, int top)

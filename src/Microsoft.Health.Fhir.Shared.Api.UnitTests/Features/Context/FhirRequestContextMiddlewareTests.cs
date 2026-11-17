@@ -40,6 +40,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         }
 
         [Fact]
+        public async Task GivenAnHttpRequest_WhenExecutingFhirRequestContextMiddleware_ThenActionTimerIsSet()
+        {
+            IFhirRequestContext fhirRequestContext = await SetupAsync(CreateHttpContext());
+            Assert.NotNull(fhirRequestContext.RequestTimer);
+        }
+
+        [Fact]
         public async Task GivenAnHttpRequest_WhenExecutingFhirRequestContextMiddleware_ThenRequestIdHeaderShouldBeSet()
         {
             const string expectedRequestId = "123";

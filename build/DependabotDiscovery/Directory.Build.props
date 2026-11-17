@@ -15,11 +15,11 @@
     <!--
       TargetFramework must be set here, not in the .csproj. Microsoft.Common.props imports
       Directory.Build.props first and Directory.Packages.props immediately after, both before the
-      project body is evaluated. Directory.Packages.props picks AspNetPackageVersion with a
-      <Choose> on $(TargetFramework), so setting it in the .csproj leaves that property empty and
-      the six Microsoft.AspNetCore.* packages restore with no version at all (NU1604).
+      project body is evaluated. Directory.Packages.props picks AspNetPackageVersion and
+      DotNetSdkPackageVersion with a <Choose> on $(TargetFramework). Setting it in the .csproj
+      leaves both properties empty and their packages restore with no version (NU1604).
     -->
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
 
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>

@@ -6,19 +6,26 @@
 using System;
 using System.Diagnostics;
 using System.Net;
+using System.Threading;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.ValueSets;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
@@ -28,19 +35,34 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
         private readonly ILogger<FhirRequestContextRouteDataPopulatingFilterAttribute> _logger;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
+        private readonly SecurityConfiguration _securityConfiguration;
 
         public FhirRequestContextRouteDataPopulatingFilterAttribute(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IAuditEventTypeMapping auditEventTypeMapping,
-            ILogger<FhirRequestContextRouteDataPopulatingFilterAttribute> logger)
+            ILogger<FhirRequestContextRouteDataPopulatingFilterAttribute> logger,
+            IAuthorizationService<DataActions> authorizationService,
+            IOptions<SecurityConfiguration> securityConfiguration)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(auditEventTypeMapping, nameof(auditEventTypeMapping));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            EnsureArg.IsNotNull(securityConfiguration, nameof(securityConfiguration));
+            EnsureArg.IsNotNull(securityConfiguration.Value, nameof(securityConfiguration));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _auditEventTypeMapping = auditEventTypeMapping;
             _logger = logger;
+            _authorizationService = authorizationService;
+            _securityConfiguration = securityConfiguration.Value;
+        }
+
+        public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+        {
+            await ApplyPartialIndexHeaderAsync(context);
+            await base.OnActionExecutionAsync(context, next);
         }
 
         public override void OnActionExecuting(ActionExecutingContext context)
@@ -120,12 +142,57 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 }
             }
 
-            if (context.HttpContext.Request.Headers.TryGetValue(KnownHeaders.PartiallyIndexedParamsHeaderName, out var headerValues))
+            base.OnActionExecuting(context);
+        }
+
+        /// <summary>
+        /// Honors <see cref="KnownHeaders.PartiallyIndexedParamsHeaderName"/> only for callers who can reindex.
+        /// Presence alone is not sufficient: a patient-scoped caller could otherwise match stale custom-search rows
+        /// after a SearchParameter expression is narrowed. The header is removed when denied because the Cosmos sort
+        /// validator reads it directly from the request headers.
+        /// </summary>
+        private async Task ApplyPartialIndexHeaderAsync(ActionExecutingContext context)
+        {
+            if (!context.HttpContext.Request.Headers.ContainsKey(KnownHeaders.PartiallyIndexedParamsHeaderName))
             {
-                fhirRequestContext.IncludePartiallyIndexedSearchParams = true;
+                return;
             }
 
-            base.OnActionExecuting(context);
+            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
+            if (await CanUsePartialIndicesAsync(fhirRequestContext, context.HttpContext.RequestAborted))
+            {
+                fhirRequestContext.IncludePartiallyIndexedSearchParams = true;
+                return;
+            }
+
+            fhirRequestContext.IncludePartiallyIndexedSearchParams = false;
+            context.HttpContext.Request.Headers.Remove(KnownHeaders.PartiallyIndexedParamsHeaderName);
+            if (fhirRequestContext.RequestHeaders != null
+                && !ReferenceEquals(fhirRequestContext.RequestHeaders, context.HttpContext.Request.Headers))
+            {
+                fhirRequestContext.RequestHeaders.Remove(KnownHeaders.PartiallyIndexedParamsHeaderName);
+            }
+
+            _logger.LogDebug(
+                "Ignored {Header} because the caller is not permitted to reindex.",
+                KnownHeaders.PartiallyIndexedParamsHeaderName);
+        }
+
+        private async System.Threading.Tasks.Task<bool> CanUsePartialIndicesAsync(IFhirRequestContext fhirRequestContext, CancellationToken cancellationToken)
+        {
+            // Authorization-disabled hosts register DisabledFhirAuthorizationService, which permits every action.
+            if (!_securityConfiguration.Enabled || _securityConfiguration.Authorization?.Enabled != true)
+            {
+                return true;
+            }
+
+            // RoleBasedFhirAuthorizationService dereferences Principal. A missing principal is not a reindex caller.
+            if (fhirRequestContext?.Principal == null)
+            {
+                return false;
+            }
+
+            return await _authorizationService.CheckAccess(DataActions.Reindex, throwException: false, cancellationToken);
         }
     }
 }

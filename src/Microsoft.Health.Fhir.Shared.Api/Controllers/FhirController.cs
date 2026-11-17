@@ -11,6 +11,7 @@ using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
 using Medino;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -43,6 +44,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
@@ -181,10 +183,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     HttpContext.RequestAborted),
                 "Create");
 
-            return FhirResult.Create(_logger, response, HttpStatusCode.Created)
-                .SetETagHeader()
-                .SetLastModifiedHeader()
-                .SetLocationHeader(_urlResolver);
+            ReturnPreference? returnPreference = GetSearchValueWarningReturnPreference(out IReadOnlyList<OperationOutcomeIssue> searchValueWarnings);
+            return FhirResult.Create(_logger, response, HttpStatusCode.Created, true, true, true, _urlResolver, returnPreference, additionalIssues: searchValueWarnings);
         }
 
         /// <summary>
@@ -235,7 +235,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 true,
                 _urlResolver,
                 preferHeader,
-                message);
+                message,
+                _fhirRequestContextAccessor.RequestContext?.BundleIssues.Where(PartiallyComparedSearchValueIssue.IsMatch));
         }
 
         /// <summary>
@@ -294,17 +295,63 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             switch (saveOutcome.Outcome)
             {
                 case SaveOutcomeType.Created:
-                    return FhirResult.Create(_logger, saveOutcome.RawResourceElement, HttpStatusCode.Created)
-                        .SetETagHeader()
-                        .SetLastModifiedHeader()
-                        .SetLocationHeader(_urlResolver);
                 case SaveOutcomeType.Updated:
-                    return FhirResult.Create(_logger, saveOutcome.RawResourceElement, HttpStatusCode.OK)
-                        .SetETagHeader()
-                        .SetLastModifiedHeader();
+                    bool created = saveOutcome.Outcome == SaveOutcomeType.Created;
+                    ReturnPreference? returnPreference = GetSearchValueWarningReturnPreference(out IReadOnlyList<OperationOutcomeIssue> searchValueWarnings);
+                    return FhirResult.Create(
+                        _logger,
+                        saveOutcome.RawResourceElement,
+                        created ? HttpStatusCode.Created : HttpStatusCode.OK,
+                        setETagheader: true,
+                        setLastModifiedHeader: true,
+                        setLocationHeader: created,
+                        urlResolver: _urlResolver,
+                        returnPreference: returnPreference,
+                        additionalIssues: searchValueWarnings);
             }
 
             return FhirResult.Create(_logger, saveOutcome.RawResourceElement, HttpStatusCode.BadRequest);
+        }
+
+        /// <summary>
+        /// Returns <see cref="ReturnPreference.OperationOutcome"/> when the client asked for it with the Prefer header and the request
+        /// used search values that are only partially compared (long URI values, or reference ids longer than the maximum resource id
+        /// length); otherwise <c>null</c>, which keeps the default response. Transaction entries get the warnings too: an entry with a
+        /// successful status and only informational or warning issues doesn't fail the transaction.
+        /// </summary>
+        /// <param name="searchValueWarnings">The warnings to return, or <c>null</c>.</param>
+        private ReturnPreference? GetSearchValueWarningReturnPreference(out IReadOnlyList<OperationOutcomeIssue> searchValueWarnings)
+        {
+            searchValueWarnings = null;
+
+            // This runs after the write is saved, so an invalid Prefer value must not turn it into an error response.
+            ReturnPreference? returnPreference;
+            try
+            {
+                returnPreference = _fhirRequestContextAccessor.GetReturnPreferenceValue();
+            }
+            catch (BadRequestException)
+            {
+                return null;
+            }
+
+            if (returnPreference != ReturnPreference.OperationOutcome)
+            {
+                return null;
+            }
+
+            List<OperationOutcomeIssue> warnings = _fhirRequestContextAccessor.RequestContext?.BundleIssues
+                .Where(PartiallyComparedSearchValueIssue.IsMatch)
+                .GroupBy(i => i.Diagnostics, StringComparer.Ordinal)
+                .Select(g => g.First())
+                .ToList();
+            if (warnings == null || warnings.Count == 0)
+            {
+                return null;
+            }
+
+            searchValueWarnings = warnings;
+            return ReturnPreference.OperationOutcome;
         }
 
         /// <summary>
@@ -513,6 +560,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             if (maxDeleteCount.HasValue)
             {
                 Response.Headers[KnownHeaders.ItemsDeleted] = (response?.ResourcesDeleted ?? 0).ToString(CultureInfo.InvariantCulture);
+            }
+
+            if (GetSearchValueWarningReturnPreference(out IReadOnlyList<OperationOutcomeIssue> searchValueWarnings) == ReturnPreference.OperationOutcome)
+            {
+                var operationOutcome = new OperationOutcome { Issue = searchValueWarnings.Select(i => i.ToPoco()).ToList() };
+                return FhirResult.Create(_logger, operationOutcome.ToResourceElement(), HttpStatusCode.OK).SetETagHeader(response?.WeakETag);
             }
 
             return FhirResult.NoContent(_logger).SetETagHeader(response?.WeakETag);

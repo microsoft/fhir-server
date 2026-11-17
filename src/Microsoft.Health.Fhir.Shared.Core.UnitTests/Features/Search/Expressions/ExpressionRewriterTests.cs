@@ -90,6 +90,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
         [InlineData(false, true)]
         [InlineData(true, false)]
         [InlineData(true, true)]
+        public void GivenAScopeBoundary_WhenRewritingChildren_ThenTheBoundaryIsPreserved(bool union, bool scopeBoundary)
+        {
+            var child = Expression.Equals(FieldName.Number, null, 1M);
+            Expression expression = union
+                ? Expression.Union(UnionOperator.All, [child])
+                : Expression.And(child);
+            expression.IsSmartV2UnionExpressionForScopesSearchParameters = scopeBoundary;
+
+            var result = expression.AcceptVisitor(new RangeRewriter(), null);
+
+            Assert.NotSame(expression, result);
+            Assert.Equal(scopeBoundary, result.IsSmartV2UnionExpressionForScopesSearchParameters);
+            Assert.Contains("(FieldGreaterThanOrEqual Number 0)", result.ToString());
+            Assert.Same(expression, expression.AcceptVisitor(new NoopRewriter(), null));
+        }
+
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
         public void GivenAUnionWithNestedAndExpressions_WhenChildIsRewritten_ThenEachSmartScopeMarkerIsPreserved(bool unionMarker, bool andMarker)
         {
             // Arrange

@@ -14,20 +14,24 @@
          these up; close that PR if it does. -->
     <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
-    <DotNetSdkPackageVersion>10.0.14</DotNetSdkPackageVersion>
-    <OpenIddictPackageVersion>7.7.2</OpenIddictPackageVersion>
+    <OpenIddictPackageVersion>7.8.0</OpenIddictPackageVersion>
+    <!-- OpenTelemetry core packages (SDK, API, hosting) must stay on one version. Azure.Monitor.OpenTelemetry.AspNetCore
+         only sets a minimum, so these direct pins raise the whole set to what OpenTelemetry.Instrumentation.EventCounters needs. -->
+    <OpenTelemetryPackageVersion>1.20.1</OpenTelemetryPackageVersion>
     <IgnixaPackageVersion>0.6.82</IgnixaPackageVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
   <Choose>
-    <When Condition="'$(TargetFramework)' == 'net9.0'">
+    <When Condition="'$(TargetFramework)' == 'net11.0'">
       <PropertyGroup>
-        <AspNetPackageVersion>9.0.15</AspNetPackageVersion>
+        <AspNetPackageVersion>11.0.0</AspNetPackageVersion>
+        <DotNetSdkPackageVersion>11.0.0</DotNetSdkPackageVersion>
       </PropertyGroup>
     </When>
     <When Condition="'$(TargetFramework)' == 'net10.0'">
       <PropertyGroup>
         <AspNetPackageVersion>10.0.13</AspNetPackageVersion>
+        <DotNetSdkPackageVersion>10.0.14</DotNetSdkPackageVersion>
       </PropertyGroup>
     </When>
   </Choose>
@@ -36,8 +40,9 @@
     <PackageVersion Include="Medino.Extensions.DependencyInjection" Version="3.0.9" />
     <!-- GHSA-73j8-2gch-69rq, pulled in transitively via OpenIddict.Abstractions -> Microsoft.IdentityModel.Tokens -->
     <PackageVersion Include="Microsoft.Bcl.Memory" Version="10.0.14" />
-    <!-- GHSA-g94r-2vxg-569j, pulled in transitively via Azure.Monitor.OpenTelemetry.AspNetCore -->
-    <PackageVersion Include="OpenTelemetry.Api" Version="1.20.1" />
+    <!-- GHSA-g94r-2vxg-569j, pulled in transitively via Azure.Monitor.OpenTelemetry.AspNetCore. Kept on the same
+         version as the other OpenTelemetry core packages; see OpenTelemetryPackageVersion. -->
+    <PackageVersion Include="OpenTelemetry.Api" Version="$(OpenTelemetryPackageVersion)" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="$(DotNetSdkPackageVersion)" />
     <!--CVE-2023-29331-->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="$(DotNetSdkPackageVersion)" />
@@ -49,7 +54,7 @@
     <PackageVersion Include="Microsoft.Rest.ClientRuntime" Version="2.3.24" />
   </ItemGroup>
   <ItemGroup>
-    <PackageVersion Include="AngleSharp" Version="1.9.1" />
+    <PackageVersion Include="AngleSharp" Version="1.10.1" />
     <PackageVersion Include="Azure.AI.OpenAI" Version="2.1.0" />
     <PackageVersion Include="Azure.Containers.ContainerRegistry" Version="1.4.0" />
     <PackageVersion Include="Azure.Identity" Version="1.21.0" />
@@ -95,7 +100,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Azure.ContainerRegistry" Version="1.0.0-preview.2" />
-    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.63.3" />
+    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.64.0" />
     <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
     <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.1.1" />
     <PackageVersion Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="7.1.1" />
@@ -115,8 +120,8 @@
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.0" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="$(DotNetSdkPackageVersion)" />
-    <PackageVersion Include="Microsoft.ML.Tokenizers" Version="1.0.3" />
-    <PackageVersion Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" Version="1.0.3" />
+    <PackageVersion Include="Microsoft.ML.Tokenizers" Version="2.0.1" />
+    <PackageVersion Include="Microsoft.ML.Tokenizers.Data.Cl100kBase" Version="2.0.1" />
     <PackageVersion Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Api" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Client" Version="$(HealthcareSharedPackageVersion)" />
@@ -126,13 +131,13 @@
     <PackageVersion Include="Microsoft.Health.Extensions.DependencyInjection" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" Version="4.2.2.5" />
     <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.Stu3.Core" Version="4.2.2.5" />
-    <PackageVersion Include="Microsoft.Health.Fhir.Liquid.Converter" Version="7.0.15" />
+    <PackageVersion Include="Microsoft.Health.Fhir.Liquid.Converter" Version="7.0.16" />
     <PackageVersion Include="Microsoft.Health.SqlServer.Api" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.SqlServer" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Tools.Sql.Tasks" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageVersion Include="Microsoft.Identity.Web" Version="4.16.1" />
-    <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="3.0.1" />
+    <PackageVersion Include="Microsoft.Identity.Web" Version="4.18.0" />
+    <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="4.0.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.403" />
     <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="170.5.96" />
@@ -146,7 +151,12 @@
     <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="OpenIddict.Server.AspNetCore" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="OpenIddict.Validation.AspNetCore" Version="$(OpenIddictPackageVersion)" />
-    <PackageVersion Include="Polly" Version="8.9.0" />
+    <PackageVersion Include="OpenTelemetry" Version="$(OpenTelemetryPackageVersion)" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="$(OpenTelemetryPackageVersion)" />
+    <!-- Must be 1.20.0-alpha.2 or later: earlier versions can deadlock while the meter provider is built
+         (open-telemetry/opentelemetry-dotnet-contrib#5638). Its minor version tracks OpenTelemetryPackageVersion. -->
+    <PackageVersion Include="OpenTelemetry.Instrumentation.EventCounters" Version="1.20.1-alpha.1" />
+    <PackageVersion Include="Polly" Version="8.9.1" />
     <PackageVersion Include="prometheus-net.AspNetCore" Version="8.2.1" />
     <PackageVersion Include="prometheus-net.DotNetRuntime" Version="4.4.1" />
     <PackageVersion Include="prometheus-net.SystemMetrics" Version="3.1.0" />

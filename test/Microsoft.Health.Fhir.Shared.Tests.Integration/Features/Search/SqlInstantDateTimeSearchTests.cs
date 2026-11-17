@@ -42,6 +42,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Query
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -337,7 +338,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
         [Trait("DataStore", "SqlServer")]
         public async Task GivenPersistedPoints_WhenGeneratedSqlExecutes_ThenBothFlagsReturnExpectedIds()
         {
-            Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search.SqlChainedSearchGenerationTests.ConfigureWorkloadIdentityAuthentication();
+            SqlAzurePipelinesWorkloadIdentityAuthenticationProvider.ConfigureFromEnvironment();
             using var connection = new SqlConnection(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString));
             await connection.OpenAsync();
             using var seed = connection.CreateCommand();
@@ -507,8 +508,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
                 {
                     (Code: "custom-start", Path: "Slot.start"),
                     (Code: "custom-union", Path: "Slot.start | Slot.end"),
+                    (Code: "custom-date", Path: "Patient.birthDate"),
                 })
                 {
+                    string resourceType = custom.Path.Split('.')[0];
                     var parameter = new SearchParameter
                     {
                         Url = $"http://example.org/SearchParameter/{custom.Code}",
@@ -517,14 +520,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Search
                         Type = Hl7.Fhir.Model.SearchParamType.Date,
                         Expression = custom.Path,
 #if Stu3 || R4 || R4B
-                        Base = new List<ResourceType?> { ResourceType.Slot },
+                        Base = new List<ResourceType?> { Enum.Parse<ResourceType>(resourceType) },
 #else
-                        Base = new List<VersionIndependentResourceTypesAll?> { VersionIndependentResourceTypesAll.Slot },
+                        Base = new List<VersionIndependentResourceTypesAll?> { Enum.Parse<VersionIndependentResourceTypesAll>(resourceType) },
 #endif
                     };
                     Definitions.AddNewSearchParameters(new[] { parameter.ToTypedElement() }, calculateHash: false);
                     Definitions.UpdateSearchParameterStatus(parameter.Url, SearchParameterStatus.Enabled);
-                    Assert.False(Definitions.GetSearchParameter("Slot", custom.Code).IsSystemDefined);
+                    Assert.False(Definitions.GetSearchParameter(resourceType, custom.Code).IsSystemDefined);
                 }
 
                 var instance = Substitute.For<IFhirServerInstanceConfiguration>();

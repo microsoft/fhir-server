@@ -12,6 +12,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
@@ -96,12 +97,78 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
-            return entries.Distinct().ToList();
+            return Distinct(entries);
+        }
+
+        /// <summary>
+        /// Removes duplicate entries, keeping the order and the first entry's indexed values, like <c>Enumerable.Distinct</c>.
+        /// Duplicates compare reference ids case-insensitively, but the data store indexes them as written, so the first entry is
+        /// kept as is. Only the overlong reference id length of a later duplicate is carried over, so the truncation is still
+        /// reported when the resource is written.
+        /// </summary>
+        private static List<SearchIndexEntry> Distinct(List<SearchIndexEntry> entries)
+        {
+            var indexes = new Dictionary<SearchIndexEntry, int>();
+            var result = new List<SearchIndexEntry>(entries.Count);
+            foreach (SearchIndexEntry entry in entries)
+            {
+                if (!indexes.TryGetValue(entry, out int index))
+                {
+                    indexes.Add(entry, result.Count);
+                    result.Add(entry);
+                }
+                else
+                {
+                    result[index] = new SearchIndexEntry(result[index].SearchParameter, MergeOverlongResourceIdLength(result[index].Value, entry.Value));
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Returns <paramref name="kept"/> with the larger overlong reference id length of the two equal values, including in composite components.
+        /// </summary>
+        private static ISearchValue MergeOverlongResourceIdLength(ISearchValue kept, ISearchValue duplicate)
+        {
+            switch (kept)
+            {
+                case ReferenceSearchValue keptReference when duplicate is ReferenceSearchValue duplicateReference
+                    && duplicateReference.OverlongResourceIdLength.GetValueOrDefault() > keptReference.OverlongResourceIdLength.GetValueOrDefault():
+                    return new ReferenceSearchValue(keptReference.Kind, keptReference.BaseUri, keptReference.ResourceType, keptReference.ResourceId)
+                    {
+                        OverlongResourceIdLength = duplicateReference.OverlongResourceIdLength,
+                        MaxResourceIdLength = duplicateReference.MaxResourceIdLength,
+                    };
+                case CompositeSearchValue keptComposite when duplicate is CompositeSearchValue duplicateComposite
+                    && keptComposite.Components.Count == duplicateComposite.Components.Count:
+                    bool changed = false;
+                    var components = new List<IReadOnlyList<ISearchValue>>(keptComposite.Components.Count);
+                    for (int i = 0; i < keptComposite.Components.Count; i++)
+                    {
+                        IReadOnlyList<ISearchValue> keptValues = keptComposite.Components[i];
+                        IReadOnlyList<ISearchValue> duplicateValues = duplicateComposite.Components[i];
+                        var values = new List<ISearchValue>(keptValues.Count);
+                        for (int j = 0; j < keptValues.Count; j++)
+                        {
+                            ISearchValue merged = j < duplicateValues.Count ? MergeOverlongResourceIdLength(keptValues[j], duplicateValues[j]) : keptValues[j];
+                            changed |= !ReferenceEquals(merged, keptValues[j]);
+                            values.Add(merged);
+                        }
+
+                        components.Add(values);
+                    }
+
+                    return changed ? new CompositeSearchValue(components) : kept;
+                default:
+                    return kept;
+            }
         }
 
         private IEnumerable<SearchIndexEntry> ProcessCompositeSearchParameter(SearchParameterInfo searchParameter, ITypedElement resource, EvaluationContext context)
         {
             Debug.Assert(searchParameter?.Type == SearchParamType.Composite, "The search parameter must be composite.");
+            Uri searchParameterUrl = EnsureArg.IsNotNull(searchParameter.Url, nameof(searchParameter.Url));
 
             SearchParameterInfo compositeSearchParameterInfo = searchParameter;
 
@@ -109,7 +176,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             IEnumerable<ITypedElement> rootObjects = expression.Invoke(resource, context);
 
-            foreach (var rootObject in rootObjects)
+            foreach (var rootObject in EnumerateSearchParameterValues(rootObjects, searchParameterUrl))
             {
                 int numberOfComponents = searchParameter.Component.Count;
                 bool skip = false;
@@ -130,7 +197,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         componentSearchParameterDefinition.TargetResourceTypes,
                         rootObject,
                         component.Expression,
-                        context);
+                        context,
+                        searchParameterUrl);
 
                     // Filter out any search value that's not valid as a composite component.
                     extractedComponentValues = extractedComponentValues
@@ -169,7 +237,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchParameter.TargetResourceTypes,
                 resource,
                 searchParameter.Expression,
-                context))
+                context,
+                searchParameter.Url))
             {
                 if (searchValue != null)
                 {
@@ -195,7 +264,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IReadOnlyList<string> allowedReferenceResourceTypes,
             ITypedElement element,
             string fhirPathExpression,
-            EvaluationContext context)
+            EvaluationContext context,
+            Uri evaluationErrorSearchParameterUrl)
         {
             Debug.Assert(searchParameterType != SearchParamType.Composite, "The search parameter must be non-composite.");
 
@@ -225,6 +295,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 _logger.LogWarning("The extracted values should not be null.");
                 return results;
             }
+
+            extractedValues = EnumerateSearchParameterValues(extractedValues, evaluationErrorSearchParameterUrl);
 
             // If there is target set, then filter the extracted values to only those types.
             if (searchParameterType == SearchParamType.Reference &&
@@ -296,7 +368,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         {
                             if (searchValue is ReferenceSearchValue rsr && string.IsNullOrEmpty(rsr.ResourceType))
                             {
-                                results.Add(new ReferenceSearchValue(rsr.Kind, rsr.BaseUri, singleAllowedResourceType, rsr.ResourceId));
+                                results.Add(new ReferenceSearchValue(rsr.Kind, rsr.BaseUri, singleAllowedResourceType, rsr.ResourceId)
+                                {
+                                    OverlongResourceIdLength = rsr.OverlongResourceIdLength,
+                                    MaxResourceIdLength = rsr.MaxResourceIdLength,
+                                });
                             }
                             else
                             {
@@ -312,6 +388,42 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             return results;
+        }
+
+        internal static IEnumerable<ITypedElement> EnumerateSearchParameterValues(IEnumerable<ITypedElement> values, Uri searchParameterUrl)
+        {
+            IEnumerator<ITypedElement> enumerator;
+            try
+            {
+                enumerator = values.GetEnumerator();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException && ex is not OutOfMemoryException)
+            {
+                throw new SearchParameterEvaluationException(searchParameterUrl, ex);
+            }
+
+            using (enumerator)
+            {
+                while (true)
+                {
+                    ITypedElement current;
+                    try
+                    {
+                        if (!enumerator.MoveNext())
+                        {
+                            yield break;
+                        }
+
+                        current = enumerator.Current;
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException && ex is not OutOfMemoryException)
+                    {
+                        throw new SearchParameterEvaluationException(searchParameterUrl, ex);
+                    }
+
+                    yield return current;
+                }
+            }
         }
 
         internal static Type GetSearchValueTypeForSearchParamType(SearchParamType? searchParamType)

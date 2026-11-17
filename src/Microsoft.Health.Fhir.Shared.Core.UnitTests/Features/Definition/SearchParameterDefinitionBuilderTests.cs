@@ -88,6 +88,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         [InlineData("Slot-start", TemporalType.Instant)]
         [InlineData("Resource-lastUpdated", TemporalType.Instant)]
         [InlineData("individual-birthdate", TemporalType.Date)]
+        [InlineData("ClaimResponse-payment-date", TemporalType.Date)]
+#if R5
+        [InlineData("Basic-created", TemporalType.DateTime)]
+#else
+        [InlineData("Basic-created", TemporalType.Date)]
+#endif
         [InlineData("Schedule-date", TemporalType.Period)]
 #if !R5
         [InlineData("Appointment-date", TemporalType.Instant)]

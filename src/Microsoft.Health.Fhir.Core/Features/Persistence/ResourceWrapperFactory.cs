@@ -101,6 +101,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 fhirRequestContext.Properties[SearchIndexValuesPropertyName] = searchIndices.Count;
             }
 
+            AddLongReferenceIdIssues(fhirRequestContext, searchIndices);
+
             return new ResourceWrapper(
                 resource,
                 rawResource,
@@ -162,6 +164,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             await IndexVectorsAsync(resources, cancellationToken);
+        }
+
+        /// <summary>
+        /// Adds a warning to the response of an HTTP request for each search parameter whose reference has a resource id longer
+        /// than the maximum resource id length, because such ids are indexed truncated.
+        /// Background jobs count these references in their own results instead, because their request context is shared by
+        /// concurrent writes and isn't returned to a client.
+        /// </summary>
+        private static void AddLongReferenceIdIssues(IFhirRequestContext fhirRequestContext, IReadOnlyCollection<SearchIndexEntry> searchIndices)
+        {
+            if (fhirRequestContext == null || fhirRequestContext.IsBackgroundTask || fhirRequestContext.BundleIssues == null)
+            {
+                return;
+            }
+
+            foreach ((SearchIndexEntry entry, _, int maxResourceIdLength) in LongReferenceIdIssue.GetOverlongReferences(searchIndices))
+            {
+                LongReferenceIdIssue.TryAdd(fhirRequestContext.BundleIssues, entry.SearchParameter.Code, maxResourceIdLength);
+            }
         }
 
         private async Task IndexVectorsAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)

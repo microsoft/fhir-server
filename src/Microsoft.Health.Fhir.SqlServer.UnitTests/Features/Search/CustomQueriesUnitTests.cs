@@ -3,9 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Data;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -16,12 +18,25 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public class CustomQueriesUnitTests
+    [CollectionDefinition(nameof(CustomQueriesUnitTests), DisableParallelization = true)]
+    [Collection(nameof(CustomQueriesUnitTests))]
+    public class CustomQueriesUnitTests : IDisposable
     {
-        [Fact]
-        public async Task GivenCustomQueryClass_WithGivenWaitTime_QueryToDBWillOccurOnlyAfterWaitPeriod()
+        public CustomQueriesUnitTests()
         {
-            // set wait time to 2 seconds;
+            CustomQueries.ResetForTests();
+        }
+
+        public void Dispose()
+        {
+            CustomQueries.ResetForTests();
+        }
+
+        [Fact]
+        public void GivenCustomQueryClass_WithGivenWaitTime_QueryToDBWillOccurOnlyAfterWaitPeriod()
+        {
+            var timeProvider = new FakeTimeProvider();
+            using var clock = Mock.Property(() => ClockResolver.TimeProvider, timeProvider);
             CustomQueries.WaitTime = 1;
 
             var connection = Substitute.For<IDbConnection>();
@@ -36,20 +51,24 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             CustomQueries.CheckQueryHash(connection, "hash", logger);
             CustomQueries.CheckQueryHash(connection, "hash", logger);
             CustomQueries.CheckQueryHash(connection, "hash", logger);
-            await Task.Delay(1100);
+            connection.Received(1).CreateCommand();
+
+            timeProvider.Advance(TimeSpan.FromSeconds(1));
+            CustomQueries.CheckQueryHash(connection, "hash", logger);
+            connection.Received(1).CreateCommand();
+
+            timeProvider.Advance(TimeSpan.FromTicks(1));
             CustomQueries.CheckQueryHash(connection, "hash", logger);
 
             connection.Received(2).CreateCommand();
         }
 
         [Fact]
-        public async Task GivenCustomQueryClass_WithGivenSprocName_DictionaryWillPopulateCorrectly()
+        public void GivenCustomQueryClass_WithGivenSprocName_DictionaryWillPopulateCorrectly()
         {
-            // set wait time to 1 second
+            var timeProvider = new FakeTimeProvider();
+            using var clock = Mock.Property(() => ClockResolver.TimeProvider, timeProvider);
             CustomQueries.WaitTime = 1;
-
-            // Wait long enough to ensure we query the DB
-            await Task.Delay(1100);
 
             var connection = Substitute.For<IDbConnection>();
             var command = Substitute.For<IDbCommand>();
@@ -65,10 +84,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
 
             Assert.Equal("CustomQuery_hash1", CustomQueries.CheckQueryHash(connection, "hash1", logger));
 
-            // set wait time to 60 seconds to make sure we don't query the DB after success
             CustomQueries.WaitTime = 60;
+            timeProvider.Advance(TimeSpan.FromSeconds(59));
 
             Assert.Equal("CustomQuery_hash2", CustomQueries.CheckQueryHash(connection, "hash2", logger));
+            connection.Received(2).CreateCommand();
         }
     }
 }

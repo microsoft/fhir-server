@@ -183,10 +183,12 @@ namespace Microsoft.Health.Fhir.Core.Models
                 fraction = GetFractionFromDateTimeOffset(parsedDateTimeOffset);
             }
 
-            // The DateTimeOffset parser allows the time zone hour to be formatted with only one digit.
+            // .NET 11 accepts 24:00 as the next day, but FHIR hours must remain between 00 and 23.
+            // The DateTimeOffset parser also allows the time zone hour to be formatted with only one digit.
             // The spec specifies that the time zone hour must have two digits: yyyy-mm-ddThh:mm:ss[Z|(+|-)hh:mm]
             // Use the RegEx to determine if the time zone is correctly formatted or not.
-            if (GetIsDateTimePartSpecified(InvalidTimeZoneCapture))
+            if ((GetIsDateTimePartSpecified(HourCapture) && int.Parse(match.Groups[HourCapture].Value, CultureInfo.InvariantCulture) > 23) ||
+                GetIsDateTimePartSpecified(InvalidTimeZoneCapture))
             {
                 throw new FormatException(string.Format(Resources.DateTimeStringIsIncorrectlyFormatted, inputString));
             }

@@ -61,6 +61,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The resource has more than one value for the URI search parameter &apos;{0}&apos; that are identical in their first {1} characters. URI search values are compared using only their first {1} characters, so values of the same search parameter must differ within the first {1} characters..
+        /// </summary>
+        internal static string CollidingUriSearchValues {
+            get {
+                return ResourceManager.GetString("CollidingUriSearchValues", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Cyclic include iterate queries are not supported..
         /// </summary>
         internal static string CyclicIncludeIterateNotSupported {
@@ -84,6 +93,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         internal static string ExecutionTimeoutExpired {
             get {
                 return ResourceManager.GetString("ExecutionTimeoutExpired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to import resource with more than one value for the URI search parameter &apos;{0}&apos; that are identical in their first {1} characters, resource id: {2}, line: {3}.
+        /// </summary>
+        internal static string FailedToImportCollidingUriSearchValues {
+            get {
+                return ResourceManager.GetString("FailedToImportCollidingUriSearchValues", resourceCulture);
             }
         }
         
@@ -156,6 +174,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         internal static string OnlyTypeAndLastUpdatedSupportedForCompoundSort {
             get {
                 return ResourceManager.GetString("OnlyTypeAndLastUpdatedSupportedForCompoundSort", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resources of type {0} were not indexed for the URI search parameter &apos;{1}&apos; because they have more than one value for it that are identical in their first {2} characters. Searches using &apos;{1}&apos; will not return them..
+        /// </summary>
+        internal static string ReindexSkippedCollidingUriSearchValues {
+            get {
+                return ResourceManager.GetString("ReindexSkippedCollidingUriSearchValues", resourceCulture);
             }
         }
         

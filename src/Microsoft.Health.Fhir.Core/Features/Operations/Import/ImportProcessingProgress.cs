@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
+
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportProcessingProgress
@@ -32,5 +34,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// data store; retries internal to the SQL retry service stay included in this value.
         /// </summary>
         public long? DatabaseMilliseconds { get; set; }
+
+        /// <summary>
+        /// Gets the imported resources with a reference id longer than the maximum resource id length, by resource type and search parameter.
+        /// </summary>
+        public ICollection<OverlongReferenceIdCount> OverlongReferenceIds { get; } = new List<OverlongReferenceIdCount>();
     }
 }

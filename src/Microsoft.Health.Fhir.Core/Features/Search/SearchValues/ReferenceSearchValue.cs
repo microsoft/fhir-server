@@ -59,6 +59,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// </summary>
         public string ResourceId { get; }
 
+        /// <summary>
+        /// Gets the length of the referenced resource id when it is longer than the maximum resource id length; otherwise <c>null</c>.
+        /// Only the first maximum-length characters of such an id are indexed and compared, so the reference can match
+        /// a different resource whose id starts with the same characters.
+        /// </summary>
+        /// <remarks>
+        /// This is diagnostic information only. It is not part of equality, because it doesn't change what is indexed.
+        /// </remarks>
+        public int? OverlongResourceIdLength { get; init; }
+
+        /// <summary>
+        /// Gets the maximum resource id length that an overlong id was truncated to when it was parsed, or <c>null</c> when
+        /// <see cref="OverlongResourceIdLength"/> is <c>null</c>.
+        /// </summary>
+        public int? MaxResourceIdLength { get; init; }
+
         /// <inheritdoc />
         public bool IsValidAsCompositeComponent => true;
 

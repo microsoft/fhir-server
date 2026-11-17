@@ -470,7 +470,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             HttpStatusCode httpStatusCode = GetFinalHttpStatusCode(entryComponent, bundleExecutionContext);
             statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.ResourceType, resourceExecutionContext.Index, httpStatusCode, watch.Elapsed, resourceExecutionContext.IsConditionalOperation);
 
-            if (bundleExecutionContext.BundleType == BundleType.Transaction && entryComponent.Response.Outcome != null)
+            if (bundleExecutionContext.BundleType == BundleType.Transaction && BundleHandlerRuntime.IsFailedTransactionEntry(entryComponent, httpStatusCode))
             {
                 RaiseFhirTransactionException(
                     resourceExecutionContext,

@@ -835,6 +835,65 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         }
 
         [Fact]
+        public async Task GivenAProcessingJobCompletedWithWarnings_WhenExecuted_ThenTheWarningsAreReportedWithoutFailingTheJob()
+        {
+            var searchParam = CreateSearchParameterInfo();
+            var searchParamStatus = new ResourceSearchParameterStatus
+            {
+                LastUpdated = DateTime.UtcNow,
+                Uri = new Uri(searchParam.Url.OriginalString),
+                Status = SearchParameterStatus.Supported,
+            };
+
+            _searchParameterStatusManager.GetAllSearchParameterStatuses(_cancellationToken)
+                .Returns(new List<ResourceSearchParameterStatus> { searchParamStatus });
+            _searchDefinitionManager.TryGetSearchParameter(searchParam.Url.OriginalString, out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[1] = searchParam;
+                    return true;
+                });
+            _searchDefinitionManager.GetSearchParameters("Patient").Returns(new List<SearchParameterInfo> { searchParam });
+            _searchDefinitionManager.GetSearchParameter(searchParam.Url.OriginalString).Returns(searchParam);
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(new List<string> { "Patient" });
+            _searchParameterOperations.GetSearchParametersByUrlsAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>())
+                .Returns(new Dictionary<string, ITypedElement> { [searchParam.Url.OriginalString] = Substitute.For<ITypedElement>() });
+            _searchParameterOperations.GetSearchParameterHash(Arg.Any<string>()).Returns("hash");
+            _searchService.SearchForReindexAsync(
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<string>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+                .Returns(CreateSearchResult(resourceCount: 250));
+
+            var jobInfo = await CreateReindexJobRecord(maxResourcePerQuery: 100);
+            var orchestrator = CreateReindexOrchestratorJob(isSql: false);
+            var executeTask = orchestrator.ExecuteAsync(jobInfo, _cancellationToken);
+
+            var processingJobs = await WaitForJobsAsync(jobInfo.GroupId, TimeSpan.FromSeconds(30), expectedMinimumJobs: 1);
+            var processingJob = Assert.Single(processingJobs);
+            processingJob.Status = JobStatus.Completed;
+            processingJob.Result = JsonConvert.SerializeObject(new ReindexProcessingJobResult
+            {
+                SucceededResourceCount = 250,
+
+                // 103 distinct warnings, two of them repeated: 100 are listed and the 3 other distinct ones are counted once.
+                Warnings = Enumerable.Range(0, ReindexProcessingJobResult.MaxWarnings + 3).Select(i => $"warning {i}").Concat(new[] { "warning 0", "warning 102" }).ToList(),
+            });
+            await _queueClient.CompleteJobAsync(processingJob, false, _cancellationToken);
+
+            var orchestratorResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(await executeTask);
+
+            Assert.Equal(250, orchestratorResult.SucceededResources);
+            Assert.Equal(0, orchestratorResult.FailedResources);
+            Assert.All(orchestratorResult.Error, e => Assert.Equal(OperationOutcomeConstants.IssueSeverity.Warning, e.Severity));
+            Assert.Equal(
+                Enumerable.Range(0, ReindexProcessingJobResult.MaxWarnings).Select(i => $"warning {i}").Append(string.Format(Core.Resources.ReindexWarningsOmitted, 3)).OrderBy(d => d),
+                orchestratorResult.Error.Select(e => e.Diagnostics).OrderBy(d => d));
+        }
+
+        [Fact]
         public async Task EnqueueQueryProcessingJobsAsync_WithCosmosExistingProcessingJob_ReusesJobWithoutCreatingDuplicate()
         {
             var searchParam = CreateSearchParameterInfo();

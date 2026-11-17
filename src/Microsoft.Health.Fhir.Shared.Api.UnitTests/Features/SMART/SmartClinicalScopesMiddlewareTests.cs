@@ -410,6 +410,59 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Theory]
+        [MemberData(nameof(GetScopesWithNonFilteringParameters))]
+        public async Task GivenSmartScopeWithNonFilteringParameter_WhenInvoked_ThenBadRequestIsThrown(string scopes, string expectedMessage)
+        {
+            foreach (string scopeClaim in new[] { "scope", "roles" })
+            {
+                var httpContext = new DefaultHttpContext();
+                using var stream = new MemoryStream();
+                httpContext.Response.Body = stream;
+                var claims = new[]
+                {
+                    new Claim(scopeClaim, scopes),
+                    new Claim("fhirUser", "https://fhirServer/Patient/foo"),
+                };
+
+                var (accessControlContext, nextCalled) = await InvokeWithSmartClaimsAsync(httpContext, claims);
+
+                Assert.False(nextCalled);
+                ValidateErrorResponse(httpContext, new[] { expectedMessage }, true);
+                Assert.Empty(accessControlContext.AllowedResourceActions);
+            }
+        }
+
+        [Theory]
+        [InlineData("system/Patient.rs system/Condition.rs?_text=zzz", "cannot be enforced as a SMART on FHIR clinical scope constraint")]
+        [InlineData("system/Patient.rs system/Condition.rs?_count=abc", "Invalid search parameters in SMART on FHIR clinical scope")]
+        public async Task GivenValidScopeFollowedByNonFilteringParameterScope_WhenInvoked_ThenRequestIsStopped(string scopes, string expectedMessage)
+        {
+            var httpContext = new DefaultHttpContext();
+            using var stream = new MemoryStream();
+            httpContext.Response.Body = stream;
+
+            var (_, nextCalled) = await InvokeWithSmartClaimsAsync(httpContext, new[] { new Claim("scope", scopes) });
+
+            Assert.False(nextCalled);
+            ValidateErrorResponse(httpContext, new[] { expectedMessage }, true);
+        }
+
+        [Fact]
+        public async Task GivenSmartScopeWithRepeatedTagConstraint_WhenInvoked_ThenBothDecodedConstraintsAreKept()
+        {
+            var claims = new[] { new Claim("scope", "system/Observation.rs?_tag=urn%3Atest%7CA&_tag=urn%3Atest%7CB") };
+
+            var (accessControlContext, nextCalled) = await InvokeWithSmartClaimsAsync(new DefaultHttpContext(), claims);
+
+            Assert.True(nextCalled);
+            ScopeRestriction restriction = Assert.Single(accessControlContext.AllowedResourceActions);
+            Assert.Equal("Observation", restriction.Resource);
+            Assert.Equal(
+                new[] { Tuple.Create("_tag", "urn:test|A"), Tuple.Create("_tag", "urn:test|B") },
+                restriction.SearchParameters.Parameters);
+        }
+
+        [Theory]
         [MemberData(nameof(GetMalformedScopes))]
         public async Task GivenMalformedSmartScope_WhenInvoked_ThenBadRequestIsThrown(string scopes)
         {
@@ -1519,6 +1572,28 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             // _include hidden behind an encoded '_' in the key
             yield return new object[] { "patient/Observation.rs?%5Finclude=Observation:subject" };
+        }
+
+        public static IEnumerable<object[]> GetScopesWithNonFilteringParameters()
+        {
+            const string notEnforceable = "cannot be enforced as a SMART on FHIR clinical scope constraint";
+            const string invalid = "Invalid search parameters in SMART on FHIR clinical scope";
+
+            // Firely's SearchParams.Add stores these outside Parameters, so they would otherwise be dropped and the
+            // scope would grant the whole resource type.
+            foreach (string parameter in new[] { "_text=zzz", "_content=zzz", "_filter=zzz", "_query=zzz", "_sort=date", "_count=5", "_summary=true", "_elements=id", "_contained=both", "_containedType=container" })
+            {
+                yield return new object[] { $"system/Condition.rs?{parameter}", notEnforceable };
+            }
+
+            // Combined with a filtering parameter, on a wildcard scope, and hidden behind an encoded '_'
+            yield return new object[] { "patient/Observation.rs?category=laboratory&_filter=zzz", notEnforceable };
+            yield return new object[] { "user/*.rs?_content=zzz", notEnforceable };
+            yield return new object[] { "patient/Condition.rs?%5Ftext=zzz", notEnforceable };
+
+            // Values Firely rejects while storing them
+            yield return new object[] { "system/Condition.rs?_count=abc", invalid };
+            yield return new object[] { "system/Condition.rs?_summary=bogus", invalid };
         }
 
         public static IEnumerable<object[]> GetMalformedScopes()

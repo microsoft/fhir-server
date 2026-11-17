@@ -173,6 +173,85 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
         }
 
+        [Fact]
+        public async Task GivenBulkDeleteRequestWithALongUriSearchValue_WhenJobCreationRequested_ThenJobIsCreated()
+        {
+            var searchParams = new List<Tuple<string, string>>()
+            {
+                new Tuple<string, string>("_profile", "https://example.org/" + new string('b', 300)),
+            };
+
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.HardDelete | DataActions.Delete | DataActions.Read);
+            _contextAccessor.RequestContext.BundleIssues.Clear();
+            OperationOutcomeIssue warning = LongUriSearchValueIssue.Create(new[] { "_profile" }, 256);
+            _contextAccessor.RequestContext.BundleIssues.Add(warning);
+            BulkDeleteDefinition enqueued = null;
+            _queueClient.EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>()).Returns(args =>
+            {
+                enqueued = JsonConvert.DeserializeObject<BulkDeleteDefinition>(args.ArgAt<string[]>(1)[0]);
+                return new List<JobInfo>
+                {
+                    new JobInfo() { Id = 1 },
+                };
+            });
+
+            var request = new CreateBulkDeleteRequest(DeleteOperation.HardDelete, KnownResourceTypes.Patient, searchParams, false, null, false);
+
+            var response = await _handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.Equal(1, response.Id);
+            await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
+            Assert.Equal(new[] { warning.Diagnostics }, enqueued.SearchWarnings);
+        }
+
+        [Fact]
+        public async Task GivenBulkDeleteRequestWithALongReferenceId_WhenJobCreationRequested_ThenJobIsCreated()
+        {
+            var searchParams = new List<Tuple<string, string>>()
+            {
+                new Tuple<string, string>("general-practitioner", "Practitioner/" + new string('a', 65)),
+            };
+
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.HardDelete | DataActions.Delete | DataActions.Read);
+            _contextAccessor.RequestContext.BundleIssues.Clear();
+            OperationOutcomeIssue warning = LongReferenceIdIssue.Create("general-practitioner", 64);
+            _contextAccessor.RequestContext.BundleIssues.Add(warning);
+            BulkDeleteDefinition enqueued = null;
+            _queueClient.EnqueueAsync((byte)QueueType.BulkDelete, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>()).Returns(args =>
+            {
+                enqueued = JsonConvert.DeserializeObject<BulkDeleteDefinition>(args.ArgAt<string[]>(1)[0]);
+                return new List<JobInfo>
+                {
+                    new JobInfo() { Id = 1 },
+                };
+            });
+
+            var request = new CreateBulkDeleteRequest(DeleteOperation.HardDelete, KnownResourceTypes.Patient, searchParams, false, null, false);
+
+            var response = await _handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.Equal(1, response.Id);
+            Assert.Equal(new[] { warning.Diagnostics }, enqueued.SearchWarnings);
+        }
+
+        [Fact]
+        public async Task GivenBulkDeleteRequestWithALongUriSearchValueAndAnInvalidParameter_WhenJobCreationRequested_ThenBadRequestIsReturned()
+        {
+            var searchParams = new List<Tuple<string, string>>()
+            {
+                new Tuple<string, string>("param", "value"),
+            };
+
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.HardDelete | DataActions.Delete | DataActions.Read);
+            _contextAccessor.RequestContext.BundleIssues.Clear();
+            _contextAccessor.RequestContext.BundleIssues.Add(LongUriSearchValueIssue.Create(new[] { "_profile" }, 256));
+            _contextAccessor.RequestContext.BundleIssues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.NotSupported, "invalid"));
+
+            var request = new CreateBulkDeleteRequest(DeleteOperation.HardDelete, KnownResourceTypes.Patient, searchParams, false, null, false);
+
+            await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
+        }
+
         [Theory]
         [InlineData(DeleteOperation.SoftDelete, DataActions.None, false)]
         [InlineData(DeleteOperation.SoftDelete, DataActions.Read, false)]

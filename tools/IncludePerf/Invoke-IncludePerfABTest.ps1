@@ -62,7 +62,7 @@ if (-not $OutputDirectory) {
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 
 $benchmarkProject = Join-Path $PSScriptRoot 'FhirIncludeBenchmark'
-$benchmarkDll = Join-Path $benchmarkProject 'bin/Release/net10.0/Microsoft.Health.Internal.Fhir.IncludePerf.Benchmark.dll'
+$benchmarkDll = Join-Path $benchmarkProject 'bin/Release/net11.0/Microsoft.Health.Internal.Fhir.IncludePerf.Benchmark.dll'
 
 if (-not (Test-Path $benchmarkDll)) {
     Write-Host "Building benchmark tool..." -ForegroundColor Cyan

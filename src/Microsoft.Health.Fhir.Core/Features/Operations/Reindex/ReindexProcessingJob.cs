@@ -296,9 +296,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         internal async Task ComputeAndWrite(IReadOnlyList<ResourceWrapper> resources, IFhirDataStore store, CancellationToken cancellationToken)
         {
+            // Set by ExecuteAsync; also called directly (for example in tests), so make sure there is a result to add to.
+            _result ??= new ReindexProcessingJobResult();
+
             await _resourceWrapperFactory.UpdateAsync(resources, cancellationToken);
 
-            await _bulkUpdateRetries.ExecuteAsync(async () => await store.BulkUpdateSearchParameterIndicesAsync(resources, cancellationToken));
+            // The data store can leave out values it can't index: it removes them from the wrapper and returns warnings.
+            // Indexing isn't repeated on a retry, so restore the computed indices before each attempt to report the same warnings.
+            var computedIndices = resources.Select(resource => resource.SearchIndices).ToList();
+            IReadOnlyList<string> warnings = await _bulkUpdateRetries.ExecuteAsync(async () =>
+            {
+                for (int i = 0; i < resources.Count; i++)
+                {
+                    resources[i].UpdateSearchIndices(computedIndices[i]);
+                }
+
+                return await store.BulkUpdateSearchParameterIndicesAsync(resources, cancellationToken);
+            });
+            if (warnings?.Count > 0)
+            {
+                _logger.LogJobWarning(_jobInfo, $"Reindex: {warnings.Count} search value warning(s) for resource type {_definition.ResourceType}.");
+                _result.AddWarnings(warnings);
+            }
+
+            // Counted after the write succeeds, so a retry doesn't count a resource twice.
+            var overlongReferenceIds = new List<OverlongReferenceIdCount>();
+            foreach (var resource in resources)
+            {
+                OverlongReferenceIdCount.Add(overlongReferenceIds, resource);
+            }
+
+            if (overlongReferenceIds.Count > 0)
+            {
+                OverlongReferenceIdCount.Merge(_result.OverlongReferenceIds, overlongReferenceIds);
+            }
         }
 
         private async Task TryLogEvent(string process, string status, string text, DateTime? startDate)

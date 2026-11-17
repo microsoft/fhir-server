@@ -5,17 +5,20 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.SqlServer;
+using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
@@ -107,6 +110,60 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_AllRetriesFail()
         {
             await AllConnectionRetriesTest(CreateTestStoredProcedureToReadTop10, true);
+        }
+
+        [Fact]
+        public async Task GivenMaxPoolSizeConfigured_WhenSqlIsExecuted_ThenConnectionUsesConfiguredMaxPoolSize()
+        {
+            var configuration = Microsoft.Extensions.Options.Options.Create(new SqlServerDataStoreConfiguration
+            {
+                CommandTimeout = _fixture.SqlServerDataStoreConfiguration.Value.CommandTimeout,
+                MaxPoolSize = 37,
+            });
+            var sqlRetryService = new SqlRetryService(_fixture.SqlConnectionBuilder, configuration, Microsoft.Extensions.Options.Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Microsoft.Extensions.Options.Options.Create(new CoreFeatureConfiguration()));
+            int? connectionMaxPoolSize = null;
+            object result = null;
+
+            await sqlRetryService.ExecuteSql(
+                async (connection, cancellationToken, _) =>
+                {
+                    connectionMaxPoolSize = new SqlConnectionStringBuilder(connection.ConnectionString).MaxPoolSize;
+                    await using SqlCommand command = new SqlCommand("SELECT 1", connection);
+                    result = await command.ExecuteScalarAsync(cancellationToken);
+                },
+                NullLogger.Instance,
+                CancellationToken.None);
+
+            Assert.Equal(37, connectionMaxPoolSize);
+            Assert.Equal(1, result);
+        }
+
+        [Fact]
+        public async Task GivenSqlCommandSucceedsOnRetry_WhenRetryIsLogged_ThenExecutionConnectionIsReleasedFirst()
+        {
+            MakeStoredProcedureAndTableName(false, out string storedProcedureName, out string testTableName);
+            try
+            {
+                await CreateTestTable(testTableName);
+                await CreateTestStoredProcedureWithSingleErrorBeforeSelect(storedProcedureName, testTableName);
+                var sqlRetryServiceOptions = new SqlRetryServiceOptions { RetryMillisecondsDelay = 200, MaxRetries = 3 };
+                sqlRetryServiceOptions.AddTransientErrors.Add(SqlDivByZeroErrorNumber);
+                var sqlConnectionBuilder = new SqlConnectionBuilderOpenConnectionTracker(_fixture.SqlConnectionBuilder);
+                var sqlRetryService = new SqlRetryService(sqlConnectionBuilder, _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions(), Microsoft.Extensions.Options.Options.Create(new CoreFeatureConfiguration()));
+                using var sqlCommand = new SqlCommand { CommandText = $"dbo.{storedProcedureName}" };
+
+                await sqlRetryService.ExecuteSql(sqlCommand, SqlCommandActionWithRetries, NullLogger.Instance, "log message", CancellationToken.None);
+
+                // Two execution attempts, then the SuccessOnRetry event. None of them may wait on a connection that is still held,
+                // otherwise a pool at its limit would time out logging the event.
+                Assert.Equal(2, sqlConnectionBuilder.ExecutionConnectionRequests);
+                Assert.Equal(1, sqlConnectionBuilder.EventLogConnectionRequests);
+                Assert.Equal(0, sqlConnectionBuilder.MaxOpenConnectionsAtRequest);
+            }
+            finally
+            {
+                await DropTestObjecs(storedProcedureName, testTableName);
+            }
         }
 
         private async Task ExecuteSql(string commandText)
@@ -735,6 +792,90 @@ END
             public ValueTask<SqlConnection> CreateConnectionAsync(Action<SqlConnectionStringBuilder> configure = null, CancellationToken cancellationToken = default)
             {
                 throw new NotImplementedException();
+            }
+        }
+
+        private class SqlConnectionBuilderOpenConnectionTracker : ISqlConnectionBuilder
+        {
+            private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
+            private int _openConnections;
+            private int _maxOpenConnectionsAtRequest;
+            private int _executionConnectionRequests;
+            private int _eventLogConnectionRequests;
+
+            public SqlConnectionBuilderOpenConnectionTracker(ISqlConnectionBuilder sqlConnectionBuilder)
+            {
+                _sqlConnectionBuilder = sqlConnectionBuilder;
+            }
+
+            public string DefaultDatabase => _sqlConnectionBuilder.DefaultDatabase;
+
+            public int MaxOpenConnectionsAtRequest => Volatile.Read(ref _maxOpenConnectionsAtRequest);
+
+            public int ExecutionConnectionRequests => Volatile.Read(ref _executionConnectionRequests);
+
+            public int EventLogConnectionRequests => Volatile.Read(ref _eventLogConnectionRequests);
+
+            public SqlConnection GetSqlConnection(string initialCatalog = null, int? maxPoolSize = null)
+            {
+                RecordRequest();
+                return Track(_sqlConnectionBuilder.GetSqlConnection(initialCatalog, maxPoolSize));
+            }
+
+            public async Task<SqlConnection> GetSqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
+            {
+                RecordRequest();
+                Interlocked.Increment(ref _eventLogConnectionRequests);
+                return Track(await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog, maxPoolSize, cancellationToken));
+            }
+
+            public Task<SqlConnection> GetReadOnlySqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
+            {
+                throw new NotImplementedException();
+            }
+
+            public async Task<SqlConnection> GetSqlConnectionAsync(bool isReadOnly, string applicationName)
+            {
+                RecordRequest();
+                Interlocked.Increment(ref _executionConnectionRequests);
+                return Track(await _sqlConnectionBuilder.GetSqlConnectionAsync(isReadOnly, applicationName));
+            }
+
+            public SqlConnection CreateConnection(Action<SqlConnectionStringBuilder> configure = null)
+            {
+                throw new NotImplementedException();
+            }
+
+            public ValueTask<SqlConnection> CreateConnectionAsync(Action<SqlConnectionStringBuilder> configure = null, CancellationToken cancellationToken = default)
+            {
+                throw new NotImplementedException();
+            }
+
+            private void RecordRequest()
+            {
+                int open = Volatile.Read(ref _openConnections);
+                int max;
+                do
+                {
+                    max = Volatile.Read(ref _maxOpenConnectionsAtRequest);
+                }
+                while (open > max && Interlocked.CompareExchange(ref _maxOpenConnectionsAtRequest, open, max) != max);
+            }
+
+            private SqlConnection Track(SqlConnection sqlConnection)
+            {
+                sqlConnection.StateChange += (_, e) =>
+                {
+                    if (e.CurrentState == ConnectionState.Open)
+                    {
+                        Interlocked.Increment(ref _openConnections);
+                    }
+                    else if (e.OriginalState == ConnectionState.Open && e.CurrentState == ConnectionState.Closed)
+                    {
+                        Interlocked.Decrement(ref _openConnections);
+                    }
+                };
+                return sqlConnection;
             }
         }
 
