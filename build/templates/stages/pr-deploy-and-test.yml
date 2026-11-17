@@ -1,0 +1,35 @@
+# Emits the deploy stage and the test stage for one version/data-store cell of the PR pipeline.
+# Runtime expressions (for example $[stageDependencies...]) must be passed in as complete literal
+# strings; they are never evaluated at compile time.
+parameters:
+- name: cell
+  type: object
+
+stages:
+- stage: ${{ parameters.cell.deployStage }}
+  displayName: ${{ parameters.cell.deployDisplayName }}
+  dependsOn:
+  - ${{ each stage in parameters.cell.deployDependsOn }}:
+    - ${{ stage }}
+  jobs:
+  - template: ../jobs/provision-deploy.yml
+    parameters:
+      dataStore: ${{ parameters.cell.dataStore }}
+      version: ${{ parameters.cell.version }}
+      ${{ each parameter in parameters.cell.deployParameters }}:
+        ${{ parameter.key }}: ${{ parameter.value }}
+
+- stage: ${{ parameters.cell.testStage }}
+  displayName: ${{ parameters.cell.testDisplayName }}
+  dependsOn:
+  - ${{ each stage in parameters.cell.testDependsOn }}:
+    - ${{ stage }}
+  variables:
+    ${{ each variable in parameters.cell.testVariables }}:
+      ${{ variable.key }}: ${{ variable.value }}
+  jobs:
+  - template: ${{ parameters.cell.testTemplate }}
+    parameters:
+      version: ${{ parameters.cell.version }}
+      ${{ each parameter in parameters.cell.testParameters }}:
+        ${{ parameter.key }}: ${{ parameter.value }}
