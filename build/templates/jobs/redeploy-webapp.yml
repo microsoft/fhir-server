@@ -69,7 +69,7 @@ jobs:
         if ($LASTEXITCODE -ne 0) { throw "Failed to update container app '$containerAppName'" }
         Write-Host "Container app image updated successfully."
 
-  - template: ../tasks/container-app-health-check.yml
+  - template: ../steps/container-app-health-check.yml
     parameters:
       containerAppName: ${{ parameters.webAppName }}
       resourceGroup: ${{ parameters.resourceGroup }}

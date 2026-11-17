@@ -21,7 +21,7 @@ stages:
       demands:
         - ImageOverride -equals $(InternalLinuxImage)
     steps:
-    - template: ./jobs/update-semver.yml 
+    - template: ./templates/steps/update-semver.yml 
 
 - stage: DockerBuild  
   displayName: 'Build images'
@@ -30,7 +30,7 @@ stages:
   variables:
     assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
   jobs:
-  - template: ./jobs/docker-build-all.yml
+  - template: ./templates/jobs/docker-build-all.yml
     parameters: 
       tag: $(ImageTag)
       buildPlatform: $(publicDockerImagePlatforms)
@@ -39,7 +39,7 @@ stages:
   displayName: Provision Environment
   dependsOn: []
   jobs:
-  - template: ./jobs/cleanup-resourcegroup-aad.yml
+  - template: ./templates/jobs/cleanup-resourcegroup-aad.yml
   - job: provision
     dependsOn: DeleteResourceGroup 
     steps:
@@ -52,7 +52,7 @@ stages:
         ScriptType: inlineScript
         Inline: |
           New-AzResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
-    - template: ./jobs/add-resource-group-role-assignments.yml
+    - template: ./templates/steps/add-resource-group-role-assignments.yml
       parameters:
         azureSubscription: $(ConnectedServiceName)
         resourceGroupName: $(ResourceGroupName)
@@ -106,7 +106,7 @@ stages:
   dependsOn:
   - provisionEnvironment
   jobs:
-  - template: ./jobs/provision-nsp.yml
+  - template: ./templates/jobs/provision-nsp.yml
     parameters:
       resourceGroup: $(ResourceGroupName)
       nspName: 'nsp-$(ResourceGroupName)'
@@ -123,14 +123,14 @@ stages:
       name: '$(AzurePipelinesPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
-    - template: ./tasks/purge-soft-deleted-keyvaults.yml
+    - template: ./templates/steps/purge-soft-deleted-keyvaults.yml
   - job: setup
     dependsOn: deleteKeyVaults
     pool:
       name: '$(AzurePipelinesPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
-    - template: ./jobs/add-aad-test-environment.yml
+    - template: ./templates/steps/add-aad-test-environment.yml
 
 - stage: deploySqlServer
   displayName: 'Deploy SQLServer'
@@ -138,7 +138,7 @@ stages:
   - createNsp
   - provisionEnvironment
   jobs:
-  - template: ./jobs/provision-sqlServer.yml
+  - template: ./templates/jobs/provision-sqlServer.yml
     parameters:
       resourceGroup: $(ResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)
@@ -146,7 +146,7 @@ stages:
       adminUserAssignedManagedIdentityName: "$(DeploymentEnvironmentName)-uami"
       deploymentName: "AppServer"
       nspName: 'nsp-$(ResourceGroupName)'
-  - template: ./jobs/provision-sqlServer.yml
+  - template: ./templates/jobs/provision-sqlServer.yml
     parameters:
       resourceGroup: $(ResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)integrtest
@@ -159,7 +159,7 @@ stages:
   dependsOn:
   - deploySqlServer
   jobs:
-  - template: ./jobs/provision-sqlElasticPool.yml
+  - template: ./templates/jobs/provision-sqlElasticPool.yml
     parameters:
       resourceGroup: $(ResourceGroupName)
       sqlServerName: $(DeploymentEnvironmentName)
@@ -176,7 +176,7 @@ stages:
   - createNsp
   - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./templates/jobs/provision-deploy.yml
     parameters: 
       dataStore: cosmos
       version: Stu3
@@ -198,7 +198,7 @@ stages:
   - deploySqlElasticPool
   - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./templates/jobs/provision-deploy.yml
     parameters: 
       dataStore: sql
       version: Stu3
@@ -223,7 +223,7 @@ stages:
   - createNsp
   - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./templates/jobs/provision-deploy.yml
     parameters: 
       dataStore: cosmos
       version: R4
@@ -245,7 +245,7 @@ stages:
   - deploySqlElasticPool
   - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./templates/jobs/provision-deploy.yml
     parameters: 
       dataStore: sql
       version: R4
@@ -271,7 +271,7 @@ stages:
   - deploySqlElasticPool
   - createAcaEnvironment
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./templates/jobs/provision-deploy.yml
     parameters: 
       dataStore: sql
       version: R5

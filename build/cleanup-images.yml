@@ -8,7 +8,7 @@ stages:
 - stage: CleanupStu3
   displayName: 'Cleanup Stu3'
   jobs:
-  - template: ./jobs/cleanup-version-images.yml
+  - template: ./templates/jobs/cleanup-version-images.yml
     parameters: 
       version: 'stu3'
 
@@ -16,7 +16,7 @@ stages:
   displayName: 'Cleanup R4'
   dependsOn: []
   jobs:
-  - template: ./jobs/cleanup-version-images.yml
+  - template: ./templates/jobs/cleanup-version-images.yml
     parameters: 
       version: 'r4'
 
@@ -24,7 +24,7 @@ stages:
   displayName: 'Cleanup R4B'
   dependsOn: []
   jobs:
-  - template: ./jobs/cleanup-version-images.yml
+  - template: ./templates/jobs/cleanup-version-images.yml
     parameters: 
       version: 'r4b'
 
@@ -32,6 +32,6 @@ stages:
   displayName: 'Cleanup R5'
   dependsOn: []
   jobs:
-  - template: ./jobs/cleanup-version-images.yml
+  - template: ./templates/jobs/cleanup-version-images.yml
     parameters: 
       version: 'r5'

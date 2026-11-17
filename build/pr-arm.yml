@@ -35,7 +35,7 @@ steps:
       deploymentMode: 'Validation'
       deploymentName: 'ValidateFhirDocker$(prName)'
 
-  - template: ./jobs/analyze.yml
+  - template: ./templates/steps/analyze.yml
     parameters:
       analyzeBinaries: false
       analyzePackages: false

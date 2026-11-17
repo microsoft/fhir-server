@@ -34,7 +34,7 @@ jobs:
         if ($LASTEXITCODE -ne 0) { throw "Failed to restart container app '$containerAppName'" }
         Write-Host "Container app revision updated successfully."
 
-  - template: ../tasks/container-app-health-check.yml
+  - template: ../steps/container-app-health-check.yml
     parameters:
       containerAppName: ${{ parameters.webAppName }}
       resourceGroup: ${{ parameters.resourceGroup }}

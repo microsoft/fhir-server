@@ -17,7 +17,7 @@ steps:
     parameters:
       version: ${{parameters.version}}
 
-  - template: ../tasks/e2e-set-variables.yml
+  - template: e2e-set-variables.yml
     parameters:
       containerAppName: ${{ parameters.containerAppName }}
       version: ${{ parameters.version }}

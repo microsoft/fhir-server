@@ -29,7 +29,7 @@ stages:
   variables:
     assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetAssemblyVersion.assemblySemFileVer']]
   jobs:
-  - template: ./jobs/docker-build-all.yml
+  - template: ./templates/jobs/docker-build-all.yml
     parameters: 
       tag: $(build.BuildNumber)
       buildPlatform: $(publicDockerImagePlatforms)

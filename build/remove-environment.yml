@@ -15,7 +15,7 @@ stages:
 - stage: cleanupAks
   displayName: 'Cleanup AKS Deployments'
   jobs:
-  - template: ./jobs/cleanup-aks.yml
+  - template: ./templates/jobs/cleanup-aks.yml
     parameters:
       subscription: $(ConnectedServiceName)
       clusterName: $(clusterName)
@@ -25,4 +25,4 @@ stages:
   displayName: 'Cleanup Azure Environment'
   dependsOn: []
   jobs:
-  - template: ./jobs/cleanup.yml
+  - template: ./templates/jobs/cleanup.yml

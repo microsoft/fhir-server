@@ -30,9 +30,9 @@ jobs:
     fetchTags: false
     path: source
 
-  - template: integration-setup.yml
+  - template: ../steps/integration-setup.yml
 
-  - template: integration-tests-extract.yml
+  - template: ../steps/integration-tests-extract.yml
     parameters:
       version: ${{ parameters.version }}
 
@@ -108,8 +108,8 @@ jobs:
     demands:
       - ImageOverride -equals $(InternalLinuxImage)
   steps:
-  - template: e2e-setup.yml
-  - template: e2e-tests.yml
+  - template: ../steps/e2e-setup.yml
+  - template: ../steps/e2e-tests.yml
     parameters:
       version: ${{ parameters.version }}
       containerAppName: '${{ parameters.containerAppName }}'
@@ -125,8 +125,8 @@ jobs:
       demands:
         - ImageOverride -equals $(InternalLinuxImage)
     steps:
-    - template: e2e-setup.yml
-    - template: e2e-tests.yml
+    - template: ../steps/e2e-setup.yml
+    - template: ../steps/e2e-tests.yml
       parameters:
         version: ${{ parameters.version }}
         containerAppName: '${{ parameters.containerAppName }}'
@@ -143,8 +143,8 @@ jobs:
       demands:
         - ImageOverride -equals $(InternalLinuxImage)
     steps:
-    - template: e2e-setup.yml
-    - template: e2e-tests.yml
+    - template: ../steps/e2e-setup.yml
+    - template: ../steps/e2e-tests.yml
       parameters:
         version: ${{ parameters.version }}
         containerAppName: '${{ parameters.containerAppName }}'

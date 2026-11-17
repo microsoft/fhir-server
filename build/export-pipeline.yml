@@ -36,13 +36,13 @@ stages:
       inputs:
         command: build
         arguments: '--configuration $(buildConfiguration) /warnaserror -f $(defaultBuildFramework)'
-    - template: ./jobs/package-integration-tests.yml
+    - template: ./templates/steps/package-integration-tests.yml
 
 - stage: redeployStu3
   displayName: 'Redeploy STU3 Site'
   dependsOn: []
   jobs:
-  - template: ./jobs/restart-webapp.yml
+  - template: ./templates/jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentName)
       subscription: $(ConnectedServiceName)
@@ -52,7 +52,7 @@ stages:
   displayName: 'Redeploy STU3 SQL Site'
   dependsOn: []
   jobs:
-  - template: ./jobs/restart-webapp.yml
+  - template: ./templates/jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameSql)
       subscription: $(ConnectedServiceName)
@@ -62,7 +62,7 @@ stages:
   displayName: 'Redeploy R4 Site'
   dependsOn: []
   jobs:
-  - template: ./jobs/restart-webapp.yml
+  - template: ./templates/jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameR4)
       subscription: $(ConnectedServiceName)
@@ -72,7 +72,7 @@ stages:
   displayName: 'Redeploy R4 SQL Site'
   dependsOn: []
   jobs:
-  - template: ./jobs/restart-webapp.yml
+  - template: ./templates/jobs/restart-webapp.yml
     parameters: 
       webAppName: $(DeploymentEnvironmentNameR4Sql)
       subscription: $(ConnectedServiceName)
@@ -85,7 +85,7 @@ stages:
   - redeployStu3
   - redeployStu3Sql
   jobs:
-  - template: ./jobs/run-export-tests.yml
+  - template: ./templates/jobs/run-export-tests.yml
     parameters:
       version: Stu3
       keyVaultName: $(DeploymentEnvironmentName)
@@ -99,7 +99,7 @@ stages:
   - redeployR4
   - redeployR4Sql
   jobs:
-  - template: ./jobs/run-export-tests.yml
+  - template: ./templates/jobs/run-export-tests.yml
     parameters:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
@@ -110,6 +110,6 @@ stages:
   displayName: 'Clean Storage Accounts'
   dependsOn: []
   jobs:
-  - template: ./jobs/clean-storage-accounts.yml
+  - template: ./templates/jobs/clean-storage-accounts.yml
     parameters:
       environmentName: $(DeploymentEnvironmentName)

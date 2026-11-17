@@ -14,7 +14,7 @@ stages:
   displayName: 'Scale Container Apps Up (min=3)'
   dependsOn: []
   jobs:
-  - template: ./jobs/scale-container-apps.yml
+  - template: ./templates/jobs/scale-container-apps.yml
     parameters:
       minReplicas: 3
       subscription: $(ConnectedServiceName)
@@ -30,13 +30,13 @@ stages:
       demands:
         - ImageOverride -equals $(InternalLinuxImage)
     steps:
-    - template: ./jobs/update-semver.yml  
+    - template: ./templates/steps/update-semver.yml  
 
 - stage: cleanStorageAccounts
   displayName: 'Clean Storage Accounts'
   dependsOn: []
   jobs:
-  - template: ./jobs/clean-storage-accounts.yml
+  - template: ./templates/jobs/clean-storage-accounts.yml
     parameters:
       environmentName: $(DeploymentEnvironmentName)
 
@@ -84,7 +84,7 @@ stages:
       demands:
         - ImageOverride -equals $(InternalWindowsImage)
     steps:
-    - template: ./jobs/build.yml
+    - template: ./templates/steps/dotnet-build.yml
       parameters:
         targetBuildFramework: $(defaultBuildFramework)
         unitTest: false
@@ -107,7 +107,7 @@ stages:
       demands:
         - ImageOverride -equals $(InternalLinuxImage)
     steps:
-    - template: ./jobs/build.yml
+    - template: ./templates/steps/dotnet-build.yml
       parameters:
         codeCoverage: false
         unitTest: false
@@ -127,7 +127,7 @@ stages:
       demands:
         - ImageOverride -equals $(InternalWindowsImage)
     steps:
-    - template: ./jobs/analyze.yml
+    - template: ./templates/steps/analyze.yml
 
 - stage: DockerBuild  
   displayName: 'Build images'
@@ -136,7 +136,7 @@ stages:
   variables:
     assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
   jobs:
-  - template: ./jobs/docker-build-all.yml
+  - template: ./templates/jobs/docker-build-all.yml
     parameters: 
       tag: $(ImageTag)
       buildPlatform: $(publicDockerImagePlatforms)
@@ -147,7 +147,7 @@ stages:
   dependsOn:
   - DockerBuild
   jobs:
-  - template: ./jobs/redeploy-webapp.yml
+  - template: ./templates/jobs/redeploy-webapp.yml
     parameters: 
       version: Stu3
       webAppName: $(DeploymentEnvironmentName)
@@ -160,7 +160,7 @@ stages:
   dependsOn:
   - DockerBuild
   jobs:
-  - template: ./jobs/redeploy-webapp.yml
+  - template: ./templates/jobs/redeploy-webapp.yml
     parameters: 
       version: Stu3
       webAppName: $(DeploymentEnvironmentNameSql)
@@ -174,7 +174,7 @@ stages:
   - BuildArtifacts
   - redeployStu3
   jobs:
-  - template: ./jobs/run-cosmos-tests.yml
+  - template: ./templates/jobs/run-cosmos-tests.yml
     parameters:
       version: Stu3
       keyVaultName: $(KeyVaultBaseName)
@@ -188,7 +188,7 @@ stages:
   - BuildArtifacts
   - redeployStu3Sql
   jobs:
-  - template: ./jobs/run-sql-tests.yml
+  - template: ./templates/jobs/run-sql-tests.yml
     parameters:
       version: Stu3
       keyVaultName: $(KeyVaultNameSql)
@@ -204,7 +204,7 @@ stages:
   dependsOn:
   - DockerBuild
   jobs:
-  - template: ./jobs/redeploy-webapp.yml
+  - template: ./templates/jobs/redeploy-webapp.yml
     parameters: 
       version: R4
       webAppName: $(DeploymentEnvironmentNameR4)
@@ -217,7 +217,7 @@ stages:
   dependsOn:
   - DockerBuild
   jobs:
-  - template: ./jobs/redeploy-webapp.yml
+  - template: ./templates/jobs/redeploy-webapp.yml
     parameters: 
       version: R4
       webAppName: $(DeploymentEnvironmentNameR4Sql)
@@ -231,7 +231,7 @@ stages:
   - BuildArtifacts
   - redeployR4
   jobs:
-  - template: ./jobs/run-cosmos-tests.yml
+  - template: ./templates/jobs/run-cosmos-tests.yml
     parameters:
       version: R4
       keyVaultName: $(KeyVaultNameR4)
@@ -245,7 +245,7 @@ stages:
   - BuildArtifacts
   - redeployR4Sql
   jobs:
-  - template: ./jobs/run-sql-tests.yml
+  - template: ./templates/jobs/run-sql-tests.yml
     parameters:
       version: R4
       keyVaultName: $(KeyVaultNameR4Sql)
@@ -261,7 +261,7 @@ stages:
   dependsOn:
   - DockerBuild
   jobs:
-  - template: ./jobs/redeploy-webapp.yml
+  - template: ./templates/jobs/redeploy-webapp.yml
     parameters: 
       version: R5
       webAppName: $(DeploymentEnvironmentNameR5Sql)
@@ -275,7 +275,7 @@ stages:
   - BuildArtifacts
   - redeployR5Sql
   jobs:
-  - template: ./jobs/run-sql-tests.yml
+  - template: ./templates/jobs/run-sql-tests.yml
     parameters:
       version: R5
       keyVaultName: $(KeyVaultNameR5Sql)
@@ -303,7 +303,7 @@ stages:
       demands:
         - ImageOverride -equals $(InternalLinuxImage)
     steps:
-    - template: ./jobs/aggregate-coverage.yml
+    - template: ./templates/steps/aggregate-coverage.yml
 
 # *********************** Finalize ***********************
 - stage: scaleDownContainerApps
@@ -319,7 +319,7 @@ stages:
   # doesn't hit cold-started apps mid-test.
   condition: succeeded()
   jobs:
-  - template: ./jobs/scale-container-apps.yml
+  - template: ./templates/jobs/scale-container-apps.yml
     parameters:
       minReplicas: 0
       subscription: $(ConnectedServiceName)
@@ -334,7 +334,7 @@ stages:
   - testR4Sql
   - testR5Sql
   jobs:
-  - template: ./jobs/docker-add-tag.yml
+  - template: ./templates/jobs/docker-add-tag.yml
     parameters:
       sourceTag: $(ImageTag)
       targetTag: 'master'

@@ -16,8 +16,8 @@ jobs:
     demands:
       - ImageOverride -equals $(InternalLinuxImage)
   steps:
-  - template: e2e-setup.yml
-  - template: e2e-tests-extract.yml
+  - template: ../steps/e2e-setup.yml
+  - template: ../steps/e2e-tests-extract.yml
     parameters:
       version: ${{parameters.version}}
 
@@ -147,8 +147,8 @@ jobs:
     demands:
       - ImageOverride -equals $(InternalLinuxImage)
   steps:
-  - template: e2e-setup.yml
-  - template: e2e-tests-extract.yml
+  - template: ../steps/e2e-setup.yml
+  - template: ../steps/e2e-tests-extract.yml
     parameters:
       version: ${{parameters.version}}
 

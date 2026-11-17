@@ -90,4 +90,4 @@ stages:
     DeploymentEnvironmentName: $[stageDependencies.Setup.ExtractVariables.outputs['SetVariables.DeploymentEnvironmentName']]
     ResourceGroupName: $[stageDependencies.Setup.ExtractVariables.outputs['SetVariables.ResourceGroupName']]
   jobs:
-  - template: ./jobs/cleanup.yml
+  - template: ./templates/jobs/cleanup.yml

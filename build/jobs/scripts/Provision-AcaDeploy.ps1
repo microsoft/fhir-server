@@ -3,7 +3,7 @@
     Provisions a FHIR server Azure Container App deployment (SQL or Cosmos backed).
 
 .DESCRIPTION
-    Originally lived inline inside build/jobs/provision-deploy.yml. Extracted to a
+    Originally lived inline inside build/templates/jobs/provision-deploy.yml. Extracted to a
     standalone script so the inline body no longer trips the Azure DevOps 21,000-char
     template-expression limit and so the logic is easier to read and maintain.
 

@@ -7,8 +7,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
     /*
      * When adding a new service principals they must be added in the following locations:
-     * - /build/jobs/e2e-tests.yml
-     * - /build/jobs/run-export-tests.yml
+     * - /build/templates/steps/e2e-tests.yml
+     * - /build/templates/jobs/run-export-tests.yml
      * - /testauthenvironment.json
      */
 
