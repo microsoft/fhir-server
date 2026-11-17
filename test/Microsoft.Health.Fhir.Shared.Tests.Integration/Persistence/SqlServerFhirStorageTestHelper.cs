@@ -123,8 +123,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var isEmpty = await IsEmpty();
 
             var minVersion = targetSchemaVersion == SchemaVersionConstants.Max ? SchemaVersionConstants.Max : SchemaVersionConstants.MinForUpgrade;
-            var (schemaInitializer, upgradeRunner) = CreateSchemaInitializerAndUpgradeRunner(testConnectionString, minVersion, targetSchemaVersion);
-            await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade: false, cancellationToken); });
+            var (schemaInitializer, upgradeRunner, provider) = CreateSchemaInitializerAndUpgradeRunner(testConnectionString, minVersion, targetSchemaVersion);
+            using var serviceProvider = provider;
+            using var scope = serviceProvider.CreateScope();
+            await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(scope, forceIncrementalSchemaUpgrade: false, cancellationToken: cancellationToken); });
             for (var version = minVersion + 1; version <= targetSchemaVersion; version++)
             {
                 await _dbSetupRetryPolicy.ExecuteAsync(async () => { await upgradeRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, cancellationToken); });
@@ -428,7 +430,7 @@ UPDATE dbo.SearchParam
             }
         }
 
-        private (SchemaInitializer initializer, SchemaUpgradeRunner upgradeRunner) CreateSchemaInitializerAndUpgradeRunner(string testConnectionString, int minSchemaVersion, int maxSchemaVersion)
+        private (SchemaInitializer initializer, SchemaUpgradeRunner upgradeRunner, ServiceProvider serviceProvider) CreateSchemaInitializerAndUpgradeRunner(string testConnectionString, int minSchemaVersion, int maxSchemaVersion)
         {
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
@@ -454,7 +456,7 @@ UPDATE dbo.SearchParam
             schemaWriteGate.CanWriteAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
             var schemaWriteGateEvaluator = new SchemaWriteGateEvaluator(schemaWriteGate, Substitute.For<ISchemaMetrics>(), _sqlConnectionBuilder, config, NullLogger<SchemaWriteGateEvaluator>.Instance);
             var schemaInitializer = new SchemaInitializer(serviceProvider, config, schemaInformationForInit, Substitute.For<IMediator>(), schemaWriteGateEvaluator, NullLogger<SchemaInitializer>.Instance);
-            return (schemaInitializer, schemaUpgradeRunner);
+            return (schemaInitializer, schemaUpgradeRunner, serviceProvider);
         }
 
         public async Task<SqlConnection> GetSqlConnectionAsync()
