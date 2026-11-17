@@ -1,6 +1,6 @@
 <svg xmlns='http://www.w3.org/2000/svg' width='1000' height='396' viewBox='0 0 1000 396' font-family='Segoe UI,Helvetica,Arial,sans-serif'><rect width='100%' height='100%' fill='#ffffff'/>
-<text x='16' y='28' font-size='18' font-weight='600' fill='#1f2328'>TARGET: Tier 1 PR gate (~20 min, to be measured in shadow)</text>
-<text x='16' y='48' font-size='12' fill='#59636e'>Blue = new/changed jobs, red = critical path, dashed = off the required check. Shard times from local spike (4 shards: 12.1 min).</text>
+<text x='16' y='28' font-size='18' font-weight='600' fill='#1f2328'>TARGET: default PR gate, R4 on SQL (~20 min, to be measured in shadow)</text>
+<text x='16' y='48' font-size='12' fill='#59636e'>Blue = new/changed jobs, red = critical path, dashed = off the required check. Linux agents measured 6-13 min per shard (6 shards); target is 8-10 rebalanced shards.</text>
 <line x1='270.0' y1='54' x2='270.0' y2='358' stroke='#d1d9e0' stroke-dasharray='2,3'/>
 <text x='270.0' y='374' font-size='11' fill='#59636e' text-anchor='middle'>0 min</text>
 <line x1='386.66666666666663' y1='54' x2='386.66666666666663' y2='358' stroke='#d1d9e0' stroke-dasharray='2,3'/>
@@ -19,20 +19,20 @@
 <text x='740.6666666666666' y='46' font-size='11' fill='#1a7f37' font-weight='600'>20-min target</text>
 <text x='262' y='75' font-size='12' fill='#1f2328' text-anchor='end'>CredScan + source scanners</text>
 <rect x='270.0' y='63' width='93.33333333333333' height='16' rx='3' fill='#1a7f37'/>
-<text x='262' y='101' font-size='12' fill='#1f2328' text-anchor='end'>Build (per shard or shared, &lt;=8 min)</text>
+<text x='262' y='101' font-size='12' fill='#1f2328' text-anchor='end'>R4-only test build (&lt;=8 min, unmeasured)</text>
 <rect x='270.0' y='89' width='186.66666666666666' height='16' rx='3' fill='#0969da'/>
-<text x='262' y='127' font-size='12' fill='#1f2328' text-anchor='end'>Unit tests (parallel, all versions)</text>
+<text x='262' y='127' font-size='12' fill='#1f2328' text-anchor='end'>Unit tests (all versions, no coverage)</text>
 <rect x='456.66666666666663' y='115' width='140.0' height='16' rx='3' fill='#0969da'/>
 <text x='262' y='153' font-size='12' fill='#1f2328' text-anchor='end'>SQL + Azurite containers start</text>
 <rect x='456.66666666666663' y='141' width='23.333333333333332' height='16' rx='3' fill='#0969da'/>
-<text x='262' y='179' font-size='12' fill='#1f2328' text-anchor='end'>SQL integration + schema compat</text>
+<text x='262' y='179' font-size='12' fill='#1f2328' text-anchor='end'>R4 SQL integration + schema compat</text>
 <rect x='480.0' y='167' width='163.33333333333331' height='16' rx='3' fill='#0969da'/>
-<text x='262' y='205' font-size='12' fill='#1f2328' text-anchor='end'>R4 SQL E2E in-proc, shards 1..4</text>
+<text x='262' y='205' font-size='12' fill='#1f2328' text-anchor='end'>R4 SQL E2E in-proc, shards 1..N</text>
 <rect x='480.0' y='193' width='256.66666666666663' height='16' rx='3' fill='#d1242f'/>
-<text x='262' y='231' font-size='12' fill='#1f2328' text-anchor='end'>Stu3/R5 SQL E2E in-proc, sharded</text>
+<text x='262' y='231' font-size='12' fill='#1f2328' text-anchor='end'>Stu3/R5 SQL (only if *.Shared.* changes)</text>
 <rect x='480.0' y='219' width='256.66666666666663' height='16' rx='3' fill='#0969da'/>
-<text x='262' y='257' font-size='12' fill='#1f2328' text-anchor='end'>R4 Cosmos integ + E2E (shared acct)</text>
-<rect x='480.0' y='245' width='233.33333333333331' height='16' rx='3' fill='#0969da'/>
+<text x='262' y='257' font-size='12' fill='#1f2328' text-anchor='end'>Cosmos: Tier 2 / post-merge only</text>
+
 <text x='262' y='283' font-size='12' fill='#1f2328' text-anchor='end'>R4 image + container smoke</text>
 <rect x='456.66666666666663' y='271' width='116.66666666666666' height='16' rx='3' fill='#0969da'/>
 <text x='262' y='309' font-size='12' fill='#1f2328' text-anchor='end'>Full Guardian (separate pipeline)</text>
