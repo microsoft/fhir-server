@@ -7,7 +7,7 @@ parameters:
 
 stages:
 - stage: ${{ parameters.cell.deployStage }}
-  displayName: ${{ parameters.cell.deployDisplayName }}
+  displayName: '${{ parameters.cell.deployDisplayName }}'
   dependsOn:
   - ${{ each stage in parameters.cell.deployDependsOn }}:
     - ${{ stage }}
@@ -20,7 +20,7 @@ stages:
         ${{ parameter.key }}: ${{ parameter.value }}
 
 - stage: ${{ parameters.cell.testStage }}
-  displayName: ${{ parameters.cell.testDisplayName }}
+  displayName: '${{ parameters.cell.testDisplayName }}'
   dependsOn:
   - ${{ each stage in parameters.cell.testDependsOn }}:
     - ${{ stage }}
