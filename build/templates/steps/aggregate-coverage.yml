@@ -42,6 +42,15 @@ steps:
 - script: |
     set -e
 
+    # Keep the pinned Codecov CLI release in one place; update deliberately with its checksum.
+    CODECOV_CLI_VERSION="11.3.2"
+
+    # ADO can leave an undefined macro literal; split it here so configured secrets are not expanded in this script.
+    if [ -z "$CODECOV_TOKEN" ] || [ "$CODECOV_TOKEN" = '$''(CODECOV_TOKEN)' ]; then
+      echo "##vso[task.logissue type=warning]Skipping Codecov upload because CODECOV_TOKEN is not set."
+      exit 0
+    fi
+
     # Fix file paths in Cobertura XML before uploading.
     # DeterministicReport produces paths with a /_/ prefix:
     #   /_/src/Microsoft.Health.Fhir.Api/...
@@ -49,8 +58,10 @@ steps:
     REPORT="$(Pipeline.Workspace)/AggregatedCoverage/Cobertura.xml"
     sed -i 's|/_/||g' "$REPORT"
 
-    # Download Codecov CLI
-    curl -Os https://cli.codecov.io/latest/linux/codecov
+    # Download and verify the pinned Codecov CLI before executing it.
+    curl -Os "https://cli.codecov.io/v${CODECOV_CLI_VERSION}/linux/codecov"
+    curl -Os "https://cli.codecov.io/v${CODECOV_CLI_VERSION}/linux/codecov.SHA256SUM"
+    shasum -a 256 -c codecov.SHA256SUM
     chmod +x codecov
 
     # Resolve commit SHA and branch for the upload.
@@ -98,6 +109,7 @@ steps:
       --disable-search \
       -f "$REPORT"
   displayName: 'Upload coverage to Codecov'
+  continueOnError: true
   condition: succeededOrFailed()
   env:
     CODECOV_TOKEN: $(CODECOV_TOKEN)
