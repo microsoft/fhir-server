@@ -2,6 +2,8 @@
 # duration (build/test-shards/unit-tests.json), and each share is one job that builds only its projects and runs them
 # without coverage. The stage depends on no other stage, so no job waits for the UpdateVersion stage or its semver.
 stages:
+# The frameworks are literals: variables.defaultBuildFramework (build-variables.yml, net11.0) is not available while templates
+# expand, so the job names and the -Framework argument would be empty.
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
   dependsOn: []
@@ -9,12 +11,12 @@ stages:
   - template: ../jobs/unit-tests-shard.yml
     parameters:
       jobName: UnitTests_net11_A
-      targetFramework: ${{ variables.defaultBuildFramework }}
+      targetFramework: 'net11.0'
       moduleShard: '1/2'
   - template: ../jobs/unit-tests-shard.yml
     parameters:
       jobName: UnitTests_net11_B
-      targetFramework: ${{ variables.defaultBuildFramework }}
+      targetFramework: 'net11.0'
       moduleShard: '2/2'
   - template: ../jobs/unit-tests-shard.yml
     parameters:
