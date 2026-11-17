@@ -115,8 +115,9 @@ jobs:
       shadow: ${{ parameters.shadow }}
       # Without SQL Server and Azurite most tests would wait out their retries.
       condition: and(succeeded(), eq(variables['SqlContainerReady'], 'true'), eq(variables['AzuriteReady'], 'true'), eq(variables['ShardReady'], 'true'))
-      # Invoke-InProcTests.ps1 gives the test application 25 minutes; this is the backstop.
-      timeoutInMinutes: 27
+      # Invoke-InProcTests.ps1 gives each test attempt 20 minutes. This step timeout caps the attempts plus retries and
+      # fires before the 30-minute job timeout: a step that times out is tolerated by continueOnError, a job is not.
+      timeoutInMinutes: 22
       env:
         # InProcTestFhirServer reads this name and passes it to the server as SqlServer:ConnectionString.
         SqlServer__ConnectionString: $(SqlE2EConnectionString)

@@ -7,6 +7,11 @@ parameters:
 - name: e2eTraitArgs
   type: object
   default: ['--filter-trait', 'DataStore=SqlServer', '--filter-not-trait', 'Category=ExportLongRunning']
+# Versions whose sharded E2E job runs. Each takes up to 4 agents at a time (maxParallel in e2e-inproc-shard.yml), so
+# only R4 runs by default, to bound the load on the shared pool; add Stu3 and R5 once the pool can take them.
+- name: e2eVersions
+  type: object
+  default: [R4]
 
 stages:
 - stage: containerSqlIntegration
@@ -40,30 +45,18 @@ stages:
   dependsOn:
   - BuildArtifacts
   jobs:
-  # One leg per shard of build/test-shards/sql-e2e.json. The manifest is shared by all versions: a version without
-  # a listed class just selects fewer tests.
-  - template: ../jobs/e2e-inproc-shard.yml
-    parameters:
-      version: Stu3
-      shards: [0, 1, 2, 3, 4, 5]
-      manifest: sql-e2e.json
-      traitArgs: ${{ parameters.e2eTraitArgs }}
-      shadow: true
-  - template: ../jobs/e2e-inproc-shard.yml
-    parameters:
-      version: R4
-      shards: [0, 1, 2, 3, 4, 5]
-      manifest: sql-e2e.json
-      traitArgs: ${{ parameters.e2eTraitArgs }}
-      shadow: true
-  - template: ../jobs/e2e-inproc-shard.yml
-    parameters:
-      version: R5
-      shards: [0, 1, 2, 3, 4, 5]
-      manifest: sql-e2e.json
-      traitArgs: ${{ parameters.e2eTraitArgs }}
-      shadow: true
-  # Checks that build/test-shards/sql-e2e.json still partitions the E2E tests; warns, never fails.
+  # One matrix job per version, one leg per shard of build/test-shards/sql-e2e.json, at most 4 legs at a time. The
+  # manifest is shared by all versions: a version without a listed class just selects fewer tests.
+  - ${{ each version in parameters.e2eVersions }}:
+    - template: ../jobs/e2e-inproc-shard.yml
+      parameters:
+        version: ${{ version }}
+        shards: [0, 1, 2, 3, 4, 5]
+        manifest: sql-e2e.json
+        traitArgs: ${{ parameters.e2eTraitArgs }}
+        shadow: true
+  # Checks that build/test-shards/sql-e2e.json still partitions the E2E tests of every version (shard-lint.yml's
+  # default versions: Stu3, R4, R5), whichever versions run; warns, never fails.
   - template: ../jobs/shard-lint.yml
     parameters:
       manifest: sql-e2e.json

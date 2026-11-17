@@ -7,7 +7,8 @@
     reach every job's environment) and an in-process InProcTestFhirServer otherwise. This script removes those
     variables, and the TestTokenEndpoint and Resource settings that go with them, from its own process, so the test
     host it starts inherits an environment without them. It then checks that the files InProcTestFhirServer reads
-    resolve, and runs the test application with a 25-minute Microsoft.Testing.Platform timeout.
+    resolve, and runs the test application with a 20-minute Microsoft.Testing.Platform timeout, which leaves a shadow
+    job capped at 30 minutes time for its 4-6 minutes of setup.
 
     Throws, without starting the test application, when a variable cannot be removed or a file is missing.
 
@@ -85,7 +86,7 @@ foreach ($file in $requiredFiles) {
     }
 }
 
-$allArguments = @($dll.FullName) + $Arguments + @('--timeout', '25m')
+$allArguments = @($dll.FullName) + $Arguments + @('--timeout', '20m')
 Write-Host "Running $Dotnet $($allArguments -join ' ')"
 & $Dotnet @allArguments
 exit $LASTEXITCODE
