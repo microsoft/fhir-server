@@ -1,0 +1,32 @@
+{
+  "suite": "sql-integration",
+  "shards": [
+    {
+      "classes": [
+        "Microsoft.Health.Fhir.Shared.Tests.AssemblyValidationsTests",
+        "Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.FhirOperationDataStoreReindexTests",
+        "Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search.SqlCalendarDateStorageTests",
+        "Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search.SqlChainedSearchGenerationTests",
+        "Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed.SqlServerFhirResourceChangeCaptureEnabledTests",
+        "Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export.CreateExportRequestHandlerTests",
+        "Microsoft.Health.Fhir.Tests.Integration.Features.Search.SqlInstantDateTimeSearchTests",
+        "Microsoft.Health.Fhir.Tests.Integration.Features.Smart.SmartSearchTests",
+        "Microsoft.Health.Fhir.Tests.Integration.Persistence.FhirStorageVersioningPolicyTests",
+        "Microsoft.Health.Fhir.Tests.Integration.Persistence.QueryPlanReuseCheckerTests",
+        "Microsoft.Health.Fhir.Tests.Integration.Persistence.QueueClientTests",
+        "Microsoft.Health.Fhir.Tests.Integration.Persistence.SearchParameterOptimisticConcurrencyTests",
+        "Microsoft.Health.Fhir.Tests.Integration.Persistence.SqlComplexQueryTests",
+        "Microsoft.Health.Fhir.Tests.Integration.Persistence.SqlEmbeddingModelRegistryTests",
+        "Microsoft.Health.Fhir.Tests.Integration.Persistence.SqlServerColumnTypeChangeTests",
+        "Microsoft.Health.Fhir.Tests.Integration.Persistence.SqlServerCreateStatsForSmartTests",
+        "Microsoft.Health.Fhir.Tests.Integration.Persistence.SqlServerMemberMatchTests",
+        "Microsoft.Health.Fhir.Tests.Integration.Persistence.SqlServerSchemaUpgradeTests",
+        "Microsoft.Health.Fhir.Tests.Integration.Persistence.SqlServerSearchParameterInitializationTests",
+        "Microsoft.Health.Fhir.Tests.Integration.Persistence.SqlServerSetMergeTests",
+        "Microsoft.Health.Fhir.Tests.Integration.Persistence.SqlServerSqlCompatibilityTests",
+        "Microsoft.Health.Fhir.Tests.Integration.Persistence.SqlServerVectorStorageTests"
+      ]
+    },
+    {}
+  ]
+}
