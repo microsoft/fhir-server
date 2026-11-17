@@ -68,19 +68,44 @@ if (-not $projectFiles) {
 
 # Evaluate each project (no build) for its assembly name and target frameworks. The module is exactly
 # <AssemblyName>.dll in the project's own output folder, so copies of other projects' modules that land in
-# the same folder are never selected.
-$evaluated = $projectFiles | ForEach-Object -ThrottleLimit 8 -Parallel {
-    $json = & dotnet msbuild $_.FullName -nologo "-p:Configuration=$using:Configuration" -getProperty:AssemblyName -getProperty:TargetFramework -getProperty:TargetFrameworks
-    if ($LASTEXITCODE -ne 0) {
-        throw "Unable to evaluate '$($_.FullName)': $json"
+# the same folder are never selected. A failed evaluation is returned as an Error, not thrown: an exception thrown
+# inside a parallel block can end the script without its message reaching the log. The MSBuild server is switched
+# off because eight evaluations at once make the CLI wait for it to start before it falls back to evaluating in-process.
+$serverSetting = $env:DOTNET_CLI_USE_MSBUILD_SERVER
+$env:DOTNET_CLI_USE_MSBUILD_SERVER = '0'
+try {
+    $evaluated = @($projectFiles | ForEach-Object -ThrottleLimit 8 -Parallel {
+        $project = $_
+        $output = & dotnet msbuild $project.FullName -nologo "-p:Configuration=$using:Configuration" -getProperty:AssemblyName -getProperty:TargetFramework -getProperty:TargetFrameworks 2>&1
+        $exitCode = $LASTEXITCODE
+        $text = ($output | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | Out-String)
+        $errorText = ($output | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | Out-String)
+        try {
+            if ($exitCode -ne 0) { throw "dotnet msbuild exited with code $exitCode" }
+            $properties = ($text | ConvertFrom-Json).Properties
+        }
+        catch {
+            return [pscustomobject]@{ Project = $project; Error = "$($_.Exception.Message)`n$text`n$errorText" }
+        }
+
+        [pscustomobject]@{
+            Project = $project
+            AssemblyName = $properties.AssemblyName
+            TargetFrameworks = @(($properties.TargetFrameworks, $properties.TargetFramework) -join ';' -split ';' | Where-Object { $_ })
+        }
+    })
+}
+finally {
+    $env:DOTNET_CLI_USE_MSBUILD_SERVER = $serverSetting
+}
+
+$evaluationFailures = @($evaluated | Where-Object { $_.PSObject.Properties['Error'] })
+if ($evaluationFailures) {
+    foreach ($failure in $evaluationFailures) {
+        Write-Host "##[error]Unable to evaluate '$($failure.Project.FullName)': $($failure.Error)"
     }
 
-    $properties = ($json | Out-String | ConvertFrom-Json).Properties
-    [pscustomobject]@{
-        Project = $_
-        AssemblyName = $properties.AssemblyName
-        TargetFrameworks = @(($properties.TargetFrameworks, $properties.TargetFramework) -join ';' -split ';' | Where-Object { $_ })
-    }
+    throw "Unable to evaluate $($evaluationFailures.Count) unit test project(s)."
 }
 
 $targeted = @()

@@ -38,6 +38,19 @@ BeforeAll {
 }
 
 Describe 'Invoke-ParallelUnitTests -ListProjects' {
+    It 'fails with the evaluation output when a project cannot be evaluated' {
+        $source = New-SourceTree @{ 'A.UnitTests' = 'net11.0' }
+        Set-Content -Path (Join-Path $source 'A.UnitTests' 'A.UnitTests.csproj') -Value '<Project><NotClosed>'
+        $durations = New-Durations @{ 'A.UnitTests' = 1 }
+
+        $thrown = $null
+        try { & $script:ScriptPath -Framework net11.0 -Configuration Release -SourceRoot $source -DurationsFile $durations -ListProjects 6>$null }
+        catch { $thrown = $_ }
+
+        $thrown | Should -Not -BeNullOrEmpty
+        $thrown.Exception.Message | Should -Match 'Unable to evaluate 1 unit test project'
+    }
+
     BeforeAll {
         $script:Both = 'net11.0;net10.0'
         $script:Source = New-SourceTree @{

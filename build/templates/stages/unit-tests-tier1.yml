@@ -9,12 +9,12 @@ stages:
   - template: ../jobs/unit-tests-shard.yml
     parameters:
       jobName: UnitTests_net11_A
-      targetFramework: $(defaultBuildFramework)
+      targetFramework: ${{ variables.defaultBuildFramework }}
       moduleShard: '1/2'
   - template: ../jobs/unit-tests-shard.yml
     parameters:
       jobName: UnitTests_net11_B
-      targetFramework: $(defaultBuildFramework)
+      targetFramework: ${{ variables.defaultBuildFramework }}
       moduleShard: '2/2'
   - template: ../jobs/unit-tests-shard.yml
     parameters:
