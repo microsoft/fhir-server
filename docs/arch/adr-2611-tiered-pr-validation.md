@@ -61,47 +61,60 @@ We will split validation into tiers. **Ordinary PRs deploy no Azure environment.
 - **Unit tests** for every FHIR version in parallel; net10 as a separate parallel job.
 - **SQL integration tests** for every version on a SQL Server 2025 container, including schema compatibility split by method.
 - **Stu3, R4 and R5 SQL E2E, full suites, in-proc** on SQL Server 2025 and Azurite containers, sharded. These run in parallel, so the extra versions cost agents rather than minutes.
-- **R4 Cosmos integration and E2E, in-proc,** against the shared Cosmos account.
-- **One R4 amd64 image**, with an authenticated container smoke test.
-- **Source scanners**, including CredScan.
+- **R4 Cosmos integration and E2E, in-proc,** against the shared Cosmos account, using a dedicated low-privilege identity (below).
+- **One R4 amd64 image,** built locally (`--load`, not pushed to the shared registry). Its smoke test checks an authenticated request, and a negative control: without the development identity provider, the image returns 401.
+- **Blocking source scanners:** CredScan, with the existing PostAnalysis break; CSRF; PSScriptAnalyzer; and Armory/TemplateAnalyzer. PR CodeQL (GitHub Actions) is unchanged.
 
-Full Guardian and coverage aggregation (Codecov) move to a separate, non-required pipeline. Fork PRs, which receive no secrets, run everything except the Cosmos jobs.
+Full Guardian (BinSkim, Roslyn analyzers, AntiMalware) and coverage aggregation move to a separate, non-required pipeline, triggered by the PR run. It runs the Codecov upload once, credential-free, using a pinned and checksum-verified CLI, and skips the upload when no token is available. Post-merge CI keeps full Guardian, and image promotion (`DockerAddTag`) depends on it. Fork PRs, which receive no secrets, run everything except the Cosmos jobs.
 
 ![Target PR gate](../images/ci-pipeline/timeline-after.svg)
 
-**Sharding and isolation.** Each shard runs on its own agent, with its own test process, its own database (unique `Initial Catalog`) and its own SQL Server and Azurite containers. Azurite runs on host port 10000, because three test helpers hard-code `127.0.0.1:10000`. Collections stay serial within a shard. Shards come from a checked-in class-to-shard manifest built from measured durations. The last shard runs everything not listed, so new tests are always scheduled. Classes longer than the shard budget (`ImportTests`, `ReindexTests`, `SqlServerSqlCompatibilityTests`) are split by method.
+**Sharding and isolation.** Each shard runs on its own agent, with its own test process, its own database (unique `Initial Catalog`) and its own SQL Server and Azurite containers. Container ports bind to `127.0.0.1` only, because Azurite uses the public well-known development key. Azurite stays on port 10000, because three test helpers hard-code `127.0.0.1:10000`. Images are pinned by digest in a `FROM …@sha256` stub under `build/docker`, so Dependabot proposes updates. Collections stay serial within a shard. Shards come from a checked-in class-to-shard manifest built from measured durations. The last shard runs everything not listed, so new tests are always scheduled. Classes longer than the shard budget (`ImportTests`, `ReindexTests`, `SqlServerSqlCompatibilityTests`) are split by method.
 
-**Cosmos on the shared account.**
+**Cosmos on the shared account.** PR code, including test dependencies, must never hold today's privileged service connection. That connection can write role assignments and read the vault that holds tenant-admin secrets.
 
-- **Isolation.** Each run creates uniquely named containers and deletes them at the end. A scheduled sweeper removes leaked containers.
-- **Authentication.** The account keeps `disableLocalAuth = true`. In-proc hosting and the integration fixtures authenticate with the pipeline's Entra identity.
-- **Container creation goes through ARM, so it is serialized per account.** Run concurrency and throughput are sized from measurement. If ARM throttling appears, runs spread across two or three accounts.
+- **Dedicated identity.** Tier 1 Cosmos jobs use a new federated service connection whose only grants are:
+  - a custom control-plane role limited to `sqlDatabases/containers/*`;
+  - a data-plane contributor role.
+
+  Both are scoped to one pre-created database in the shared account.
+- **Account protection:**
+  - The account has a `CanNotDelete` lock.
+  - An Azure Policy denies `disableLocalAuth = false`.
+  - Post-merge and nightly use a separate account, split by trust rather than load.
+- **Isolation and cleanup:**
+  - Each run creates containers named `pr<run id>-<suffix>` and deletes them at the end.
+  - In-proc cleanup uses Entra authentication rather than the account key.
+  - A sweeper runs from `main` with the same low-privilege identity, matching names with a strict regular expression through parameter-bound cmdlets.
+- **Throughput.** Container creation goes through ARM, so it is serialized per account. Run concurrency and throughput are sized from measurement. If ARM throttling appears, runs spread across two or three accounts with the same scoping.
 - **Fixture configuration.** The Cosmos test fixtures must honor the configured connection mode; today they construct their configuration without it.
 
-**Tier 2 — real deployment on a PR, on request.** Today's deployed stages run inside the same required run, in addition to Tier 1, when any of the following applies:
+**Tier 2 — real deployment on a PR, on request and approval.** Today's deployed stages run inside the same required run, in addition to Tier 1.
 
-- The PR has the `full-matrix` label. Applying labels requires triage permission.
-- The run was queued manually with the `fullDeployment` parameter.
-- The PR targets a `release/*` or `hotfix/*` branch, or comes from a same-repository branch with those names.
+**The pipeline YAML comes from the PR, so the classifier is not a security boundary.** A PR author can edit it. The privileged service connection therefore carries an ADO approval check, and that per-run approval is the actual grant.
 
-The label is expected (not enforced) for changes to `samples/templates/**`, authentication registration, ACA or Key Vault configuration, or Cosmos client and collection setup. This is the canonical list.
+- **What a PR can request.** The run requests Tier 2 when the PR has the `full-matrix` label, when it was queued manually with `fullDeployment`, or when it targets `release/*` or `hotfix/*`. Same-repository source branches with those names also count; fork branch names never do. Detection requires `System.PullRequest.IsFork == False`, and branch names reach scripts through `env` only.
+- **Who approves.** A maintainer approves the specific run after reviewing the commit being run. A label applied for an earlier commit does not carry approval forward.
+- **Automatic labels.** The base-branch `validate-prs.yml` labeler applies `full-matrix` for changes to authentication, `samples/templates/**`, `build/**`, ACA or Key Vault configuration, and Cosmos client and collection setup. This is the canonical list.
+- **Fork PRs never receive privileged secrets.** Tier 2 for a fork means a maintainer pushes the reviewed SHA to a same-repository branch and opens or queues from there. Manually queueing a fork's `refs/pull/<n>/merge` is not allowed.
 
-The classifier **fails closed**: if labels cannot be read, the run fails rather than assuming "no label". Fork PRs need a maintainer-controlled path, because a label does not grant secrets. On the deployed target, tests that assert server-wide counts (`HistoryTests`) run in their own job after the reindex and bulk-update jobs, which write to the same server.
+The classifier **fails closed** for honest failures: if labels cannot be read completely, the run fails rather than assuming "no label". The label read is authenticated for same-repository PRs. Fork PRs skip it, since they cannot take Tier 2. On the deployed target, tests that assert server-wide counts (`HistoryTests`) run in their own job after the reindex and bulk-update jobs, which write to the same server.
 
-**One test definition, two targets.** E2E targets a deployed server when `TestEnvironmentUrl*` is set and runs in-proc otherwise. One test-job template with a `container | azure` target is shared by the PR pipeline and post-merge CI; only setup and concurrency differ. On the container target, the template must not emit `TestEnvironmentUrl*` values at all, because ADO passes undefined variables through as literal text. In-proc configuration (`launchSettings.json`) must be available next to the test binaries.
+**One test definition, two targets.** E2E targets a deployed server when `TestEnvironmentUrl*` is set and runs in-proc otherwise. One test-job template with a `container | azure` target is shared by the PR pipeline and post-merge CI; only setup and concurrency differ. `build-variables.yml` defines remote URLs globally, and ADO injects pipeline variables into every task's environment. So on the container target, the test launcher removes every `TestEnvironmentUrl*`, `TestTokenEndpoint` and `Resource` variable in its own process before starting tests, and fails if any remain. In-proc configuration (`launchSettings.json`) must be available next to the test binaries.
 
-**Tier 3 — post-merge and nightly.** Definition 27 keeps batched CI with the full deployed matrix: real AAD, managed identity, Key Vault, multi-replica reindex, Azure SQL, multi-arch images and full Guardian. It also re-enables the Cosmos `ReindexOperation` jobs that today run only on PRs.
+**Tier 3 — post-merge and nightly.** Definition 27 keeps batched CI with the full deployed matrix: real AAD, managed identity, Key Vault, multi-replica reindex, Azure SQL, multi-arch images and full Guardian. Image promotion (`DockerAddTag`) also depends on security analysis. Definition 27 re-enables the Cosmos `ReindexOperation` jobs that today run only on PRs. Release and hotfix PRs always run Tier 2 with full Guardian, because those branches have no post-merge CI.
 
-- **When a batch fails,** the on-call engineer runs a bisect script. It queues definition 9 with full deployment for each merge SHA and the last green baseline.
+- **When a batch fails,** the on-call engineer runs a bisect script. It accepts only SHAs that are ancestors of `origin/main`, queues definition 9 on `refs/heads/main` at that SHA with full deployment and `prName=bisect-<id>`, and deletes its own resource groups. Queue permission is restricted to on-call.
 - **Blame and ownership.** A culprit requires reproducing both the failure and a passing baseline, and infrastructure failures are never blamed on a PR. The merging PR's author owns the fix. Applied schema migrations are forward-fixed.
 - **Automation.** Bisect is automated only if manual use proves frequent.
-- **Nightly:** ExportLongRunning, large import performance tests, schema compatibility across the full version range (needs the `Max−5..Max` window extended), CodeQL with a full build, R4B, and net10 E2E.
+- **Nightly:** ExportLongRunning, large import performance tests, schema compatibility across the full version range (needs the `Max−5..Max` window extended), a full-build CodeQL run (in addition to PR CodeQL), R4B, and net10 E2E.
 
 **Cutover gates.** Tier 1 replaces today's gate only when all of the following hold:
 
-- **Parity.** The 18 in-proc-only failures are fixed or tracked. Every test skipped in-proc is covered by Tier 2 or Tier 3: ConvertData and ACR anonymization are known skips, and OpenIddict replaces AAD.
-- **Shadow period.** Tier 1 has run as a non-required pipeline on all PRs on Linux agents. Its first-attempt pass rate is at least today's, its rerun rate is below 3%, and its measured p50 is under 20 minutes, including startup and queueing.
-- **Cosmos on the shared account.** Throughput and concurrency are measured under real PR load.
+- **Parity.** In-proc-only failures in authentication, SMART or authorization tests are **fixed**, not tracked; the 403/401 differences are among them. The remaining in-proc-only failures are fixed or tracked. Every test skipped in-proc is covered by Tier 2 or Tier 3: ConvertData and ACR anonymization are known skips, and OpenIddict replaces AAD.
+- **Shadow period.** Tier 1 has run as a non-required pipeline on Linux agents, with fan-out bounded so it does not disrupt shared-pool users. Its first-attempt pass rate is at least today's, its rerun rate is below 3%, and its measured p50 is under 20 minutes, including startup and queueing.
+- **Cosmos on the shared account.** The dedicated identity, lock and policy are in place, and throughput and concurrency are measured under real PR load.
+- **Approvals in place.** The ADO approval check exists on the privileged service connection.
 - **Bisect.** The bisect runbook has been exercised once.
 
 ## Consequences
@@ -111,6 +124,8 @@ The classifier **fails closed**: if labels cannot be read, the run fails rather 
 - **Less real-deployment coverage before merge.** Real AAD, managed identity, Key Vault, ACA configuration, multi-replica cache sync and Azure SQL behavior no longer run on PRs unless Tier 2 is requested. Post-merge CI catches them, so `main` can be red for a batch.
 - **Stronger version coverage.** Stu3 and R5 SQL E2E and all integration tests still run on every PR, in parallel. In-proc also runs 81 tests that the deployed run skips today.
 - **SQL container differences.** SQL authentication replaces Entra workload identity, and Azure SQL resource governance and Azure-only options are not reproduced. Tier 3 covers them.
+- **Smaller credential exposure.** Ordinary PR code no longer runs with the privileged service connection or tenant-admin Key Vault secrets. Tier 1's only Azure credential is a database-scoped Cosmos identity, and privileged runs need a per-run maintainer approval. This needs administrator work: a new federated service connection, a custom role and the approval check in ADO, and a resource lock and policy in Azure.
+- **Security analysis.** CredScan, CSRF, PSScriptAnalyzer and template analyzers stay blocking on PRs, and PR CodeQL is unchanged. BinSkim, Roslyn analyzers and AntiMalware block post-merge image promotion and release/hotfix PRs instead of every PR.
 - **New infrastructure and test work.** Packaged in-proc configuration, the container-target template, the shard manifest and its update script, Cosmos test authentication and container cleanup, the fail-closed classifier, the bisect runbook, three container-specific integration-test fixes and the 18 in-proc failures. More agents run per PR: roughly 15–20 instead of about 25 jobs that mostly wait on provisioning.
 - **New failure modes.** Container start-up and host contention, and ARM throttling on the shared Cosmos account. Both are measured in the shadow period; retries are not raised to compensate.
 - **Other ADRs.** This ADR changes CI policy only. It does not change product behavior or the FHIR contract, and it supersedes no existing ADR.
