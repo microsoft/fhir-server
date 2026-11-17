@@ -1,47 +1,49 @@
 {
   "suite": "sql-e2e",
-  "dedicatedShards": 2,
+  "dedicatedShards": 3,
   "dedicatedCategories": [
     "IndexAndReindex",
     "BulkUpdate"
   ],
   "shards": [
     {
-      "classes": [
-        "Microsoft.Health.Fhir.Tests.E2E.Rest.BulkUpdateTests"
-      ],
       "methods": [
         "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenConcurrentSearchParamCreates_SomeShouldFail",
-        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenReindexJobWithMixedZeroAndNonZeroCountResources_WhenReindexCompletes_ThenSearchParametersShouldWork",
+        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenReindexJobWithConcurrentUpdates_ThenReportedCountsAreLessThanOriginal",
         "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenReindexWithCaseVariantSearchParameterUrls_WhenBothHaveSameStatus_ThenBothShouldBeProcessedCorrectly",
-        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenReindexWithCaseVariantSearchParameterUrls_WhenHavingDifferentStatuses_ThenBothSearchParametersShouldWork",
-        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenResourceAddedAfterSingleSearchParamAndBeforeReindex_ThenSearchParamShouldWorkAfterReindex",
         "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenSearchParamBulkDelete_WithPurgeHistory_ThenCurrentVersionKeptAndHistoryDeleted",
         "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenSearchParamBundleDelete_ThenConflictWhenReindexAndSuccessOnNext",
         "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenSearchParamConditionalDeleteByUrl_ThenSuccessAndDeletedAfterReindex",
-        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenSearchParamCreate_ThenConflictWhenReindexAndSuccessAfter",
         "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenSearchParamDelete_ThenConflictWhenReindexAndSuccessOnNext",
+        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenTwoSearchParamsForDifferentResourceTypesUsingSameCode_ThenBothCreated",
+        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenTwoSearchParamsWithCodeConflictOnDerived_ThenBadRequestIsReturned"
+      ]
+    },
+    {
+      "methods": [
+        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.Given500SearchParams_WhenReindexCompletes_ThenSearchParamsAreEnabled",
+        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenExistingSearchParam_WhenUpdatingWithDifferentUrl_ThenOldUrlDeletedNewUrlSupported",
+        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenResourceAddedAfterSingleSearchParamAndBeforeReindex_ThenSearchParamShouldWorkAfterReindex",
+        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenSearchParamBundleCreate_ThenConflictWhenReindexAndSuccessOnNext",
+        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenSearchParameterAddedAndReindexed_WhenSearchParameterIsDeleted_ThenAfterReindexSearchParameterShouldNotBeSupported",
+        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenSequentialBundleSearchParamCreates_ShouldSuceed",
+        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenTwoPersonSearchParams_ThenBadRequestIsReturnedForConflicts",
         "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenTwoSearchParamsInSequentialBatchBundle_ThenBothCreated"
       ]
     },
     {
       "classes": [
+        "Microsoft.Health.Fhir.Tests.E2E.Rest.BulkUpdateTests",
         "Microsoft.Health.Fhir.Tests.E2E.Rest.Search.CustomSearchParamTests"
       ],
       "methods": [
-        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.Given500SearchParams_WhenReindexCompletes_ThenSearchParamsAreEnabled",
-        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenExistingSearchParam_WhenUpdatingWithDifferentUrl_ThenOldUrlDeletedNewUrlSupported",
-        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenReindexJobWithConcurrentUpdates_ThenReportedCountsAreLessThanOriginal",
+        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenReindexJobWithMixedZeroAndNonZeroCountResources_WhenReindexCompletes_ThenSearchParametersShouldWork",
+        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenReindexWithCaseVariantSearchParameterUrls_WhenHavingDifferentStatuses_ThenBothSearchParametersShouldWork",
         "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenResourceAddedAfterMultiSearchParamsAndBeforeReindex_ThenSearchParamShouldWorkAfterReindex",
         "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenSearchParamBulkDelete_ThenConflictWhenReindexAndSuccessOnNext",
-        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenSearchParamBundleCreate_ThenConflictWhenReindexAndSuccessOnNext",
         "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenSearchParamConditionalDeleteByMultipleUrlsWithCount_ThenSuccessAndDeletedAfterReindex",
-        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenSearchParameterAddedAndReindexed_WhenSearchParameterIsDeleted_ThenAfterReindexSearchParameterShouldNotBeSupported",
-        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenSearchParameterWithInvalidRegex_WhenReindexFails_ThenJobStatusIdentifiesSearchParameter",
-        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenSequentialBundleSearchParamCreates_ShouldSuceed",
-        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenTwoPersonSearchParams_ThenBadRequestIsReturnedForConflicts",
-        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenTwoSearchParamsForDifferentResourceTypesUsingSameCode_ThenBothCreated",
-        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenTwoSearchParamsWithCodeConflictOnDerived_ThenBadRequestIsReturned"
+        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenSearchParamCreate_ThenConflictWhenReindexAndSuccessAfter",
+        "Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex.ReindexTests.GivenSearchParameterWithInvalidRegex_WhenReindexFails_ThenJobStatusIdentifiesSearchParameter"
       ]
     },
     {

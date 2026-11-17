@@ -42,7 +42,7 @@ stages:
     - template: ../jobs/e2e-inproc-shard.yml
       parameters:
         version: ${{ version }}
-        shards: [0, 1, 2, 3, 4, 5, 6, 7]
+        shards: [0, 1, 2, 3, 4, 5, 6, 7, 8]
         manifest: sql-e2e.json
         traitArgs: ${{ parameters.e2eTraitArgs }}
         shadow: true
