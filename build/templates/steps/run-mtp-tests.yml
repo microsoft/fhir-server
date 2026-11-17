@@ -8,6 +8,16 @@ parameters:
 - name: filterArgs
   type: object
   default: []
+# Filter arguments known only at run time, as a JSON array; typically a macro such as '$(ShardFilterArgsJson)'
+# set by an earlier step. They follow filterArgs.
+- name: runtimeFilterArgsJson
+  type: string
+  default: ''
+# PowerShell script that runs the test application instead of "dotnet <dll>": it is called in this step's process
+# as  & <launcher> -TestDll <dll> -Arguments <arguments>  and must exit with the test application's exit code.
+- name: launcher
+  type: string
+  default: ''
 - name: runName
   type: string
 - name: shadow
@@ -33,14 +43,23 @@ steps:
       throw "Could not find $testDll"
     }
 
-    $arguments = @($env:MTP_FILTER_ARGS_JSON | ConvertFrom-Json) + @(
+    $runtimeFilterArgs = if ($env:MTP_RUNTIME_FILTER_ARGS_JSON) { @($env:MTP_RUNTIME_FILTER_ARGS_JSON | ConvertFrom-Json) } else { @() }
+    $arguments = @($env:MTP_FILTER_ARGS_JSON | ConvertFrom-Json) + $runtimeFilterArgs + @(
       '--retry-failed-tests', '3',
       '--report-trx',
       '--publish-azdo-test-results',
       '--publish-azdo-run-name', $env:MTP_RUN_NAME)
 
-    Write-Host "Running dotnet $($dll.FullName) $($arguments -join ' ')"
-    & dotnet $dll.FullName @arguments
+    if ($env:MTP_LAUNCHER) {
+      # The launcher logs the command it runs.
+      Write-Host "Running $($dll.FullName) through $env:MTP_LAUNCHER"
+      & $env:MTP_LAUNCHER -TestDll $dll.FullName -Arguments $arguments
+    }
+    else {
+      Write-Host "Running dotnet $($dll.FullName) $($arguments -join ' ')"
+      & dotnet $dll.FullName @arguments
+    }
+
     $testExitCode = $LASTEXITCODE
     if ($testExitCode -eq 0) {
       exit 0
@@ -67,6 +86,8 @@ steps:
   env:
     ${{ insert }}: ${{ parameters.env }}
     MTP_FILTER_ARGS_JSON: ${{ convertToJson(parameters.filterArgs) }}
+    MTP_RUNTIME_FILTER_ARGS_JSON: ${{ parameters.runtimeFilterArgsJson }}
+    MTP_LAUNCHER: ${{ parameters.launcher }}
     ${{ if parameters.shadow }}:
       MTP_RUN_NAME: '[shadow] ${{ parameters.runName }}'
       MTP_SHADOW: 'true'

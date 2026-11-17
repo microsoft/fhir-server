@@ -1,0 +1,131 @@
+# SQL E2E tests for one FHIR version against an in-process FHIR server (InProcTestFhirServer), with SQL Server and
+# Azurite in containers on the agent instead of a deployed per-PR environment. One matrix leg per shard of a
+# test-shard manifest (build/test-shards/<manifest>); legs are named <version>_S<index>.
+parameters:
+- name: version
+  type: string
+# Zero-based indexes of the manifest's shards, one leg each. Must list every shard: the last one is the catch-all, and
+# each leg fails its setup when the manifest's shard count differs from the number of legs.
+- name: shards
+  type: object
+- name: manifest
+  type: string
+  default: sql-e2e.json
+# Trait filters applied to every shard; keep them equal to the traitArgs of the shard-lint job.
+- name: traitArgs
+  type: object
+  default: ['--filter-trait', 'DataStore=SqlServer', '--filter-not-trait', 'Category=ExportLongRunning']
+# Shadow jobs never fail the run: every step continues on error, the test step turns a failure into
+# a warning, and each leg is capped at 30 minutes.
+- name: shadow
+  type: boolean
+  default: false
+
+jobs:
+- job: SqlE2EInProc_${{ parameters.version }}
+  displayName: '${{ parameters.version }} SQL E2E in-proc (container)'
+  ${{ if parameters.shadow }}:
+    timeoutInMinutes: 30
+  strategy:
+    # Bounds the agents one version takes from the pool at a time.
+    maxParallel: 4
+    matrix:
+      ${{ each shard in parameters.shards }}:
+        ${{ format('{0}_S{1}', parameters.version, shard) }}:
+          ShardIndex: ${{ shard }}
+  pool:
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
+  steps:
+  # The in-process server reads src/Microsoft.Health.Fhir.<version>.Web/Properties/launchSettings.json from the checkout.
+  - checkout: self
+    fetchDepth: 1
+    fetchTags: false
+    continueOnError: ${{ parameters.shadow }}
+
+  - task: UseDotNet@2
+    displayName: 'Use .NET SDK'
+    continueOnError: ${{ parameters.shadow }}
+    inputs:
+      useGlobalJson: true
+
+  - task: DownloadBuildArtifacts@0
+    displayName: 'Download ${{ parameters.version }} E2E tests'
+    continueOnError: ${{ parameters.shadow }}
+    inputs:
+      buildType: 'current'
+      downloadType: 'single'
+      artifactName: 'IntegrationTests'
+      itemPattern: 'IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E.zip'
+      downloadPath: '$(System.ArtifactsDirectory)'
+
+  # Extracted below the checkout so that InProcTestFhirServer, walking up from the test dll, finds src/.
+  - task: ExtractFiles@1
+    displayName: 'Extract ${{ parameters.version }} E2E tests'
+    continueOnError: ${{ parameters.shadow }}
+    inputs:
+      archiveFilePatterns: '$(System.ArtifactsDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E.zip'
+      destinationFolder: '$(Build.SourcesDirectory)/_e2e/${{ parameters.version }}/'
+
+  - template: ../steps/start-sql-container.yml
+    parameters:
+      shadow: ${{ parameters.shadow }}
+
+  - template: ../steps/start-azurite.yml
+    parameters:
+      shadow: ${{ parameters.shadow }}
+
+  - pwsh: |
+      $ErrorActionPreference = 'Stop'
+      $manifest = Join-Path $env:BUILD_SOURCESDIRECTORY 'build/test-shards/${{ parameters.manifest }}'
+      $shardCount = @((Get-Content -Raw $manifest | ConvertFrom-Json).shards).Count
+      if ($shardCount -ne [int] $env:SHARD_LEG_COUNT) {
+        throw "$manifest has $shardCount shards but the pipeline runs $env:SHARD_LEG_COUNT legs; tests of the missing shards would not run. Update the shards parameter in build/templates/stages/container-tests.yml."
+      }
+
+      $filterArgs = @(& (Join-Path $env:BUILD_SOURCESDIRECTORY 'build/scripts/Get-TestShardFilter.ps1') -Manifest $manifest -ShardIndex ([int] $env:SHARD_INDEX))
+      Write-Host "Shard $env:SHARD_INDEX of $shardCount filter: $($filterArgs -join ' ')"
+      Write-Host "##vso[task.setvariable variable=ShardFilterArgsJson]$(ConvertTo-Json -InputObject $filterArgs -Compress)"
+
+      # One database per shard; the connection string is set as a secret and never printed. The accessor methods are
+      # called explicitly: PowerShell adapts this IDictionary so that $builder.ConnectionString and $builder['key']
+      # read and write dictionary entries instead.
+      $builder = [Data.Common.DbConnectionStringBuilder]::new()
+      $builder.set_ConnectionString($env:SQL_MASTER_CONNECTION_STRING)
+      $builder.set_Item('Initial Catalog', "FHIR_${{ parameters.version }}_S$env:SHARD_INDEX")
+      Write-Host "##vso[task.setvariable variable=SqlE2EConnectionString;issecret=true]$($builder.get_ConnectionString())"
+      Write-Host '##vso[task.setvariable variable=ShardReady]true'
+    displayName: 'Prepare shard $(ShardIndex)'
+    condition: and(succeeded(), eq(variables['SqlContainerReady'], 'true'))
+    continueOnError: ${{ parameters.shadow }}
+    env:
+      SQL_MASTER_CONNECTION_STRING: $(SqlContainerConnectionString)
+      SHARD_INDEX: $(ShardIndex)
+      SHARD_LEG_COUNT: ${{ length(parameters.shards) }}
+
+  - template: ../steps/run-mtp-tests.yml
+    parameters:
+      testDll: '$(Build.SourcesDirectory)/_e2e/${{ parameters.version }}/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E.dll'
+      filterArgs: ${{ parameters.traitArgs }}
+      runtimeFilterArgsJson: '$(ShardFilterArgsJson)'
+      # Removes the pipeline's TestEnvironmentUrl* variables, so the tests start an in-process server.
+      launcher: '$(Build.SourcesDirectory)/build/scripts/Invoke-InProcTests.ps1'
+      runName: '${{ parameters.version }} SQL E2E S$(ShardIndex)'
+      shadow: ${{ parameters.shadow }}
+      # Without SQL Server and Azurite most tests would wait out their retries.
+      condition: and(succeeded(), eq(variables['SqlContainerReady'], 'true'), eq(variables['AzuriteReady'], 'true'), eq(variables['ShardReady'], 'true'))
+      # Invoke-InProcTests.ps1 gives the test application 25 minutes; this is the backstop.
+      timeoutInMinutes: 27
+      env:
+        # InProcTestFhirServer reads this name and passes it to the server as SqlServer:ConnectionString.
+        SqlServer__ConnectionString: $(SqlE2EConnectionString)
+
+  - pwsh: |
+      $containers = @(& docker ps -aq --filter 'label=fhir-test-dependency=$(System.JobId)')
+      if ($containers.Count -gt 0) {
+        & docker rm -f @containers
+      }
+    displayName: 'Remove test dependency containers'
+    condition: always()
+    continueOnError: ${{ parameters.shadow }}

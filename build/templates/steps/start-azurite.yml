@@ -38,7 +38,10 @@ steps:
 
     Write-Host "Starting $image as $name"
     $publish = $ports | ForEach-Object { '-p'; "127.0.0.1:$($_):$($_)" }
-    & docker run -d --name $name --label 'fhir-test-dependency=$(System.JobId)' @publish $image
+    # The image's default command plus --skipApiVersionCheck: the Azure Storage SDKs the server and tests use can send
+    # an x-ms-version newer than the latest Azurite release supports (Azurite 3.37.0 rejects 2026-10-06).
+    $command = 'azurite', '-l', '/data', '--blobHost', '0.0.0.0', '--queueHost', '0.0.0.0', '--tableHost', '0.0.0.0', '--skipApiVersionCheck'
+    & docker run -d --name $name --label 'fhir-test-dependency=$(System.JobId)' @publish $image @command
     if ($LASTEXITCODE -ne 0) {
       throw "docker run failed with exit code $LASTEXITCODE"
     }

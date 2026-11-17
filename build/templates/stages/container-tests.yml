@@ -1,6 +1,13 @@
-# Shadow stage: runs SQL integration tests against SQL Server containers on the agent, to measure them
-# beside the Azure SQL integration jobs. Nothing depends on this stage and its failures surface only
-# as warnings. Included by pr-pipeline.yml when the containerShadow parameter is true.
+# Shadow stages: run SQL integration tests, and SQL E2E tests against an in-process server, with SQL Server and
+# Azurite in containers on the agent, to measure them beside the jobs that use Azure resources. Nothing depends on
+# these stages and their failures surface only as warnings. Included by pr-pipeline.yml when the containerShadow
+# parameter is true.
+parameters:
+# Trait filters of the sharded E2E runs and of the shard lint; both must use the same filters.
+- name: e2eTraitArgs
+  type: object
+  default: ['--filter-trait', 'DataStore=SqlServer', '--filter-not-trait', 'Category=ExportLongRunning']
+
 stages:
 - stage: containerSqlIntegration
   displayName: 'SQL integration tests on containers (shadow)'
@@ -19,8 +26,6 @@ stages:
     parameters:
       version: R5
       shadow: true
-  # Checks that build/test-shards/sql-e2e.json still partitions the E2E tests; warns, never fails.
-  - template: ../jobs/shard-lint.yml
   # TODO(next task, revert before merge): controlled shadow-failure check. A nonexistent SQL image digest
   # must leave this job "succeeded with issues" and the run and GitHub check green.
   - template: ../jobs/sql-integration-container.yml
@@ -29,3 +34,37 @@ stages:
       shadow: true
       jobName: controlFailure
       sqlImageOverride: 'mcr.microsoft.com/mssql/server@sha256:0000000000000000000000000000000000000000000000000000000000000000'
+
+- stage: containerSqlE2E
+  displayName: 'SQL E2E tests in-proc on containers (shadow)'
+  dependsOn:
+  - BuildArtifacts
+  jobs:
+  # One leg per shard of build/test-shards/sql-e2e.json. The manifest is shared by all versions: a version without
+  # a listed class just selects fewer tests.
+  - template: ../jobs/e2e-inproc-shard.yml
+    parameters:
+      version: Stu3
+      shards: [0, 1, 2, 3, 4, 5]
+      manifest: sql-e2e.json
+      traitArgs: ${{ parameters.e2eTraitArgs }}
+      shadow: true
+  - template: ../jobs/e2e-inproc-shard.yml
+    parameters:
+      version: R4
+      shards: [0, 1, 2, 3, 4, 5]
+      manifest: sql-e2e.json
+      traitArgs: ${{ parameters.e2eTraitArgs }}
+      shadow: true
+  - template: ../jobs/e2e-inproc-shard.yml
+    parameters:
+      version: R5
+      shards: [0, 1, 2, 3, 4, 5]
+      manifest: sql-e2e.json
+      traitArgs: ${{ parameters.e2eTraitArgs }}
+      shadow: true
+  # Checks that build/test-shards/sql-e2e.json still partitions the E2E tests; warns, never fails.
+  - template: ../jobs/shard-lint.yml
+    parameters:
+      manifest: sql-e2e.json
+      traitArgs: ${{ parameters.e2eTraitArgs }}
