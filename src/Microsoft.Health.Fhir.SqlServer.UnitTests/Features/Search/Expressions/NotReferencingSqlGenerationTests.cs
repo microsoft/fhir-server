@@ -51,6 +51,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Contains("NOT EXISTS", sql); // anti-join
             Assert.Contains("SearchParamId = 123", sql);
             Assert.Contains("RefResourceSurrogateId = ResourceSurrogateId", sql);
+            Assert.Contains("AND IsHistory = 0", sql);
+            Assert.Contains("AND IsDeleted = 0", sql);
         }
     }
 }
