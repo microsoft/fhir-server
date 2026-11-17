@@ -1,0 +1,88 @@
+# Builds the E2E and integration test projects of one FHIR version, once, for the lean PR path (Tier 1), and publishes
+# them as pipeline artifact tier1-<version>-tests. Needs no service connection, Key Vault, or other job.
+#
+# Artifact layout (each folder holds the same files as the zip of the IntegrationTests artifact, unzipped):
+#   E2E/          Microsoft.Health.Fhir.<version>.Tests.E2E.dll at its root, and testconfiguration.json beside it
+#   Integration/  Microsoft.Health.Fhir.<version>.Tests.Integration.dll at its root
+# Consumers download the artifact below $(Build.SourcesDirectory) (the in-process server finds
+# src/Microsoft.Health.Fhir.<version>.Web/Properties/launchSettings.json by walking up from the test dll).
+#
+# Output variable BuildMinutes (reference it as dependencies.Tier1Build_<version>.outputs['BuildTiming.BuildMinutes']):
+# whole minutes the restore and build steps took.
+parameters:
+- name: version
+  type: string
+  default: 'R4'
+
+jobs:
+- job: Tier1Build_${{ parameters.version }}
+  displayName: '${{ parameters.version }} build tests (Tier 1)'
+  pool:
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
+  steps:
+  - checkout: self
+    fetchDepth: 1
+    fetchTags: false
+
+  - pwsh: |
+      $startedAt = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+      Write-Host "##vso[task.setvariable variable=BuildStartedAt]$startedAt"
+    displayName: 'Record build start'
+
+  - template: ../steps/dotnet-build-tests.yml
+    parameters:
+      projects:
+      - 'test/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E.csproj'
+      - 'test/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.csproj'
+
+  - pwsh: |
+      $elapsed = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - [long] $env:BUILD_STARTED_AT
+      $minutes = [int] [Math]::Round($elapsed / 60)
+      Write-Host "Restore and build took $elapsed s ($minutes min)."
+      Write-Host "##vso[task.setvariable variable=BuildMinutes;isOutput=true]$minutes"
+    name: BuildTiming
+    displayName: 'Record build minutes'
+    env:
+      BUILD_STARTED_AT: $(BuildStartedAt)
+
+  # --no-build reuses the output of the build steps above, so -f and GenerateDocumentationFile must match them: publishing
+  # with the property unset looks for the .xml documentation file the build did not produce and fails.
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet publish ${{ parameters.version }} E2E tests'
+    inputs:
+      command: publish
+      projects: 'test/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E.csproj'
+      arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -p:GenerateDocumentationFile=false -o "$(Build.ArtifactStagingDirectory)/tests/E2E"'
+      publishWebProjects: false
+      zipAfterPublish: false
+      modifyOutputPath: false
+
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet publish ${{ parameters.version }} integration tests'
+    inputs:
+      command: publish
+      projects: 'test/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.csproj'
+      arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -p:GenerateDocumentationFile=false -o "$(Build.ArtifactStagingDirectory)/tests/Integration"'
+      publishWebProjects: false
+      zipAfterPublish: false
+      modifyOutputPath: false
+
+  # InProcTestFhirServer requires testconfiguration.json beside the test dll; it is a source file the publish output omits.
+  - pwsh: |
+      $ErrorActionPreference = 'Stop'
+      Copy-Item -LiteralPath (Join-Path $env:BUILD_SOURCESDIRECTORY 'test/Configuration/testconfiguration.json') -Destination (Join-Path $env:BUILD_ARTIFACTSTAGINGDIRECTORY 'tests/E2E') -Force
+      foreach ($dll in 'E2E/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E.dll', 'Integration/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.dll') {
+        if (-not (Test-Path -LiteralPath (Join-Path $env:BUILD_ARTIFACTSTAGINGDIRECTORY "tests/$dll"))) {
+          throw "tests/$dll is missing from the artifact staging directory."
+        }
+      }
+    displayName: 'Add test configuration and check layout'
+
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish tier1-${{ parameters.version }}-tests'
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)/tests'
+      artifact: 'tier1-${{ parameters.version }}-tests'
+      publishLocation: pipeline

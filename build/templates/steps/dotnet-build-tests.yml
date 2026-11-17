@@ -1,0 +1,38 @@
+# Builds only the given test projects (and what they reference) for the lean PR path, instead of the whole repository.
+# Each build restores its own project: the repository's R4.slnf cannot be used for a shared restore because it lists
+# a project (Microsoft.Health.Fhir.Shared.Tests.Crucible.shproj) that Microsoft.Health.Fhir.sln no longer contains.
+#
+# Versions are fixed placeholders: the Tier 1 test binaries are never shipped, so the job needs nothing from the
+# UpdateVersion stage. Analyzers are off by default because the full build runs them on the same sources; a local
+# clean R4 build measured about 20 s less without them.
+parameters:
+- name: projects
+  type: object
+  default:
+  - 'test/Microsoft.Health.Fhir.R4.Tests.E2E/Microsoft.Health.Fhir.R4.Tests.E2E.csproj'
+  - 'test/Microsoft.Health.Fhir.R4.Tests.Integration/Microsoft.Health.Fhir.R4.Tests.Integration.csproj'
+- name: analyzers
+  type: boolean
+  default: false
+# The projects multi-target net11.0 and net10.0; the Tier 1 tests run on one, and building both adds about a minute.
+- name: targetFramework
+  type: string
+  default: 'net11.0'
+
+steps:
+- task: UseDotNet@2
+  displayName: 'Use .NET SDKs from global.json files'
+  inputs:
+    useGlobalJson: true
+
+- ${{ each project in parameters.projects }}:
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet build ${{ project }}'
+    inputs:
+      command: build
+      projects: '${{ project }}'
+      ${{ if parameters.analyzers }}:
+        arguments: '--configuration $(buildConfiguration) -f ${{ parameters.targetFramework }} -p:ContinuousIntegrationBuild=true -p:Version=0.0.0-pr -p:AssemblyVersion=0.0.0.0 -p:FileVersion=0.0.0.0'
+      ${{ else }}:
+        arguments: '--configuration $(buildConfiguration) -f ${{ parameters.targetFramework }} -p:ContinuousIntegrationBuild=true -p:Version=0.0.0-pr -p:AssemblyVersion=0.0.0.0 -p:FileVersion=0.0.0.0 -p:RunAnalyzers=false -p:EnableNETAnalyzers=false -p:TreatWarningsAsErrors=false -p:GenerateDocumentationFile=false'
+      workingDirectory: $(System.DefaultWorkingDirectory)
