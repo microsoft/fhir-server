@@ -13,10 +13,17 @@ parameters:
 - name: version
   type: string
   default: 'R4'
+# A shadow job never fails the run (the job continues on error) and is capped at 30 minutes.
+- name: shadow
+  type: boolean
+  default: false
 
 jobs:
 - job: Tier1Build_${{ parameters.version }}
   displayName: '${{ parameters.version }} build tests (Tier 1)'
+  ${{ if parameters.shadow }}:
+    continueOnError: true
+    timeoutInMinutes: 30
   pool:
     name: '$(InternalPool)'
     demands:
@@ -36,6 +43,8 @@ jobs:
       projects:
       - 'test/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E.csproj'
       - 'test/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.csproj'
+      # The publish steps below must use the same framework.
+      targetFramework: $(defaultBuildFramework)
 
   - pwsh: |
       $elapsed = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - [long] $env:BUILD_STARTED_AT

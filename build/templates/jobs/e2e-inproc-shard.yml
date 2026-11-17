@@ -23,10 +23,24 @@ parameters:
 - name: maxParallel
   type: number
   default: 4
+# Where the test binaries come from: the E2E zip of the IntegrationTests build artifact (BuildArtifacts stage), or the
+# pipeline artifact tier1-<version>-tests of the Tier 1 build job (jobs/tier1-build.yml), which dependsOn must name.
+- name: artifactSource
+  type: string
+  default: 'IntegrationTests'
+  values:
+  - 'IntegrationTests'
+  - 'tier1'
+# Job in the same stage that the legs wait for; empty for none.
+- name: dependsOn
+  type: string
+  default: ''
 
 jobs:
 - job: SqlE2EInProc_${{ parameters.version }}
   displayName: '${{ parameters.version }} SQL E2E in-proc (container)'
+  ${{ if ne(parameters.dependsOn, '') }}:
+    dependsOn: ${{ parameters.dependsOn }}
   ${{ if parameters.shadow }}:
     timeoutInMinutes: 30
   strategy:
@@ -53,23 +67,35 @@ jobs:
     inputs:
       useGlobalJson: true
 
-  - task: DownloadBuildArtifacts@0
-    displayName: 'Download ${{ parameters.version }} E2E tests'
-    continueOnError: ${{ parameters.shadow }}
-    inputs:
-      buildType: 'current'
-      downloadType: 'single'
-      artifactName: 'IntegrationTests'
-      itemPattern: 'IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E.zip'
-      downloadPath: '$(System.ArtifactsDirectory)'
+  # Both sources put the test dll below $(Build.SourcesDirectory)/_e2e/<version>/, so that InProcTestFhirServer, walking
+  # up from it, finds src/. The tier1 artifact nests it in E2E/ with testconfiguration.json beside it; the copy that
+  # "Prepare shard" makes for the zip, one level up, is then unused.
+  - ${{ if eq(parameters.artifactSource, 'tier1') }}:
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download ${{ parameters.version }} E2E tests (Tier 1)'
+      continueOnError: ${{ parameters.shadow }}
+      inputs:
+        buildType: 'current'
+        artifactName: 'tier1-${{ parameters.version }}-tests'
+        itemPattern: 'E2E/**'
+        targetPath: '$(Build.SourcesDirectory)/_e2e/${{ parameters.version }}'
+  - ${{ else }}:
+    - task: DownloadBuildArtifacts@0
+      displayName: 'Download ${{ parameters.version }} E2E tests'
+      continueOnError: ${{ parameters.shadow }}
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        artifactName: 'IntegrationTests'
+        itemPattern: 'IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E.zip'
+        downloadPath: '$(System.ArtifactsDirectory)'
 
-  # Extracted below the checkout so that InProcTestFhirServer, walking up from the test dll, finds src/.
-  - task: ExtractFiles@1
-    displayName: 'Extract ${{ parameters.version }} E2E tests'
-    continueOnError: ${{ parameters.shadow }}
-    inputs:
-      archiveFilePatterns: '$(System.ArtifactsDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E.zip'
-      destinationFolder: '$(Build.SourcesDirectory)/_e2e/${{ parameters.version }}/'
+    - task: ExtractFiles@1
+      displayName: 'Extract ${{ parameters.version }} E2E tests'
+      continueOnError: ${{ parameters.shadow }}
+      inputs:
+        archiveFilePatterns: '$(System.ArtifactsDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E.zip'
+        destinationFolder: '$(Build.SourcesDirectory)/_e2e/${{ parameters.version }}/'
 
   - template: ../steps/start-sql-container.yml
     parameters:

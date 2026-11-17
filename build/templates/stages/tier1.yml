@@ -1,0 +1,66 @@
+# Tier 1 of PR validation (docs/arch/adr-2611-tiered-pr-validation.md): each FHIR version's E2E and integration test projects are built once
+# (jobs/tier1-build.yml), then its SQL E2E tests run against an in-process server and its SQL integration tests run
+# directly, in sharded jobs with SQL Server and Azurite in containers on the agent. Needs no service connection, Key
+# Vault or secret, and depends on no other stage. Included by pr-pipeline.yml when validationMode is not legacy.
+parameters:
+# Shadow: no job fails the run (jobs and steps continue on error) and test runs are named "[shadow] ...".
+- name: shadow
+  type: boolean
+  default: false
+# lean runs R4 only; shared and full also run Stu3 and R5.
+- name: scope
+  type: string
+  default: 'lean'
+  values:
+  - 'lean'
+  - 'shared'
+  - 'full'
+# Shard indexes of build/test-shards/sql-e2e.json; must list every shard of the manifest.
+- name: shards
+  type: object
+  default: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+# E2E legs of one version that run at the same time; the shard count runs every shard at once.
+- name: maxParallel
+  type: number
+  default: 9
+# Trait filters of the E2E shards; keep them equal to the traitArgs of the shard lint (stages/container-tests.yml).
+- name: e2eTraitArgs
+  type: object
+  default: ['--filter-trait', 'DataStore=SqlServer', '--filter-not-trait', 'Category=ExportLongRunning']
+# Candidate versions, in run order; scope lean keeps only R4.
+- name: versions
+  type: object
+  default: [R4, Stu3, R5]
+
+stages:
+- stage: Tier1Tests
+  displayName: 'Tier 1 tests (build once, SQL Server and Azurite containers)'
+  dependsOn: []
+  jobs:
+  - ${{ each version in parameters.versions }}:
+    - ${{ if or(eq(version, 'R4'), ne(parameters.scope, 'lean')) }}:
+      - template: ../jobs/tier1-build.yml
+        parameters:
+          version: ${{ version }}
+          shadow: ${{ parameters.shadow }}
+
+      - template: ../jobs/e2e-inproc-shard.yml
+        parameters:
+          version: ${{ version }}
+          shards: ${{ parameters.shards }}
+          manifest: sql-e2e.json
+          traitArgs: ${{ parameters.e2eTraitArgs }}
+          shadow: ${{ parameters.shadow }}
+          maxParallel: ${{ parameters.maxParallel }}
+          artifactSource: tier1
+          dependsOn: Tier1Build_${{ version }}
+
+      # Two legs, one per shard of build/test-shards/sql-integration.json, each with its own SQL Server.
+      - template: ../jobs/sql-integration-container.yml
+        parameters:
+          version: ${{ version }}
+          shadow: ${{ parameters.shadow }}
+          shards: [0, 1]
+          manifest: sql-integration.json
+          artifactSource: tier1
+          dependsOn: Tier1Build_${{ version }}

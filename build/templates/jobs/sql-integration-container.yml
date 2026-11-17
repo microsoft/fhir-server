@@ -8,12 +8,42 @@ parameters:
 - name: shadow
   type: boolean
   default: false
+# Where the test binaries come from: the integration zip of the IntegrationTests build artifact (BuildArtifacts stage),
+# or the pipeline artifact tier1-<version>-tests of the Tier 1 build job (jobs/tier1-build.yml), which dependsOn must
+# name.
+- name: artifactSource
+  type: string
+  default: 'IntegrationTests'
+  values:
+  - 'IntegrationTests'
+  - 'tier1'
+# Job in the same stage that this job waits for; empty for none.
+- name: dependsOn
+  type: string
+  default: ''
+# Zero-based indexes of the shards of build/test-shards/<manifest> to run, one matrix leg each (<version>_S<index>), all
+# at once. Must list every shard: the last one is the catch-all. Empty (the default) runs all tests in one job.
+- name: shards
+  type: object
+  default: []
+- name: manifest
+  type: string
+  default: ''
 
 jobs:
 - job: SqlIntegrationContainer_${{ parameters.version }}
   displayName: '${{ parameters.version }} SQL Integration (container)'
+  ${{ if ne(parameters.dependsOn, '') }}:
+    dependsOn: ${{ parameters.dependsOn }}
   ${{ if parameters.shadow }}:
     timeoutInMinutes: 30
+  ${{ if ne(length(parameters.shards), 0) }}:
+    strategy:
+      maxParallel: ${{ length(parameters.shards) }}
+      matrix:
+        ${{ each shard in parameters.shards }}:
+          ${{ format('{0}_S{1}', parameters.version, shard) }}:
+            ShardIndex: ${{ shard }}
   pool:
     name: '$(InternalPool)'
     demands:
@@ -30,22 +60,53 @@ jobs:
     inputs:
       useGlobalJson: true
 
-  - task: DownloadBuildArtifacts@0
-    displayName: 'Download ${{ parameters.version }} integration tests'
-    continueOnError: ${{ parameters.shadow }}
-    inputs:
-      buildType: 'current'
-      downloadType: 'single'
-      artifactName: 'IntegrationTests'
-      itemPattern: 'IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.zip'
-      downloadPath: '$(System.ArtifactsDirectory)'
+  # Both sources put the test dll below $(Agent.TempDirectory)/IntegrationTests/ (the tier1 artifact nests it in
+  # Integration/); the test step finds it by file name.
+  - ${{ if eq(parameters.artifactSource, 'tier1') }}:
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download ${{ parameters.version }} integration tests (Tier 1)'
+      continueOnError: ${{ parameters.shadow }}
+      inputs:
+        buildType: 'current'
+        artifactName: 'tier1-${{ parameters.version }}-tests'
+        itemPattern: 'Integration/**'
+        targetPath: '$(Agent.TempDirectory)/IntegrationTests'
+  - ${{ else }}:
+    - task: DownloadBuildArtifacts@0
+      displayName: 'Download ${{ parameters.version }} integration tests'
+      continueOnError: ${{ parameters.shadow }}
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        artifactName: 'IntegrationTests'
+        itemPattern: 'IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.zip'
+        downloadPath: '$(System.ArtifactsDirectory)'
 
-  - task: ExtractFiles@1
-    displayName: 'Extract ${{ parameters.version }} integration tests'
-    continueOnError: ${{ parameters.shadow }}
-    inputs:
-      archiveFilePatterns: '$(System.ArtifactsDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.zip'
-      destinationFolder: '$(Agent.TempDirectory)/IntegrationTests/'
+    - task: ExtractFiles@1
+      displayName: 'Extract ${{ parameters.version }} integration tests'
+      continueOnError: ${{ parameters.shadow }}
+      inputs:
+        archiveFilePatterns: '$(System.ArtifactsDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.zip'
+        destinationFolder: '$(Agent.TempDirectory)/IntegrationTests/'
+
+  - ${{ if ne(length(parameters.shards), 0) }}:
+    - pwsh: |
+        $ErrorActionPreference = 'Stop'
+        $manifest = Join-Path $env:BUILD_SOURCESDIRECTORY 'build/test-shards/${{ parameters.manifest }}'
+        $shardCount = @((Get-Content -Raw $manifest | ConvertFrom-Json).shards).Count
+        if ($shardCount -ne [int] $env:SHARD_LEG_COUNT) {
+          throw "$manifest has $shardCount shards but the pipeline runs $env:SHARD_LEG_COUNT legs; tests of the missing shards would not run. Update the shards parameter passed to sql-integration-container.yml."
+        }
+
+        $filterArgs = @(& (Join-Path $env:BUILD_SOURCESDIRECTORY 'build/scripts/Get-TestShardFilter.ps1') -Manifest $manifest -ShardIndex ([int] $env:SHARD_INDEX))
+        Write-Host "Shard $env:SHARD_INDEX of $shardCount filter: $($filterArgs -join ' ')"
+        Write-Host "##vso[task.setvariable variable=ShardFilterArgsJson]$(ConvertTo-Json -InputObject $filterArgs -Compress)"
+        Write-Host '##vso[task.setvariable variable=ShardReady]true'
+      displayName: 'Prepare shard $(ShardIndex)'
+      continueOnError: ${{ parameters.shadow }}
+      env:
+        SHARD_INDEX: $(ShardIndex)
+        SHARD_LEG_COUNT: ${{ length(parameters.shards) }}
 
   - template: ../steps/start-sql-container.yml
     parameters:
@@ -54,12 +115,18 @@ jobs:
   - template: ../steps/run-mtp-tests.yml
     parameters:
       testDll: '$(Agent.TempDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.dll'
-      # Both filters are required to exclude CosmosDb traits and traitless CosmosDb classes.
+      # Both filters are required to exclude CosmosDb traits and traitless CosmosDb classes. The shard filters
+      # (--filter-method) are AND'd with them.
       filterArgs: ['--filter-not-trait', 'DataStore=CosmosDb', '--filter-not-class', '*CosmosDb*']
-      runName: '${{ parameters.version }} SQL Integration (container)'
       shadow: ${{ parameters.shadow }}
-      # Without a ready server every test would wait out its connection retries.
-      condition: and(succeeded(), eq(variables['SqlContainerReady'], 'true'))
+      ${{ if ne(length(parameters.shards), 0) }}:
+        runtimeFilterArgsJson: '$(ShardFilterArgsJson)'
+        runName: '${{ parameters.version }} SQL Integration (container) S$(ShardIndex)'
+        condition: and(succeeded(), eq(variables['SqlContainerReady'], 'true'), eq(variables['ShardReady'], 'true'))
+      ${{ else }}:
+        runName: '${{ parameters.version }} SQL Integration (container)'
+        # Without a ready server every test would wait out its connection retries.
+        condition: and(succeeded(), eq(variables['SqlContainerReady'], 'true'))
       # With the SQL Server step (6) and about 4 minutes of setup this stays under the 30-minute job timeout.
       timeoutInMinutes: 18
       env:
