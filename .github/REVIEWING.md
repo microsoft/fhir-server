@@ -36,8 +36,6 @@ Pull request review only sees the lines a pull request changes. A flaw in code t
 2. **Sweep for siblings.** Run the [security variant sweep prompt](prompts/securityVariantSweep.prompt.md) against `main` for the same pattern in other handlers, jobs, providers, and FHIR versions. Handle anything it finds through the private advisory process, not a public issue or pull request.
 3. **Update the rules.** If no existing rule would have led a reviewer to the flaw, add or sharpen one in the matching instruction file. Describe the pattern, not the exploit, and do not reference an unpublished advisory.
 
-`SearchServiceConsumerGuardTests` fails the build when a new type is constructed with `ISearchService`. It does not show that existing consumers are safe. When it fails, review the new consumer against the search rules before adding it to the list.
-
 ## Verify instruction loading for a specific review
 
 GitHub documents `.github/copilot-instructions.md`, root `AGENTS.md`, `REVIEW.md`, and matching `.github/instructions/**/*.instructions.md` as supported review inputs. Confirm that repository custom instructions are enabled in Copilot Code review settings; file presence alone does not establish use.
