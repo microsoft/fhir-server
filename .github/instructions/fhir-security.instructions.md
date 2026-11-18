@@ -47,3 +47,4 @@ Every code path that reads, returns, counts, changes, or deletes a resource for 
 - Suggest the smallest fix that uses an existing mechanism: `CheckAccess` with the specific action, a helper in `AuthorizationServiceExtensions`, `ExpressionAccessControl`, or refusing the caller in the create handler. Do not propose a new layer or a duplicate check.
 - Ask for one test that fails without the fix. Use two principals or two patients: one request that must succeed and one that must be refused. Denying everyone does not pass.
 - Tests with mocked authorization or security disabled do not prove enforcement. Say which provider, FHIR version, and configuration the tests exercise.
+- Recommend only bounded, isolated checks with synthetic data. Never suggest probing a live service, using real patient records, running untrusted pull request code with privileged credentials, or treating model output as authorization.

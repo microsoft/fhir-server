@@ -9,7 +9,7 @@ These files turn a token into `DataActions` and an `AccessControlContext`, and d
 
 ## Parsing scopes
 
-1. **Unknown must refuse.** In `SmartClinicalScopesMiddleware`, a scope that is malformed, unsupported, or constrained by a parameter the server cannot filter on must be rejected. It must not be dropped, and it must not be granted without its constraint.
+1. **Unknown must not widen.** In `SmartClinicalScopesMiddleware`, a clinical scope that is malformed, unsupported, or constrained by a parameter the server cannot filter on is rejected with an error. Flag a change that drops such a scope silently or grants it without its constraint. Scopes that are not clinical scopes, such as `openid`, grant nothing and are correctly ignored.
 2. **Split before decoding.** Split scope strings on the raw delimiters first, then decode each part. A decoded value must not introduce a new separator, resource type, or constraint.
 3. **Keep the scope kind.** `patient/`, `user/`, and `system/` scopes must not be mixed or promoted. A `patient/` scope binds to the selected patient. A wildcard resource type does not remove the compartment.
 4. **Combine scopes as documented.** Keep the documented union and intersection behavior when several scopes cover one resource type. A search-parameter constraint on one scope must not be dropped or applied to another. Check v1 and v2 scope syntax separately.
