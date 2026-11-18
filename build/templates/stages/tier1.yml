@@ -62,7 +62,6 @@ stages:
           shadow: ${{ parameters.shadow }}
           maxParallel: ${{ parameters.maxParallel }}
           artifactSource: tier1
-          dependsOn: Tier1Build_${{ version }}
 
       # Two legs, one per shard of build/test-shards/sql-integration.json, each with its own SQL Server.
       - template: ../jobs/sql-integration-container.yml
@@ -72,4 +71,3 @@ stages:
           shards: [0, 1]
           manifest: sql-integration.json
           artifactSource: tier1
-          dependsOn: Tier1Build_${{ version }}

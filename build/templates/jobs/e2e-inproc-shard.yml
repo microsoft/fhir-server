@@ -24,7 +24,8 @@ parameters:
   type: number
   default: 4
 # Where the test binaries come from: the E2E zip of the IntegrationTests build artifact (BuildArtifacts stage), or the
-# pipeline artifact tier1-<version>-tests of the Tier 1 build job (jobs/tier1-build.yml), which dependsOn must name.
+# pipeline artifact tier1-<version>-tests of the Tier 1 build job (jobs/tier1-build.yml). With tier1 the legs do not
+# depend on the build job: they start their containers at once and wait for the artifact.
 - name: artifactSource
   type: string
   default: 'IntegrationTests'
@@ -71,6 +72,24 @@ jobs:
   # up from it, finds src/. The tier1 artifact nests it in E2E/ with testconfiguration.json beside it; the copy that
   # "Prepare shard" makes for the zip, one level up, is then unused.
   - ${{ if eq(parameters.artifactSource, 'tier1') }}:
+    # The leg has no dependsOn, so it claims an agent when the stage starts and does its setup (containers) while the
+    # build job runs; it then waits for the artifact the build publishes.
+    - template: ../steps/start-sql-container.yml
+      parameters:
+        shadow: ${{ parameters.shadow }}
+
+    - template: ../steps/start-azurite.yml
+      parameters:
+        shadow: ${{ parameters.shadow }}
+
+    - pwsh: >-
+        & '$(Build.SourcesDirectory)/build/scripts/Wait-PipelineArtifact.ps1'
+        -ArtifactName 'tier1-${{ parameters.version }}-tests' -TimeoutMinutes 20 -PollSeconds 10
+      displayName: 'Wait for ${{ parameters.version }} Tier 1 tests artifact'
+      continueOnError: ${{ parameters.shadow }}
+      env:
+        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
     - task: DownloadPipelineArtifact@2
       displayName: 'Download ${{ parameters.version }} E2E tests (Tier 1)'
       continueOnError: ${{ parameters.shadow }}
@@ -97,13 +116,13 @@ jobs:
         archiveFilePatterns: '$(System.ArtifactsDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E.zip'
         destinationFolder: '$(Build.SourcesDirectory)/_e2e/${{ parameters.version }}/'
 
-  - template: ../steps/start-sql-container.yml
-    parameters:
-      shadow: ${{ parameters.shadow }}
+    - template: ../steps/start-sql-container.yml
+      parameters:
+        shadow: ${{ parameters.shadow }}
 
-  - template: ../steps/start-azurite.yml
-    parameters:
-      shadow: ${{ parameters.shadow }}
+    - template: ../steps/start-azurite.yml
+      parameters:
+        shadow: ${{ parameters.shadow }}
 
   - pwsh: |
       $ErrorActionPreference = 'Stop'

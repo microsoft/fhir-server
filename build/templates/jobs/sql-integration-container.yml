@@ -9,8 +9,8 @@ parameters:
   type: boolean
   default: false
 # Where the test binaries come from: the integration zip of the IntegrationTests build artifact (BuildArtifacts stage),
-# or the pipeline artifact tier1-<version>-tests of the Tier 1 build job (jobs/tier1-build.yml), which dependsOn must
-# name.
+# or the pipeline artifact tier1-<version>-tests of the Tier 1 build job (jobs/tier1-build.yml). With tier1 the job does
+# not depend on the build job: it starts SQL Server at once and waits for the artifact.
 - name: artifactSource
   type: string
   default: 'IntegrationTests'
@@ -63,6 +63,20 @@ jobs:
   # Both sources put the test dll below $(Agent.TempDirectory)/IntegrationTests/ (the tier1 artifact nests it in
   # Integration/); the test step finds it by file name.
   - ${{ if eq(parameters.artifactSource, 'tier1') }}:
+    # The job has no dependsOn, so it claims an agent when the stage starts and starts SQL Server while the build job
+    # runs; it then waits for the artifact the build publishes.
+    - template: ../steps/start-sql-container.yml
+      parameters:
+        shadow: ${{ parameters.shadow }}
+
+    - pwsh: >-
+        & '$(Build.SourcesDirectory)/build/scripts/Wait-PipelineArtifact.ps1'
+        -ArtifactName 'tier1-${{ parameters.version }}-tests' -TimeoutMinutes 20 -PollSeconds 10
+      displayName: 'Wait for ${{ parameters.version }} Tier 1 tests artifact'
+      continueOnError: ${{ parameters.shadow }}
+      env:
+        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
     - task: DownloadPipelineArtifact@2
       displayName: 'Download ${{ parameters.version }} integration tests (Tier 1)'
       continueOnError: ${{ parameters.shadow }}
@@ -108,9 +122,10 @@ jobs:
         SHARD_INDEX: $(ShardIndex)
         SHARD_LEG_COUNT: ${{ length(parameters.shards) }}
 
-  - template: ../steps/start-sql-container.yml
-    parameters:
-      shadow: ${{ parameters.shadow }}
+  - ${{ if ne(parameters.artifactSource, 'tier1') }}:
+    - template: ../steps/start-sql-container.yml
+      parameters:
+        shadow: ${{ parameters.shadow }}
 
   - template: ../steps/run-mtp-tests.yml
     parameters:
