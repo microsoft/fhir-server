@@ -71,6 +71,20 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "git diff --name-only origin/$target...HEAD exited with $LASTEXITCODE" }
           Write-Host "$($files.Count) changed files against origin/$target."
 
+          # The root Directory.Packages.props is classified by the packages (and version properties) it changes.
+          $packages = @()
+          $packageProperties = @()
+          if ($files -contains 'Directory.Packages.props') {
+            $packageDiff = @(git diff -U0 "origin/$target...HEAD" -- Directory.Packages.props)
+            if ($LASTEXITCODE -ne 0) { throw "git diff -U0 origin/$target...HEAD -- Directory.Packages.props exited with $LASTEXITCODE" }
+            $propsPath = "$env:BUILD_SOURCESDIRECTORY/Directory.Packages.props"
+            $content = if (Test-Path -LiteralPath $propsPath) { @(Get-Content -LiteralPath $propsPath) } else { @() }
+            $changes = & "$env:BUILD_SOURCESDIRECTORY/build/scripts/Get-PackagePropsChanges.ps1" -DiffLines $packageDiff -Content $content
+            $packages = @($changes.Packages)
+            $packageProperties = @($changes.Properties)
+            Write-Host "Changed packages: $($packages -join ', '). Changed properties: $($packageProperties -join ', ')."
+          }
+
           # Fork PRs cannot take the full matrix from a label, so their labels are not read. A failure to read them
           # (HTTP error, timeout, rate limit) does not fail closed: the PR is classified by its paths, with a warning.
           $labels = @()
@@ -91,7 +105,7 @@ jobs:
 
           $result = & "$env:BUILD_SOURCESDIRECTORY/build/scripts/Get-PrValidationScope.ps1" `
             -ChangedFiles $files -Labels $labels -TargetBranch $target -IsFork $isFork `
-            -LabelsUnavailableReason $labelsUnavailableReason
+            -LabelsUnavailableReason $labelsUnavailableReason -ChangedPackages $packages -ChangedPackageProperties $packageProperties
           $result.Warnings | ForEach-Object { Write-Host "##[warning]$_" }
         }
       }

@@ -21,6 +21,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $classifier = Join-Path $PSScriptRoot '..' 'Get-PrValidationScope.ps1'
+$packageParser = Join-Path $PSScriptRoot '..' 'Get-PackagePropsChanges.ps1'
 
 $commits = @(git log --first-parent --since=$Since --format='%H %s' $Branch)
 if ($LASTEXITCODE -ne 0) { throw "git log failed for $Branch" }
@@ -30,7 +31,18 @@ $results = foreach ($line in $commits) {
     $files = @(git diff --name-only "$sha^1" $sha)
     if ($LASTEXITCODE -ne 0) { throw "git diff failed for $sha" }
 
-    $result = & $classifier -ChangedFiles $files -TargetBranch 'main'
+    $packages = @()
+    $packageProperties = @()
+    if ($files -contains 'Directory.Packages.props') {
+        $packageDiff = @(git diff -U0 "$sha^1" $sha -- Directory.Packages.props)
+        if ($LASTEXITCODE -ne 0) { throw "git diff of Directory.Packages.props failed for $sha" }
+        $content = @(git show "${sha}:Directory.Packages.props" 2>$null)
+        $changes = & $packageParser -DiffLines $packageDiff -Content $content
+        $packages = @($changes.Packages)
+        $packageProperties = @($changes.Properties)
+    }
+
+    $result = & $classifier -ChangedFiles $files -TargetBranch 'main' -ChangedPackages $packages -ChangedPackageProperties $packageProperties
     [pscustomobject]@{ Sha = $sha.Substring(0, 9); Subject = $subject; Scope = $result.Scope; Reasons = $result.Reasons }
 }
 

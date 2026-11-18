@@ -11,7 +11,16 @@
               samples/templates/, or is an authentication path (src/**/Security/**,
               src/Microsoft.Health.Fhir.Api.OpenIddict/**); or the PR has the full-matrix label; or it targets
               release/* or hotfix/*. (The ADR's ACA and Key Vault rules, build/**/*keyvault* and build/**/*aca*,
-              are inside build/ and samples/templates/, so the rules above already cover them.)
+              are inside build/ and samples/templates/, so the rules above already cover them.) Also full: the
+              repository-root build inputs Directory.Build.props, Directory.Build.targets, global.json and
+              nuget.config, which change every project's build (ruling R15; a nested one follows its project's
+              rule).
+              The root Directory.Packages.props is classified by its changed packages (rulings R15b, R15c): a
+              package whose name matches Cosmos, ^Azure., Identity, OpenIddict, KeyVault or SqlClient is full; any
+              other package is shared, since it compiles into every version. A changed version property counts as
+              the packages that reference it; a build-wide property (DotNetSdkPackageVersion, the central package
+              management switches) is full; any other property is shared. No changed package or property at all is
+              full, failing closed.
       shared  not full, and a changed path is in a src/*.Shared.* or test/*.Shared.* project.
       lean    otherwise.
 
@@ -42,6 +51,15 @@
     Why the labels could not be read (for example an HTTP error, a timeout or a rate limit); empty when they were
     read. Labels is then ignored.
 
+.PARAMETER ChangedPackages
+    Names of the packages that the root Directory.Packages.props diff changes, directly or through a changed version
+    property (Get-PackagePropsChanges.ps1). Used only when ChangedFiles includes that file.
+
+.PARAMETER ChangedPackageProperties
+    Names of the properties that the root Directory.Packages.props diff changes (Get-PackagePropsChanges.ps1). A
+    build-wide property (the .NET SDK release train, the central package management switches) is full; any other is
+    shared, and is classified through its packages. Used only when ChangedFiles includes that file.
+
 .OUTPUTS
     [pscustomobject] with Scope ('lean' | 'shared' | 'full'), Reasons (string[]: each rule that matched, with the path
     or value that matched it), FullRequiresMaintainer (true only when Scope is full and IsFork) and Warnings
@@ -61,7 +79,13 @@ param(
 
     [bool] $FileListTruncated = $false,
 
-    [string] $LabelsUnavailableReason = ''
+    [string] $LabelsUnavailableReason = '',
+
+    [AllowEmptyCollection()]
+    [string[]] $ChangedPackages = @(),
+
+    [AllowEmptyCollection()]
+    [string[]] $ChangedPackageProperties = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -79,7 +103,15 @@ $fullPathRules = [ordered]@{
     'samples templates'           = '^samples/templates/'
     'authentication (Security)'   = '^src/([^/]+/)*security/'
     'authentication (OpenIddict)' = '^src/microsoft\.health\.fhir\.api\.openiddict/'
+    'root build input'            = '^(directory\.build\.props|directory\.build\.targets|global\.json|nuget\.config)$'
 }
+
+# Package names (root Directory.Packages.props) that need the full matrix: data stores, Azure and authentication.
+$fullPackageRule = 'Cosmos|^Azure\.|Identity|OpenIddict|KeyVault|SqlClient'
+
+# Directory.Packages.props properties that change the whole build rather than a few packages: the .NET SDK release
+# train and the central package management switches (ruling R15c).
+$fullPackagePropertyRule = '^(DotNetSdkPackageVersion|ManagePackageVersionsCentrally|CentralPackageVersionOverrideEnabled|CentralPackageTransitivePinningEnabled)$'
 
 $full = [System.Collections.Generic.List[string]]::new()
 $shared = [System.Collections.Generic.List[string]]::new()
@@ -112,6 +144,22 @@ foreach ($file in $files) {
     foreach ($rule in $fullPathRules.GetEnumerator()) {
         if ($lower -match $rule.Value) {
             $full.Add("$($rule.Key): $path")
+        }
+    }
+
+    if ($lower -eq 'directory.packages.props') {
+        $packages = @($ChangedPackages | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        $properties = @($ChangedPackageProperties | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        if ($packages.Count -eq 0 -and $properties.Count -eq 0) {
+            $full.Add("fail-closed: ${path} changed but no changed packages or properties were found")
+        }
+
+        foreach ($package in $packages) {
+            if ($package -imatch $fullPackageRule) { $full.Add("package: $package") } else { $shared.Add("package: $package") }
+        }
+
+        foreach ($property in $properties) {
+            if ($property -imatch $fullPackagePropertyRule) { $full.Add("build property: $property") } else { $shared.Add("package property: $property") }
         }
     }
 
