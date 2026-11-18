@@ -1,3 +1,12 @@
 SQL Scripts:
 - changed-files:
   - any-glob-to-any-file: 'src/Microsoft.Health.Fhir.SqlServer/Features/Schema/SchemaVersionConstants.cs'
+
+Area-Authorization:
+- changed-files:
+  - any-glob-to-any-file:
+    - 'src/**/Features/Security/**'
+    - 'src/**/Features/SMART/**'
+    - 'src/**/Features/Search/Access/**'
+    - 'src/**/Features/Context/AccessControlContext.cs'
+    - 'src/**/Features/Search/Expressions/SmartCompartment*'

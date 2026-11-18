@@ -1,8 +1,20 @@
 # Reviewing Changes and Verifying Copilot Guidance
 
-[AGENTS.md](../AGENTS.md) defines repository conventions. [REVIEW.md](../REVIEW.md) adds evidence-first review criteria, and the [FHIR security profile](instructions/fhir-security.instructions.md) adds boundary checks. These are advisory instructions, not a scanner, certification, or merge gate.
+[AGENTS.md](../AGENTS.md) defines repository conventions. [REVIEW.md](../REVIEW.md) adds evidence-first review criteria, and the security instruction files in [`instructions/`](instructions) add boundary checks. These are advisory instructions, not a scanner, certification, or merge gate.
 
-The security profile matches all paths (`applyTo: "**"`), including documentation, build files, and future directories; reviewers apply only relevant checks. `excludeAgent: "cloud-agent"` excludes that file from GitHub's cloud coding agent, not from code review. It is not a universal control over local clients.
+The security rules are split so that each review loads a short, specific set:
+
+| File | Loaded for | Covers |
+|---|---|---|
+| [`fhir-security.instructions.md`](instructions/fhir-security.instructions.md) | Every path (`applyTo: "**"`) | The authorization invariant, ten change patterns to flag, input/output limits, evidence |
+| [`security-search.instructions.md`](instructions/security-search.instructions.md) | Search, compartment, query parameter names | Alternate execution paths, includes and chaining, paging, history, definitions |
+| [`security-background-operations.instructions.md`](instructions/security-background-operations.instructions.md) | Operations, task hosting, delete, upsert, persistence | Carrying caller restrictions into jobs, job status and results |
+| [`security-bundles-conditional.instructions.md`](instructions/security-bundles-conditional.instructions.md) | Resource handlers, bundles, validation | Bundle admission, conditional lookups, derived writes |
+| [`security-smart-scopes.instructions.md`](instructions/security-smart-scopes.instructions.md) | SMART, security, context, configuration, controllers, filters | Scope parsing, identity binding, new endpoints and inputs |
+
+Copilot code review does not follow links between instruction files, so each file is self-contained. Keep each rule short, imperative, and tied to a type or pattern a reviewer can find in a diff. When a path-specific file grows past roughly twenty rules, split it instead of lengthening it.
+
+`excludeAgent: "cloud-agent"` excludes these files from GitHub's cloud coding agent, not from code review. It is not a universal control over local clients.
 
 ## Before merging
 
@@ -13,6 +25,16 @@ The security profile matches all paths (`applyTo: "**"`), including documentatio
 5. Confirm applicable live branch/ruleset and approval requirements. Automatic review requests, approval assessments, counted Copilot approvals, and automatic merging are separate settings. This documentation changes none of them and does not establish their current values.
 
 If a review is missing, failed, or stale, request a current review or record a manual review against the same criteria; absence is not approval. An overview saying **"No open issues"** describes published issues, not proof of safety. If it also reports an unpublished security concern or **"Needs a closer look"**, obtain an authorized human assessment before treating the PR as ready. Do not guess why publication was withheld, reconstruct undisclosed details, or repost restricted evidence publicly.
+
+## After a security report or fix
+
+Pull request review only sees the lines a pull request changes. A flaw in code that no pull request touches is found by an audit, not by review. Treat each confirmed report as three pieces of work:
+
+1. **Fix and test.** Add a regression test that fails without the fix, with one caller that must succeed and one that must be refused.
+2. **Sweep for siblings.** Run the [security variant sweep prompt](prompts/securityVariantSweep.prompt.md) against `main` for the same pattern in other handlers, jobs, providers, and FHIR versions. Handle anything it finds through the private advisory process, not a public issue or pull request.
+3. **Update the rules.** If no existing rule would have led a reviewer to the flaw, add or sharpen one in the matching instruction file. Describe the pattern, not the exploit, and do not reference an unpublished advisory.
+
+`SearchServiceConsumerGuardTests` fails the build when a new type is constructed with `ISearchService`. It does not show that existing consumers are safe. When it fails, review the new consumer against the search rules before adding it to the list.
 
 ## Verify instruction loading for a specific review
 
