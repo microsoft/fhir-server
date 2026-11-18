@@ -141,7 +141,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
                 var expectedMessage = string.Format(Core.Resources.SearchParameterEvaluationFailed, searchParameter.Url);
                 Assert.All(failures, failure =>
                 {
-                    var diagnostic = Assert.IsType<FhirString>(failure.Value).Value;
+                    // The data store appends a trailing space to each diagnostic.
+                    var diagnostic = Assert.IsType<FhirString>(failure.Value).Value.TrimEnd();
                     Assert.StartsWith("Reindex: processing job = ", diagnostic);
                     Assert.EndsWith($"failed. Resource type = Person Error = {expectedMessage}", diagnostic);
                 });
