@@ -2,6 +2,8 @@
 
 This document describes guidelines for contributing to the FHIR server repo.
 
+For containerized local development with SQL Server or the optional Cosmos DB emulator, see the [devcontainer workflow](.devcontainer/readme.md), available through VS Code or the Dev Containers CLI.
+
 ## Submitting Pull Requests
 
 - **DO** submit all changes via pull requests (PRs). They will be reviewed and potentially be merged by maintainers after a peer review that includes at least one of the team members.

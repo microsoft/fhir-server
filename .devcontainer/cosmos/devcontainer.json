@@ -1,0 +1,37 @@
+{
+	"name": "FHIR Cosmos DB",
+	"dockerComposeFile": "../docker-compose.cosmos.yml",
+	"service": "fhir-cosmos",
+	"runServices": ["cosmos", "fhir-cosmos"],
+	"workspaceFolder": "/workspace",
+	"shutdownAction": "stopCompose",
+	"features": {
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+	},
+	"remoteEnv": {
+		"LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-dotnettools.csharp",
+				"ms-azuretools.vscode-cosmosdb",
+				"humao.rest-client"
+			]
+		}
+	},
+	"postStartCommand": "/setup/fix-cert.sh",
+	"waitFor": "postStartCommand",
+	"remoteUser": "vscode",
+	"forwardPorts": [44348, 8081],
+	"portsAttributes": {
+		"44348": {
+			"label": "FHIR HTTPS",
+			"protocol": "https"
+		},
+		"8081": {
+			"label": "Cosmos DB emulator",
+			"protocol": "https"
+		}
+	}
+}
