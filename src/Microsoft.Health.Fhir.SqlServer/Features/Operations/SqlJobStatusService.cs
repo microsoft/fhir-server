@@ -6,16 +6,18 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.GetJobStatus;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
+using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 {
@@ -26,93 +28,59 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
     {
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly IUrlResolver _urlResolver;
-        private readonly ILogger<SqlJobStatusService> _logger;
+        private readonly SchemaInformation _schemaInformation;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SqlJobStatusService"/> class.
         /// </summary>
         /// <param name="sqlConnectionWrapperFactory">The SQL connection wrapper factory.</param>
         /// <param name="urlResolver">The URL resolver.</param>
-        /// <param name="logger">The logger.</param>
+        /// <param name="schemaInformation">The current SQL schema information.</param>
         public SqlJobStatusService(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             IUrlResolver urlResolver,
-            ILogger<SqlJobStatusService> logger)
+            SchemaInformation schemaInformation)
         {
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             _urlResolver = EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
-            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
         }
 
         /// <inheritdoc />
-        public async Task<IReadOnlyList<JobStatusInfo>> GetAllJobStatusAsync(CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<JobStatusInfo>> GetAllJobStatusAsync(QueueType? queueType, int count, long? afterGroupId, QueueType? afterQueueType, CancellationToken cancellationToken)
         {
-            var jobs = new List<JobStatusInfo>();
-
-            var queueTypes = new[]
+            if (_schemaInformation.Current is not >= SchemaVersionConstants.JobStatus)
             {
-                QueueType.Export,
-                QueueType.Import,
-                QueueType.Reindex,
-                QueueType.BulkDelete,
-                QueueType.BulkUpdate,
-            };
+                throw new OperationNotImplementedException($"Job status listing requires SQL schema version {SchemaVersionConstants.JobStatus} or later.");
+            }
 
+            var jobs = new List<JobStatusInfo>();
             using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
             using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
 
-            foreach (var queueType in queueTypes)
+            sqlCommandWrapper.CommandType = CommandType.StoredProcedure;
+            sqlCommandWrapper.CommandText = "dbo.GetJobStatus";
+            sqlCommandWrapper.Parameters.Add("@QueueType", SqlDbType.TinyInt).Value = (object)(byte?)queueType ?? DBNull.Value;
+            sqlCommandWrapper.Parameters.Add("@PageSize", SqlDbType.Int).Value = count;
+            sqlCommandWrapper.Parameters.Add("@AfterGroupId", SqlDbType.BigInt).Value = (object)afterGroupId ?? DBNull.Value;
+            sqlCommandWrapper.Parameters.Add("@AfterQueueType", SqlDbType.TinyInt).Value = (object)(byte?)afterQueueType ?? DBNull.Value;
+
+            using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.Default, cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
             {
-                var queueJobs = await GetJobsByQueueTypeAsync(sqlCommandWrapper, queueType, cancellationToken);
-                jobs.AddRange(queueJobs);
-            }
-
-            return jobs;
-        }
-
-        private async Task<List<JobStatusInfo>> GetJobsByQueueTypeAsync(SqlCommandWrapper sqlCommandWrapper, QueueType queueType, CancellationToken cancellationToken)
-        {
-            var jobs = new List<JobStatusInfo>();
-            var operationName = GetOperationNameForQueueType(queueType);
-
-            sqlCommandWrapper.CommandText = @"
-                SELECT GroupId, min(Status) AS Status, min(CreateDate) AS CreateDate, max(EndDate) AS EndDate
-                FROM dbo.JobQueue
-                WHERE QueueType = @QueueType
-                  AND Status <> 5
-                GROUP BY GroupId
-                ORDER BY CreateDate DESC";
-
-            sqlCommandWrapper.Parameters.Clear();
-            sqlCommandWrapper.Parameters.AddWithValue("@QueueType", (byte)queueType);
-
-            try
-            {
-                using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.Default, cancellationToken);
-                while (await reader.ReadAsync(cancellationToken))
+                var groupId = reader.GetInt64(0);
+                var jobQueueType = (QueueType)reader.GetByte(1);
+                var operationName = GetOperationNameForQueueType(jobQueueType);
+                jobs.Add(new JobStatusInfo
                 {
-                    var groupId = reader.GetInt64(0);
-                    var status = (JobStatus)reader.GetByte(1);
-                    var createDate = reader.GetDateTime(2);
-                    DateTime? endDate = await reader.IsDBNullAsync(5, cancellationToken) ? null : reader.GetDateTime(3);
-
-                    var jobStatusInfo = new JobStatusInfo
-                    {
-                        GroupId = groupId,
-                        QueueType = queueType,
-                        JobType = operationName,
-                        Status = status,
-                        ContentLocation = _urlResolver.ResolveOperationResultUrl(operationName, groupId.ToString()),
-                        CreateDate = createDate,
-                        EndDate = endDate,
-                    };
-
-                    jobs.Add(jobStatusInfo);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Error retrieving jobs for queue type {QueueType}", queueType);
+                    GroupId = groupId,
+                    QueueType = jobQueueType,
+                    JobType = operationName,
+                    Status = (JobStatus)reader.GetByte(2),
+                    ContentLocation = _urlResolver.ResolveOperationResultUrl(operationName, groupId.ToString(CultureInfo.InvariantCulture)),
+                    CreateDate = reader.GetDateTime(3),
+                    EndDate = await reader.IsDBNullAsync(4, cancellationToken) ? null : reader.GetDateTime(4),
+                });
             }
 
             return jobs;
@@ -127,7 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
                 QueueType.Reindex => OperationsConstants.Reindex,
                 QueueType.BulkDelete => OperationsConstants.BulkDelete,
                 QueueType.BulkUpdate => OperationsConstants.BulkUpdate,
-                _ => queueType.ToString(),
+                _ => throw new ArgumentOutOfRangeException(nameof(queueType)),
             };
         }
     }

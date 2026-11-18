@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.GetJobStatus;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations
     public class CosmosJobStatusService : IJobStatusService
     {
         /// <inheritdoc />
-        public Task<IReadOnlyList<JobStatusInfo>> GetAllJobStatusAsync(CancellationToken cancellationToken)
+        public Task<IReadOnlyList<JobStatusInfo>> GetAllJobStatusAsync(QueueType? queueType, int count, long? afterGroupId, QueueType? afterQueueType, CancellationToken cancellationToken)
         {
             throw new NotImplementedException(Fhir.Core.Resources.JobStatusNotSupportedForCosmosDb);
         }

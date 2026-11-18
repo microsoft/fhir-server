@@ -26,5 +26,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public BulkUpdateJobConfiguration BulkUpdate { get; set; } = new BulkUpdateJobConfiguration();
 
         public TerminologyConfiguration Terminology { get; set; } = new TerminologyConfiguration();
+
+        /// <summary>
+        /// Gets or sets the job status listing configuration.
+        /// </summary>
+        public JobStatusConfiguration JobStatus { get; set; } = new JobStatusConfiguration();
     }
 }

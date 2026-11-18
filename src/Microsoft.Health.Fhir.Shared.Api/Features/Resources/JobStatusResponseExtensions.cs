@@ -21,8 +21,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
         /// Converts a list of JobStatusInfo to a FHIR Parameters resource.
         /// </summary>
         /// <param name="jobs">The list of job status information.</param>
+        /// <param name="continuationToken">The next-page token, or null for the last page.</param>
         /// <returns>A FHIR Parameters resource as a ResourceElement</returns>
-        public static ResourceElement ToJobStatusResult(this IReadOnlyList<JobStatusInfo> jobs)
+        public static ResourceElement ToJobStatusResult(this IReadOnlyList<JobStatusInfo> jobs, string continuationToken = null)
         {
             var parameters = new Parameters();
 
@@ -73,6 +74,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
                 }
 
                 parameters.Parameter.Add(part);
+            }
+
+            if (continuationToken != null)
+            {
+                parameters.Parameter.Add(new Parameters.ParameterComponent
+                {
+                    Name = "continuationToken",
+                    Value = new FhirString(continuationToken),
+                });
             }
 
             return parameters.ToResourceElement();

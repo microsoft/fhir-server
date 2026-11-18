@@ -80,6 +80,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\DeleteTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Export\ExportTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\HealthTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\JobStatusTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\HistoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\HttpIntegrationTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\HttpIntegrationTestFixture{TStartup}.cs" />

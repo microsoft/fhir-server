@@ -16,14 +16,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.GetJobStatus
         /// Initializes a new instance of the <see cref="GetAllJobStatusResponse"/> class.
         /// </summary>
         /// <param name="jobs">The list of job status information.</param>
-        public GetAllJobStatusResponse(IReadOnlyList<JobStatusInfo> jobs)
+        /// <param name="continuationToken">The token for the next page, or null when there are no more jobs.</param>
+        public GetAllJobStatusResponse(IReadOnlyList<JobStatusInfo> jobs, string continuationToken = null)
         {
             Jobs = jobs;
+            ContinuationToken = continuationToken;
         }
 
         /// <summary>
         /// Gets the list of job status information.
         /// </summary>
         public IReadOnlyList<JobStatusInfo> Jobs { get; }
+
+        /// <summary>
+        /// Gets the token for the next page.
+        /// </summary>
+        public string ContinuationToken { get; }
     }
 }

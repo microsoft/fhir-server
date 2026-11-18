@@ -15,10 +15,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.GetJobStatus
     public interface IJobStatusService
     {
         /// <summary>
-        /// Gets the status information for all async jobs (Export, Import, Reindex, BulkDelete, BulkUpdate).
+        /// Gets a bounded page of async job groups, ordered by group ID and queue type descending.
         /// </summary>
+        /// <param name="queueType">The job queue to filter by, or null for all supported queues.</param>
+        /// <param name="count">The maximum number of groups to retrieve, including a possible lookahead group.</param>
+        /// <param name="afterGroupId">The last group ID of the previous page, or null for the first page.</param>
+        /// <param name="afterQueueType">The last queue type of the previous page, or null for the first page.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A list of job status information.</returns>
-        Task<IReadOnlyList<JobStatusInfo>> GetAllJobStatusAsync(CancellationToken cancellationToken);
+        Task<IReadOnlyList<JobStatusInfo>> GetAllJobStatusAsync(QueueType? queueType, int count, long? afterGroupId, QueueType? afterQueueType, CancellationToken cancellationToken);
     }
 }
