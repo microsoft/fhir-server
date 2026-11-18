@@ -1,5 +1,5 @@
 ---
-applyTo: "src/**/SMART/**,src/**/Features/Security/**,src/**/Features/Context/**,src/**/Features/Conformance/**,src/**/Modules/**,src/**/Configs/**,src/**/roles.json,src/**/appsettings*.json,src/**/Controllers/**,src/**/Features/Filters/**,src/**/Features/KnownHeaders.cs"
+applyTo: "src/**/SMART/**,src/**/Features/Security/**,src/**/Features/Context/**,src/**/Features/Conformance/**,src/**/Modules/**,src/**/Registration/**,src/Microsoft.Health.Fhir.Api.OpenIddict/**,src/**/Configs/**,src/**/roles.json,src/**/appsettings*.json,src/**/Controllers/**,src/**/Features/Filters/**,src/**/Features/KnownHeaders.cs"
 excludeAgent: "cloud-agent"
 ---
 
@@ -25,7 +25,7 @@ These files turn a token into `DataActions` and an `AccessControlContext`, and d
 
 9. **New endpoints.** A new controller action or operation needs authentication, an audit event type, and a `DataActions` check in its handler for the specific operation. A new `[AllowAnonymous]` needs a stated reason and must not return or change resource data.
 10. **New parameters and headers.** A new query parameter or entry in `KnownHeaders` is public input. If it changes validation, consistency, or which code path runs, check that a low-privilege caller cannot use it to skip a control.
-11. **Filters and middleware order.** A change to the pipeline order, or a filter that returns early, must not let a request reach a handler before `AccessControlContext` is populated.
+11. **Filters and middleware order.** A change to the pipeline order in `FhirServerServiceCollectionExtensions`, or a filter that returns early, must not let a request reach a handler before `AccessControlContext` is populated.
 12. **Advertised and enforced must match.** The capability statement and `.well-known/smart-configuration` (`GetSmartConfigurationHandler`) must not advertise a scope or capability the server does not enforce.
 13. **Proxy and redirects.** For `AadSmartOnFhirProxyController`, validate the final decoded redirect destination before forwarding a code or token. Forwarding headers supplied by the caller are untrusted.
 

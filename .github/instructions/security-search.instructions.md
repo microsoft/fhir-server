@@ -1,5 +1,5 @@
 ---
-applyTo: "src/**/Features/Search/**,src/**/Features/Compartment/**,src/**/Features/Definition/**,src/**/Features/Schema/**,src/**/Features/KnownQueryParameterNames.cs"
+applyTo: "src/**/Features/Search/**,src/**/Features/Compartment/**,src/**/Features/Definition/**,src/**/Features/Schema/**,src/**/Features/Queries/**,src/**/Features/Storage/**,src/**/Features/Operations/Everything/**,src/**/Features/Operations/MemberMatch/**,src/**/Features/Resources/Get/**,src/**/Extensions/SearchServiceExtensions.cs,src/**/Features/KnownQueryParameterNames.cs"
 excludeAgent: "cloud-agent"
 ---
 

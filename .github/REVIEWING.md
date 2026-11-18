@@ -7,12 +7,14 @@ The security rules are split so that each review loads a short, specific set:
 | File | Loaded for | Covers |
 |---|---|---|
 | [`fhir-security.instructions.md`](instructions/fhir-security.instructions.md) | Every path (`applyTo: "**"`) | The authorization invariant, ten change patterns to flag, what not to flag, input/output limits, how to write a finding |
-| [`security-search.instructions.md`](instructions/security-search.instructions.md) | Search, compartment, definitions, SQL schema, query parameter names | Alternate execution paths, includes and chaining, paging, history, definitions |
+| [`security-search.instructions.md`](instructions/security-search.instructions.md) | Search, compartment, definitions, SQL schema, Cosmos queries and storage, `$everything`, `$member-match`, resource reads, query parameter names | Alternate execution paths, includes and chaining, paging, history, definitions |
 | [`security-background-operations.instructions.md`](instructions/security-background-operations.instructions.md) | Operations, task hosting, delete, upsert, persistence | Carrying caller restrictions into jobs, job status and results |
 | [`security-bundles-conditional.instructions.md`](instructions/security-bundles-conditional.instructions.md) | Resource handlers, bundles, validation | Bundle admission, conditional lookups, derived writes |
-| [`security-smart-scopes.instructions.md`](instructions/security-smart-scopes.instructions.md) | SMART, security, context, conformance, modules, configuration, controllers, filters | Scope parsing, identity binding, new endpoints and inputs |
+| [`security-smart-scopes.instructions.md`](instructions/security-smart-scopes.instructions.md) | SMART, security, context, conformance, modules, pipeline registration, the development identity provider, configuration, controllers, filters | Scope parsing, identity binding, new endpoints and inputs |
 
 Copilot code review does not follow links between instruction files, so each file is self-contained. Keep each rule short, imperative, and tied to a type or pattern a reviewer can find in a diff. When a path-specific file grows past roughly twenty rules, split it instead of lengthening it.
+
+A file can match more than one selector, and a change loads every file whose selector matches. When code that a rule targets lives outside that rule file's selector, widen the selector instead of copying the rule into another file.
 
 `excludeAgent: "cloud-agent"` excludes these files from GitHub's cloud coding agent, not from code review. It is not a universal control over local clients.
 
