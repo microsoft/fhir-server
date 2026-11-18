@@ -6,6 +6,7 @@ Area-Authorization:
 - changed-files:
   - any-glob-to-any-file:
     - 'src/**/Features/Security/**'
+    - 'src/**/Features/Operations/Security/**'
     - 'src/**/Features/SMART/**'
     - 'src/**/Features/Search/Access/**'
     - 'src/**/Features/Context/AccessControlContext.cs'
