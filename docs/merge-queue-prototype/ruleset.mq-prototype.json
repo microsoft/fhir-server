@@ -1,0 +1,40 @@
+{
+  "name": "mq-prototype merge queue",
+  "target": "branch",
+  "enforcement": "active",
+  "bypass_actors": [],
+  "conditions": { "ref_name": { "include": ["refs/heads/mq-prototype"], "exclude": [] } },
+  "rules": [
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": false,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false,
+        "allowed_merge_methods": ["squash"]
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [{ "context": "PR Build & Deploy" }]
+      }
+    },
+    {
+      "type": "merge_queue",
+      "parameters": {
+        "merge_method": "SQUASH",
+        "max_entries_to_build": 1,
+        "min_entries_to_merge": 1,
+        "max_entries_to_merge": 1,
+        "min_entries_to_merge_wait_minutes": 0,
+        "grouping_strategy": "ALLGREEN",
+        "check_response_timeout_minutes": 120
+      }
+    }
+  ]
+}
