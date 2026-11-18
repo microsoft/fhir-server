@@ -93,6 +93,7 @@ jobs:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download ${{ parameters.version }} E2E tests (Tier 1)'
       continueOnError: ${{ parameters.shadow }}
+      retryCountOnTaskFailure: 2
       inputs:
         buildType: 'current'
         artifactName: 'tier1-${{ parameters.version }}-tests'

@@ -80,6 +80,7 @@ jobs:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download ${{ parameters.version }} integration tests (Tier 1)'
       continueOnError: ${{ parameters.shadow }}
+      retryCountOnTaskFailure: 2
       inputs:
         buildType: 'current'
         artifactName: 'tier1-${{ parameters.version }}-tests'
