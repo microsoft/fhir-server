@@ -14,6 +14,7 @@ resources:
         include:
         - '*'
       # All listed stages must succeed. Wait for SQL cleanup to avoid racing whole-RG deletion.
+      # The Setup stage repeats this list to skip runs that never deployed (the filter alone does not exclude them).
       stages:
       - testStu3Cosmos
       - cleanup_testStu3Sql
@@ -36,6 +37,22 @@ stages:
       demands:
         - ImageOverride -equals $(InternalLinuxImage)
     steps:
+    # Every completed PR Build & Deploy run triggers this pipeline, including tier1 runs that deployed nothing. Their
+    # build number is shared with a concurrent legacy run of the same commit, so cleaning up after them deletes that
+    # run's image. Clean up only when the triggering run succeeded in every stage of the trigger's stage filter.
+    - pwsh: |
+        # Keep in sync with resources.pipelines.prPipeline.trigger.stages above (triggers cannot take parameters).
+        $stages = 'testStu3Cosmos', 'cleanup_testStu3Sql', 'testR4Cosmos', 'cleanup_testR4Sql', 'cleanup_testR5Sql'
+        $shouldCleanup = & '$(Build.SourcesDirectory)/build/scripts/Test-RunHasDeployedStages.ps1' `
+          -RunId $(resources.pipeline.prPipeline.runId) -StageNames $stages
+        $value = if ($shouldCleanup) { 'true' } else { 'false' }
+        Write-Host "ShouldCleanup=$value"
+        Write-Host "##vso[task.setvariable variable=ShouldCleanup;isOutput=true]$value"
+      name: CheckDeployedStages
+      displayName: 'Check the triggering run deployed'
+      env:
+        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
     - powershell: |
         $sourceBranch = "$(resources.pipeline.prPipeline.sourceBranch)"
         $runName = "$(resources.pipeline.prPipeline.runName)"
@@ -82,6 +99,7 @@ stages:
   displayName: 'Cleanup Azure Environment'
   dependsOn:
   - Setup
+  condition: and(succeeded(), eq(dependencies.Setup.outputs['ExtractVariables.CheckDeployedStages.ShouldCleanup'], 'true'))
   variables:
     prName: $[stageDependencies.Setup.ExtractVariables.outputs['SetVariables.prName']]
     ImageTag: $[stageDependencies.Setup.ExtractVariables.outputs['SetVariables.ImageTag']]
