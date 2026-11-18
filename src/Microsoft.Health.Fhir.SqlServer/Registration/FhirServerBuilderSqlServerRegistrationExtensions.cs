@@ -155,7 +155,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsImplementedInterfaces();
 
             services.AddFactory<IScoped<SqlConnectionWrapperFactory>>();
-            services.AddSingleton<SqlPartitionDatabaseResolver>();
+            services.AddSqlPartitionDatabaseSelection();
 
             services.Add<SqlServerFhirModel>()
                 .Singleton()
@@ -275,6 +275,13 @@ namespace Microsoft.Extensions.DependencyInjection
                     }
                 }
             }
+        }
+
+        internal static void AddSqlPartitionDatabaseSelection(this IServiceCollection services)
+        {
+            services.AddHttpContextAccessor();
+            services.AddScoped<SqlRequestDatabase>();
+            services.AddSingleton<SqlPartitionDatabaseResolver>();
         }
     }
 }

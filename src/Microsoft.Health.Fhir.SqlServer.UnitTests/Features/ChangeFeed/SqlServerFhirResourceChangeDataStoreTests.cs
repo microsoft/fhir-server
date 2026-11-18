@@ -12,12 +12,11 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed;
-using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Registration;
+using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
@@ -115,15 +114,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
         public void GivenPartition_WhenPopulatingChangeFeedCommand_ThenSchemaSpecificProcedureUsesPartitionDatabase(int schemaVersion, string procedureName)
         {
             // Arrange
-            var context = Substitute.For<IFhirRequestContext>();
-            context.PartitionId.Returns("partition-a");
-            var configuration = new PartitionConfiguration();
-            configuration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
-            var resolver = new SqlPartitionDatabaseResolver(
-                new FhirRequestContextAccessor { RequestContext = context },
-                new PartitionManager(Options.Create(configuration)),
-                NullLogger<SqlPartitionDatabaseResolver>.Instance);
-            var store = GetResourcChangeDataStoreWithGivenConnectionString(LocalConnectionString, resolver, schemaVersion);
+            using var request = new SqlPartitionTestRequest("partition-a", "database-a");
+            var store = GetResourcChangeDataStoreWithGivenConnectionString(LocalConnectionString, request.Resolver, schemaVersion);
             using var command = new SqlCommand();
             using var wrapper = new SqlCommandWrapper(command);
 
@@ -149,10 +141,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
 
             var schemaInformation = new SchemaInformation(Math.Min(schemaVersion, SchemaVersionConstants.Min), SchemaVersionConstants.Max);
             schemaInformation.Current = schemaVersion;
-            partitionDatabaseResolver ??= new SqlPartitionDatabaseResolver(
-                new FhirRequestContextAccessor(),
-                new PartitionManager(Options.Create(new PartitionConfiguration())),
-                NullLogger<SqlPartitionDatabaseResolver>.Instance);
+            partitionDatabaseResolver ??= SqlPartitionTestRequest.CreateApplicationResolver();
 
             return new SqlServerFhirResourceChangeDataStore(
                 sqlConnectionWrapperFactory,

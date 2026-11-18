@@ -12,6 +12,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Medino;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -27,7 +28,6 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
-using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Registration;
@@ -142,10 +142,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var sqlTransactionHandler = new SqlTransactionHandler();
             var defaultSqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, defaultSqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
-            var partitionDatabaseResolver = new SqlPartitionDatabaseResolver(
-                new Core.Features.Context.FhirRequestContextAccessor(),
-                new PartitionManager(Options.Create(new PartitionConfiguration())),
-                NullLogger<SqlPartitionDatabaseResolver>.Instance);
+            var httpContextAccessor = Substitute.For<IHttpContextAccessor>();
+            httpContextAccessor.HttpContext.Returns((HttpContext)null);
+            var partitionDatabaseResolver = new SqlPartitionDatabaseResolver(httpContextAccessor);
             var sqlRetryService = new SqlRetryService(defaultSqlConnectionBuilder, config, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()), partitionDatabaseResolver);
 
             SqlServerFhirModel sqlServerFhirModel = new SqlServerFhirModel(

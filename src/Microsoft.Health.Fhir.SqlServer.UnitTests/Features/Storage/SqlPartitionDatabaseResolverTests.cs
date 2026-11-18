@@ -5,12 +5,14 @@
 
 using System;
 using System.Data;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
@@ -27,17 +29,31 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
-    public class SqlPartitionDatabaseResolverTests
+    public class SqlPartitionDatabaseResolverTests : IDisposable
     {
         private readonly FhirRequestContextAccessor _accessor = new FhirRequestContextAccessor();
         private readonly SqlPartitionDatabaseResolver _resolver;
+        private readonly ServiceProvider _provider;
+        private readonly IServiceScope _scope;
+        private readonly IHttpContextAccessor _http;
 
         public SqlPartitionDatabaseResolverTests()
         {
             var configuration = new PartitionConfiguration();
             configuration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database.a]" });
             configuration.Partitions.Add(new PartitionInfo { Id = "partition-b", DatabaseName = "database-b" });
-            _resolver = new SqlPartitionDatabaseResolver(_accessor, new PartitionManager(Options.Create(configuration)), NullLogger<SqlPartitionDatabaseResolver>.Instance);
+            _provider = CreateProvider(configuration);
+            _scope = _provider.CreateScope();
+            _http = _provider.GetRequiredService<IHttpContextAccessor>();
+            _resolver = _provider.GetRequiredService<SqlPartitionDatabaseResolver>();
+        }
+
+        public void Dispose()
+        {
+            _http.HttpContext = null;
+            _accessor.RequestContext = null;
+            _scope.Dispose();
+            _provider.Dispose();
         }
 
         [Theory]
@@ -94,28 +110,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             Assert.Equal("EXEC dbo.GetResources", command.Parameters["@Text"].Value);
         }
 
-        [Fact]
-        public void GivenChangingRequestContext_WhenResolvingProcedureNames_ThenNoPartitionStateLeaks()
-        {
-            // Arrange
-            SetPartition("partition-a");
-
-            // Act
-            string first = _resolver.GetStoredProcedureName("dbo.GetResources");
-            SetPartition("partition-b");
-            string second = _resolver.GetStoredProcedureName("dbo.GetResources");
-            _accessor.RequestContext = null;
-            string background = _resolver.GetStoredProcedureName("dbo.GetResources");
-            SetPartition(null);
-            string independent = _resolver.GetStoredProcedureName("dbo.GetResources");
-
-            // Assert
-            Assert.Equal("[database.a]]].[dbo].[GetResources]", first);
-            Assert.Equal("[database-b].[dbo].[GetResources]", second);
-            Assert.Equal("dbo.GetResources", background);
-            Assert.Equal("dbo.GetResources", independent);
-        }
-
         [Theory]
         [InlineData("unknown")]
         [InlineData("")]
@@ -141,6 +135,27 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             await connectionBuilder.DidNotReceiveWithAnyArgs().GetSqlConnectionAsync(default(bool), default(string));
         }
 
+        [Fact]
+        public void GivenSeparateRequestScopes_WhenPreparingCommands_ThenEachScopeKeepsItsOwnDatabaseTarget()
+        {
+            // Arrange: SQL can run before authentication selects a partition.
+            using var secondScope = _provider.CreateScope();
+            SetPartition(null);
+            Assert.Equal("dbo.GetResources", _resolver.GetStoredProcedureName("dbo.GetResources"));
+
+            // Act and assert.
+            SetPartition("partition-a");
+            Assert.Equal("[database.a]]].[dbo].[GetResources]", _resolver.GetStoredProcedureName("dbo.GetResources"));
+            SetPartition("partition-b");
+            Assert.Equal("[database.a]]].[dbo].[MergeResources]", _resolver.GetStoredProcedureName("dbo.MergeResources"));
+
+            _http.HttpContext = new DefaultHttpContext { RequestServices = secondScope.ServiceProvider };
+            Assert.Equal("[database-b].[dbo].[GetResources]", _resolver.GetStoredProcedureName("dbo.GetResources"));
+
+            _http.HttpContext = null;
+            Assert.Equal("dbo.GetResources", _resolver.GetStoredProcedureName("dbo.GetResources"));
+        }
+
         [Theory]
         [InlineData(null)]
         [InlineData("")]
@@ -149,10 +164,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         {
             // Arrange
             SetPartition(partitionId);
-            var resolver = new SqlPartitionDatabaseResolver(
-                _accessor,
-                new PartitionManager(Options.Create(new PartitionConfiguration())),
-                NullLogger<SqlPartitionDatabaseResolver>.Instance);
+            using var provider = CreateProvider(new PartitionConfiguration());
+            using var scope = provider.CreateScope();
+            _http.HttpContext = new DefaultHttpContext { RequestServices = scope.ServiceProvider };
+            var resolver = provider.GetRequiredService<SqlPartitionDatabaseResolver>();
             var builder = Substitute.For<ISqlConnectionBuilder>();
             var stop = new OperationCanceledException("Stop before opening the connection.");
             builder.GetSqlConnectionAsync(Arg.Any<bool>(), Arg.Any<string>()).Returns(Task.FromException<SqlConnection>(stop));
@@ -264,10 +279,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             // Arrange
             SetPartition(partitionId);
             var service = CreateRetryService(Substitute.For<ISqlConnectionBuilder>());
-            var method = typeof(SqlRetryService).GetMethod("CreateEventLogCommand", BindingFlags.Instance | BindingFlags.NonPublic);
 
             // Act
-            using var command = (SqlCommand)method.Invoke(service, new object[] { connectionString });
+            using var command = service.CreateEventLogCommand(connectionString, databaseTarget: null);
 
             // Assert
             Assert.Equal(CommandType.StoredProcedure, command.CommandType);
@@ -284,9 +298,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
         private void SetPartition(string id)
         {
+            _http.HttpContext ??= new DefaultHttpContext { RequestServices = _scope.ServiceProvider };
             var context = Substitute.For<IFhirRequestContext>();
             context.PartitionId.Returns(id);
             _accessor.RequestContext = context;
+        }
+
+        private ServiceProvider CreateProvider(PartitionConfiguration configuration)
+        {
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddSingleton<RequestContextAccessor<IFhirRequestContext>>(_accessor);
+            services.AddSingleton(new PartitionManager(Options.Create(configuration)));
+            services.AddSqlPartitionDatabaseSelection();
+            return services.BuildServiceProvider(validateScopes: true);
         }
     }
 }

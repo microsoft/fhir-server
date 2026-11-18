@@ -4,8 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Data;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -20,7 +22,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             @"^\s*(?<part>" + IdentifierPattern + @")(?:\s*\.\s*(?<part>" + IdentifierPattern + @")){0,2}\s*$",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-        private readonly string _databaseName;
         private readonly string _databasePrefix;
 
         /// <summary>
@@ -28,8 +29,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// </summary>
         public SqlObjectNameFormatter(string databaseName)
         {
-            _databaseName = databaseName;
+            DatabaseName = databaseName;
             _databasePrefix = databaseName == null ? null : QuoteIdentifier(databaseName) + ".";
+        }
+
+        internal static SqlObjectNameFormatter ApplicationDatabase { get; } = new SqlObjectNameFormatter(null);
+
+        internal string DatabaseName { get; }
+
+        internal void PrepareCommand(SqlCommand command)
+        {
+            if (command.CommandType == CommandType.StoredProcedure)
+            {
+#pragma warning disable CA2100 // Only registry database names and parsed, quoted SQL identifiers are emitted.
+                command.CommandText = GetStoredProcedureName(command.CommandText);
+#pragma warning restore CA2100
+            }
         }
 
         /// <summary>
@@ -45,7 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// </summary>
         public string GetStoredProcedureName(string procedureName)
         {
-            if (_databaseName == null)
+            if (DatabaseName == null)
             {
                 return procedureName;
             }
@@ -57,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             var parts = match.Groups["part"].Captures.Select(capture => UnquoteIdentifier(capture.Value)).ToArray();
-            if (parts.Length == 3 && !string.Equals(parts[0], _databaseName, StringComparison.Ordinal))
+            if (parts.Length == 3 && !string.Equals(parts[0], DatabaseName, StringComparison.Ordinal))
             {
                 throw new InvalidOperationException("The stored procedure database does not match the request partition database.");
             }

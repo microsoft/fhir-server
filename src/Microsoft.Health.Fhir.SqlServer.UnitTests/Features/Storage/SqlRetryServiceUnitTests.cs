@@ -10,6 +10,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -46,10 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 CommandTimeout = TimeSpan.FromSeconds(300),
             });
             _coreFeatureConfiguration = Options.Create(new CoreFeatureConfiguration());
-            _partitionDatabaseResolver = new SqlPartitionDatabaseResolver(
-                new FhirRequestContextAccessor(),
-                new PartitionManager(Options.Create(new PartitionConfiguration())),
-                NullLogger<SqlPartitionDatabaseResolver>.Instance);
+            _partitionDatabaseResolver = SqlPartitionTestRequest.CreateApplicationResolver();
         }
 
         [Theory]
@@ -77,8 +75,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             services.AddSingleton(accessor);
             services.AddSingleton(new PartitionManager(Options.Create(configuration)));
             services.AddLogging();
-            services.AddSingleton<SqlPartitionDatabaseResolver>();
-            using var provider = services.BuildServiceProvider();
+            var http = Substitute.For<IHttpContextAccessor>();
+            services.AddSingleton(http);
+            services.AddSqlPartitionDatabaseSelection();
+            using var provider = services.BuildServiceProvider(validateScopes: true);
+            using var scope = provider.CreateScope();
+            http.HttpContext.Returns(new DefaultHttpContext { RequestServices = scope.ServiceProvider });
             var service = ActivatorUtilities.CreateInstance<SqlRetryService>(
                 provider,
                 _sqlConnectionBuilder,

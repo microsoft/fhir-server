@@ -539,6 +539,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             SearchResult searchResult = null;
+            string databaseName = _partitionDatabaseResolver.GetDatabaseName();
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
                 {
@@ -573,7 +574,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 sqlSearchOptions.IsAsyncOperation,
                                 sqlException,
                                 enableChainSourceDeduplication: _fhirSqlServerConfiguration.EnableChainSourceDeduplication,
-                                databaseName: _partitionDatabaseResolver.GetDatabaseName());
+                                databaseName: databaseName);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
                             isSortValueNeeded = queryGenerator.IsSortValueNeeded(clonedSearchOptions);
@@ -2066,6 +2067,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             await CreateStats(expression, cancellationToken);
 
             SearchResult searchResult = null;
+            string databaseName = _partitionDatabaseResolver.GetDatabaseName();
 
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
@@ -2096,7 +2098,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 sqlSearchOptions.IsAsyncOperation,
                                 sqlException,
                                 enableChainSourceDeduplication: _fhirSqlServerConfiguration.EnableChainSourceDeduplication,
-                                databaseName: _partitionDatabaseResolver.GetDatabaseName());
+                                databaseName: databaseName);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 

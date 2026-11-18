@@ -29,7 +29,6 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
-using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
@@ -457,14 +456,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         public async Task GivenPartition_WhenMergingResources_ThenProcedureIsQualifiedBeforeExecution(bool includeSearchParameters, bool enlistInTransaction)
         {
             // Arrange
-            var configuration = new PartitionConfiguration();
-            configuration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
-            var context = Substitute.For<IFhirRequestContext>();
-            context.PartitionId.Returns("partition-a");
-            var resolver = new SqlPartitionDatabaseResolver(
-                new FhirRequestContextAccessor { RequestContext = context },
-                new PartitionManager(Options.Create(configuration)),
-                NullLogger<SqlPartitionDatabaseResolver>.Instance);
+            using var request = new SqlPartitionTestRequest("partition-a", "database-a");
+            var resolver = request.Resolver;
             var retryService = Substitute.For<ISqlRetryService>();
             string procedureName = null;
             retryService.ExecuteSql(
@@ -561,10 +554,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             var sqlServerDataStoreConfiguration = new SqlServerDataStoreConfiguration() { ConnectionString = sqlConnection.ConnectionString };
 
             var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, sqlConnectionBuilder, sqlRetryLogicBaseProvider, Options.Create(sqlServerDataStoreConfiguration));
-            partitionDatabaseResolver ??= new SqlPartitionDatabaseResolver(
-                new FhirRequestContextAccessor(),
-                new PartitionManager(Options.Create(new PartitionConfiguration())),
-                NullLogger<SqlPartitionDatabaseResolver>.Instance);
+            partitionDatabaseResolver ??= SqlPartitionTestRequest.CreateApplicationResolver();
 
             var dataStore = new SqlServerFhirDataStore(
                 model,

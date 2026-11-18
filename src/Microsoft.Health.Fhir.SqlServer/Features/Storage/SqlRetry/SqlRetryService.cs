@@ -252,7 +252,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
             EnsureArg.IsNotNull(action, nameof(action));
             EnsureArg.IsNotNull(logger, nameof(logger));
-            _partitionDatabaseResolver?.PrepareCommand(sqlCommand);
+            var databaseTarget = _partitionDatabaseResolver?.GetTarget() ?? SqlObjectNameFormatter.ApplicationDatabase;
+            databaseTarget.PrepareCommand(sqlCommand);
             if (logMessage == null)
             {
                 logMessage = $"{sqlCommand.CommandText} failed.";
@@ -273,7 +274,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     await action(sqlCommand, cancellationToken);
                     if (retry > 0)
                     {
-                        await TryLogEvent($"SuccessOnRetry:{sqlCommand.CommandText}", "Warn", $"retries={retry} error={lastException}", start, cancellationToken);
+                        await TryLogEvent($"SuccessOnRetry:{sqlCommand.CommandText}", "Warn", $"retries={retry} error={lastException}", start, databaseTarget, cancellationToken);
                     }
 
                     return;
@@ -289,7 +290,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (++retry >= _maxRetries)
                     {
                         logger.LogError(ex, $"Final attempt ({retry}): {logMessage}");
-                        await TryLogEvent($"Retry:{sqlCommand.CommandText}", "Error", $"retries={retry} error={lastException}", start, cancellationToken);
+                        await TryLogEvent($"Retry:{sqlCommand.CommandText}", "Error", $"retries={retry} error={lastException}", start, databaseTarget, cancellationToken);
                         throw;
                     }
 
@@ -398,12 +399,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="text">Message text.</param>
         /// <param name="startDate">Optional start date of the process.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        public Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken) =>
+            TryLogEvent(process, status, text, startDate, databaseTarget: null, cancellationToken);
+
+        private async Task TryLogEvent(string process, string status, string text, DateTime? startDate, SqlObjectNameFormatter databaseTarget, CancellationToken cancellationToken)
         {
             try
             {
                 var connStr = _eventLogHandler.GetEventLogConnectionString(_sqlConnectionBuilder);
-                await using var cmd = CreateEventLogCommand(connStr);
+                await using var cmd = CreateEventLogCommand(connStr, databaseTarget);
 
                 cmd.Parameters.AddWithValue("@Process", process);
                 cmd.Parameters.AddWithValue("@Status", status);
@@ -436,10 +440,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private SqlCommand CreateEventLogCommand(string eventLogConnectionString)
+        internal SqlCommand CreateEventLogCommand(string eventLogConnectionString, SqlObjectNameFormatter databaseTarget)
         {
             string procedureName = eventLogConnectionString == null
-                ? _partitionDatabaseResolver?.GetStoredProcedureName("dbo.LogEvent") ?? "dbo.LogEvent"
+                ? (databaseTarget ?? _partitionDatabaseResolver?.GetTarget() ?? SqlObjectNameFormatter.ApplicationDatabase).GetStoredProcedureName("dbo.LogEvent")
                 : "dbo.LogEvent";
 #pragma warning disable CA2100 // The resolver emits only parsed, safely quoted SQL identifiers.
             return new SqlCommand { CommandType = CommandType.StoredProcedure, CommandText = procedureName };

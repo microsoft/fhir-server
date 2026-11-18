@@ -12,7 +12,6 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -95,28 +94,23 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var key = new ResourceKey("Patient", id);
 
             // Act
-            SelectPartition("alpha");
-            var firstCreate = await store.UpsertAsync(CreatePatient(_application, id, "Alpha"), CancellationToken.None);
-            SelectPartition("beta");
-            var secondCreate = await store.UpsertAsync(CreatePatient(_application, id, "Beta"), CancellationToken.None);
+            var firstCreate = await RunInPartitionAsync("alpha", () => store.UpsertAsync(CreatePatient(_application, id, "Alpha"), CancellationToken.None));
+            var secondCreate = await RunInPartitionAsync("beta", () => store.UpsertAsync(CreatePatient(_application, id, "Beta"), CancellationToken.None));
 
             // Assert
             Assert.Equal(SaveOutcomeType.Created, firstCreate.OutcomeType);
             Assert.Equal(SaveOutcomeType.Created, secondCreate.OutcomeType);
-            AssertPatient(await store.GetAsync(key, CancellationToken.None), id, "Beta", "1");
-            SelectPartition("alpha");
-            AssertPatient(await store.GetAsync(key, CancellationToken.None), id, "Alpha", "1");
+            AssertPatient(await RunInPartitionAsync("beta", () => store.GetAsync(key, CancellationToken.None)), id, "Beta", "1");
+            AssertPatient(await RunInPartitionAsync("alpha", () => store.GetAsync(key, CancellationToken.None)), id, "Alpha", "1");
 
-            var update = await store.UpsertAsync(CreatePatient(_application, id, "AlphaUpdated"), CancellationToken.None);
+            var update = await RunInPartitionAsync("alpha", () => store.UpsertAsync(CreatePatient(_application, id, "AlphaUpdated"), CancellationToken.None));
             Assert.Equal(SaveOutcomeType.Updated, update.OutcomeType);
-            AssertPatient(await store.GetAsync(key, CancellationToken.None), id, "AlphaUpdated", "2");
-            SelectPartition("beta");
-            AssertPatient(await store.GetAsync(key, CancellationToken.None), id, "Beta", "1");
+            AssertPatient(await RunInPartitionAsync("alpha", () => store.GetAsync(key, CancellationToken.None)), id, "AlphaUpdated", "2");
+            AssertPatient(await RunInPartitionAsync("beta", () => store.GetAsync(key, CancellationToken.None)), id, "Beta", "1");
 
             // Verify physical destinations independently of the application's partition resolver.
             AssertPatient(await _firstPartition.SqlServerFhirDataStore.GetAsync(key, CancellationToken.None), id, "AlphaUpdated", "2");
             AssertPatient(await _secondPartition.SqlServerFhirDataStore.GetAsync(key, CancellationToken.None), id, "Beta", "1");
-            SelectPartition(null);
             Assert.Null(await store.GetAsync(key, CancellationToken.None));
         }
 
@@ -138,13 +132,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Act / Assert
             foreach (var (partition, family) in new[] { ("alpha", "Alpha"), ("beta", "Beta"), ("alpha", "Alpha") })
             {
-                SelectPartition(partition);
-                SearchResult result = await searchService.SearchAsync("Patient", query, CancellationToken.None);
+                SearchResult result = await RunInPartitionAsync(partition, () => searchService.SearchAsync("Patient", query, CancellationToken.None));
                 Assert.Empty(result.UnsupportedSearchParameters);
                 AssertPatient(Assert.Single(result.Results).Resource, id, family, "1");
             }
 
-            SelectPartition(null);
             SearchResult defaultResult = await searchService.SearchAsync("Patient", query, CancellationToken.None);
             Assert.Empty(defaultResult.Results);
         }
@@ -179,9 +171,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(family, Assert.Single(patient.Name).Family);
         }
 
-        private void SelectPartition(string partition)
+        private Task<T> RunInPartitionAsync<T>(string partition, Func<Task<T>> operation)
         {
-            _application.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>().RequestContext = new FhirRequestContext(
+            var context = new FhirRequestContext(
                 "GET",
                 "https://localhost/Patient",
                 "https://localhost/",
@@ -192,6 +184,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 PartitionId = partition,
                 Principal = new ClaimsPrincipal(new ClaimsIdentity()),
             };
+            return _application.RunInRequestScopeAsync(context, operation);
         }
     }
 }

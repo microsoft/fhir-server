@@ -10,7 +10,9 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Medino;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -58,7 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public class SqlServerSearchServiceTests
+    public class SqlServerSearchServiceTests : IDisposable
     {
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly IFhirDataStore _fhirDataStore;
@@ -73,6 +75,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         private readonly SqlServerSearchService _searchService;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration = new CoreFeatureConfiguration();
         private readonly PartitionConfiguration _partitionConfiguration = new PartitionConfiguration();
+        private readonly IHttpContextAccessor _httpContextAccessor = Substitute.For<IHttpContextAccessor>();
+        private readonly ServiceProvider _partitionServices;
 
         public SqlServerSearchServiceTests()
         {
@@ -83,6 +87,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             _sqlRetryService = Substitute.For<ISqlRetryService>();
             _compressedRawResourceConverter = Substitute.For<ICompressedRawResourceConverter>();
             _requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            _httpContextAccessor.HttpContext.Returns((HttpContext)null);
+            var services = new ServiceCollection();
+            services.AddSingleton(_requestContextAccessor);
+            services.AddSingleton(_httpContextAccessor);
+            services.AddSingleton(_ => new PartitionManager(Options.Create(_partitionConfiguration)));
+            services.AddLogging();
+            services.AddSqlPartitionDatabaseSelection();
+            _partitionServices = services.BuildServiceProvider(validateScopes: true);
             _queryHashCalculator = Substitute.For<ISqlQueryHashCalculator>();
             _queryPlanReuseChecker = Substitute.For<IQueryPlanReuseChecker>();
 
@@ -413,6 +425,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public async Task GivenRequestPartition_WhenSearchSqlIsGenerated_ThenConfiguredDatabaseIsUsed(string partitionId, string expectedTable, bool includesOperation)
         {
             // Arrange
+            using var scope = BeginRequestScope();
             _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
             _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-b", DatabaseName = "database-b" });
             var context = Substitute.For<IFhirRequestContext>();
@@ -456,6 +469,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public async Task GivenNoConfiguredPartitions_WhenSearchSqlIsGenerated_ThenTwoPartTableNamesAreUsed(string partitionId, bool includesOperation)
         {
             // Arrange
+            using var scope = BeginRequestScope();
             var context = Substitute.For<IFhirRequestContext>();
             context.PartitionId.Returns(partitionId);
             _requestContextAccessor.RequestContext.Returns(context);
@@ -489,6 +503,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public async Task GivenUnknownRequestPartition_WhenSearchSqlIsGenerated_ThenNoDefaultDatabaseQueryIsProduced(bool includesOperation)
         {
             // Arrange
+            using var scope = BeginRequestScope();
             _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
             var context = Substitute.For<IFhirRequestContext>();
             context.PartitionId.Returns("unknown-partition");
@@ -534,6 +549,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 (null, "dbo.Resource"),
             })
             {
+                using var scope = BeginRequestScope();
                 var context = partitionId == null ? null : Substitute.For<IFhirRequestContext>();
                 if (context != null)
                 {
@@ -556,6 +572,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public async Task GivenUnknownPartition_WhenSearchUsesStoredProcedureShortcut_ThenNoDefaultDatabaseCallIsExecuted(bool includesOperation)
         {
             // Arrange
+            using var scope = BeginRequestScope();
             _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
             var context = Substitute.For<IFhirRequestContext>();
             context.PartitionId.Returns("unknown-partition");
@@ -581,10 +598,17 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             _queryHashCalculator.DidNotReceive().CalculateHash(Arg.Any<string>());
         }
 
-        private SqlPartitionDatabaseResolver CreatePartitionDatabaseResolver() => new(
-            _requestContextAccessor,
-            new PartitionManager(Options.Create(_partitionConfiguration)),
-            NullLogger<SqlPartitionDatabaseResolver>.Instance);
+        public void Dispose() => _partitionServices.Dispose();
+
+        private IServiceScope BeginRequestScope()
+        {
+            var scope = _partitionServices.CreateScope();
+            _httpContextAccessor.HttpContext.Returns(new DefaultHttpContext { RequestServices = scope.ServiceProvider });
+            return scope;
+        }
+
+        private SqlPartitionDatabaseResolver CreatePartitionDatabaseResolver() =>
+            _partitionServices.GetRequiredService<SqlPartitionDatabaseResolver>();
 
         private void ExecuteSqlCallbacks()
         {

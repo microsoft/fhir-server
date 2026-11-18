@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Azure.Identity;
 using Medino;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -68,6 +69,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly string _databaseName;
         private readonly PartitionConfiguration _partitionConfiguration;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+        private readonly IHttpContextAccessor _httpContextAccessor = Substitute.For<IHttpContextAccessor>();
+        private ServiceProvider _partitionServices;
 
         private IMediator _mediator;
         private SqlServerFhirDataStore _fhirDataStore;
@@ -187,10 +190,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             SqlTransactionHandler = new SqlTransactionHandler();
             SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, SqlConnectionBuilder, sqlRetryLogicBaseProvider, SqlServerDataStoreConfiguration);
             _fhirRequestContextAccessor.RequestContext.PartitionId.Returns(_ => null);
-            PartitionDatabaseResolver = new SqlPartitionDatabaseResolver(
-                _fhirRequestContextAccessor,
-                new PartitionManager(Options.Create(_partitionConfiguration)),
-                NullLogger<SqlPartitionDatabaseResolver>.Instance);
+            _httpContextAccessor.HttpContext = null;
+            var services = new ServiceCollection();
+            services.AddSingleton(_fhirRequestContextAccessor);
+            services.AddSingleton(_httpContextAccessor);
+            services.AddSingleton(new PartitionManager(Options.Create(_partitionConfiguration)));
+            services.AddLogging();
+            services.AddSqlPartitionDatabaseSelection();
+            _partitionServices = services.BuildServiceProvider(validateScopes: true);
+            PartitionDatabaseResolver = _partitionServices.GetRequiredService<SqlPartitionDatabaseResolver>();
             SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()), PartitionDatabaseResolver);
 
             var sqlServerFhirModel = new SqlServerFhirModel(
@@ -355,7 +363,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async ValueTask DisposeAsync()
         {
+            _partitionServices?.Dispose();
             await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
+        }
+
+        internal async Task<T> RunInRequestScopeAsync<T>(IFhirRequestContext context, Func<Task<T>> operation)
+        {
+            using var scope = _partitionServices.CreateScope();
+            var previousRequest = _fhirRequestContextAccessor.RequestContext;
+            var previousHttp = _httpContextAccessor.HttpContext;
+            try
+            {
+                _fhirRequestContextAccessor.RequestContext = context;
+                _httpContextAccessor.HttpContext = new DefaultHttpContext { RequestServices = scope.ServiceProvider };
+                return await operation();
+            }
+            finally
+            {
+                _httpContextAccessor.HttpContext = previousHttp;
+                _fhirRequestContextAccessor.RequestContext = previousRequest;
+            }
         }
 
         protected SqlConnection GetSqlConnection(string connectionString)
