@@ -1,5 +1,5 @@
 ---
-applyTo: "src/**/Features/Search/**,src/**/Features/Compartment/**,src/**/Features/KnownQueryParameterNames.cs"
+applyTo: "src/**/Features/Search/**,src/**/Features/Compartment/**,src/**/Features/Definition/**,src/**/Features/Schema/**,src/**/Features/KnownQueryParameterNames.cs"
 excludeAgent: "cloud-agent"
 ---
 
@@ -9,7 +9,7 @@ Search is where SMART scope and compartment restrictions become query predicates
 
 ## Execution paths
 
-1. **Alternate paths must keep the filter.** A new stored procedure, query hint, range scan, cache, semantic search, or provider branch must return the same rows the ordinary expression path would allow. Flag any path that runs from `SearchOptions` without the SMART and compartment expressions.
+1. **Alternate paths must keep the filter.** A new stored procedure, query hint, range scan, cache, semantic search, or provider branch that a caller's request can reach must return the same rows the ordinary expression path would allow. Flag any path that runs from `SearchOptions` without the SMART and compartment expressions.
 2. **Internal parameters stay internal.** `SearchOptions.QueryHints` and the surrogate-ID range parameters select an internal path and are only valid when `IsBackgroundTask` is true. A new entry in `KnownQueryParameterNames` must be classed as public or internal. `SearchOptionsFactory` must reject an internal one from an external caller, not ignore it or hide it from the unsupported-parameter list.
 3. **SQL Server and Cosmos DB must agree.** A change to `ExpressionAccessControl`, `SearchOptionsFactory`, `SqlQueryGenerator`, `QueryBuilder`, or `FhirCosmosSearchService` that enforces a restriction needs the matching change, or a stated reason, in the other provider.
 
@@ -25,8 +25,8 @@ Search is where SMART scope and compartment restrictions become query predicates
 
 9. **Continuation tokens are caller input.** `ct` and `includesCt` can be crafted. Each page must apply the current caller's restrictions again. A token must not carry or select authorization.
 10. **History and version reads.** Authorize the versions that are returned. A check on the current version does not cover a historical one.
-11. **Definitions and indexes are policy inputs.** Compartment definitions, search parameter status, and reference indexes decide what a SMART caller can see. When one is disabled, stale, or mid-reindex, the search must refuse or fail closed.
-12. **Lossy matching.** Truncated, case-folded, or approximate index values are candidates. Where the predicate enforces authorization, the final decision must use the exact value.
+11. **Definitions and indexes are policy inputs.** Compartment definitions, search parameter status, and reference indexes decide what a SMART caller can see. When one is disabled, stale, or mid-reindex, a search for a SMART-restricted caller must fail closed. Unrestricted callers are not affected.
+12. **Lossy matching.** Truncated, case-folded, or approximate index values are candidates. Where the predicate enforces authorization, the final decision must use the exact value. Normalization that only affects ordinary search matching is not a finding.
 13. **Existence leaks.** Totals, `next` links, and distinct errors or status codes must not reveal resources the caller cannot read.
 
 ## Tests to ask for

@@ -5,7 +5,7 @@ excludeAgent: "cloud-agent"
 
 # FHIR Security Review: Bulk and Background Operations
 
-Export, import, reindex, bulk delete, and bulk update authorize the caller in a request handler and do the work later in a job. The job runs with `new FhirRequestContext { IsBackgroundTask = true }`, which has no principal and an empty `AccessControlContext`. Any search, delete, or update the job performs is unrestricted unless the code restores the restrictions.
+Export, import, reindex, bulk delete, and bulk update authorize the caller in a request handler and do the work later in a job. The job runs with `new FhirRequestContext { IsBackgroundTask = true }`, which has no principal and an empty `AccessControlContext`. Any search, delete, or update the job performs is unrestricted unless the code restores the restrictions. That is correct for system work such as reindex. It is a defect when the job acts on criteria a restricted caller supplied.
 
 ## Creating the job
 
@@ -24,7 +24,7 @@ Export, import, reindex, bulk delete, and bulk update authorize the caller in a 
 
 ## Status, cancel, and results
 
-10. **A job ID is not a credential.** Status, cancel, and result endpoints must check the caller's permission for that operation and confirm the ID belongs to the expected job type.
+10. **A job ID is not a credential.** Status, cancel, and result endpoints must check the caller's permission for that operation and confirm the ID belongs to the expected job type. Do not require that only the creator can see a job unless the operation's contract says so.
 11. **Result links are credentials.** Issue signed URLs only after authorization, and keep them out of logs.
 12. **Outbound storage.** Import sources and export destinations must be limited to the configured storage account, and checked at connection time.
 

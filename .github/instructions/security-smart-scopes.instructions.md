@@ -1,5 +1,5 @@
 ---
-applyTo: "src/**/SMART/**,src/**/Features/Security/**,src/**/Features/Context/**,src/**/Configs/**,src/**/roles.json,src/**/Controllers/**,src/**/Features/Filters/**,src/**/Features/KnownHeaders.cs"
+applyTo: "src/**/SMART/**,src/**/Features/Security/**,src/**/Features/Context/**,src/**/Features/Conformance/**,src/**/Modules/**,src/**/Configs/**,src/**/roles.json,src/**/appsettings*.json,src/**/Controllers/**,src/**/Features/Filters/**,src/**/Features/KnownHeaders.cs"
 excludeAgent: "cloud-agent"
 ---
 
@@ -17,16 +17,16 @@ These files turn a token into `DataActions` and an `AccessControlContext`, and d
 
 ## Identity
 
-6. **Authentication and authorization are separate.** Check signature, signing keys, issuer, audience, and lifetime validation, and any switch that disables them. `Security.Enabled`, `Authorization.Enabled`, and `EnableSmartWithoutAuth` must not default to a weaker mode.
-7. **Bind `fhirUser` and launch context.** They must resolve to a local resource with the expected service base, type, and ID. A validly signed identity from another service is not a local patient. A missing claim must refuse the request, as `ErrorOnMissingFhirUserClaim` does.
-8. **The authorization services must agree.** A rule added to `SMARTScopeFhirAuthorizationService` or `RoleBasedFhirAuthorizationService` needs a decision for the other. Check what registers `DisabledFhirAuthorizationService` and that an enabled deployment cannot select it.
+6. **Authentication and authorization are separate.** Check signature, signing keys, issuer, audience, and lifetime validation, and any switch that disables them. A change to `Security.Enabled`, `Authorization.Enabled`, or `EnableSmartWithoutAuth`, or to their shipped values in `appsettings.json`, needs a stated reason.
+7. **Bind `fhirUser` and launch context.** Where the scope kind uses them, they must resolve to a local resource with the expected service base, type, and ID. A validly signed identity from another service is not a local patient. A claim the scope kind requires must refuse the request when it is missing, as `ErrorOnMissingFhirUserClaim` does. `system/` scopes skip user binding, and a `patient/` scope with a valid selected-patient claim does not also need `fhirUser`.
+8. **The authorization services must agree.** A rule added to `SMARTScopeFhirAuthorizationService` or `RoleBasedFhirAuthorizationService` needs a decision for the other. `SecurityModule` selects `DisabledFhirAuthorizationService` when security is off. Check that an enabled deployment cannot select it.
 
 ## Request surface
 
 9. **New endpoints.** A new controller action or operation needs authentication, an audit event type, and a `DataActions` check in its handler for the specific operation. A new `[AllowAnonymous]` needs a stated reason and must not return or change resource data.
 10. **New parameters and headers.** A new query parameter or entry in `KnownHeaders` is public input. If it changes validation, consistency, or which code path runs, check that a low-privilege caller cannot use it to skip a control.
 11. **Filters and middleware order.** A change to the pipeline order, or a filter that returns early, must not let a request reach a handler before `AccessControlContext` is populated.
-12. **Advertised and enforced must match.** The capability statement and `.well-known/smart-configuration` must not advertise a scope or capability the server does not enforce.
+12. **Advertised and enforced must match.** The capability statement and `.well-known/smart-configuration` (`GetSmartConfigurationHandler`) must not advertise a scope or capability the server does not enforce.
 13. **Proxy and redirects.** For `AadSmartOnFhirProxyController`, validate the final decoded redirect destination before forwarding a code or token. Forwarding headers supplied by the caller are untrusted.
 
 ## Tests to ask for
