@@ -1,11 +1,18 @@
 # DESCRIPTION: 	
 # Builds, tests, and packages the solution for all PR requests.	
 
-trigger: none
+trigger:
+  branches:
+    include:
+    - gh-readonly-queue/mq-prototype/pr-*
 
 variables:
 - template: pr-variables.yml
 - template: build-variables.yml
+# Merge queue builds have no pull request number: take it from the queue branch name (pr-<number>-<sha>).
+- ${{ if startsWith(variables['Build.SourceBranch'], 'refs/heads/gh-readonly-queue/mq-prototype/pr-') }}:
+  - name: prName
+    value: ${{ split(variables['Build.SourceBranchName'], '-')[1] }}
 
 stages:
 - stage: UpdateVersion

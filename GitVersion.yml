@@ -20,3 +20,8 @@ branches:
   feature:
     regex: ^(personal|dev|feature|auto\-nuget\-update|dependabot)[/-]
     tag: useBranchName
+  merge-queue:
+    regex: ^gh-readonly-queue[/-]
+    tag: mq
+    tag-number-pattern: '[/-]pr-(?<number>\d+)-'
+    source-branches: ['main']

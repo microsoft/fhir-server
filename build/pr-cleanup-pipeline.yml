@@ -45,12 +45,13 @@ stages:
         Write-Host "Run name from triggering pipeline: $runName"
         Write-Host "Run ID from triggering pipeline: $runId"
         
-        # Parse PR number from source branch (expected format: refs/pull/<number>/merge)
-        if ($sourceBranch -match 'refs/pull/(\d+)/merge') {
+        # Parse PR number from source branch (expected formats: refs/pull/<number>/merge for pull requests,
+        # refs/heads/gh-readonly-queue/<base>/pr-<number>-<sha> for merge queue builds)
+        if ($sourceBranch -match 'refs/pull/(\d+)/merge' -or $sourceBranch -match 'refs/heads/gh-readonly-queue/.+/pr-(\d+)-') {
           $prName = $Matches[1]
           Write-Host "Extracted PR number: $prName"
         } else {
-          Write-Error "Failed to parse PR number from source branch: $sourceBranch. Expected format: refs/pull/<number>/merge"
+          Write-Error "Failed to parse PR number from source branch: $sourceBranch. Expected format: refs/pull/<number>/merge or refs/heads/gh-readonly-queue/<base>/pr-<number>-<sha>"
           exit 1
         }
         
