@@ -1,0 +1,126 @@
+# Classifies the PR's validation scope (lean, shared or full; build/scripts/Get-PrValidationScope.ps1 has the rules)
+# and publishes it as output variables of step scope in job ClassifyPr:
+#   ValidationScope         lean | shared | full
+#   ScopeReasons            the rules that matched, '; '-separated (at most 20)
+#   FullRequiresMaintainer  true when the scope is full and the PR comes from a fork
+# Reference them from another stage as dependencies.<stage>.outputs['ClassifyPr.scope.ValidationScope'], or from a job
+# of another stage as stageDependencies.<stage>.ClassifyPr.outputs['scope.ValidationScope'].
+#
+# Fails closed: any failure to read the changed files or the labels gives full, with the reason "fail-closed: <error>".
+# A run that is not a pull request build is full, except that a manual run takes the scopeOverride parameter.
+# Job RequireMaintainer fails the run when a fork PR's scope is full: fork code never reaches the deployed stages.
+#
+# Needs no service connection or secret. PR values (target branch, number) reach the script through env only.
+parameters:
+# auto classifies; lean, shared or full sets the scope, but only when Build.Reason is Manual, so a PR cannot change the
+# pipeline's default to downgrade itself.
+- name: scopeOverride
+  type: string
+  default: 'auto'
+  values:
+  - 'auto'
+  - 'lean'
+  - 'shared'
+  - 'full'
+# Shadow jobs never fail the run.
+- name: shadow
+  type: boolean
+  default: false
+
+jobs:
+- job: ClassifyPr
+  displayName: 'Classify PR validation scope'
+  timeoutInMinutes: 5
+  ${{ if parameters.shadow }}:
+    continueOnError: true
+  pool:
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
+  steps:
+  # The diff against the target branch needs its history (origin/<target>), so this is a full fetch.
+  - checkout: self
+    fetchDepth: 0
+    fetchTags: false
+
+  - pwsh: |
+      $ErrorActionPreference = 'Stop'
+      $isFork = $env:SYSTEM_PULLREQUEST_ISFORK -eq 'True'
+      $override = $env:TIER1_SCOPE_OVERRIDE
+
+      function New-Scope([string] $Scope, [string[]] $Reasons) {
+        [pscustomobject]@{ Scope = $Scope; Reasons = $Reasons; FullRequiresMaintainer = ($Scope -eq 'full' -and $isFork) }
+      }
+
+      try {
+        if ($env:BUILD_REASON -eq 'Manual' -and $override -ne 'auto') {
+          $result = New-Scope $override @("override: tier1Scope=$override (manual run)")
+        }
+        elseif ($env:BUILD_REASON -ne 'PullRequest') {
+          if ($override -ne 'auto') { Write-Host "tier1Scope=$override ignored: only manual runs take an override." }
+          $result = New-Scope 'full' @("not a pull request (Build.Reason=$env:BUILD_REASON)")
+        }
+        else {
+          if ($override -ne 'auto') { Write-Host "tier1Scope=$override ignored: only manual runs take an override." }
+
+          $target = $env:SYSTEM_PULLREQUEST_TARGETBRANCH -replace '^refs/heads/', ''
+          if (-not $target) { throw 'System.PullRequest.TargetBranch is empty' }
+
+          $files = @(git diff --name-only "origin/$target...HEAD")
+          if ($LASTEXITCODE -ne 0) { throw "git diff --name-only origin/$target...HEAD exited with $LASTEXITCODE" }
+          Write-Host "$($files.Count) changed files against origin/$target."
+
+          # Fork PRs cannot take the full matrix from a label, so their labels are not read.
+          $labels = @()
+          if (-not $isFork) {
+            $number = $env:SYSTEM_PULLREQUEST_PULLREQUESTNUMBER
+            if ($number -notmatch '^\d+$') { throw "System.PullRequest.PullRequestNumber '$number' is not a number" }
+            $response = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/fhir-server/issues/$number/labels?per_page=100" `
+              -Headers @{ Accept = 'application/vnd.github+json' } -TimeoutSec 30 -MaximumRetryCount 3 -RetryIntervalSec 5
+            $labels = @($response | ForEach-Object { $_.name })
+            Write-Host "Labels: $($labels -join ', ')"
+          }
+
+          $result = & "$env:BUILD_SOURCESDIRECTORY/build/scripts/Get-PrValidationScope.ps1" `
+            -ChangedFiles $files -Labels $labels -TargetBranch $target -IsFork $isFork
+        }
+      }
+      catch {
+        $result = New-Scope 'full' @("fail-closed: $($_.Exception.Message)")
+      }
+
+      $reasons = @($result.Reasons | ForEach-Object { $_ -replace '[\r\n]+', ' ' })
+      $published = @($reasons | Select-Object -First 20)
+      if ($reasons.Count -gt 20) {
+        $published += "(+$($reasons.Count - 20) more)"
+        Write-Host '##[group]All reasons'
+        $reasons | ForEach-Object { Write-Host $_ }
+        Write-Host '##[endgroup]'
+      }
+      Write-Host "Scope=$($result.Scope) Reasons=$($published -join '; ')"
+      $frm = "$($result.FullRequiresMaintainer)".ToLowerInvariant()
+      Write-Host "##vso[task.setvariable variable=ValidationScope;isOutput=true]$($result.Scope)"
+      Write-Host "##vso[task.setvariable variable=ScopeReasons;isOutput=true]$($published -join '; ')"
+      Write-Host "##vso[task.setvariable variable=FullRequiresMaintainer;isOutput=true]$frm"
+    name: scope
+    displayName: 'Classify validation scope'
+    env:
+      TIER1_SCOPE_OVERRIDE: ${{ parameters.scopeOverride }}
+
+- job: RequireMaintainer
+  displayName: 'Fork PR needs a maintainer for the full matrix'
+  dependsOn: ClassifyPr
+  condition: and(succeeded(), eq(dependencies.ClassifyPr.outputs['scope.FullRequiresMaintainer'], 'true'))
+  timeoutInMinutes: 5
+  ${{ if parameters.shadow }}:
+    continueOnError: true
+  pool:
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
+  steps:
+  - checkout: none
+  - pwsh: |
+      Write-Host "##vso[task.logissue type=error]This fork PR changes paths that need the full Azure matrix. A maintainer must push the reviewed SHA to a branch in microsoft/fhir-server and run it there (ADR-2611, Tier 2)."
+      exit 1
+    displayName: 'Require a maintainer'

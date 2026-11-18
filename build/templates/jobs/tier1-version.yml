@@ -1,0 +1,44 @@
+# The Tier 1 test jobs of one FHIR version (stages/tier1.yml): build its E2E and integration test projects once
+# (jobs/tier1-build.yml), then run its SQL E2E shards against an in-process server and its SQL integration shards, with
+# SQL Server and Azurite in containers on the agent. The test legs do not depend on the build job: they claim agents
+# at once and wait for its artifact.
+parameters:
+- name: version
+  type: string
+- name: shadow
+  type: boolean
+  default: false
+# Shard indexes of build/test-shards/sql-e2e.json; must list every shard of the manifest.
+- name: shards
+  type: object
+# E2E legs of the version that run at the same time.
+- name: maxParallel
+  type: number
+# Trait filters of the E2E shards; keep them equal to the traitArgs of the shard lint (stages/container-tests.yml).
+- name: e2eTraitArgs
+  type: object
+
+jobs:
+- template: tier1-build.yml
+  parameters:
+    version: ${{ parameters.version }}
+    shadow: ${{ parameters.shadow }}
+
+- template: e2e-inproc-shard.yml
+  parameters:
+    version: ${{ parameters.version }}
+    shards: ${{ parameters.shards }}
+    manifest: sql-e2e.json
+    traitArgs: ${{ parameters.e2eTraitArgs }}
+    shadow: ${{ parameters.shadow }}
+    maxParallel: ${{ parameters.maxParallel }}
+    artifactSource: tier1
+
+# Two legs, one per shard of build/test-shards/sql-integration.json, each with its own SQL Server.
+- template: sql-integration-container.yml
+  parameters:
+    version: ${{ parameters.version }}
+    shadow: ${{ parameters.shadow }}
+    shards: [0, 1]
+    manifest: sql-integration.json
+    artifactSource: tier1

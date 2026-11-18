@@ -1,17 +1,26 @@
 # Tier 1 of PR validation (docs/arch/adr-2611-tiered-pr-validation.md): each FHIR version's E2E and integration test projects are built once
 # (jobs/tier1-build.yml), then its SQL E2E tests run against an in-process server and its SQL integration tests run
 # directly, in sharded jobs with SQL Server and Azurite in containers on the agent. Needs no service connection, Key
-# Vault or secret, and depends on no other stage. Included by pr-pipeline.yml when validationMode is not legacy.
+# Vault or secret. Included by pr-pipeline.yml when validationMode is not legacy.
+#
+# Stages:
+#   Classify          classifies the PR's validation scope (jobs/classify-pr.yml); depends on nothing.
+#   Tier1Tests        R4, the source scanners and the R4 image smoke; depends on nothing, so the lean path never waits
+#                     for the classifier.
+#   Tier1TestsStu3R5  Stu3 and R5, when the scope is shared or full. A separate stage because its condition needs the
+#                     Classify output, and a stage can read another stage's output only by depending on it: in
+#                     Tier1Tests that dependency would delay the R4 legs.
 parameters:
 # Shadow: no job fails the run (jobs and steps continue on error) and test runs are named "[shadow] ...".
 - name: shadow
   type: boolean
   default: false
-# lean runs R4 only; shared and full also run Stu3 and R5.
-- name: scope
+# Scope of a manual run (jobs/classify-pr.yml): auto classifies the PR.
+- name: scopeOverride
   type: string
-  default: 'lean'
+  default: 'auto'
   values:
+  - 'auto'
   - 'lean'
   - 'shared'
   - 'full'
@@ -27,12 +36,21 @@ parameters:
 - name: e2eTraitArgs
   type: object
   default: ['--filter-trait', 'DataStore=SqlServer', '--filter-not-trait', 'Category=ExportLongRunning']
-# Candidate versions, in run order; scope lean keeps only R4.
-- name: versions
+# Versions that run only when the scope is shared or full, in run order.
+- name: sharedVersions
   type: object
-  default: [R4, Stu3, R5]
+  default: [Stu3, R5]
 
 stages:
+- stage: Classify
+  displayName: 'Classify PR validation scope'
+  dependsOn: []
+  jobs:
+  - template: ../jobs/classify-pr.yml
+    parameters:
+      scopeOverride: ${{ parameters.scopeOverride }}
+      shadow: ${{ parameters.shadow }}
+
 - stage: Tier1Tests
   displayName: 'Tier 1 tests (build once, SQL Server and Azurite containers)'
   dependsOn: []
@@ -46,28 +64,26 @@ stages:
     parameters:
       shadow: ${{ parameters.shadow }}
 
-  - ${{ each version in parameters.versions }}:
-    - ${{ if or(eq(version, 'R4'), ne(parameters.scope, 'lean')) }}:
-      - template: ../jobs/tier1-build.yml
-        parameters:
-          version: ${{ version }}
-          shadow: ${{ parameters.shadow }}
+  - template: ../jobs/tier1-version.yml
+    parameters:
+      version: R4
+      shadow: ${{ parameters.shadow }}
+      shards: ${{ parameters.shards }}
+      maxParallel: ${{ parameters.maxParallel }}
+      e2eTraitArgs: ${{ parameters.e2eTraitArgs }}
 
-      - template: ../jobs/e2e-inproc-shard.yml
-        parameters:
-          version: ${{ version }}
-          shards: ${{ parameters.shards }}
-          manifest: sql-e2e.json
-          traitArgs: ${{ parameters.e2eTraitArgs }}
-          shadow: ${{ parameters.shadow }}
-          maxParallel: ${{ parameters.maxParallel }}
-          artifactSource: tier1
-
-      # Two legs, one per shard of build/test-shards/sql-integration.json, each with its own SQL Server.
-      - template: ../jobs/sql-integration-container.yml
-        parameters:
-          version: ${{ version }}
-          shadow: ${{ parameters.shadow }}
-          shards: [0, 1]
-          manifest: sql-integration.json
-          artifactSource: tier1
+# not(canceled()) rather than succeeded(): a fork PR whose scope is full fails Classify (job RequireMaintainer), and
+# fork PRs still run all of Tier 1. A failed classifier sets no scope, so the stage is skipped (and the run fails).
+- stage: Tier1TestsStu3R5
+  displayName: 'Tier 1 tests, Stu3 and R5 (shared and full scope)'
+  dependsOn: Classify
+  condition: and(not(canceled()), in(dependencies.Classify.outputs['ClassifyPr.scope.ValidationScope'], 'shared', 'full'))
+  jobs:
+  - ${{ each version in parameters.sharedVersions }}:
+    - template: ../jobs/tier1-version.yml
+      parameters:
+        version: ${{ version }}
+        shadow: ${{ parameters.shadow }}
+        shards: ${{ parameters.shards }}
+        maxParallel: ${{ parameters.maxParallel }}
+        e2eTraitArgs: ${{ parameters.e2eTraitArgs }}
