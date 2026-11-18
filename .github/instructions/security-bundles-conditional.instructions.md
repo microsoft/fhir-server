@@ -1,5 +1,5 @@
 ---
-applyTo: "src/**/Features/Resources/**,src/**/Bundle/**,src/**/Features/Validation/**"
+applyTo: "src/**/Features/Resources/**,src/**/Bundle/**,src/**/Features/Validation/**,src/**/Features/Security/Authorization/**"
 excludeAgent: "cloud-agent"
 ---
 

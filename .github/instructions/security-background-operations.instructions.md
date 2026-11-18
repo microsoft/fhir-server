@@ -1,5 +1,5 @@
 ---
-applyTo: "src/**/Features/Operations/**,src/Microsoft.Health.TaskManagement/**,src/**/Features/Resources/Delete/**,src/**/Features/Resources/Upsert/**,src/**/Features/Persistence/**"
+applyTo: "src/**/Features/Operations/**,src/Microsoft.Health.TaskManagement/**,src/Microsoft.Health.Fhir.Azure/**,src/**/Features/Resources/Delete/**,src/**/Features/Resources/Upsert/**,src/**/Features/Persistence/**"
 excludeAgent: "cloud-agent"
 ---
 
