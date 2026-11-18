@@ -1,5 +1,5 @@
 ---
-applyTo: "src/**/Features/Resources/**,src/**/Bundle/**,src/**/Features/Validation/**,src/**/Features/Security/Authorization/**"
+applyTo: "src/**/Features/Resources/**,src/**/Bundle/**,src/**/Features/Validation/**,src/**/Features/Security/Authorization/**,src/**/Extensions/SearchServiceExtensions.cs"
 excludeAgent: "cloud-agent"
 ---
 
