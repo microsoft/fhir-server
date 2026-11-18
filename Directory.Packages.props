@@ -39,7 +39,7 @@
     <!--Please include the CGA id if possible-->
     <PackageVersion Include="Medino.Extensions.DependencyInjection" Version="3.0.9" />
     <!-- GHSA-73j8-2gch-69rq, pulled in transitively via OpenIddict.Abstractions -> Microsoft.IdentityModel.Tokens -->
-    <PackageVersion Include="Microsoft.Bcl.Memory" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Bcl.Memory" Version="10.0.15" />
     <!-- GHSA-g94r-2vxg-569j, pulled in transitively via Azure.Monitor.OpenTelemetry.AspNetCore. Kept on the same
          version as the other OpenTelemetry core packages; see OpenTelemetryPackageVersion. -->
     <PackageVersion Include="OpenTelemetry.Api" Version="$(OpenTelemetryPackageVersion)" />
@@ -139,13 +139,13 @@
     <PackageVersion Include="Microsoft.Identity.Web" Version="4.18.0" />
     <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="4.0.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.403" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.404" />
     <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="170.5.96" />
     <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="172.87.0" />
     <PackageVersion Include="Newtonsoft.Json.Schema" Version="4.0.2" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.15" />
     <PackageVersion Include="OpenIddict.Abstractions" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="OpenIddict.AspNetCore" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="$(OpenIddictPackageVersion)" />
@@ -162,7 +162,7 @@
     <PackageVersion Include="prometheus-net.SystemMetrics" Version="3.1.0" />
     <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
     <PackageVersion Include="System.Collections.Immutable" Version="$(DotNetSdkPackageVersion)" />
-    <PackageVersion Include="System.CommandLine" Version="2.0.14" />
+    <PackageVersion Include="System.CommandLine" Version="2.0.15" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
     <PackageVersion Include="System.Configuration.ConfigurationManager" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="System.Diagnostics.PerformanceCounter" Version="$(DotNetSdkPackageVersion)" />
@@ -174,7 +174,7 @@
     <PackageVersion Include="xunit.v3.mtp-v2" Version="4.0.2" />
     <PackageVersion Include="xunit.v3.assert" Version="4.0.2" />
     <PackageVersion Include="xunit.v3.extensibility.core" Version="4.0.2" />
-    <PackageVersion Include="System.Drawing.Common" Version="10.0.14" />
+    <PackageVersion Include="System.Drawing.Common" Version="10.0.15" />
     <PackageVersion Include="Moq" Version="4.21.0" />
     <PackageVersion Include="System.Text.RegularExpressions" Version="4.3.1" />
   </ItemGroup>
