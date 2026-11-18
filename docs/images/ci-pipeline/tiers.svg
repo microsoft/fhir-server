@@ -23,7 +23,7 @@
 <text x='274.0' y='123' font-size='11' fill='#1f2328'>• ACA, AAD, MI, Key Vault</text>
 <text x='274.0' y='144' font-size='11' fill='#1f2328'>• Azure SQL + Cosmos</text>
 <text x='274.0' y='165' font-size='11' fill='#1f2328'>Requested by:</text>
-<text x='284.0' y='186' font-size='11' fill='#59636e'>full-matrix label</text>
+<text x='284.0' y='186' font-size='11' fill='#59636e'>Full-Test-Matrix label</text>
 <text x='284.0' y='207' font-size='11' fill='#59636e'>fullDeployment parameter</text>
 <text x='284.0' y='228' font-size='11' fill='#59636e'>PRs into release/hotfix</text>
 <text x='274.0' y='249' font-size='11' fill='#1f2328'>• Runs in addition to Tier 1</text>

@@ -1,7 +1,15 @@
 # DESCRIPTION: 	
 # Builds, tests, and packages the solution for all PR requests.	
 
-trigger: none
+# Merge-queue readiness (docs/ci/full-test-matrix.md): GitHub pushes gh-readonly-queue/main/pr-<n>-<sha> only while a
+# merge-queue rule protects main, and none does, so this adds no runs. Definition 9 also overrides the YAML CI trigger
+# in its settings (no continuous integration trigger), which keeps this inert until an admin turns that override off.
+# No path filters and no batching: every queue entry must report the "PR Build & Deploy" check.
+trigger:
+  batch: false
+  branches:
+    include:
+    - gh-readonly-queue/main/*
 
 parameters:
 # Adds shadow stages that run tests against containers on the agent (build/templates/stages/container-tests.yml).
@@ -36,6 +44,19 @@ parameters:
 variables:
 - template: pr-variables.yml
 - template: build-variables.yml
+# prName, the PR number in the resource group, test environment and cleanup names, comes from definition variable
+# PrName = $(System.PullRequest.PullRequestNumber), which is empty outside a PR build. Two other runs carry the PR
+# number in their branch, and take it from there (a YAML variable overrides the definition variable):
+#   a manual run of a PR's merge ref, refs/pull/<n>/merge;
+#   a merge-queue run, refs/heads/gh-readonly-queue/<base>/pr-<n>-<sha>. Template expressions have no regex, so <base>
+#   must be one path segment (main, or a pilot branch such as mq-pilot), as in the trigger above.
+# PR runs and any other branch keep the definition variable.
+- ${{ if and(ne(variables['Build.Reason'], 'PullRequest'), startsWith(variables['Build.SourceBranch'], 'refs/pull/'), endsWith(variables['Build.SourceBranch'], '/merge')) }}:
+  - name: prName
+    value: ${{ split(variables['Build.SourceBranch'], '/')[2] }}
+- ${{ if and(startsWith(variables['Build.SourceBranch'], 'refs/heads/gh-readonly-queue/'), startsWith(split(variables['Build.SourceBranch'], '/')[4], 'pr-')) }}:
+  - name: prName
+    value: ${{ split(split(variables['Build.SourceBranch'], '/')[4], '-')[1] }}
 
 stages:
 - stage: UpdateVersion

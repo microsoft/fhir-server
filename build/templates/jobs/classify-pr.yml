@@ -8,7 +8,9 @@
 #
 # Fails closed: any failure to read the changed files gives full, with the reason "fail-closed: <error>". A failure to
 # read the labels does not (ruling R16): the PR is classified by its paths and a warning says how to request full.
-# A run that is not a pull request build is full, except that a manual run takes the scopeOverride parameter.
+# A run that is not a pull request build is full, except that a manual run takes the scopeOverride parameter. A
+# merge-queue run (refs/heads/gh-readonly-queue/...) is full by the classifier's rule, and needs a maintainer when the
+# queued PR comes from a fork or its origin cannot be read from the GitHub API.
 # Job RequireMaintainer fails the run when a fork PR's scope is full, routing fork PRs away from the deployed stages.
 # This is routing, not a security boundary: the PR supplies this file and can edit it. The approval check on the
 # privileged service connection is the gate (ADR-2611).
@@ -48,7 +50,9 @@ jobs:
 
   - pwsh: |
       $ErrorActionPreference = 'Stop'
-      $isFork = $env:SYSTEM_PULLREQUEST_ISFORK -eq 'True'
+      $isPullRequest = $env:BUILD_REASON -eq 'PullRequest'
+      # System.PullRequest.* is read only in a PR run.
+      $isFork = $isPullRequest -and $env:SYSTEM_PULLREQUEST_ISFORK -eq 'True'
       $override = $env:TIER1_SCOPE_OVERRIDE
 
       function New-Scope([string] $Scope, [string[]] $Reasons) {
@@ -59,9 +63,38 @@ jobs:
         if ($env:BUILD_REASON -eq 'Manual' -and $override -ne 'auto') {
           $result = New-Scope $override @("override: tier1Scope=$override (manual run)")
         }
-        elseif ($env:BUILD_REASON -ne 'PullRequest') {
+        elseif (-not $isPullRequest) {
           if ($override -ne 'auto') { Write-Host "tier1Scope=$override ignored: only manual runs take an override." }
-          $result = New-Scope 'full' @("not a pull request (Build.Reason=$env:BUILD_REASON)")
+
+          # A merge-queue run (gh-readonly-queue/<base>/pr-<n>-<sha>) is a CI build of this repository, so ADO's fork
+          # protection does not cover it. A queued fork PR, or one whose origin cannot be read, needs a maintainer,
+          # which routes the run away from the deployed stages. Routing only: the queue branch carries the PR's own
+          # build/ files; the approval check on the privileged service connection is the gate
+          # (docs/ci/full-test-matrix.md).
+          if ($env:BUILD_SOURCEBRANCH -match '^refs/heads/gh-readonly-queue/.+/pr-(\d+)-[0-9a-f]+$') {
+            $number = $Matches[1]
+            try {
+              $pr = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/fhir-server/pulls/$number" `
+                -Headers @{ Accept = 'application/vnd.github+json' } -TimeoutSec 30 -MaximumRetryCount 3 -RetryIntervalSec 5
+              $isFork = $pr.head.repo.full_name -ne 'microsoft/fhir-server'
+              Write-Host "Queued PR #$number head repository: $($pr.head.repo.full_name)"
+            }
+            catch {
+              $isFork = $true
+              Write-Host "##vso[task.logissue type=warning]Could not read PR #$number, so it is treated as a fork PR: $($_.Exception.Message -replace '[\r\n]+', ' ')"
+            }
+          }
+
+          # No PR: no target branch to diff against and no labels. The classifier makes a merge-queue branch full; any
+          # other run that is not a pull request is full too, failing closed.
+          $files = @(git -c core.quotePath=false diff --no-renames --name-only HEAD~1...HEAD)
+          if ($LASTEXITCODE -ne 0) { throw "git diff --no-renames --name-only HEAD~1...HEAD exited with $LASTEXITCODE" }
+          Write-Host "$($files.Count) files changed by the last commit."
+          $result = & "$env:BUILD_SOURCESDIRECTORY/build/scripts/Get-PrValidationScope.ps1" `
+            -ChangedFiles $files -SourceBranch $env:BUILD_SOURCEBRANCH -IsFork $isFork
+          if ($result.Scope -ne 'full') {
+            $result = New-Scope 'full' @("not a pull request (Build.Reason=$env:BUILD_REASON)")
+          }
         }
         else {
           if ($override -ne 'auto') { Write-Host "tier1Scope=$override ignored: only manual runs take an override." }
@@ -147,6 +180,6 @@ jobs:
   steps:
   - checkout: none
   - pwsh: |
-      Write-Host "##vso[task.logissue type=error]This fork PR changes paths that need the full Azure matrix. A maintainer must push the reviewed SHA to a branch in microsoft/fhir-server and run it there (ADR-2611, Tier 2)."
+      Write-Host "##vso[task.logissue type=error]This fork PR needs the full Azure matrix (its changed paths, or a merge-queue run). A maintainer must push the reviewed SHA to a branch in microsoft/fhir-server and run it there (ADR-2611, Tier 2)."
       exit 1
     displayName: 'Require a maintainer'

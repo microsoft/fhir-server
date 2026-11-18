@@ -5,8 +5,8 @@
 .DESCRIPTION
     Manual tool, not run by Pester. Each first-parent commit of -Branch since -Since is treated as one merged PR
     (squash merges): its changed files are `git diff --no-renames --name-only <commit>^1 <commit>`, as in classify-pr.yml. Labels are not known for
-    past PRs, so the full-matrix label never counts; the target branch is main. Prints the scope distribution and the
-    paths that most often made a commit full.
+    past PRs, so the Full-Test-Matrix label never counts; the target branch is main. Prints the scope distribution and
+    the paths that most often made a commit full.
 
 .EXAMPLE
     git fetch origin main

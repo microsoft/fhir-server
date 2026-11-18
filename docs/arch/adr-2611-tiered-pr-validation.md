@@ -155,9 +155,9 @@ The realistic expectation is a p50 of 19–22 minutes. The p90 will be higher, d
 
 **The pipeline YAML comes from the PR, so the classifier is not a security boundary.** A PR author can edit it. The privileged service connection therefore carries an ADO approval check, and that per-run approval is the actual grant.
 
-- **What a PR can request.** The run requests Tier 2 when the PR has the `full-matrix` label, when it was queued manually with `fullDeployment`, or when it targets `release/*` or `hotfix/*`. Same-repository source branches with those names also count; fork branch names never do. Detection requires `System.PullRequest.IsFork == False`, and branch names reach scripts through `env` only.
+- **What a PR can request.** The run requests Tier 2 when the PR has the `Full-Test-Matrix` label, when it was queued manually with `fullDeployment`, or when it targets `release/*` or `hotfix/*`. Same-repository source branches with those names also count; fork branch names never do. Detection requires `System.PullRequest.IsFork == False`, and branch names reach scripts through `env` only.
 - **Who approves.** A maintainer approves the specific run after reviewing the commit being run. A label applied for an earlier commit does not carry approval forward.
-- **Automatic labels.** The base-branch `validate-prs.yml` labeler applies `full-matrix` when a PR changes any of these paths. This is the canonical list.
+- **Automatic labels.** The base-branch `validate-prs.yml` labeler applies `Full-Test-Matrix` when a PR changes any of these paths. This is the canonical list.
   - `src/**` or `test/**` projects whose name contains `Cosmos`, including Cosmos client and collection setup;
   - version-specific projects, `src/*.{Stu3,R4B,R5}.*` and `test/*.{Stu3,R4B,R5}.*`;
   - `build/**`;
@@ -191,7 +191,7 @@ The classifier **fails closed** for honest failures: if labels cannot be read co
 
 - **Parity.** In-proc-only failures in authentication, SMART or authorization tests are **fixed**, not tracked; the 403/401 differences are among them. The remaining in-proc-only failures are fixed or tracked. Every test skipped in-proc is covered by Tier 2 or Tier 3: ConvertData and ACR anonymization are known skips, and OpenIddict replaces AAD.
 - **Shadow period.** Tier 1 has run as a non-required pipeline on Linux agents, with fan-out bounded so it does not disrupt shared-pool users. Its first-attempt pass rate is at least today's, its rerun rate is below 3%, and its measured p50 is under 20 minutes, including startup and queueing.
-- **Path classifier.** The `full-matrix` and `*.Shared.*` triggers are in place, and each has been verified against replayed merges.
+- **Path classifier.** The `Full-Test-Matrix` and `*.Shared.*` triggers are in place, and each has been verified against replayed merges.
 - **Revert-first.** The definition 27 failure alert and the revert-first rule are agreed by the team.
 - **Approvals in place.** The ADO approval check exists on the privileged service connection.
 - **Bisect.** The bisect runbook has been exercised once.

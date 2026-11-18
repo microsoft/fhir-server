@@ -19,13 +19,13 @@ steps:
         return
       }
 
-      $pattern = "$resourceGroupRoot-$prNumber*"
+      $pattern = "$resourceGroupRoot-$prNumber, $resourceGroupRoot-$prNumber-*"
       
       Write-Host "Looking for old resource groups matching pattern: $pattern"
       Write-Host "Excluding current RG: $currentRgName"
       
       $oldRGs = Get-AzResourceGroup | Where-Object { 
-        $_.ResourceGroupName -like $pattern -and 
+        (& "$(System.DefaultWorkingDirectory)/build/scripts/Test-PrResourceGroupName.ps1" -Name $_.ResourceGroupName -ResourceGroupRoot $resourceGroupRoot -PrNumber $prNumber) -and 
         $_.ResourceGroupName -ne $currentRgName
       }
       

@@ -1,3 +1,28 @@
 SQL Scripts:
 - changed-files:
   - any-glob-to-any-file: 'src/Microsoft.Health.Fhir.SqlServer/Features/Schema/SchemaVersionConstants.cs'
+
+# Paths that need the full Azure matrix (ADR-2611). The PR run classifies its own paths at run time
+# (build/scripts/Get-PrValidationScope.ps1); this label makes that visible on the PR and is how a maintainer requests the
+# full matrix for other paths (docs/ci/full-test-matrix.md). Keep these globs equal to the classifier's full path rules:
+# build/scripts/tests/Labeler.Tests.ps1 checks that they agree. Directory.Packages.props is not listed: whether it is
+# full depends on which packages change, which only the classifier reads.
+Full-Test-Matrix:
+- changed-files:
+  - any-glob-to-any-file:
+    - 'src/*Cosmos*/**'
+    - 'test/*Cosmos*/**'
+    - 'src/*.Stu3.*/**'
+    - 'src/*.R4B.*/**'
+    - 'src/*.R5.*/**'
+    - 'test/*.Stu3.*/**'
+    - 'test/*.R4B.*/**'
+    - 'test/*.R5.*/**'
+    - 'build/**'
+    - 'samples/templates/**'
+    - 'src/**/Security/**'
+    - 'src/Microsoft.Health.Fhir.Api.OpenIddict/**'
+    - 'Directory.Build.props'
+    - 'Directory.Build.targets'
+    - 'global.json'
+    - 'nuget.config'

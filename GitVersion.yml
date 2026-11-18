@@ -20,3 +20,11 @@ branches:
   feature:
     regex: ^(personal|dev|feature|auto\-nuget\-update|dependabot)[/-]
     tag: useBranchName
+  # GitHub merge-queue branches, gh-readonly-queue/<base>/pr-<n>-<sha> (docs/ci/full-test-matrix.md). Without this
+  # entry the version takes the whole branch name, so every PR's queue run would get the same build number (the image
+  # tag and Key Vault names). This versions it like the PR's own run: <version>-pr<n>.<count>.
+  merge-queue:
+    regex: ^gh-readonly-queue[/-]
+    tag: pr
+    tag-number-pattern: '[/-]pr-(?<number>\d+)-'
+    source-branches: ['main']

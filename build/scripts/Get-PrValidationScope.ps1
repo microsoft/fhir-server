@@ -9,9 +9,10 @@
       full    any changed path is in a src/ or test/ project whose directory name contains Cosmos, or is a Stu3, R4B
               or R5 project (src/*.Stu3.*, src/*.R4B.*, src/*.R5.*, same under test/), or is under build/ or
               samples/templates/, or is an authentication path (src/**/Security/**,
-              src/Microsoft.Health.Fhir.Api.OpenIddict/**); or the PR has the full-matrix label; or it targets
-              release/* or hotfix/*. (The ADR's ACA and Key Vault rules, build/**/*keyvault* and build/**/*aca*,
-              are inside build/ and samples/templates/, so the rules above already cover them.) Also full: the
+              src/Microsoft.Health.Fhir.Api.OpenIddict/**); or the PR has the Full-Test-Matrix label; or it targets
+              release/* or hotfix/*; or the run is on a GitHub merge-queue branch (refs/heads/gh-readonly-queue/...),
+              which validates the merge before it lands. (The ADR's ACA and Key Vault rules, build/**/*keyvault* and
+              build/**/*aca*, are inside build/ and samples/templates/, so the rules above already cover them.) Also full: the
               repository-root build inputs Directory.Build.props, Directory.Build.targets, global.json and
               nuget.config, which change every project's build (ruling R15; a nested one follows its project's
               rule).
@@ -39,6 +40,10 @@
 
 .PARAMETER TargetBranch
     The PR's target branch, with or without refs/heads/.
+
+.PARAMETER SourceBranch
+    The run's source branch (Build.SourceBranch). A merge-queue branch, refs/heads/gh-readonly-queue/<base>/pr-<n>-<sha>,
+    is full regardless of the files. Empty for a PR run classified by its files alone.
 
 .PARAMETER IsFork
     Whether the PR comes from a fork. A fork whose scope is full needs a maintainer, which routes it away from the
@@ -75,6 +80,8 @@ param(
     [string[]] $Labels = @(),
 
     [string] $TargetBranch = '',
+
+    [string] $SourceBranch = '',
 
     [bool] $IsFork = $false,
 
@@ -128,14 +135,18 @@ if ($files.Count -eq 0) {
 
 $warnings = [System.Collections.Generic.List[string]]::new()
 if ($LabelsUnavailableReason) {
-    $warnings.Add("Could not read PR labels ($LabelsUnavailableReason); classifying by paths only. Add the full-matrix label and re-run, or queue with tier1Scope=full.")
+    $warnings.Add("Could not read PR labels ($LabelsUnavailableReason); classifying by paths only. Add the Full-Test-Matrix label and re-run, or queue with tier1Scope=full.")
 }
-elseif (@($Labels | Where-Object { $_ -ieq 'full-matrix' }).Count -gt 0) {
-    $full.Add('label: full-matrix')
+elseif (@($Labels | Where-Object { $_ -ieq 'Full-Test-Matrix' }).Count -gt 0) {
+    $full.Add('label: Full-Test-Matrix')
 }
 
 if ($TargetBranch -imatch '^(refs/heads/)?(release|hotfix)/') {
     $full.Add("target branch: $TargetBranch")
+}
+
+if ($SourceBranch -imatch '^refs/heads/gh-readonly-queue/') {
+    $full.Add("merge-queue: $SourceBranch")
 }
 
 foreach ($file in $files) {

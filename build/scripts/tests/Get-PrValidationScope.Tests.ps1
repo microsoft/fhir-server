@@ -93,7 +93,12 @@ Describe 'Get-PrValidationScope' {
     }
 
     It 'full for label' {
-        (Get-Scope -ChangedFiles 'docs/x.md' -Labels 'full-matrix').Scope | Should -Be 'full'
+        (Get-Scope -ChangedFiles 'docs/x.md' -Labels 'Full-Test-Matrix').Scope | Should -Be 'full'
+    }
+
+    It 'the label matches case-insensitively' {
+        (Get-Scope -ChangedFiles 'docs/x.md' -Labels 'full-test-matrix').Scope | Should -Be 'full'
+        (Get-Scope -ChangedFiles 'docs/x.md' -Labels 'FULL-TEST-MATRIX').Scope | Should -Be 'full'
     }
 
     It 'full for release target' {
@@ -237,7 +242,7 @@ Describe 'Get-PrValidationScope' {
             -LabelsUnavailableReason 'HTTP 403 rate limit exceeded'
         $result.Scope | Should -Be 'lean'
         $result.Warnings | Should -Be @(
-            'Could not read PR labels (HTTP 403 rate limit exceeded); classifying by paths only. Add the full-matrix label and re-run, or queue with tier1Scope=full.')
+            'Could not read PR labels (HTTP 403 rate limit exceeded); classifying by paths only. Add the Full-Test-Matrix label and re-run, or queue with tier1Scope=full.')
     }
 
     It 'labels unavailable still classifies full paths as full' {
@@ -262,5 +267,24 @@ Describe 'Get-PrValidationScope' {
 
     It 'names the triggering path in the reasons' {
         (Get-Scope -ChangedFiles 'docs/x.md', 'build/pr-pipeline.yml').Reasons | Should -Contain 'build: build/pr-pipeline.yml'
+    }
+
+    # Task 7: a merge-queue branch (GitHub merge queue, gh-readonly-queue/<base>/pr-<n>-<sha>) always runs the full matrix.
+    It 'merge queue branch yields full' {
+        $result = & $script:ScriptPath -ChangedFiles 'docs/x.md' -SourceBranch 'refs/heads/gh-readonly-queue/main/pr-123-abc'
+        $result.Scope | Should -Be 'full'
+        ($result.Reasons -join ' ') | Should -Match 'merge-queue'
+    }
+
+    It 'ordinary branch does not force full' {
+        (& $script:ScriptPath -ChangedFiles 'docs/x.md' -SourceBranch 'refs/heads/feature/x').Scope | Should -Be 'lean'
+    }
+
+    It 'a PR merge ref does not force full' {
+        (& $script:ScriptPath -ChangedFiles 'docs/x.md' -SourceBranch 'refs/pull/6061/merge').Scope | Should -Be 'lean'
+    }
+
+    It 'a branch merely containing gh-readonly-queue does not force full' {
+        (& $script:ScriptPath -ChangedFiles 'docs/x.md' -SourceBranch 'refs/heads/personal/gh-readonly-queue/x').Scope | Should -Be 'lean'
     }
 }
