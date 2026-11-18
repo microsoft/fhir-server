@@ -101,7 +101,7 @@ jobs:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $args = @('--filter-query', '/[(DataStore=CosmosDb)&(Category=ExportLongRunning)]', '--retry-failed-tests', '3', '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', 'Export ${{ parameters.version }} CosmosDB')
+        $args = @('--filter-query', '/[(DataStore=CosmosDb)&(Category=ExportLongRunning)&(Category!=ProfileOnly)]', '--retry-failed-tests', '3', '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', 'Export ${{ parameters.version }} CosmosDB')
 
         Write-Host "Running dotnet $($dll.FullName)"
         & dotnet $dll.FullName @args
@@ -232,7 +232,7 @@ jobs:
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $args = @('--filter-query', '/[(DataStore=SqlServer)&(Category=ExportLongRunning)]', '--retry-failed-tests', '3', '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', 'Export ${{ parameters.version }} SQL')
+        $args = @('--filter-query', '/[(DataStore=SqlServer)&(Category=ExportLongRunning)&(Category!=ProfileOnly)]', '--retry-failed-tests', '3', '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', 'Export ${{ parameters.version }} SQL')
 
         Write-Host "Running dotnet $($dll.FullName)"
         & dotnet $dll.FullName @args

@@ -5,6 +5,9 @@ parameters:
   type: string
 - name: resourceGroup
   type: string
+- name: sqlAppNames
+  type: object
+  default: []
 
 jobs:
 - job: scaleContainerApps
@@ -24,11 +27,18 @@ jobs:
         $ErrorActionPreference = 'Continue'
         $resourceGroup = '${{ parameters.resourceGroup }}'
         $minReplicas = ${{ parameters.minReplicas }}
+        $sqlApps = @('${{ join(';', parameters.sqlAppNames) }}' -split ';' |
+                ForEach-Object { $_.Trim().ToLowerInvariant() } |
+                Where-Object { $_ })
 
         Write-Host "Enumerating container apps in resource group '$resourceGroup'..."
         $apps = (az containerapp list -g $resourceGroup --query "[].name" -o tsv) -split "`n" |
                 ForEach-Object { $_.Trim() } |
-                Where-Object { $_ }
+                Where-Object { $_ -and $sqlApps -notcontains $_.ToLowerInvariant() }
+
+        if ($sqlApps.Count -gt 0) {
+          Write-Host "Skipping SQL revision apps in the in-place update: $($sqlApps -join ', ')"
+        }
 
         if (-not $apps -or $apps.Count -eq 0) {
           Write-Host "##[warning]No container apps found in '$resourceGroup'. Nothing to scale."
@@ -51,3 +61,42 @@ jobs:
           Write-Host "##[error]Failed to scale: $($failures -join ', ')"
           exit 1
         }
+
+  - ${{ if and(eq(parameters.minReplicas, 0), ne(length(parameters.sqlAppNames), 0)) }}:
+    - task: AzureCLI@2
+      displayName: 'Settle SQL revision apps to min=0'
+      inputs:
+        azureSubscription: ${{ parameters.subscription }}
+        scriptType: pscore
+        scriptLocation: inlineScript
+        powerShellErrorActionPreference: stop
+        inlineScript: |
+          $ErrorActionPreference = 'Stop'
+          $resourceGroup = '${{ parameters.resourceGroup }}'
+          $sqlApps = @('${{ join(';', parameters.sqlAppNames) }}' -split ';' |
+                  ForEach-Object { $_.Trim().ToLowerInvariant() } |
+                  Where-Object { $_ })
+
+          $armToken = az account get-access-token --resource 'https://management.azure.com/' --query accessToken --output tsv --only-show-errors
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($armToken)) {
+            throw 'Failed to get an ARM access token to settle the SQL revision apps.'
+          }
+          Write-Host "##vso[task.setsecret]$armToken"
+          $secureToken = ConvertTo-SecureString -String $armToken -AsPlainText -Force
+          $armToken = $null
+
+          foreach ($app in $sqlApps) {
+            $appResourceId = az containerapp show --name $app --resource-group $resourceGroup --query id --output tsv --only-show-errors
+            if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($appResourceId)) {
+              throw "Failed to get the resource ID of container app '$app'"
+            }
+
+            $result = & '$(System.DefaultWorkingDirectory)/build/jobs/scripts/Sync-SqlRevisions.ps1' `
+              -Goal Settle `
+              -AppResourceId $appResourceId `
+              -AccessToken $secureToken `
+              -BuildId '$(Build.BuildId)' `
+              -Attempt '$(System.StageAttempt)'
+            Write-Host "Settled $app on baseline $($result.BaselineRevision); retired: $(@($result.Retired) -join ', ')"
+          }
+          $secureToken = $null

@@ -11,6 +11,15 @@ parameters:
 - name: testRunTitleSuffix
   type: string
   default: ''
+- name: resourceIdProfile
+  type: string
+  default: None
+- name: revisionProfile
+  type: string
+  default: ''
+- name: revisionBinding
+  type: string
+  default: ''
 
 steps:
   - template: e2e-tests-extract.yml
@@ -22,6 +31,8 @@ steps:
       containerAppName: ${{ parameters.containerAppName }}
       version: ${{ parameters.version }}
       appServiceType: ${{ parameters.appServiceType }}
+      revisionProfile: ${{ parameters.revisionProfile }}
+      revisionBinding: ${{ parameters.revisionBinding }}
 
   - task: PowerShell@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}${{ parameters.testRunTitleSuffix }}'
@@ -31,15 +42,48 @@ steps:
       script: |
         $ErrorActionPreference = 'Stop'
         $testRoot = "$(Agent.TempDirectory)/E2ETests"
+        $results = Join-Path "$(Agent.TempDirectory)" "testresults-$([guid]::NewGuid().ToString('N'))"
+        [void](New-Item $results -ItemType Directory)
+        $env:platformOptions__resultDirectory = $results
+        Write-Host "##vso[task.setvariable variable=E2EResultsDirectory]$results"
+        $started = [DateTimeOffset]::UtcNow
+        $env:ResourceIdExpectedUrl = $env:TestEnvironmentUrl_${{ parameters.version }}_Sql
+        $categoryFilter = $env:E2ECATEGORYFILTER
+        $runTitle = '${{ parameters.version }} ${{ parameters.appServiceType }}${{ parameters.testRunTitleSuffix }}'
+        $revisionProfile = $env:REVISIONPROFILE
+        if ([string]::IsNullOrEmpty($revisionProfile) -and '${{ parameters.appServiceType }}' -ceq 'SqlServer') {
+          $revisionProfile = 'Baseline'
+        }
+        $resultsArtifact = "E2EResults_${{ parameters.version }}_$($revisionProfile)_$(System.JobName)_attempt$(System.JobAttempt)"
+        $resourceIdProfile = $env:RESOURCEIDEXPECTATION
+        if (-not [string]::IsNullOrEmpty($revisionProfile)) {
+          $runTitle = "$runTitle $revisionProfile"
+        }
+
+        Write-Host "##vso[task.setvariable variable=E2EResultsArtifact]$resultsArtifact"
+        if ($resourceIdProfile -cin @('Standard64', 'Long128')) {
+          $env:ResourceIdProfile = $resourceIdProfile
+        } elseif ($resourceIdProfile -ceq 'None') {
+          Remove-Item Env:ResourceIdProfile -ErrorAction SilentlyContinue
+        } else {
+          throw "Unsupported resource ID profile '$resourceIdProfile'."
+        }
         $testName = "Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E"
         $dll = Get-ChildItem -Path $testRoot -Recurse -Filter "$testName.dll" | Select-Object -First 1
         if (-not $dll) {
           throw "Could not find $testName.dll under $testRoot"
         }
 
-        $categoryPredicates = "${{ parameters.categoryFilter }}".Split('&') | ForEach-Object { "($_)" }
+        $categoryPredicates = @($categoryFilter.Split('&') | ForEach-Object { "($_)" })
+        $isAlternateProfile = -not [string]::IsNullOrEmpty($env:REVISIONPROFILE) -and $env:REVISIONPROFILE -cne 'Baseline'
+        if (-not $isAlternateProfile) {
+          $categoryPredicates += '(Category!=ProfileOnly)'
+        }
         $query = "/[(DataStore=${{ parameters.appServiceType }})&$($categoryPredicates -join '&')]"
-        $args = @('--filter-query', $query, '--retry-failed-tests', '3', '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', '${{ parameters.version }} ${{ parameters.appServiceType }}${{ parameters.testRunTitleSuffix }}')
+        $args = @('--filter-query', $query, '--retry-failed-tests', '3', '--results-directory', $results, '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', $runTitle)
+        if ($isAlternateProfile) {
+          $args += @('--zero-tests-policy', 'strict')
+        }
 
         Write-Host "Running dotnet $($dll.FullName)"
         & dotnet $dll.FullName @args
@@ -53,10 +97,16 @@ steps:
           }
         }
 
+        if ($resourceIdProfile -cne 'None') {
+          & "$(System.DefaultWorkingDirectory)/build/jobs/scripts/Assert-ResourceIdResults.ps1" -ResultsDirectory $results -Profile $resourceIdProfile -StartedUtc $started
+        }
         if ($testExitCode -ne 0) {
           throw "E2E tests failed with exit code $testExitCode"
         }
     env:
+      'E2ECATEGORYFILTER': ${{ parameters.categoryFilter }}
+      'REVISIONPROFILE': ${{ parameters.revisionProfile }}
+      'RESOURCEIDEXPECTATION': ${{ parameters.resourceIdProfile }}
       'TestEnvironmentUrl': $(TestEnvironmentUrl)
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
       'TestEnvironmentUrl_Sql': $(TestEnvironmentUrl_Sql)
@@ -96,5 +146,43 @@ steps:
       'AZURESUBSCRIPTION_TENANT_ID': $(AZURESUBSCRIPTION_TENANT_ID)
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': $(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
-      platformOptions__resultDirectory: '$(Agent.TempDirectory)/testresults'
 
+  - ${{ if or(eq(parameters.appServiceType, 'SqlServer'), ne(parameters.revisionProfile, '')) }}:
+    - task: AzurePowerShell@5
+      displayName: 'Recheck selected SQL revision after tests'
+      retryCountOnTaskFailure: 1
+      condition: and(succeededOrFailed(), ne('', variables['E2ESelectedBinding']))
+      env:
+        E2ESELECTEDPROFILE: $(E2ESelectedProfile)
+        E2ESELECTEDBINDING: $(E2ESelectedBinding)
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        pwsh: true
+        ScriptType: InlineScript
+        Inline: |
+          $ErrorActionPreference = 'Stop'
+          $containerApp = Get-AzResource -ResourceGroupName '$(UniqueResourceGroupName)' -ResourceType 'Microsoft.App/containerApps' -Name '${{ parameters.containerAppName }}'
+          if ($null -eq $containerApp) {
+            throw "Container App '${{ parameters.containerAppName }}' was not found in resource group '$(UniqueResourceGroupName)'."
+          }
+
+          $armToken = (Get-AzAccessToken -ResourceUrl 'https://management.azure.com/').Token
+          if ($armToken -is [string]) {
+            $armToken = ConvertTo-SecureString -String $armToken -AsPlainText -Force
+          }
+
+          $selection = & "$(System.DefaultWorkingDirectory)/build/jobs/scripts/Sync-SqlRevisions.ps1" -Goal Resolve -AppResourceId $containerApp.ResourceId -AccessToken $armToken -RevisionProfile $env:E2ESELECTEDPROFILE -Binding $env:E2ESELECTEDBINDING -Expect
+          $armToken = $null
+          if (-not $selection.Ready) {
+            throw "Selected revision '$($selection.Revision)' is no longer active, provisioned and healthy after the tests."
+          }
+
+          Write-Host "After the tests revision '$($selection.Revision)' (label '$($selection.Label)', baseline '$($selection.BaselineRevision)') still serves $($selection.Url) with the captured template."
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish E2E test results'
+      condition: and(succeededOrFailed(), ne('', variables['E2EResultsArtifact']))
+      inputs:
+        pathToPublish: $(E2EResultsDirectory)
+        artifactName: $(E2EResultsArtifact)
