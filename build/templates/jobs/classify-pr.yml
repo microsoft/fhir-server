@@ -9,12 +9,14 @@
 # Fails closed: any failure to read the changed files gives full, with the reason "fail-closed: <error>". A failure to
 # read the labels does not (ruling R16): the PR is classified by its paths and a warning says how to request full.
 # A run that is not a pull request build is full, except that a manual run takes the scopeOverride parameter.
-# Job RequireMaintainer fails the run when a fork PR's scope is full: fork code never reaches the deployed stages.
+# Job RequireMaintainer fails the run when a fork PR's scope is full, routing fork PRs away from the deployed stages.
+# This is routing, not a security boundary: the PR supplies this file and can edit it. The approval check on the
+# privileged service connection is the gate (ADR-2611).
 #
 # Needs no service connection or secret. PR values (target branch, number) reach the script through env only.
 parameters:
-# auto classifies; lean, shared or full sets the scope, but only when Build.Reason is Manual, so a PR cannot change the
-# pipeline's default to downgrade itself.
+# auto classifies; lean, shared or full sets the scope, but only when Build.Reason is Manual, so the parameter default
+# cannot downgrade a PR run.
 - name: scopeOverride
   type: string
   default: 'auto'
@@ -67,8 +69,8 @@ jobs:
           $target = $env:SYSTEM_PULLREQUEST_TARGETBRANCH -replace '^refs/heads/', ''
           if (-not $target) { throw 'System.PullRequest.TargetBranch is empty' }
 
-          $files = @(git diff --name-only "origin/$target...HEAD")
-          if ($LASTEXITCODE -ne 0) { throw "git diff --name-only origin/$target...HEAD exited with $LASTEXITCODE" }
+          $files = @(git -c core.quotePath=false diff --no-renames --name-only "origin/$target...HEAD")
+          if ($LASTEXITCODE -ne 0) { throw "git diff --no-renames --name-only origin/$target...HEAD exited with $LASTEXITCODE" }
           Write-Host "$($files.Count) changed files against origin/$target."
 
           # The root Directory.Packages.props is classified by the packages (and version properties) it changes.
@@ -106,7 +108,7 @@ jobs:
           $result = & "$env:BUILD_SOURCESDIRECTORY/build/scripts/Get-PrValidationScope.ps1" `
             -ChangedFiles $files -Labels $labels -TargetBranch $target -IsFork $isFork `
             -LabelsUnavailableReason $labelsUnavailableReason -ChangedPackages $packages -ChangedPackageProperties $packageProperties
-          $result.Warnings | ForEach-Object { Write-Host "##[warning]$_" }
+          $result.Warnings | ForEach-Object { Write-Host "##vso[task.logissue type=warning]$_" }
         }
       }
       catch {

@@ -133,6 +133,11 @@ Describe 'Get-PrValidationScope' {
         (Get-Scope -ChangedFiles 'SRC\Microsoft.Health.Fhir.CosmosDb\X.cs').Scope | Should -Be 'full'
     }
 
+    # A rename lists both paths: classify-pr.yml diffs with --no-renames, so a move out of build/ is a deletion there.
+    It 'a rename out of a full path, as a deleted and added pair, is full' {
+        (Get-Scope -ChangedFiles 'build/x.yml', 'docs/x.yml').Scope | Should -Be 'full'
+    }
+
     # Ruling R15: root build inputs. R15b: Directory.Packages.props by the changed package names.
     It 'full for Directory.Packages.props' {
         (Get-Scope -ChangedFiles 'Directory.Packages.props' -ChangedPackages 'Microsoft.Data.SqlClient').Scope | Should -Be 'full'

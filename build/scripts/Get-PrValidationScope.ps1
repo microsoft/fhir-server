@@ -41,8 +41,9 @@
     The PR's target branch, with or without refs/heads/.
 
 .PARAMETER IsFork
-    Whether the PR comes from a fork. A fork whose scope is full needs a maintainer: fork code never reaches the
-    deployed (credentialed) stages.
+    Whether the PR comes from a fork. A fork whose scope is full needs a maintainer, which routes it away from the
+    deployed stages. Routing only, not a security boundary: the approval check on the privileged service connection
+    is the gate (ADR-2611).
 
 .PARAMETER FileListTruncated
     Whether ChangedFiles is incomplete.

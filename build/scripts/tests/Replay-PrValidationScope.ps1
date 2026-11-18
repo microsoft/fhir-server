@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Manual tool, not run by Pester. Each first-parent commit of -Branch since -Since is treated as one merged PR
-    (squash merges): its changed files are `git diff --name-only <commit>^1 <commit>`. Labels are not known for
+    (squash merges): its changed files are `git diff --no-renames --name-only <commit>^1 <commit>`, as in classify-pr.yml. Labels are not known for
     past PRs, so the full-matrix label never counts; the target branch is main. Prints the scope distribution and the
     paths that most often made a commit full.
 
@@ -28,7 +28,7 @@ if ($LASTEXITCODE -ne 0) { throw "git log failed for $Branch" }
 
 $results = foreach ($line in $commits) {
     $sha, $subject = $line -split ' ', 2
-    $files = @(git diff --name-only "$sha^1" $sha)
+    $files = @(git -c core.quotePath=false diff --no-renames --name-only "$sha^1" $sha)
     if ($LASTEXITCODE -ne 0) { throw "git diff failed for $sha" }
 
     $packages = @()
