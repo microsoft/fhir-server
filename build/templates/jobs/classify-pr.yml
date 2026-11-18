@@ -6,7 +6,8 @@
 # Reference them from another stage as dependencies.<stage>.outputs['ClassifyPr.scope.ValidationScope'], or from a job
 # of another stage as stageDependencies.<stage>.ClassifyPr.outputs['scope.ValidationScope'].
 #
-# Fails closed: any failure to read the changed files or the labels gives full, with the reason "fail-closed: <error>".
+# Fails closed: any failure to read the changed files gives full, with the reason "fail-closed: <error>". A failure to
+# read the labels does not (ruling R16): the PR is classified by its paths and a warning says how to request full.
 # A run that is not a pull request build is full, except that a manual run takes the scopeOverride parameter.
 # Job RequireMaintainer fails the run when a fork PR's scope is full: fork code never reaches the deployed stages.
 #
@@ -70,19 +71,28 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "git diff --name-only origin/$target...HEAD exited with $LASTEXITCODE" }
           Write-Host "$($files.Count) changed files against origin/$target."
 
-          # Fork PRs cannot take the full matrix from a label, so their labels are not read.
+          # Fork PRs cannot take the full matrix from a label, so their labels are not read. A failure to read them
+          # (HTTP error, timeout, rate limit) does not fail closed: the PR is classified by its paths, with a warning.
           $labels = @()
+          $labelsUnavailableReason = ''
           if (-not $isFork) {
-            $number = $env:SYSTEM_PULLREQUEST_PULLREQUESTNUMBER
-            if ($number -notmatch '^\d+$') { throw "System.PullRequest.PullRequestNumber '$number' is not a number" }
-            $response = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/fhir-server/issues/$number/labels?per_page=100" `
-              -Headers @{ Accept = 'application/vnd.github+json' } -TimeoutSec 30 -MaximumRetryCount 3 -RetryIntervalSec 5
-            $labels = @($response | ForEach-Object { $_.name })
-            Write-Host "Labels: $($labels -join ', ')"
+            try {
+              $number = $env:SYSTEM_PULLREQUEST_PULLREQUESTNUMBER
+              if ($number -notmatch '^\d+$') { throw "System.PullRequest.PullRequestNumber '$number' is not a number" }
+              $response = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/fhir-server/issues/$number/labels?per_page=100" `
+                -Headers @{ Accept = 'application/vnd.github+json' } -TimeoutSec 30 -MaximumRetryCount 3 -RetryIntervalSec 5
+              $labels = @($response | ForEach-Object { $_.name })
+              Write-Host "Labels: $($labels -join ', ')"
+            }
+            catch {
+              $labelsUnavailableReason = $_.Exception.Message -replace '[\r\n]+', ' '
+            }
           }
 
           $result = & "$env:BUILD_SOURCESDIRECTORY/build/scripts/Get-PrValidationScope.ps1" `
-            -ChangedFiles $files -Labels $labels -TargetBranch $target -IsFork $isFork
+            -ChangedFiles $files -Labels $labels -TargetBranch $target -IsFork $isFork `
+            -LabelsUnavailableReason $labelsUnavailableReason
+          $result.Warnings | ForEach-Object { Write-Host "##[warning]$_" }
         }
       }
       catch {

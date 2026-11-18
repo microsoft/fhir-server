@@ -108,6 +108,24 @@ Describe 'Get-PrValidationScope' {
         (Get-Scope -ChangedFiles 'SRC\Microsoft.Health.Fhir.CosmosDb\X.cs').Scope | Should -Be 'full'
     }
 
+    # Ruling R16: a label-read failure does not force full.
+    It 'labels unavailable classifies by paths and warns' {
+        $result = & $script:ScriptPath -ChangedFiles 'src/Microsoft.Health.Fhir.R4.Core/Foo.cs' -TargetBranch 'main' `
+            -LabelsUnavailableReason 'HTTP 403 rate limit exceeded'
+        $result.Scope | Should -Be 'lean'
+        $result.Warnings | Should -Be @(
+            'Could not read PR labels (HTTP 403 rate limit exceeded); classifying by paths only. Add the full-matrix label and re-run, or queue with tier1Scope=full.')
+    }
+
+    It 'labels unavailable still classifies full paths as full' {
+        $result = & $script:ScriptPath -ChangedFiles 'build/x.yml' -TargetBranch 'main' -LabelsUnavailableReason 'timeout'
+        $result.Scope | Should -Be 'full'
+    }
+
+    It 'no warnings when labels were read' {
+        (Get-Scope -ChangedFiles 'docs/x.md').Warnings | Should -BeNullOrEmpty
+    }
+
     # Invariants beyond the brief's cases.
     It 'same-repository full scope does not require a maintainer' {
         (Get-Scope -ChangedFiles 'build/x.yml').FullRequiresMaintainer | Should -BeFalse

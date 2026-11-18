@@ -15,7 +15,8 @@
       shared  not full, and a changed path is in a src/*.Shared.* or test/*.Shared.* project.
       lean    otherwise.
 
-    Fails closed: an empty or truncated file list gives full.
+    Fails closed: an empty or truncated file list gives full. Unreadable labels do not: the PR is classified by its
+    paths and Warnings says how to request the full matrix (ruling R16).
 
     Pure: no I/O. Paths are matched case-insensitively after converting backslashes to slashes; a project is the
     second path segment under src/ or test/, so only the project directory name (not the file name) counts for the
@@ -37,9 +38,14 @@
 .PARAMETER FileListTruncated
     Whether ChangedFiles is incomplete.
 
+.PARAMETER LabelsUnavailableReason
+    Why the labels could not be read (for example an HTTP error, a timeout or a rate limit); empty when they were
+    read. Labels is then ignored.
+
 .OUTPUTS
     [pscustomobject] with Scope ('lean' | 'shared' | 'full'), Reasons (string[]: each rule that matched, with the path
-    or value that matched it) and FullRequiresMaintainer (true only when Scope is full and IsFork).
+    or value that matched it), FullRequiresMaintainer (true only when Scope is full and IsFork) and Warnings
+    (string[], for the caller to log as warnings).
 #>
 [CmdletBinding()]
 param(
@@ -53,7 +59,9 @@ param(
 
     [bool] $IsFork = $false,
 
-    [bool] $FileListTruncated = $false
+    [bool] $FileListTruncated = $false,
+
+    [string] $LabelsUnavailableReason = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -85,7 +93,11 @@ if ($files.Count -eq 0) {
     $full.Add('fail-closed: no changed files')
 }
 
-if (@($Labels | Where-Object { $_ -ieq 'full-matrix' }).Count -gt 0) {
+$warnings = [System.Collections.Generic.List[string]]::new()
+if ($LabelsUnavailableReason) {
+    $warnings.Add("Could not read PR labels ($LabelsUnavailableReason); classifying by paths only. Add the full-matrix label and re-run, or queue with tier1Scope=full.")
+}
+elseif (@($Labels | Where-Object { $_ -ieq 'full-matrix' }).Count -gt 0) {
     $full.Add('label: full-matrix')
 }
 
@@ -136,4 +148,5 @@ else {
     Scope                  = $scope
     Reasons                = [string[]] $reasons
     FullRequiresMaintainer = ($scope -eq 'full' -and $IsFork)
+    Warnings               = [string[]] $warnings.ToArray()
 }
