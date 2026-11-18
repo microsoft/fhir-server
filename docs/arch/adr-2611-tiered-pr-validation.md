@@ -90,7 +90,7 @@ We will split validation into tiers. **Ordinary PRs deploy no Azure environment 
 
 **Tier 1 — every PR, no deployment, target p50 under 20 minutes.**
 
-- **Unit tests** for every FHIR version, split across parallel jobs, without coverage instrumentation. net10 runs as a separate parallel job.
+- **Unit tests** for every FHIR version, split across parallel jobs, without coverage instrumentation. The repository targets net11.0 only (#6057), so there is no second framework job.
 - **R4 SQL integration tests** on a SQL Server 2025 container, split across two jobs. Schema compatibility tests are split by method.
 - **R4 SQL E2E, full suite, in-proc** on SQL Server 2025 and Azurite containers, sharded.
 - **Cross-version depth (Tier 1+).** When the PR changes `src/*.Shared.*` or `test/*.Shared.*` (about 57% of merges), Stu3 and R5 SQL integration and E2E are added on containers, in parallel with R4. Shared code is compiled into every version, and version divergence lives in its `#if` directives. This adds agents but no minutes, and no Azure.
@@ -128,7 +128,7 @@ Under 20 minutes needs every item below:
 That totals about 19 minutes, so there is little slack.
 
 - **Integration tests:** split in two, they fit the same budget.
-- **Unit tests** must leave the critical path too. Today the net11 job takes 24.3 minutes and starts 9 minutes late: a 9.9-minute build plus 12.2 minutes of tests with coverage. It must start immediately, drop coverage instrumentation (net10's uninstrumented run takes 7.8 minutes) and split across two agents.
+- **Unit tests** must leave the critical path too. Today the net11 job takes 24.3 minutes and starts 9 minutes late: a 9.9-minute build plus 12.2 minutes of tests with coverage. It must start immediately, drop coverage instrumentation (in run 53409, the uninstrumented net10 run took 7.8 minutes) and split across two agents.
 - **Agents:** the plan needs about 16 to start promptly. In run 53409, two shards waited 13 minutes, so pool capacity is a cutover risk. Removing the deployed stages frees about 25 job slots per PR.
 
 The realistic expectation is a p50 of 19–22 minutes. The p90 will be higher, driven by agent queueing.
@@ -185,7 +185,7 @@ The classifier **fails closed** for honest failures: if labels cannot be read co
 - **When a batch fails,** the on-call engineer runs a bisect script. It accepts only SHAs that are ancestors of `origin/main`, queues definition 9 on `refs/heads/main` at that SHA with full deployment and `prName=bisect-<id>`, and deletes its own resource groups. Queue permission is restricted to on-call.
 - **Blame and ownership.** A culprit requires reproducing both the failure and a passing baseline, and infrastructure failures are never blamed on a PR. The merging PR's author owns the fix. Applied schema migrations are forward-fixed.
 - **Automation.** Bisect is automated only if manual use proves frequent.
-- **Nightly:** ExportLongRunning, large import performance tests, schema compatibility across the full version range (needs the `Max−5..Max` window extended), a full-build CodeQL run (in addition to PR CodeQL), R4B, and net10 E2E.
+- **Nightly:** ExportLongRunning, large import performance tests, schema compatibility across the full version range (needs the `Max−5..Max` window extended), a full-build CodeQL run (in addition to PR CodeQL), and R4B.
 
 **Cutover gates.** Tier 1 replaces today's gate only when all of the following hold:
 

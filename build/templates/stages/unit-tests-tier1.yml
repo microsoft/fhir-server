@@ -1,9 +1,9 @@
-# Unit tests for the Tier 1 PR path (validationMode tier1): each framework's unit test projects are split in two shares by
-# duration (build/test-shards/unit-tests.json), and each share is one job that builds only its projects and runs them
-# without coverage. The stage depends on no other stage, so no job waits for the UpdateVersion stage or its semver.
+# Unit tests for the Tier 1 PR path (validationMode tier1): the unit test projects are split in two shares by duration
+# (build/test-shards/unit-tests.json), and each share is one job that builds only its projects and runs them without
+# coverage. The stage depends on no other stage, so no job waits for the UpdateVersion stage or its semver.
 stages:
-# The frameworks are literals: variables.defaultBuildFramework (build-variables.yml, net11.0) is not available while templates
-# expand, so the job names and the -Framework argument would be empty.
+# The repository targets net11.0 only (Directory.Build.props). The framework is a literal: variables.defaultBuildFramework
+# (build-variables.yml) is not available while templates expand, so the job names and the -Framework argument would be empty.
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
   dependsOn: []
@@ -17,14 +17,4 @@ stages:
     parameters:
       jobName: UnitTests_net11_B
       targetFramework: 'net11.0'
-      moduleShard: '2/2'
-  - template: ../jobs/unit-tests-shard.yml
-    parameters:
-      jobName: UnitTests_net10_A
-      targetFramework: 'net10.0'
-      moduleShard: '1/2'
-  - template: ../jobs/unit-tests-shard.yml
-    parameters:
-      jobName: UnitTests_net10_B
-      targetFramework: 'net10.0'
       moduleShard: '2/2'

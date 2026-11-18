@@ -14,7 +14,7 @@ parameters:
 - name: analyzers
   type: boolean
   default: false
-# The projects multi-target net11.0 and net10.0; the Tier 1 tests run on one, and building both adds about a minute.
+# The repository targets net11.0 only (Directory.Build.props); -f keeps the build to one framework if it multi-targets again.
 - name: targetFramework
   type: string
   default: 'net11.0'
