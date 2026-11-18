@@ -10,7 +10,6 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Reflection.Metadata;
-using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -99,137 +98,62 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         /// <summary>
         /// Reindexing with an invalid regex must identify the search parameter without exposing internal exception details.
         /// </summary>
-        [Fact(Skip = "Temporarily disabled: times out and conflicts with other reindex jobs on the oversized CI database.")]
+        [Fact]
         public async Task GivenSearchParameterWithInvalidRegex_WhenReindexFails_ThenJobStatusIdentifiesSearchParameter()
         {
             // Arrange
             var client = _fixture.TestFhirClient;
             var marker = $"SYNTHETIC_CONFIDENTIAL_{Guid.NewGuid():N}";
-            Observation observation = null;
-            SearchParameter searchParameter = null;
-            Uri jobUri = null;
-            bool jobIsTerminal = false;
-            var exceptions = new List<Exception>();
-            var testFailure = await Record.ExceptionAsync(async () =>
+            var person = (await client.CreateAsync(new Person { Name = [new() { Given = [marker] }] })).Resource;
+
+            var readback = await client.ReadAsync<Person>($"Person/{person.Id}");
+            Assert.Equal(marker, Assert.Single(Assert.Single(readback.Resource.Name).Given));
+
+            var code = $"diagnostics-{Guid.NewGuid():N}";
+            var searchParameter = await CreateCustomSearchParameterAsync(
+                code,
+                ["Person"],
+                $"Person.where(id = '{person.Id}').name.given.where(matches($this & '['))");
+
+            // Act
+            var (response, jobUri) = await client.PostReindexJobAsync(new Parameters
             {
-                observation = (await client.CreateAsync(new Observation
-                {
-                    Status = ObservationStatus.Final,
-                    Code = new CodeableConcept("http://example.org", "diagnostics-test"),
-                    Value = new FhirString(marker),
-                })).Resource;
-
-                var readback = await client.ReadAsync<Observation>($"Observation/{observation.Id}");
-                Assert.Equal(marker, Assert.IsType<FhirString>(readback.Resource.Value).Value);
-
-                var code = $"diagnostics-{Guid.NewGuid():N}";
-                searchParameter = await CreateCustomSearchParameterAsync(
-                    code,
-                    ["Observation"],
-                    $"Observation.where(id = '{observation.Id}').value.where(matches($this & '['))");
-
-                // Act
-                var (response, uri) = await client.PostReindexJobAsync(new Parameters
-                {
-                    Parameter =
-                    [
-                        new Parameters.ParameterComponent { Name = "targetResourceTypes", Value = new FhirString("Observation") },
-                    ],
-                });
-                jobUri = uri;
-                Assert.Equal(HttpStatusCode.Created, response.Response.StatusCode);
-
-                using var timeout = new CancellationTokenSource(JobTimeout);
-                var stopwatch = Stopwatch.StartNew();
-                while (true)
-                {
-                    using var statusResponse = await client.HttpClient.GetAsync(jobUri, timeout.Token);
-                    var body = await statusResponse.Content.ReadAsStringAsync(timeout.Token);
-                    Assert.Equal(HttpStatusCode.OK, statusResponse.StatusCode);
-                    var status = new Hl7.Fhir.Serialization.FhirJsonParser().Parse<Parameters>(body);
-                    var state = Assert.Single(status.Parameter, p => p.Name == JobRecordProperties.Status).Value.ToString();
-                    jobIsTerminal = state is "Failed" or "Completed" or "Canceled";
-
-                    // Assert every response, including diagnostics returned before the job is terminal.
-                    Assert.DoesNotContain(marker, body);
-                    var failures = status.Parameter.FindAll(p => p.Name == JobRecordProperties.FailureDetails);
-                    var expectedMessage = string.Format(Core.Resources.SearchParameterEvaluationFailed, searchParameter.Url);
-                    Assert.All(failures, failure =>
-                    {
-                        var diagnostic = Assert.IsType<FhirString>(failure.Value).Value;
-                        Assert.StartsWith("Reindex: processing job = ", diagnostic);
-                        Assert.EndsWith($"failed. Resource type = Observation Error = {expectedMessage}", diagnostic);
-                    });
-                    if (state == "Failed")
-                    {
-                        Assert.Single(failures);
-                        return;
-                    }
-
-                    Assert.DoesNotContain(state, new[] { "Completed", "Canceled" });
-                    Assert.True(stopwatch.Elapsed < JobTimeout, "Reindex did not reach Failed status.");
-                    await Task.Delay(TimeSpan.FromSeconds(1), timeout.Token);
-                }
+                Parameter =
+                [
+                    new Parameters.ParameterComponent { Name = "targetResourceTypes", Value = new FhirString("Person") },
+                ],
             });
-            if (testFailure != null)
-            {
-                exceptions.Add(testFailure);
-            }
+            Assert.Equal(HttpStatusCode.Created, response.Response.StatusCode);
 
-            if (jobUri != null && !jobIsTerminal)
+            using var timeout = new CancellationTokenSource(JobTimeout);
+            var stopwatch = Stopwatch.StartNew();
+            while (true)
             {
-                var cleanupFailure = await Record.ExceptionAsync(async () =>
+                using var statusResponse = await client.HttpClient.GetAsync(jobUri, timeout.Token);
+                var body = await statusResponse.Content.ReadAsStringAsync(timeout.Token);
+                Assert.Equal(HttpStatusCode.OK, statusResponse.StatusCode);
+                var status = new Hl7.Fhir.Serialization.FhirJsonParser().Parse<Parameters>(body);
+                var state = Assert.Single(status.Parameter, p => p.Name == JobRecordProperties.Status).Value.ToString();
+
+                // Assert every response, including diagnostics returned before the job is terminal.
+                Assert.DoesNotContain(marker, body);
+                var failures = status.Parameter.FindAll(p => p.Name == JobRecordProperties.FailureDetails);
+                var expectedMessage = string.Format(Core.Resources.SearchParameterEvaluationFailed, searchParameter.Url);
+                Assert.All(failures, failure =>
                 {
-                    using var cancelResponse = await client.HttpClient.DeleteAsync(jobUri);
-                    cancelResponse.EnsureSuccessStatusCode();
-                    var canceledJob = await WaitForJobCompletionAsync(jobUri, TimeSpan.FromMinutes(3));
-                    if (canceledJob.Status is not (OperationStatus.Failed or OperationStatus.Completed or OperationStatus.Canceled))
-                    {
-                        throw new TimeoutException($"Original reindex job did not reach a terminal state before cleanup. Last status: {canceledJob.Status}.");
-                    }
-
-                    jobIsTerminal = true;
+                    var diagnostic = Assert.IsType<FhirString>(failure.Value).Value;
+                    Assert.StartsWith("Reindex: processing job = ", diagnostic);
+                    Assert.EndsWith($"failed. Resource type = Person Error = {expectedMessage}", diagnostic);
                 });
-                if (cleanupFailure != null)
+                if (state == "Failed")
                 {
-                    exceptions.Add(cleanupFailure);
+                    Assert.Single(failures);
+                    return;
                 }
-            }
 
-            if (searchParameter != null && (jobUri == null || jobIsTerminal))
-            {
-                var cleanupFailure = await Record.ExceptionAsync(async () =>
-                {
-                    await client.DeleteAsync(searchParameter);
-
-                    // Deletion is pending until reindex removes the definition from the active registry.
-                    var (_, cleanupJobUri) = await client.PostReindexJobAsync(new Parameters());
-                    var cleanupJob = await WaitForJobCompletionAsync(cleanupJobUri, TimeSpan.FromMinutes(3));
-                    Assert.True(cleanupJob.Status == OperationStatus.Completed, $"Cleanup reindex failed: {cleanupJob.FailureReason}");
-                });
-                if (cleanupFailure != null)
-                {
-                    exceptions.Add(cleanupFailure);
-                }
-            }
-
-            if (observation != null)
-            {
-                var cleanupFailure = await Record.ExceptionAsync(() => client.DeleteAsync(observation));
-                if (cleanupFailure != null)
-                {
-                    exceptions.Add(cleanupFailure);
-                }
-            }
-
-            if (exceptions.Count == 1)
-            {
-                ExceptionDispatchInfo.Capture(exceptions[0]).Throw();
-            }
-
-            if (exceptions.Count > 1)
-            {
-                throw new AggregateException("Test and/or resource cleanup failed.", exceptions);
+                Assert.DoesNotContain(state, new[] { "Completed", "Canceled" });
+                Assert.True(stopwatch.Elapsed < JobTimeout, "Reindex did not reach Failed status.");
+                await Task.Delay(TimeSpan.FromSeconds(1), timeout.Token);
             }
         }
 
