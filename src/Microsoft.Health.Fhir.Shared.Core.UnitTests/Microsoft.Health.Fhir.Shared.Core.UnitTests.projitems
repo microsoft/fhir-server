@@ -75,6 +75,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\SmartCompartmentMembershipMaterializationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\USCoreTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\Authorization\RoleBasedFhirAuthorizationServiceTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Security\Authorization\SearchServiceConsumerGuardTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ProfileValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ResourceProfileValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Models\BundleResourceContextComparerTests.cs" />
