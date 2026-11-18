@@ -20,6 +20,7 @@ Update .NET SDK and runtime versions across the Microsoft FHIR Server repository
 
 ### 3. `build/docker/Dockerfile` (runtime stage)
 - Update the ASP.NET runtime image tag to the latest compatible patch for the same major version.
+- Keep the Azure Linux 4 distroless-extra variant and update its pinned digest with the tag.
 
 ## Version Guidance
 
@@ -41,15 +42,15 @@ curl -s "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/11.0/re
 Verify the SDK and ASP.NET runtime images exist in MCR before updating:
 
 ```bash
-curl -s -L "https://mcr.microsoft.com/v2/dotnet/sdk/tags/list" | grep -o '"11\.0\.[^"]*-azurelinux3\.0"'
-curl -s -L "https://mcr.microsoft.com/v2/dotnet/aspnet/tags/list" | grep -o '"11\.0\.[^"]*-azurelinux3\.0"'
+curl -s -L "https://mcr.microsoft.com/v2/dotnet/sdk/tags/list" | grep -o '"11\.0\.[^"]*-azurelinux4\.0"'
+curl -s -L "https://mcr.microsoft.com/v2/dotnet/aspnet/tags/list" | grep -o '"11\.0\.[^"]*-azurelinux4\.0-distroless-extra"'
 ```
 
 ## Process
 
 1. Check current versions in `global.json` and `build/docker/Dockerfile`.
 2. Review release metadata for the selected supported major version.
-3. Verify that the selected Docker SDK and runtime tags exist in MCR and use the `-azurelinux3.0` suffix.
+3. Verify that the Docker SDK and runtime tags exist in MCR and that the runtime digest matches its tag.
 4. Update the SDK and runtime versions independently where required.
 5. Validate that the versions are supported and the image tags are available.
 
@@ -77,8 +78,8 @@ For the current .NET 11 configuration:
 
 ```dockerfile
 // build/docker/Dockerfile
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0.100-azurelinux3.0 AS build
-FROM mcr.microsoft.com/dotnet/aspnet:11.0.0-azurelinux3.0 AS runtime
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0.100-azurelinux4.0 AS build
+FROM mcr.microsoft.com/dotnet/aspnet:11.0.0-azurelinux4.0-distroless-extra@sha256:8802cbda723e24afb297993a26a7197f92e327d906a03cc674ad77ffdd0ad059 AS runtime
 ```
 
 ## Summary
