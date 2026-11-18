@@ -2278,6 +2278,87 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.DoesNotContain(results.Results, r => r.Resource.ResourceId == "smart-device-B2");
         }
 
+#if R4 || R4B
+        [Theory]
+        [InlineData("system", "smart-patient-B")]
+        [InlineData("type", "smart-patient-B")]
+        [InlineData("instance", "smart-patient-B")]
+        [InlineData("system", "smart-patient-A")]
+        [InlineData("type", "smart-patient-A")]
+        [InlineData("instance", "smart-patient-A")]
+        [InlineData("system", null)]
+        [InlineData("type", null)]
+        [InlineData("instance", null)]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenVersionedDevice_WhenPatientRequestsHistory_ThenMissingHistoricalIndicesDoNotAuthorizeAccess(string historyLevel, string currentPatient)
+        {
+            // Arrange
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            var device = new Device
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Patient = new ResourceReference("Patient/smart-patient-B"),
+                Status = Device.FHIRDeviceStatus.Active,
+            };
+            string resourceType = historyLevel == "system" ? null : KnownResourceTypes.Device;
+            string resourceId = historyLevel == "instance" ? device.Id : null;
+
+            Task<SearchResult> HistoryAsync() => _searchService.Value.SearchHistoryAsync(
+                resourceType, resourceId, null, null, null, 1000, null, null, null, CancellationToken.None);
+
+            try
+            {
+                var previous = await _smartFixture.UpsertResource(device);
+                device.Status = Device.FHIRDeviceStatus.Inactive;
+                device.Patient = currentPatient == null ? null : new ResourceReference($"Patient/{currentPatient}");
+                var current = await _smartFixture.UpsertResource(device);
+
+                _contextAccessor.RequestContext = new FhirRequestContext(
+                    "GET",
+                    "https://localhost/Device/_history",
+                    "https://localhost/",
+                    Guid.NewGuid().ToString(),
+                    new HeaderDictionary(),
+                    new HeaderDictionary());
+                var unrestricted = await HistoryAsync();
+                Assert.Equal(2, unrestricted.Results.Count(r => r.Resource.ResourceId == device.Id));
+
+                ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>
+                {
+                    new ScopeRestriction("all", Core.Features.Security.DataActions.Read, "patient"),
+                });
+                _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+                _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+                bool currentVisible = currentPatient != "smart-patient-B";
+                var query = new List<Tuple<string, string>> { Tuple.Create("_id", device.Id) };
+                var search = await _searchService.Value.SearchAsync(KnownResourceTypes.Device, query, CancellationToken.None);
+                Assert.Equal(currentVisible ? 1 : 0, search.Results.Count());
+                if (!currentVisible)
+                {
+                    await Assert.ThrowsAsync<ResourceNotFoundException>(() => _fixture.GetResourceHandler.HandleAsync(
+                        new GetResourceRequest(new ResourceKey(KnownResourceTypes.Device, device.Id), bundleResourceContext: null), CancellationToken.None));
+                }
+
+                // Act
+                var history = await HistoryAsync();
+
+                // Assert
+                Assert.DoesNotContain(history.Results, r => r.Resource.ResourceId == device.Id && r.Resource.Version == previous.Wrapper.Version);
+                Assert.Equal(
+                    currentVisible ? new[] { current.Wrapper.Version } : Array.Empty<string>(),
+                    history.Results.Where(r => r.Resource.ResourceId == device.Id).Select(r => r.Resource.Version).ToArray());
+            }
+            finally
+            {
+                await _fixture.DataStore.HardDeleteAsync(new ResourceKey(KnownResourceTypes.Device, device.Id), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None);
+            }
+        }
+#endif
+
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenFhirUserClaimPatient_WhenIncludingDevicePatient_ThenOtherPatientDemographicsAreNotLeaked()

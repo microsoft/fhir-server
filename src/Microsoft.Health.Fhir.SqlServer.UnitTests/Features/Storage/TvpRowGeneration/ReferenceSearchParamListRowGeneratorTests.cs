@@ -8,21 +8,26 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Medino;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -40,6 +45,18 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
     [Trait(Traits.Category, Categories.Search)]
     public class ReferenceSearchParamListRowGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     {
+        private static readonly SearchParameterInfo Performer = new SearchParameterInfo(
+            name: "performer",
+            code: "performer",
+            searchParamType: SearchParamType.Reference,
+            url: new Uri("http://hl7.org/fhir/SearchParameter/Observation-performer"));
+
+        private static readonly SearchParameterInfo Subject = new SearchParameterInfo(
+            name: "subject",
+            code: "subject",
+            searchParamType: SearchParamType.Reference,
+            url: new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"));
+
         /// <summary>
         /// Gets input lengths and independently specified retained lengths for both resource id policies.
         /// </summary>
@@ -117,8 +134,89 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
             Assert.Null(row.CodeOverflow2);
         }
 
+        [Fact]
+        public void GivenReferencesWithOverlongIds_WhenLogging_ThenOneWarningPerSearchParameterIsLoggedWithoutTheValues()
+        {
+            // Arrange
+            var logger = new CapturingLogger();
+            string first = CreateResourceId(65);
+            MergeResourceWrapper[] resources = Wrap(
+                new SearchIndexEntry(Performer, Overlong(first, 65)),
+                new SearchIndexEntry(Performer, Overlong(CreateResourceId(70), 70)),
+                new SearchIndexEntry(Performer, new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, "Patient", CreateResourceId(64))),
+                new SearchIndexEntry(Subject, Overlong(CreateResourceId(100), 100)));
+
+            // Act
+            ReferenceSearchParamListRowGenerator.LogTruncatedReferences(resources, 64, logger);
+
+            // Assert
+            Assert.Collection(
+                logger.Entries.OrderBy(e => e.Message, StringComparer.Ordinal),
+                entry => AssertEntry(entry, Performer, count: 2, maxLength: 70),
+                entry => AssertEntry(entry, Subject, count: 1, maxLength: 100));
+            Assert.All(logger.Entries, entry => Assert.DoesNotContain(first[..64], entry.Message, StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void GivenAReferenceTokenCompositeWithAnOverlongId_WhenLogging_ThenItIsLogged()
+        {
+            // Arrange
+            var logger = new CapturingLogger();
+            var composite = new CompositeSearchValue(new[]
+            {
+                new ISearchValue[] { Overlong(CreateResourceId(65), 65) },
+                new ISearchValue[] { new TokenSearchValue(system: null, code: "test-code", text: null) },
+            });
+            MergeResourceWrapper[] resources = Wrap(new SearchIndexEntry(Performer, composite));
+
+            // Act
+            ReferenceSearchParamListRowGenerator.LogTruncatedReferences(resources, 64, logger);
+
+            // Assert
+            AssertEntry(Assert.Single(logger.Entries), Performer, count: 1, maxLength: 65);
+        }
+
+        [Fact]
+        public void GivenReferencesWithinTheIdLimitOrHistory_WhenLogging_ThenNothingIsLogged()
+        {
+            // Arrange
+            var logger = new CapturingLogger();
+            var withinLimit = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, "Patient", CreateResourceId(64));
+
+            // Act
+            ReferenceSearchParamListRowGenerator.LogTruncatedReferences(Wrap(new SearchIndexEntry(Performer, withinLimit)), 64, logger);
+            ReferenceSearchParamListRowGenerator.LogTruncatedReferences(Wrap(isHistory: true, new SearchIndexEntry(Performer, Overlong(CreateResourceId(65), 65))), 64, logger);
+
+            // Assert
+            Assert.Empty(logger.Entries);
+        }
+
         private static string CreateResourceId(int length)
             => string.Concat(Enumerable.Range(0, length).Select(i => (char)('A' + (i % 26))));
+
+        private static ReferenceSearchValue Overlong(string resourceId, int length)
+            => new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, "Patient", resourceId[..Math.Min(resourceId.Length, 64)]) { OverlongResourceIdLength = length };
+
+        private static void AssertEntry((LogLevel Level, string Message) entry, SearchParameterInfo searchParameter, int count, int maxLength)
+        {
+            Assert.Equal(LogLevel.Warning, entry.Level);
+            Assert.Contains("ResourceType=Observation", entry.Message, StringComparison.Ordinal);
+            Assert.Contains($"SearchParameter={searchParameter.Url}", entry.Message, StringComparison.Ordinal);
+            Assert.Contains($"Count={count}", entry.Message, StringComparison.Ordinal);
+            Assert.Contains($"MaxLength={maxLength}", entry.Message, StringComparison.Ordinal);
+            Assert.Contains("IndexedLength=64", entry.Message, StringComparison.Ordinal);
+        }
+
+        private static MergeResourceWrapper[] Wrap(params SearchIndexEntry[] entries) => Wrap(isHistory: false, entries);
+
+        private static MergeResourceWrapper[] Wrap(bool isHistory, params SearchIndexEntry[] entries) =>
+            new[]
+            {
+                new MergeResourceWrapper(
+                    new ResourceWrapper("obs-1", "1", "Observation", null, null, DateTimeOffset.UnixEpoch, false, entries, null, null, resourceSurrogateId: 1) { IsHistory = isHistory },
+                    keepHistory: false,
+                    hasVersionToCompare: false),
+            };
 
         private static SqlServerFhirModel CreateModel(ResourceIdPolicy policy)
         {
@@ -142,5 +240,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage.TvpRowGener
 
         private static void SetModelField(SqlServerFhirModel model, string name, object value)
             => typeof(SqlServerFhirModel).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(model, value);
+
+        private sealed class CapturingLogger : ILogger
+        {
+            public List<(LogLevel Level, string Message)> Entries { get; } = new List<(LogLevel, string)>();
+
+            public IDisposable BeginScope<TState>(TState state)
+                where TState : notnull => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+            {
+                Entries.Add((logLevel, formatter(state, exception)));
+            }
+        }
     }
 }

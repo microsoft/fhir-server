@@ -21,13 +21,18 @@ namespace Microsoft.Health.Extensions.Xunit
         // Reflection point #3: the collection-scoped fixture cache we seed enum values into.
         private static readonly FieldInfo FixtureCacheField =
             typeof(FixtureMappingManager).GetField("fixtureCache", BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("FixtureMappingManager.fixtureCache (private) was not found. The xunit.v3 3.2.2 pin has changed; fixture arguments cannot be injected.");
+            ?? throw new InvalidOperationException("FixtureMappingManager.fixtureCache (private) was not found. The xunit.v3 4.0.2 pin has changed; fixture arguments cannot be injected.");
 
-        // Reflection point #4: a class-level manager delegates to its parent (collection) manager, whose
-        // cache is the one a class fixture is actually built from.
-        private static readonly FieldInfo ParentMappingManagerField =
-            typeof(FixtureMappingManager).GetField("parentMappingManager", BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("FixtureMappingManager.parentMappingManager (private) was not found. The xunit.v3 3.2.2 pin has changed; fixture arguments cannot be injected.");
+        private readonly FixtureMappingManager _collectionFixtureMappings;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CustomXunitTestClassRunner"/> class.
+        /// </summary>
+        /// <param name="collectionFixtureMappings">The collection fixture cache used to resolve variant arguments.</param>
+        public CustomXunitTestClassRunner(FixtureMappingManager collectionFixtureMappings)
+        {
+            _collectionFixtureMappings = collectionFixtureMappings;
+        }
 
         protected override async ValueTask<bool> OnTestClassStarting(XunitTestClassRunnerContext context)
         {
@@ -36,22 +41,16 @@ namespace Microsoft.Health.Extensions.Xunit
         }
 
         // Seeds DataStore/Format into the fixture cache so a class fixture ctor taking them resolves.
-        private static void InjectFixtureArguments(XunitTestClassRunnerContext context)
+        private void InjectFixtureArguments(XunitTestClassRunnerContext context)
         {
             if (context?.TestClass is not FixtureArgumentSetTestClass variantClass)
             {
                 return;
             }
 
-            FixtureMappingManager cacheOwner = context.ClassFixtureMappings;
-            if (ParentMappingManagerField.GetValue(cacheOwner) is FixtureMappingManager parent)
+            if (FixtureCacheField.GetValue(_collectionFixtureMappings) is not IDictionary<Type, object> cache)
             {
-                cacheOwner = parent;
-            }
-
-            if (FixtureCacheField.GetValue(cacheOwner) is not IDictionary<Type, object> cache)
-            {
-                throw new InvalidOperationException("The xUnit fixture cache could not be read. The xunit.v3 3.2.2 pin has changed.");
+                throw new InvalidOperationException("The xUnit fixture cache could not be read. The xunit.v3 4.0.2 pin has changed.");
             }
 
             // Overwrite, never add-if-missing: the cache is collection-scoped and a class's variants share a

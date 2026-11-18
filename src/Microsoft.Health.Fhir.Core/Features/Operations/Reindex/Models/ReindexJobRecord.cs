@@ -102,6 +102,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.TypeId)]
         public int TypeId { get; internal set; }
 
+        /// <summary>
+        /// Gets the reindexed resources with a reference id longer than the maximum resource id length, by resource type and search parameter.
+        /// </summary>
+        [JsonProperty(JobRecordProperties.OverlongReferenceIds)]
+        public ICollection<OverlongReferenceIdCount> OverlongReferenceIds { get; private set; } = new List<OverlongReferenceIdCount>();
+
         internal ReindexJobRecord Clone()
         {
             return (ReindexJobRecord)MemberwiseClone();

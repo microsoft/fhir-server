@@ -34,7 +34,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <returns>Async Task</returns>
         Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken);
 
-        Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken);
+        /// <summary>
+        /// Updates the search indices of the given resources.
+        /// </summary>
+        /// <param name="resources">The resources with their newly computed search indices.</param>
+        /// <param name="cancellationToken">Cancellation Token</param>
+        /// <returns>Warnings for search index values that could not be stored. Empty if there are none.</returns>
+        Task<IReadOnlyList<string>> BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken);
 
         Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resourceWrapper, CancellationToken cancellationToken);
 

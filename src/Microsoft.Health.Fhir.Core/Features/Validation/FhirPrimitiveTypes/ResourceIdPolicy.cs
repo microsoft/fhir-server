@@ -59,5 +59,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes
         /// <returns>True when the id is valid.</returns>
         public bool IsValid(ReadOnlySpan<char> resourceId)
             => resourceId.Length > 0 && resourceId.Length <= MaxLength && !resourceId.ContainsAnyExcept(IdCharacters);
+
+        /// <summary>
+        /// Determines whether a value is made of letters, digits, dots or hyphens, like a resource id, but is longer than <see cref="MaxLength"/>.
+        /// </summary>
+        /// <param name="resourceId">The value to check.</param>
+        /// <returns>True when the value is an id longer than the limit.</returns>
+        public bool IsTooLong(ReadOnlySpan<char> resourceId)
+            => resourceId.Length > MaxLength && !resourceId.ContainsAnyExcept(IdCharacters);
     }
 }

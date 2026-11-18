@@ -275,6 +275,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             Assert.All(exception.Issues, i => Assert.Equal("Duplicate", i.Code));
         }
 
+        [Theory]
+        [InlineData("SearchParameter")]
+        [InlineData("Resource")]
+        [InlineData("DomainResource")]
+        public async Task GivenAPackageMemberWhoseBaseCoversSearchParameter_WhenValidating_ThenItIsRejectedAsNotSupported(string baseType)
+        {
+            // Arrange
+            ConfigureResourceHierarchy();
+            _modelInfoProvider.GetResourceTypeNames().Returns(new[] { "Patient", "Observation", KnownResourceTypes.SearchParameter });
+            _modelInfoProvider.GetTypeForFhirType(KnownResourceTypes.SearchParameter).Returns(typeof(Hl7.Fhir.Model.SearchParameter));
+            JsonObject json = SearchParameterNode(UrlA, "a", expression: $"{baseType}.id");
+            json["base"] = new JsonArray(baseType);
+            var entries = new[]
+            {
+                Entry("package/SearchParameter-a.json", json.ToJsonString()),
+                Entry("package/SearchParameter-b.json", SearchParameterJson(UrlB, "b")),
+            };
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateHandler().ValidateAsync(entries, _package, CancellationToken.None));
+
+            // Assert
+            OperationOutcomeIssue issue = Assert.Single(exception.Issues);
+            Assert.Equal("NotSupported", issue.Code);
+            Assert.Contains("package/SearchParameter-a.json", issue.Diagnostics, StringComparison.Ordinal);
+            Assert.Contains($"'{baseType}'", issue.Diagnostics, StringComparison.Ordinal);
+            await _writer.DidNotReceiveWithAnyArgs().WriteAsync(default, default, default, default);
+        }
+
         [Fact]
         public async Task GivenTwoPackageMembersWithTheSameCodeOnUnrelatedBases_WhenValidating_ThenBothAreAccepted()
         {
@@ -397,6 +427,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
             // Assert
             Assert.Equal(2, exception.Issues.Count(i => i.Code == "Duplicate" && i.Diagnostics.Contains("'same'", StringComparison.Ordinal)));
+        }
+
+        [Fact]
+        public async Task GivenTwoSearchParametersWithTheSameId_WhenValidating_ThenBothAreReportedAsDuplicates()
+        {
+            // Arrange
+            JsonObject a = SearchParameterNode(UrlA, "a");
+            a["id"] = "same-id";
+            JsonObject b = SearchParameterNode(UrlB, "b");
+            b["id"] = "same-id";
+            var entries = new[]
+            {
+                Entry("package/SearchParameter-a.json", a.ToJsonString()),
+                Entry("package/SearchParameter-b.json", b.ToJsonString()),
+            };
+
+            // Act
+            FhirPackageException exception = await Assert.ThrowsAsync<FhirPackageException>(
+                () => CreateHandler().ValidateAsync(entries, _package, CancellationToken.None));
+
+            // Assert
+            Assert.Equal(2, exception.Issues.Count(i => i.Code == "Duplicate" && i.Diagnostics.Contains("The id is used", StringComparison.Ordinal)));
         }
 
         [Fact]

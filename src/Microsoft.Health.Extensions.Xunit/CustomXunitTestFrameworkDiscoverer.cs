@@ -27,15 +27,15 @@ namespace Microsoft.Health.Extensions.Xunit
     internal sealed class CustomXunitTestFrameworkDiscoverer : XunitTestFrameworkDiscoverer
     {
         // Reflection point #1: the display name is stored in a private field with no public setter, so the synthetic
-        // (DataStore, Format) suffix is injected here. Pinned to xunit.v3 3.2.2; fails loudly if the field is gone.
+        // (DataStore, Format) suffix is injected here. Pinned to xunit.v3 4.0.2; fails loudly if the field is gone.
         private static readonly FieldInfo DisplayNameField =
             typeof(XunitTestCase).GetField("testCaseDisplayName", BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("XunitTestCase.testCaseDisplayName (private) was not found. The xunit.v3 3.2.2 pin has changed; the variant display name cannot be set.");
+            ?? throw new InvalidOperationException("XunitTestCase.testCaseDisplayName (private) was not found. The xunit.v3 4.0.2 pin has changed; the variant display name cannot be set.");
 
         private readonly ConcurrentDictionary<string, FixtureArgumentSetTestClass> _classCache = new(StringComparer.Ordinal);
 
         public CustomXunitTestFrameworkDiscoverer(Assembly assembly, IXunitTestCollectionFactory collectionFactory = null)
-            : base(new XunitTestAssembly(assembly, null, assembly.GetName().Version, UniqueIDGenerator.ForAssembly(assembly.Location, null)), collectionFactory)
+            : base(new XunitTestAssembly(assembly, configFilePath: null), collectionFactory)
         {
         }
 

@@ -90,16 +90,6 @@ stages:
         unitTest: false
         codeCoverage: true
 
-  - job: Windows_dotnet10
-    pool:
-      name: '$(InternalPool)'
-      demands:
-        - ImageOverride -equals $(InternalWindowsImage)
-    steps:
-    - template: ./jobs/build.yml
-      parameters:
-        targetBuildFramework: 'net10.0'
-
 - stage: BuildArtifacts
   displayName: 'Build artifacts'
   dependsOn:

@@ -2,11 +2,11 @@
 
 During development there are multiple ways to test the project. 
 
-## Install the SDKs
+## Install the SDK
 
-Install the .NET 11 SDK pinned in `global.json` and the .NET 10 SDK pinned in `build/dotnet10-compat/global.json`. The .NET 10 runtime is required by the SQL build generators and .NET 10 tests. CI and the dev container install both SDKs.
+Install the .NET 11 SDK pinned in `global.json`.
 
-NuGet packages target `net11.0` and `net10.0`. Web archives, integration test archives, and Docker images use only `net11.0`, with the existing artifact names and image tags.
+NuGet packages, web archives, integration test archives, and Docker images target `net11.0`, with the existing artifact names and image tags.
 
 ## Using Visual Studio
 
@@ -23,7 +23,7 @@ If discovery aborts with "Could not find testhost", verify these references are 
 Build the project before running it from a terminal. The .NET 11 R4 web executable is `.\src\Microsoft.Health.Fhir.R4.Web\bin\Debug\net11.0\Microsoft.Health.Fhir.R4.Web.exe`.
 Running this executable will start the project in the terminal. Note that it will use the appsettings options stored in the folder with the executable, which is only updated when the project is built. This file can also be manually edited if desired.
 
-Run unit tests for each framework with `dotnet test --project <unit-test.csproj> -f net11.0` and `dotnet test --project <unit-test.csproj> -f net10.0`.
+Run unit tests with `dotnet test --project <unit-test.csproj> -f net11.0`.
 
 ### Enabling extra logging
 

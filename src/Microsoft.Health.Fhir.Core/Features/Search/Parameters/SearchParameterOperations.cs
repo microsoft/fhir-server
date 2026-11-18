@@ -262,7 +262,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // Batch fetch all SearchParameter resources in one call
                 var searchParamResources = await GetSearchParametersByUrlsAsync(statusesToFetch.Select(p => p.Uri.OriginalString).ToList(), cancellationToken);
 
+                // Composites resolve their components when added, so add every non-composite first; otherwise a composite
+                // could land in an earlier chunk than a component it references.
+                statusesToFetch = statusesToFetch
+                    .OrderBy(p => searchParamResources.TryGetValue(p.Uri.OriginalString, out var resource) && IsComposite(resource))
+                    .ToList();
+
                 var paramsToAdd = new List<ITypedElement>();
+                bool addedDefinitions = false;
                 foreach (var searchParam in statusesToFetch)
                 {
                     if (!searchParamResources.TryGetValue(searchParam.Uri.OriginalString, out var searchParamResource))
@@ -281,6 +288,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     }
 
                     paramsToAdd.Add(searchParamResource);
+                    addedDefinitions = true;
 
                     // Add parameters incrementally per chunk to reduce peak memory footprint
                     if (paramsToAdd.Count >= 100)
@@ -294,6 +302,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 if (paramsToAdd.Any())
                 {
                     _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
+                }
+
+                if (addedDefinitions)
+                {
+                    statuses = await RereadStatusesForAddedDefinitionsAsync(statuses, cancellationToken);
                 }
 
                 // Once added to the definition manager we can update their status
@@ -324,6 +337,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Re-reads statuses after new definitions were added. A store can derive fields such as the sort status from the
+        /// definition, which wasn't loaded when the statuses were first read.
+        /// </summary>
+        /// <remarks>
+        /// Only rows that are unchanged since the first read are replaced, so nothing newer than the watermark is applied
+        /// before its definition is loaded.
+        /// </remarks>
+        private async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> RereadStatusesForAddedDefinitionsAsync(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
+        {
+            var reread = (await _searchParameterStatusManager.GetSearchParameterStatusUpdates(cancellationToken, _searchParamLastUpdated)).Statuses
+                .GroupBy(p => p.Uri.OriginalString, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+
+            return statuses
+                .Select(p => reread.TryGetValue(p.Uri.OriginalString, out var current) && current.LastUpdated == p.LastUpdated && current.Status == p.Status ? current : p)
+                .ToList();
+        }
+
+        private static bool IsComposite(ITypedElement searchParameter)
+        {
+            return string.Equals(searchParameter.Children("type").FirstOrDefault()?.Value as string, "composite", StringComparison.Ordinal);
         }
 
         private void DeleteSearchParameter(string url)

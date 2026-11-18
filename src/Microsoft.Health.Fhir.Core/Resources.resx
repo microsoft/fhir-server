@@ -895,6 +895,10 @@
   <data name="ReindexingNoSearchParameterstoReindex" xml:space="preserve">
     <value>There are no search parameters to reindex for job Id: {0}.</value>
   </data>
+  <data name="ReindexWarningsOmitted" xml:space="preserve">
+    <value>{0} more reindex warning(s) were not listed.</value>
+    <comment>{0} is the number of warnings not listed.</comment>
+  </data>
   <data name="SearchParameterDefinitionInvalidUriExceedsMaxLength" xml:space="preserve">
     <value>Search Parameter URL {0} exceeds the maximum length limit of {1}</value>
   </data>
@@ -903,6 +907,18 @@
   </data>
   <data name="TruncatedIncludeMessageForIterativeInclude" xml:space="preserve">
     <value>Include result was truncated. Iterative include results cannot be paged though, please narrow your search.</value>
+  </data>
+  <data name="FhirPackageStoreNotEmpty" xml:space="preserve">
+    <value>The FHIR package '{0}' version '{1}' was not installed because the data store already contains resources. Package SearchParameters can only be applied to a new service before any data is written. To add these SearchParameters to a service that has data, create each SearchParameter and then run $reindex.</value>
+  </data>
+  <data name="FhirPackageWriteConflictRetryable" xml:space="preserve">
+    <value>The FHIR package '{0}' version '{1}' was not installed because a concurrent SearchParameter change or a running reindex job conflicted with it. Nothing was written. Retry the installation. Details: {2}</value>
+  </data>
+  <data name="FhirPackageInstalledWithDifferentContent" xml:space="preserve">
+    <value>The FHIR package '{0}' is already installed at version '{1}' with integrity '{2}'. It can't be installed at version '{3}' with integrity '{4}' because package upgrades are not supported.</value>
+  </data>
+  <data name="FhirPackageSearchParameterResourceConflict" xml:space="preserve">
+    <value>The FHIR package '{0}' version '{1}' was not installed because a SearchParameter resource it would create already exists and is not owned by this package. Nothing was written. Details: {2}</value>
   </data>
   <data name="FhirPackageRejected" xml:space="preserve">
     <value>The FHIR package was rejected. Nothing from the package was installed.</value>
@@ -931,8 +947,14 @@
   <data name="FhirPackageSearchParameterDuplicateUrl" xml:space="preserve">
     <value>The url is used by more than one SearchParameter in the package.</value>
   </data>
+  <data name="FhirPackageSearchParameterDuplicateId" xml:space="preserve">
+    <value>The id is used by more than one SearchParameter in the package.</value>
+  </data>
   <data name="FhirPackageSearchParameterDuplicateCode" xml:space="preserve">
     <value>The code &apos;{0}&apos; is used by more than one SearchParameter on base &apos;{1}&apos; in the package.</value>
+  </data>
+  <data name="FhirPackageSearchParameterUnsupportedBase" xml:space="preserve">
+    <value>The base &apos;{0}&apos; applies to SearchParameter resources, which package SearchParameters can't target because package installs don't reindex existing resources. Use base types that exclude SearchParameter.</value>
   </data>
   <data name="FhirPackageSearchParameterSystemDefinedUrl" xml:space="preserve">
     <value>The url belongs to a SearchParameter defined by the FHIR specification or by the server, and can&apos;t be installed from a package.</value>
@@ -1012,5 +1034,17 @@
   <data name="SmartScopeSearchParameterNotEnforceable" xml:space="preserve">
     <value>The granted SMART scope restricts access using the search parameter '{0}', which is not currently available on this server. The request cannot be authorized.</value>
     <comment>{0} is the code of the search parameter the SMART clinical scope depends on.</comment>
+  </data>
+  <data name="LongUriSearchValue" xml:space="preserve">
+    <value>URI parameter '{0}' exceeds {1} characters. Evaluation is limited to the first {1} characters, which may return broader search results.</value>
+    <comment>{0} is a comma-separated list of search parameter codes. {1} is the number of URI characters the data store compares.</comment>
+  </data>
+  <data name="LongReferenceId" xml:space="preserve">
+    <value>Reference parameter '{0}' ID exceeds {1} characters. Index truncation applied after {1} characters, which may yield over-inclusive results</value>
+    <comment>{0} is the code of the search parameter. {1} is the maximum resource id length.</comment>
+  </data>
+  <data name="LongReferenceIdAffectedResources" xml:space="preserve">
+    <value>Resource type '{0}': {1} resource(s) affected.</value>
+    <comment>{0} is a resource type. {1} is the number of resources with a reference id longer than the maximum resource id length.</comment>
   </data>
 </root>

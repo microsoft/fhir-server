@@ -3,6 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
+using Newtonsoft.Json;
+
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportProcessingJobResult
@@ -42,5 +45,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// data store; retries internal to the SQL retry service stay included in this value.
         /// </summary>
         public long? DatabaseMilliseconds { get; set; }
+
+        /// <summary>
+        /// Gets the imported resources with a reference id longer than the maximum resource id length, by resource type
+        /// and search parameter.
+        /// </summary>
+        [JsonProperty(JobRecordProperties.OverlongReferenceIds)]
+        public ICollection<OverlongReferenceIdCount> OverlongReferenceIds { get; } = new List<OverlongReferenceIdCount>();
+
+        /// <summary>
+        /// Omits <see cref="OverlongReferenceIds"/> from the serialized result when it's empty.
+        /// </summary>
+        /// <returns><c>true</c> if there are counts to serialize.</returns>
+        public bool ShouldSerializeOverlongReferenceIds() => OverlongReferenceIds.Count > 0;
     }
 }
