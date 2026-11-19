@@ -395,35 +395,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     pathBase += "/";
                 }
 
-                if (httpContext.GetEndpoint()?.Metadata.GetMetadata<PartitionRouteMetadata>()?.HasPrefix == true)
+                if (_fhirRequestContextAccessor.RequestContext.PartitionId != null)
                 {
-                    var partitionValues = new RouteValueDictionary(routeValues)
+                    routeValues = new RouteValueDictionary(routeValues)
                     {
-                        [PartitionRouteMetadata.PartitionId] = httpContext.Request.RouteValues[PartitionRouteMetadata.PartitionId],
+                        [PartitionRouteMetadata.PartitionId] = _fhirRequestContextAccessor.RequestContext.PartitionId,
                     };
-                    string partitionRouteName = PartitionRouteMetadata.NamePrefix + routeName;
-                    uriString = address == null ?
-                        _linkGenerator.GetUriByRouteValues(
-                            httpContext,
-                            partitionRouteName,
-                            partitionValues,
-                            scheme,
-                            new HostString(host),
-                            pathBase) :
-                        _linkGenerator.GetUriByAddress(
-                            httpContext,
-                            new RouteValuesAddress { RouteName = partitionRouteName, ExplicitValues = partitionValues, AmbientValues = address.AmbientValues },
-                            partitionValues,
-                            address.AmbientValues,
-                            scheme,
-                            new HostString(host),
-                            pathBase);
-                    if (uriString != null)
-                    {
-                        return new Uri(uriString);
-                    }
-
-                    // Service-wide endpoints have no partition-prefixed route.
+                    routeName = PartitionRouteMetadata.NamePrefix + routeName;
+                    address = address == null ? null : new RouteValuesAddress { RouteName = routeName, ExplicitValues = routeValues, AmbientValues = address?.AmbientValues };
                 }
 
                 uriString = address == null ?
