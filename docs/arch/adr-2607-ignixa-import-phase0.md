@@ -78,7 +78,7 @@ The first case is FHIR NPM package reading (`IgnixaFhirPackageReader`, built on 
 
 ## Status
 
-Accepted
+Superseded by [ADR-2608](adr-2608-ignixa-sdk-migration.md), which replaces the global two-state provider setting with per-seam selection. The "New capabilities built on Ignixa" rule above is carried forward in ADR-2608.
 
 ## Consequences
 

@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
             { KnownEnvironmentVariableNames.TestEnvironmentUrl, string.Empty },
             { KnownEnvironmentVariableNames.TestTokenEndpoint, string.Empty },
             { KnownEnvironmentVariableNames.TestExportStoreUri, StorageEmulatorUri },
+            { KnownEnvironmentVariableNames.TestFhirPathProvider, string.Empty },
             { KnownEnvironmentVariableNames.TestIntegrationStoreUri, StorageEmulatorUri },
             { KnownEnvironmentVariableNames.TestProxyForwardedHost, string.Empty },
             { KnownEnvironmentVariableNames.TestProxyForwardedPrefix, string.Empty },

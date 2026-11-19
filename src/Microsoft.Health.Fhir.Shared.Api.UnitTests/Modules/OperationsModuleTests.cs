@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
         public void GivenIgnixaConfiguration_WhenModuleLoads_ThenIgnixaParserIsRegistered()
         {
             var configuration = new FhirServerConfiguration();
-            configuration.CoreFeatures.FhirSdkProvider = FhirSdkProvider.Ignixa;
+            configuration.CoreFeatures.FhirSdkProvider.Import = FhirSdkProvider.Ignixa;
             var services = new ServiceCollection();
 
             new OperationsModule(configuration).Load(services);
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
         public void GivenUnknownProvider_WhenModuleLoads_ThenStartupFails()
         {
             var configuration = new FhirServerConfiguration();
-            configuration.CoreFeatures.FhirSdkProvider = (FhirSdkProvider)999;
+            configuration.CoreFeatures.FhirSdkProvider.Import = (FhirSdkProvider)999;
 
             Assert.Throws<InvalidOperationException>(
                 () => new OperationsModule(configuration).Load(new ServiceCollection()));

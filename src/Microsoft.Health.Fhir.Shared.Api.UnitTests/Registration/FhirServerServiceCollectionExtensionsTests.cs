@@ -73,6 +73,31 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             Assert.Throws<InvalidOperationException>(addFhirServer);
         }
 
+        [Fact]
+        public void GivenNestedKeyUnderFhirPathProviderFromSeparateSources_WhenFhirServerIsAdded_ThenStartupValidationFails()
+        {
+            // Arrange: a lower layer selects Ignixa and a higher layer attempts a rollback with a nested key, which
+            // the binder would ignore and leave the server on Ignixa.
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string>
+                {
+                    ["FhirServer:CoreFeatures:FhirSdkProvider:FhirPath"] = "Ignixa",
+                })
+                .AddInMemoryCollection(new Dictionary<string, string>
+                {
+                    ["FhirServer:CoreFeatures:FhirSdkProvider:FhirPath:Provider"] = "Firely",
+                })
+                .Build();
+            var services = new ServiceCollection();
+
+            // Act
+            Action addFhirServer = () => services.AddFhirServer(configuration);
+
+            // Assert
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(addFhirServer);
+            Assert.Contains("FhirServer:CoreFeatures:FhirSdkProvider:FhirPath:Provider", exception.Message, StringComparison.Ordinal);
+        }
+
         private static IConfiguration BuildConfiguration(IDictionary<string, string> settings)
         {
             return new ConfigurationBuilder()

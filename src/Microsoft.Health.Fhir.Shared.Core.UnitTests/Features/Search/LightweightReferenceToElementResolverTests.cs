@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             {
                 ElementResolver = _resolver.Resolve,
             };
-            FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
+            ElementNavFhirExtensions.PrepareFhirSymbolTableFunctions();
         }
 
         [InlineData("Patient/1234")]

@@ -8,9 +8,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Hl7.Fhir.ElementModel;
-using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Extensions

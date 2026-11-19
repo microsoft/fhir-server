@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
@@ -49,7 +50,13 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
             var referenceToElementResolver = new LightweightReferenceToElementResolver(referenceSearchValueParser, modelInfoProvider);
 
             var logger = new NullLogger<TypedElementSearchIndexer>();
-            var searchIndexer = new TypedElementSearchIndexer(supportedSearchParameterDefinitionManager, fhirTypedElementToSearchValueConverterManager, referenceToElementResolver, modelInfoProvider, logger);
+            var searchIndexer = new TypedElementSearchIndexer(
+                supportedSearchParameterDefinitionManager,
+                fhirTypedElementToSearchValueConverterManager,
+                referenceToElementResolver,
+                modelInfoProvider,
+                new FirelyFhirPathProvider(),
+                logger);
 
             var compartmentDefinitionManager = new CompartmentDefinitionManager(modelInfoProvider);
 

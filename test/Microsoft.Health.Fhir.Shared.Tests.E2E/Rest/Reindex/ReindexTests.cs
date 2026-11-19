@@ -101,6 +101,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Reindex
         [Fact]
         public async Task GivenSearchParameterWithInvalidRegex_WhenReindexFails_ThenJobStatusIdentifiesSearchParameter()
         {
+            Assert.SkipWhen(
+                string.Equals(EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.TestFhirPathProvider), "Ignixa", StringComparison.OrdinalIgnoreCase),
+                "Ignixa 0.6.82 evaluates an invalid regex to empty (brendankowitz/ignixa-fhir#519); remove this skip when the pinned Ignixa includes brendankowitz/ignixa-fhir#520.");
+
             // Arrange
             var client = _fixture.TestFhirClient;
             var marker = $"SYNTHETIC_CONFIDENTIAL_{Guid.NewGuid():N}";

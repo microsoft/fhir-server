@@ -17,12 +17,14 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -48,6 +50,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
     {
         private const string PatientReference = "Patient/pat1";
         private const string PractitionerReference = "Practitioner/prac1";
+        private const string OrganizationReference = "Organization/org1";
+        private const string DevicePatientCode = "patient";
+        private const string FirelyProvider = "Firely";
+        private const string IgnixaProvider = "Ignixa";
 
         static SmartCompartmentMembershipMaterializationTests()
         {
@@ -76,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
             await AssertMembershipIsMaterializedAsync(
                 compartmentType: KnownResourceTypes.Patient,
                 resourceType: resourceType,
-                targetResourceType: KnownResourceTypes.Patient,
+                expectedReference: PatientReference,
                 resource: BuildPatientCompartmentResource(resourceType));
         }
 
@@ -90,14 +96,63 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
             await AssertMembershipIsMaterializedAsync(
                 compartmentType: KnownResourceTypes.Practitioner,
                 resourceType: resourceType,
-                targetResourceType: KnownResourceTypes.Practitioner,
+                expectedReference: PractitionerReference,
                 resource: BuildPractitionerCompartmentResource(resourceType));
         }
+
+        // SMART's Device restriction treats a Device with no Device.patient index entry as unassigned and shows it to
+        // every patient (SmartCompartmentSearchRewriter.GetConditionalCompartmentRules). A provider that failed to
+        // materialize Device.patient would therefore expose a Device assigned to one patient to all of them.
+        [Theory]
+        [InlineData(FirelyProvider, "pat1")]
+        [InlineData(FirelyProvider, "pat2")]
+        [InlineData(IgnixaProvider, "pat1")]
+        [InlineData(IgnixaProvider, "pat2")]
+        public async System.Threading.Tasks.Task GivenADeviceAssignedToAPatient_WhenIndexed_ThenDevicePatientIndexesExactlyThatPatient(string providerName, string patientId)
+        {
+            SearchParameterDefinitionManager definitionManager = await new SearchParameterFixtureData().GetSearchDefinitionManagerAsync();
+            SearchParameterInfo devicePatient = definitionManager.GetSearchParameter(KnownResourceTypes.Device, DevicePatientCode);
+            var device = new Device { Id = "dev1", Patient = new ResourceReference($"{KnownResourceTypes.Patient}/{patientId}") };
+
+            IReadOnlyCollection<SearchIndexEntry> entries = await IndexAsync(definitionManager, device, CreateProvider(providerName));
+
+            SearchIndexEntry entry = Assert.Single(entries, e => e.SearchParameter.Url == devicePatient.Url);
+            ReferenceSearchValue reference = Assert.IsType<ReferenceSearchValue>(entry.Value);
+            Assert.Null(reference.BaseUri);
+            Assert.Equal(KnownResourceTypes.Patient, reference.ResourceType);
+            Assert.Equal(patientId, reference.ResourceId);
+        }
+
+        [Theory]
+        [InlineData(FirelyProvider)]
+        [InlineData(IgnixaProvider)]
+        public async System.Threading.Tasks.Task GivenAnUnassignedDevice_WhenIndexed_ThenNoDevicePatientEntryIsIndexed(string providerName)
+        {
+            SearchParameterDefinitionManager definitionManager = await new SearchParameterFixtureData().GetSearchDefinitionManagerAsync();
+            SearchParameterInfo devicePatient = definitionManager.GetSearchParameter(KnownResourceTypes.Device, DevicePatientCode);
+            SearchParameterInfo deviceOrganization = definitionManager.GetSearchParameter(KnownResourceTypes.Device, "organization");
+
+            // The owner reference proves the provider evaluated this Device's reference parameters, so the absence of a
+            // Device.patient entry below reflects an unassigned Device rather than an indexer that produced nothing.
+            var device = new Device { Id = "dev2", Owner = new ResourceReference(OrganizationReference) };
+
+            IReadOnlyCollection<SearchIndexEntry> entries = await IndexAsync(definitionManager, device, CreateProvider(providerName));
+
+            Assert.Contains(entries, e => e.SearchParameter.Url == deviceOrganization.Url && e.Value.ToString() == OrganizationReference);
+            Assert.DoesNotContain(entries, e => e.SearchParameter.Url == devicePatient.Url);
+        }
+
+        private static IFhirPathProvider CreateProvider(string providerName) => providerName switch
+        {
+            FirelyProvider => new FirelyFhirPathProvider(),
+            IgnixaProvider => new IgnixaFhirPathProvider(new IgnixaSchemaContext(ModelInfoProvider.Instance)),
+            _ => throw new ArgumentOutOfRangeException(nameof(providerName), providerName, "Unknown FHIRPath provider."),
+        };
 
         private static async System.Threading.Tasks.Task AssertMembershipIsMaterializedAsync(
             string compartmentType,
             string resourceType,
-            string targetResourceType,
+            string expectedReference,
             Resource resource)
         {
             SearchParameterDefinitionManager definitionManager = await new SearchParameterFixtureData().GetSearchDefinitionManagerAsync();
@@ -120,23 +175,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
                 .Select(parameter => parameter.Url.AbsoluteUri)
                 .ToHashSet(StringComparer.Ordinal);
 
-            HashSet<string> materializedUrls = ExtractMaterializedReferenceParameters(definitionManager, resource, targetResourceType);
+            IFhirPathProvider[] providers =
+            [
+                new FirelyFhirPathProvider(),
+                new IgnixaFhirPathProvider(new IgnixaSchemaContext(ModelInfoProvider.Instance)),
+            ];
 
-            string[] usable = membershipUrls.Intersect(materializedUrls, StringComparer.Ordinal).ToArray();
+            foreach (IFhirPathProvider provider in providers)
+            {
+                HashSet<string> materializedUrls = (await IndexAsync(definitionManager, resource, provider))
+                    .Where(entry => entry.Value is ReferenceSearchValue reference
+                        && string.Equals(reference.ToString(), expectedReference, StringComparison.Ordinal))
+                    .Select(entry => entry.SearchParameter.Url.AbsoluteUri)
+                    .ToHashSet(StringComparer.Ordinal);
 
-            string failure =
-                $"No {compartmentType} compartment membership parameter for {resourceType} is materialized by the indexer. " +
-                $"Compartment-scoped search would silently drop every {resourceType} in the compartment.{Environment.NewLine}" +
-                $"  membership parameters: {string.Join(", ", membershipUrls.OrderBy(u => u, StringComparer.Ordinal))}{Environment.NewLine}" +
-                $"  indexed parameters:    {string.Join(", ", materializedUrls.OrderBy(u => u, StringComparer.Ordinal))}";
+                string[] usable = membershipUrls.Intersect(materializedUrls, StringComparer.Ordinal).ToArray();
 
-            Assert.True(usable.Length > 0, failure);
+                string failure =
+                    $"No {compartmentType} compartment membership parameter for {resourceType} targeting {expectedReference} is materialized by {provider.GetType().Name}. " +
+                    $"Compartment-scoped search would silently drop every {resourceType} in the compartment.{Environment.NewLine}" +
+                    $"  membership parameters: {string.Join(", ", membershipUrls.OrderBy(u => u, StringComparer.Ordinal))}{Environment.NewLine}" +
+                    $"  indexed parameters:    {string.Join(", ", materializedUrls.OrderBy(u => u, StringComparer.Ordinal))}";
+
+                Assert.True(usable.Length > 0, failure);
+            }
         }
 
-        private static HashSet<string> ExtractMaterializedReferenceParameters(
+        private static async System.Threading.Tasks.Task<IReadOnlyCollection<SearchIndexEntry>> IndexAsync(
             SearchParameterDefinitionManager definitionManager,
             Resource resource,
-            string targetResourceType)
+            IFhirPathProvider fhirPathProvider)
         {
             var supported = Substitute.For<ISupportedSearchParameterDefinitionManager>();
             supported.GetSearchParameters(Arg.Any<string>())
@@ -148,16 +216,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
 
             var indexer = new TypedElementSearchIndexer(
                 supported,
-                SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync().GetAwaiter().GetResult(),
+                await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync(),
                 resolver,
                 ModelInfoProvider.Instance,
+                fhirPathProvider,
                 NullLogger<TypedElementSearchIndexer>.Instance);
 
-            return indexer.Extract(resource.ToResourceElement())
-                .Where(entry => entry.Value is ReferenceSearchValue reference
-                    && string.Equals(reference.ResourceType, targetResourceType, StringComparison.Ordinal))
-                .Select(entry => entry.SearchParameter.Url.AbsoluteUri)
-                .ToHashSet(StringComparer.Ordinal);
+            return indexer.Extract(resource.ToResourceElement());
         }
 
         private static Resource BuildPatientCompartmentResource(string resourceType)

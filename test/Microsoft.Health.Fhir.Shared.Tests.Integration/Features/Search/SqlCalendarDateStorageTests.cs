@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
@@ -99,6 +100,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Search
                 new FhirTypedElementToSearchValueConverterManager(converters),
                 new LightweightReferenceToElementResolver(parser, ModelInfoProvider.Instance),
                 ModelInfoProvider.Instance,
+                new FirelyFhirPathProvider(),
                 NullLogger<TypedElementSearchIndexer>.Instance);
             var compartments = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
             await compartments.StartAsync(CancellationToken.None);

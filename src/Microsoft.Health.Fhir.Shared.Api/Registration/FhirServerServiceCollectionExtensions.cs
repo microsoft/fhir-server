@@ -30,6 +30,7 @@ using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
@@ -81,6 +82,12 @@ namespace Microsoft.Extensions.DependencyInjection
             var fhirServerConfiguration = new FhirServerConfiguration();
 
             string dataStore = configurationRoot == null ? string.Empty : configurationRoot["DataStore"];
+            if (configurationRoot != null)
+            {
+                FhirSdkProviderConfiguration.Validate(
+                    configurationRoot.GetSection($"{FhirServerConfigurationSectionName}:CoreFeatures:FhirSdkProvider"));
+            }
+
             configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
             configureAction?.Invoke(fhirServerConfiguration);
 

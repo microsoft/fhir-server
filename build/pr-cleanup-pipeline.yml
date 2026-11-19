@@ -17,8 +17,10 @@ resources:
       stages:
       - testStu3Cosmos
       - cleanup_testStu3Sql
+      - testStu3SqlVNext
       - testR4Cosmos
       - cleanup_testR4Sql
+      - testR4SqlVNext
       - cleanup_testR5Sql
 
 variables:
