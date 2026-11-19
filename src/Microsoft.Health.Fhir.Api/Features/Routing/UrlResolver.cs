@@ -402,7 +402,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                         [PartitionRouteMetadata.PartitionId] = _fhirRequestContextAccessor.RequestContext.PartitionId,
                     };
                     routeName = PartitionRouteMetadata.NamePrefix + routeName;
-                    address = address == null ? null : new RouteValuesAddress { RouteName = routeName, ExplicitValues = routeValues, AmbientValues = address?.AmbientValues };
+                    if (address != null)
+                    {
+                        address = new RouteValuesAddress { RouteName = routeName, ExplicitValues = routeValues, AmbientValues = address.AmbientValues };
+                    }
                 }
 
                 uriString = address == null ?
