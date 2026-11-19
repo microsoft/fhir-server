@@ -26,7 +26,8 @@ We will adopt Ignixa incrementally through narrow, capability-specific seams. Ea
 
 Selection is configured under `FhirServer:CoreFeatures:FhirSdkProvider`: `SystemDefault` applies to every seam, and a seam-specific key (for example `Import`, `FhirPath`, or `PersistenceWrite`) overrides it for that seam only. Startup fails on a single-value `FhirSdkProvider` setting, an unknown key, or an unrecognized provider name, so a mistyped rollback setting cannot be silently ignored.
 
-`PersistenceWrite` selects the persistence write factory. Until each producer migrates to Ignixa, the Ignixa factory delegates carriers that are not Ignixa-native to the Firely writer, decided by carrier type before writing and never after a failure. A write that fails on the selected path is not retried on the other provider.
+`PersistenceWrite` selects the persistence write factory. Until a producer migrates to Ignixa, the Ignixa factory delegates that producer's non-native carriers to the Firely writer. The factory dispatches by carrier type before writing and never retries a failed write with the other provider.
+
 We will not introduce a single facade for the entire FHIR SDK. Existing focused contracts will be reused, and new abstractions will be limited to capabilities that do not already have an appropriate boundary. A seam must include every path that produces or regenerates the same persisted or externally visible representation; for example, indexing and reindexing cannot select different providers.
 
 A new capability with no Firely implementation is not a migrated seam. It may use Ignixa directly, registered regardless of `FhirSdkProvider`, provided its Core contract is SDK-neutral and its Ignixa code lives in `Microsoft.Health.Fhir.Ignixa` (for example, FHIR NPM package reading).
