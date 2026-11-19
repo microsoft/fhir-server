@@ -5,7 +5,7 @@
 
 using System.Linq;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
-using Microsoft.Health.Fhir.Core.Features.Partitions;
+using Microsoft.Health.Fhir.Api.Features.Partitions;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
 {
@@ -13,24 +13,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
     {
         public void Apply(ApplicationModel application)
         {
-            foreach (ControllerModel controller in application.Controllers)
+            foreach (ControllerModel controller in application.Controllers.Where(x => !x.Attributes.OfType<PartitionIndependentAttribute>().Any()))
             {
-                if (controller.Attributes.OfType<PartitionIndependentAttribute>().Any())
-                {
-                    continue;
-                }
-
                 var controllerRoutes = controller.Selectors.Where(selector => selector.AttributeRouteModel != null).ToArray();
-                foreach (ActionModel action in controller.Actions)
+                foreach (ActionModel action in controller.Actions.Where(x => !x.Attributes.OfType<PartitionIndependentAttribute>().Any()))
                 {
-                    if (action.Attributes.OfType<PartitionIndependentAttribute>().Any())
-                    {
-                        continue;
-                    }
-
-                    foreach (SelectorModel selector in action.Selectors.ToArray())
+                    foreach (SelectorModel selector in action.Selectors)
                     {
                         selector.EndpointMetadata.Add(new PartitionRouteMetadata(selector.AttributeRouteModel?.Name, false));
+
                         if (selector.AttributeRouteModel?.IsAbsoluteTemplate == true || controllerRoutes.Length == 0)
                         {
                             AddPartitionSelector(action, selector, null);
@@ -55,7 +46,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 return;
             }
 
-            var partitionSelector = new SelectorModel(selector);
+            var partitionSelector = selector;
             if (controllerSelector != null)
             {
                 foreach (var constraint in controllerSelector.ActionConstraints)
@@ -76,7 +67,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 Name = route.Name == null ? null : PartitionRouteMetadata.NamePrefix + route.Name,
             };
             partitionSelector.EndpointMetadata.Add(new PartitionRouteMetadata(route.Name, true));
-            action.Selectors.Add(partitionSelector);
+
+            // action.Selectors.Add(partitionSelector);
         }
     }
 }

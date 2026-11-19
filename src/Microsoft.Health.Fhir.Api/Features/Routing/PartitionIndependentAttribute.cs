@@ -5,7 +5,7 @@
 
 using System;
 
-namespace Microsoft.Health.Fhir.Core.Features.Partitions
+namespace Microsoft.Health.Fhir.Api.Features.Partitions
 {
     /// <summary>
     /// Identifies service-wide endpoints that must not be scoped to a partition.
