@@ -18,7 +18,7 @@ BEGIN TRY
   IF @@trancount <> 0
     RAISERROR('Granular secondary indexes must be created outside transaction.', 18, 128)
   
-  IF @ObjectId IS NULL OR @ResourceTypeId IS NULL OR @SearchParamId IS NULL OR NOT (@TableName LIKE '%SearchParam' OR @TableName = 'TokenText')
+  IF @ObjectId IS NULL OR @ResourceTypeId IS NULL OR @SearchParamId IS NULL OR NOT @TableName LIKE '%SearchParam'
     RAISERROR('A search parameter table, resource type ID, and search parameter ID are required.', 18, 128)
 
   DECLARE @Indexes TABLE (IndexId int PRIMARY KEY, TemplateName sysname NOT NULL, IndexName sysname NOT NULL UNIQUE, Compression varchar(100), Sql nvarchar(max))

@@ -1,5 +1,6 @@
 ﻿CREATE PROCEDURE dbo.MergeResourcesAndSearchParams 
      @SearchParams dbo.SearchParamList READONLY
+    ,@SearchParamTargets nvarchar(max) = NULL
     ,@ReindexId bigint = NULL
     ,@IsResourceChangeCaptureEnabled bit = 0
     ,@TransactionId bigint = NULL
@@ -32,7 +33,7 @@ BEGIN TRY
 
   BEGIN TRANSACTION
   
-  EXECUTE dbo.MergeSearchParams @SearchParams, @ReindexId
+  EXECUTE dbo.MergeSearchParams @SearchParams, @ReindexId, @SearchParamTargets
 
   IF EXISTS (SELECT * FROM @Resources)
     EXECUTE dbo.MergeResources

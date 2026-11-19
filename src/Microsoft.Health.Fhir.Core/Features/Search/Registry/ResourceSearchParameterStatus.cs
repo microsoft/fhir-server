@@ -24,5 +24,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         /// Used for search param updates when url changes
         /// </summary>
         public Uri PreviousUri { get; set; }
+
+        /// <summary>
+        /// Gets or sets the definition being persisted with this status, when available.
+        /// </summary>
+        public SearchParameterInfo Definition { get; set; }
     }
 }
