@@ -69,7 +69,8 @@ Admin steps (a project administrator of `microsofthealthoss/FhirServer`; not don
 3. **+** > **Branch control**: allowed branches `refs/heads/main, refs/pull/*, refs/heads/gh-readonly-queue/main/*` (add
    `refs/heads/gh-readonly-queue/mq-pilot/*` for the pilot), "Verify branch protection" on.
 4. Repeat for every other connection and resource the deployed stages use (`docker-build`, and the variable groups and
-   secure files that hold Entra ID and Key Vault secrets), or the gate can be bypassed through them.
+   secure files that hold Entra ID and Key Vault secrets), or the gate can be bypassed through them. Checks do not
+   cover secrets defined in the definition's own settings; see (d), security item 1.
 
 Until the approval check exists, the routing in `classify-pr.yml` (deployed stages run only when the scope is full and
 no maintainer is required) is the only control, and the PR can edit it.
@@ -106,7 +107,10 @@ These pieces are inert while no merge-queue rule exists:
 - **Definition 9 overrides the YAML CI trigger.** Its only trigger is the pull request trigger: "Override the YAML
   continuous integration trigger from here" is on, with continuous integration disabled. **The YAML trigger does
   nothing until an admin turns that override off** (Pipelines > `PR Build & Deploy` > **Edit** > **⋮** > **Triggers** >
-  **Continuous integration**). Turning it off enables only the YAML trigger, which lists queue branches alone.
+  **Continuous integration**). Once it is off, ADO evaluates the CI trigger from the pushed branch's own
+  `build/pr-pipeline.yml`: queue branches start runs because their YAML includes them, and so does any branch in this
+  repository whose own YAML declares a broader trigger. The guard is the branch-control check of (b), which keeps
+  those runs away from the service connections.
 - **Scope.** A run on `refs/heads/gh-readonly-queue/...` is always `full` (classifier reason `merge-queue: <branch>`).
   In `legacy` mode every run deploys anyway.
 - **PR number.** `prName` comes from the branch (`pr-<n>-`), so resource groups are `msh-fhir-pr-<n>-<buildId>` and
@@ -121,8 +125,9 @@ These pieces are inert while no merge-queue rule exists:
   number starts with the same digits.
 - **Fork gate (`tier1` mode only).** `Classify` looks up the queued PR (`GET /repos/microsoft/fhir-server/pulls/<n>`).
   When its head repository is not `microsoft/fhir-server`, or the lookup fails, the run needs a maintainer: the deployed
-  stages are skipped and the queue ejects the entry. This is routing, not security: the queue branch carries the PR's
-  own `build/`. `legacy` mode has no gate at all.
+  stages are skipped and the queue ejects the entry. So in `tier1` mode **every queued fork PR is ejected, by design**:
+  such a PR lands through a same-repository branch, as in (c). This is routing, not security: the queue branch carries
+  the PR's own `build/`. `legacy` mode has no gate at all.
 
 ### Security: required before any pilot
 
@@ -130,21 +135,29 @@ A queue run is a CI build of this repository, not a PR build. ADO's fork protect
 run gets secrets and service connections, and the YAML it runs is the queue commit's, which includes the PR's own
 `build/**`. Required:
 
-1. The approval and branch-control checks of (b) on every privileged service connection and secret-holding resource.
-2. `CODEOWNERS` entries for `/build/`, `/.github/`, `/GitVersion.yml`, `/global.json`, `/nuget.config`,
+1. **No definition-level secrets.** Approvals and checks guard service connections and the resources the YAML
+   references; they do not guard secret variables defined in the definition's settings, and checks on a variable group
+   linked in the settings (not referenced in YAML) are likely not evaluated for YAML runs. Definition 9 has both: the
+   secret variable `tenantDomain` and the variable group `Shared` (Pipelines > `PR Build & Deploy` > **Edit** >
+   **Variables**). A queue commit from a fork PR could read them before any approval. Before any merge-queue rule
+   exists, move every such secret into a variable group or Key Vault that the YAML references and that carries the
+   checks of (b), or remove it; then unlink `Shared` and delete the definition secrets.
+2. The approval and branch-control checks of (b) on every privileged service connection and secret-holding resource.
+3. `CODEOWNERS` entries for `/build/`, `/.github/`, `/GitVersion.yml`, `/global.json`, `/nuget.config`,
    `/Directory.Build.*`, `/Directory.Packages.props` and `/tools/`, owned by maintainers who know the pipeline.
-3. The ruleset keeps required review, code-owner review and "Require approval of the most recent reviewable push", so a
+4. The ruleset keeps required review, code-owner review and "Require approval of the most recent reviewable push", so a
    push after approval needs a new approval before the PR can be queued. Only users with write access can enqueue.
-4. Queue runs use `tier1` mode, so the fork gate applies: either after the cutover makes it the default, or, for the
+5. Queue runs use `tier1` mode, so the fork gate applies: either after the cutover makes it the default, or, for the
    pilot, by setting the `validationMode` default to `tier1` on the `mq-pilot` branch (queue commits carry its YAML).
 
 ### Pilot runbook
 
 1. Merge to `main`, by normal review, a change that adds `gh-readonly-queue/mq-pilot/*` to the `trigger` of
    `build/pr-pipeline.yml` (a CI trigger cannot come from a template or a variable).
-2. Create branch `mq-pilot` from `main`, with the `validationMode` default set to `tier1` (security item 4).
-3. Admin: add the checks of (b), allowing `refs/heads/gh-readonly-queue/mq-pilot/*`; then turn off the CI trigger
-   override of definition 9 (above).
+2. Create branch `mq-pilot` from `main`, with the `validationMode` default set to `tier1` (security item 5).
+3. Admin: move or remove definition 9's definition-level secrets and linked variable group (security item 1); add the
+   checks of (b), allowing `refs/heads/gh-readonly-queue/mq-pilot/*`; then turn off the CI trigger override of
+   definition 9 (above).
 4. Admin: create a repository ruleset that targets only `refs/heads/mq-pilot`:
    - require a pull request; require status check `PR Build & Deploy`;
    - **Require merge queue**: merge method SQUASH, `max_entries_to_build` = 1, `max_entries_to_merge` = 1,
@@ -158,14 +171,16 @@ run gets secrets and service connections, and the YAML it runs is the queue comm
    3. a PR with a failing test: it must be ejected;
    4. remove an entry while its run is in progress;
    5. a squash commit message containing `[skip ci]`;
-   6. (security) a fork PR that changes `build/pr-pipeline.yml` to echo a marker: no step may use a service connection
-      before the approval check.
+   6. (security) a fork PR that changes `build/pr-pipeline.yml` to echo a marker and to print the length of every
+      secret it can name (`tenantDomain`, the `Shared` group's variables, and those of any group the YAML references):
+      no step may use a service connection, and every length must be 0, before the approval check. In `tier1` mode
+      the fork gate must also eject the entry.
 
 **Success criteria.** The queue SHA gets the `PR Build & Deploy` check within about 5 minutes of the queue push; the
 queue merges on green and ejects on red; `prName`, the resource group, Key Vault names, image tag and GitVersion output
 are valid; resources are cleaned up: the next run's `cleanupOldResources` deletes the PR's older groups and nothing
 outside its PR, definition 120 finds the PR number and deletes the run's group, and nothing is left after the daily
-sweep; the fork PR is stopped before any service connection is used.
+sweep; the fork PR is stopped before any service connection is used or any secret is readable.
 
 **Known risks.**
 
@@ -178,8 +193,11 @@ sweep; the fork PR is stopped before any service connection is used.
 - **ADO parallelism.** Each queue entry is a full deployed run beside the PR runs. At about 2.9 merges a day and 80 to 95
   minutes a run, a serial queue tops out near 15 merges a day. Measure agent wait and parallel runs in the pilot.
 - **Same PR, two runs.** A queue run and a PR run of the same PR share `prName`, so each run's `cleanupOldResources`
-  deletes the other's resource group. A push to a queued PR removes it from the queue, so this needs a manual run of
-  the PR while it is queued.
+  deletes the other's resource group. They also share the build-number namespace `<version>-pr<n>.<count>`: when the
+  counts match, both runs get the same build number, so the same image tag and Key Vault names. Each run's
+  `Delete and Purge Key Vaults` then deletes the other's vaults, and the definition 120 cleanup after one deletes the
+  image the other is deploying. A push to a queued PR removes it from the queue, so this needs a manual run of the PR
+  while it is queued.
 - **Flaky tests** eject entries and rebuild every entry behind them. Measure the failure rate before enabling on `main`.
 
 **Rollback.** Delete the `mq-pilot` ruleset and branch, revert the trigger change, turn the CI trigger override of

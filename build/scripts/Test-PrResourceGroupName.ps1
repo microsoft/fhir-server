@@ -15,7 +15,8 @@
     The root of PR resource group names (resourceGroupRoot, msh-fhir-pr).
 
 .PARAMETER PrNumber
-    The PR number (prName).
+    The PR number (prName). Throws when it is not a number: a wildcard or other text would widen the match to other
+    PRs' groups.
 
 .OUTPUTS
     [bool]
@@ -26,6 +27,10 @@ param(
     [Parameter(Mandatory)] [string] $ResourceGroupRoot,
     [Parameter(Mandatory)] [string] $PrNumber
 )
+
+if ($PrNumber -notmatch '^\d+$') {
+    throw "PR number '$PrNumber' is not a number."
+}
 
 $prefix = "$ResourceGroupRoot-$PrNumber"
 $Name -eq $prefix -or $Name.StartsWith("$prefix-", [StringComparison]::OrdinalIgnoreCase)

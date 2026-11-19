@@ -30,6 +30,11 @@ Describe 'Test-PrResourceGroupName' {
         Test-Name 'MSH-FHIR-PR-6-53474' | Should -BeTrue
     }
 
+    It 'rejects a PR number that is not a number' {
+        { Test-Name 'msh-fhir-pr-6-1' -PrNumber '6*' } | Should -Throw '*not a number*'
+        { Test-Name 'msh-fhir-pr-mq6-1' -PrNumber 'mq6' } | Should -Throw '*not a number*'
+    }
+
     # The previous prefix pattern, <root>-<pr>*, selected these same names for the PR's own groups; it differs only in
     # also selecting the groups of PRs whose number extends this one.
     It 'agrees with the previous prefix pattern except for longer PR numbers' {
