@@ -1,0 +1,87 @@
+# SQL integration tests for one FHIR version against SQL Server in a container on the agent, instead of the per-PR
+# Azure SQL server used by run-sql-tests.yml. One matrix leg per shard of build/test-shards/sql-integration.json, all at
+# once. The legs do not depend on the build job (tier1-build.yml): they start SQL Server at once and wait for its
+# artifact.
+parameters:
+- name: version
+  type: string
+# Zero-based shard indexes; must list every shard of the manifest (the last one is the catch-all).
+- name: shards
+  type: object
+
+jobs:
+- job: SqlIntegrationContainer_${{ parameters.version }}
+  displayName: '${{ parameters.version }} SQL Integration (container)'
+  strategy:
+    maxParallel: ${{ length(parameters.shards) }}
+    matrix:
+      ${{ each shard in parameters.shards }}:
+        ${{ format('{0}_S{1}', parameters.version, shard) }}:
+          ShardIndex: ${{ shard }}
+  pool:
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
+  steps:
+  - checkout: self
+    fetchDepth: 1
+    fetchTags: false
+
+  - task: UseDotNet@2
+    displayName: 'Use .NET SDK'
+    inputs:
+      useGlobalJson: true
+
+  - template: start-sql-container.yml
+
+  - pwsh: >-
+      & '$(Build.SourcesDirectory)/build/scripts/Wait-PipelineArtifact.ps1'
+      -ArtifactName 'tier1-${{ parameters.version }}-tests' -TimeoutMinutes 20 -PollSeconds 10
+    displayName: 'Wait for ${{ parameters.version }} Tier 1 tests artifact'
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download ${{ parameters.version }} integration tests (Tier 1)'
+    retryCountOnTaskFailure: 2
+    inputs:
+      buildType: 'current'
+      artifactName: 'tier1-${{ parameters.version }}-tests'
+      itemPattern: 'Integration/**'
+      targetPath: '$(Agent.TempDirectory)/IntegrationTests'
+
+  - pwsh: |
+      $ErrorActionPreference = 'Stop'
+      $manifest = Join-Path $env:BUILD_SOURCESDIRECTORY 'build/test-shards/sql-integration.json'
+      $shardCount = @((Get-Content -Raw $manifest | ConvertFrom-Json).shards).Count
+      if ($shardCount -ne [int] $env:SHARD_LEG_COUNT) {
+        throw "$manifest has $shardCount shards but the pipeline runs $env:SHARD_LEG_COUNT legs; tests of the missing shards would not run. Update the shards in build/stages/tier1.yml."
+      }
+
+      $filterArgs = @(& (Join-Path $env:BUILD_SOURCESDIRECTORY 'build/scripts/Get-TestShardFilter.ps1') -Manifest $manifest -ShardIndex ([int] $env:SHARD_INDEX))
+      Write-Host "Shard $env:SHARD_INDEX of $shardCount filter: $($filterArgs -join ' ')"
+      Write-Host "##vso[task.setvariable variable=ShardFilterArgsJson]$(ConvertTo-Json -InputObject $filterArgs -Compress)"
+    displayName: 'Prepare shard $(ShardIndex)'
+    env:
+      SHARD_INDEX: $(ShardIndex)
+      SHARD_LEG_COUNT: ${{ length(parameters.shards) }}
+
+  - template: run-mtp-tests.yml
+    parameters:
+      testDll: '$(Agent.TempDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.dll'
+      # Both filters are required to exclude CosmosDb traits and traitless CosmosDb classes. The shard filters
+      # (--filter-method) are AND'd with them.
+      filterArgs: ['--filter-not-trait', 'DataStore=CosmosDb', '--filter-not-class', '*CosmosDb*']
+      runtimeFilterArgsJson: '$(ShardFilterArgsJson)'
+      runName: '${{ parameters.version }} SQL Integration (container) S$(ShardIndex)'
+      timeoutInMinutes: 18
+      env:
+        'SqlServer:ConnectionString': $(SqlContainerConnectionString)
+
+  - pwsh: |
+      $containers = @(& docker ps -aq --filter 'label=fhir-test-dependency=$(System.JobId)')
+      if ($containers.Count -gt 0) {
+        & docker rm -f @containers
+      }
+    displayName: 'Remove test dependency containers'
+    condition: always()

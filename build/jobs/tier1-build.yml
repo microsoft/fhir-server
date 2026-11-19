@@ -1,0 +1,64 @@
+# Builds the E2E and integration test projects of one FHIR version, once, for Tier 1 of PR validation, and publishes
+# them as pipeline artifact tier1-<version>-tests:
+#   E2E/          Microsoft.Health.Fhir.<version>.Tests.E2E.dll at its root, and testconfiguration.json beside it
+#   Integration/  Microsoft.Health.Fhir.<version>.Tests.Integration.dll at its root
+# Builds only these projects (and what they reference), not the whole repository. Versions are fixed placeholders and
+# analyzers are off: these binaries are never shipped, and the full build runs the analyzers on the same sources.
+parameters:
+- name: version
+  type: string
+
+jobs:
+- job: Tier1Build_${{ parameters.version }}
+  displayName: '${{ parameters.version }} build tests (Tier 1)'
+  pool:
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
+  steps:
+  - checkout: self
+    fetchDepth: 1
+    fetchTags: false
+
+  - task: UseDotNet@2
+    displayName: 'Use .NET SDKs from global.json files'
+    inputs:
+      useGlobalJson: true
+
+  # Each build restores its own project: R4.slnf lists a project the solution no longer contains.
+  - ${{ each project in split('E2E;Integration', ';') }}:
+    - task: DotNetCoreCLI@2
+      displayName: 'dotnet build ${{ parameters.version }} ${{ project }} tests'
+      inputs:
+        command: build
+        projects: 'test/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.${{ project }}/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.${{ project }}.csproj'
+        arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework) -p:ContinuousIntegrationBuild=true -p:Version=0.0.0-pr -p:AssemblyVersion=0.0.0.0 -p:FileVersion=0.0.0.0 -p:RunAnalyzers=false -p:EnableNETAnalyzers=false -p:TreatWarningsAsErrors=false -p:GenerateDocumentationFile=false'
+
+    # --no-build reuses the build output, so -f and GenerateDocumentationFile must match the build.
+    - task: DotNetCoreCLI@2
+      displayName: 'dotnet publish ${{ parameters.version }} ${{ project }} tests'
+      inputs:
+        command: publish
+        projects: 'test/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.${{ project }}/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.${{ project }}.csproj'
+        arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -p:GenerateDocumentationFile=false -o "$(Build.ArtifactStagingDirectory)/tests/${{ project }}"'
+        publishWebProjects: false
+        zipAfterPublish: false
+        modifyOutputPath: false
+
+  # InProcTestFhirServer requires testconfiguration.json beside the test dll; it is a source file the publish output omits.
+  - pwsh: |
+      $ErrorActionPreference = 'Stop'
+      Copy-Item -LiteralPath (Join-Path $env:BUILD_SOURCESDIRECTORY 'test/Configuration/testconfiguration.json') -Destination (Join-Path $env:BUILD_ARTIFACTSTAGINGDIRECTORY 'tests/E2E') -Force
+      foreach ($dll in 'E2E/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.E2E.dll', 'Integration/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.dll') {
+        if (-not (Test-Path -LiteralPath (Join-Path $env:BUILD_ARTIFACTSTAGINGDIRECTORY "tests/$dll"))) {
+          throw "tests/$dll is missing from the artifact staging directory."
+        }
+      }
+    displayName: 'Add test configuration and check layout'
+
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish tier1-${{ parameters.version }}-tests'
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)/tests'
+      artifact: 'tier1-${{ parameters.version }}-tests'
+      publishLocation: pipeline
