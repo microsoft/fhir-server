@@ -76,8 +76,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
             };
 
             if (definition == null || string.IsNullOrWhiteSpace(definition.PackageId) ||
-                string.IsNullOrWhiteSpace(definition.Version) || string.IsNullOrWhiteSpace(definition.Source) ||
-                definition.RetryOfJobId <= 0)
+                string.IsNullOrWhiteSpace(definition.Version) || string.IsNullOrWhiteSpace(definition.Source))
             {
                 result.Message = "The package install job definition is invalid.";
                 throw new JobExecutionException(result.Message, result, isCustomerCaused: true);

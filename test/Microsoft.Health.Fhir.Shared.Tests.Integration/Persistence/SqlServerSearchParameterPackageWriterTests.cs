@@ -351,9 +351,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Options.Create(new CoreFeatureConfiguration { SearchParameterCacheRefreshIntervalSeconds = 1 }),
                 NullLogger<FhirPackageInstallJob>.Instance);
             var enqueuer = new FhirPackageInstallJobEnqueuer(_fixture.QueueClient);
-            var definition = new FhirPackageInstallJobDefinition { PackageId = "partner.a", Version = "1.0.0", Source = "trusted" };
-            JobInfo queued = await enqueuer.EnqueueAsync(definition, CancellationToken.None);
-            Assert.Equal(queued.Id, (await enqueuer.EnqueueAsync(definition, CancellationToken.None)).Id);
+            const string packageId = "partner.a", version = "1.0.0", source = "trusted";
+            JobInfo queued = await enqueuer.EnqueueAsync(packageId, version, source, CancellationToken.None);
+            Assert.Equal(queued.Id, (await enqueuer.EnqueueAsync(packageId, version, source, CancellationToken.None)).Id);
             var jobFactory = Substitute.For<IJobFactory>();
             jobFactory.Create(Arg.Any<JobInfo>()).Returns(_ =>
             {
@@ -374,21 +374,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             try
             {
-                // Act: let the first job commit and time out, then publish proofs for a distinct retry.
+                // Act: let the first job commit and time out, then publish proofs for a new attempt.
                 JobInfo failedJob = await WaitForFinishedJobAsync(queued.Id);
                 Assert.Equal(JobStatus.Failed, failedJob.Status);
                 FhirPackageInstallJobResult first = JsonConvert.DeserializeObject<FhirPackageInstallJobResult>(failedJob.Result);
-                Assert.Equal(queued.Id, (await enqueuer.EnqueueAsync(definition, CancellationToken.None)).Id);
                 configuration.FhirPackageInstall.CacheUpdateMaxWaitMultiplier = 15;
                 publisher = PublishProofsAsync();
-                var retry = new FhirPackageInstallJobDefinition
-                {
-                    PackageId = definition.PackageId,
-                    Version = definition.Version,
-                    Source = definition.Source,
-                    RetryOfJobId = queued.Id,
-                };
-                JobInfo retryJob = await enqueuer.EnqueueAsync(retry, CancellationToken.None);
+                JobInfo retryJob = await enqueuer.EnqueueAsync(packageId, version, source, CancellationToken.None);
                 Assert.NotEqual(queued.Id, retryJob.Id);
                 JobInfo completedJob = await WaitForFinishedJobAsync(retryJob.Id);
                 Assert.Equal(JobStatus.Completed, completedJob.Status);

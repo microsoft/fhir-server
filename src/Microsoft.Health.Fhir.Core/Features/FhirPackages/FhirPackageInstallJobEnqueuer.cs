@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -14,7 +15,7 @@ using Microsoft.Health.JobManagement;
 namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
 {
     /// <summary>
-    /// Enqueues exact package installations with deterministic queue definitions.
+    /// Enqueues exact package installations, reusing a queued or running job for the same package.
     /// </summary>
     public sealed class FhirPackageInstallJobEnqueuer
     {
@@ -30,42 +31,54 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
         }
 
         /// <summary>
-        /// Returns the existing job for the definition, or enqueues a new one.
-        /// A retry of a failed job must set <see cref="FhirPackageInstallJobDefinition.RetryOfJobId"/>.
+        /// Returns the queued or running job for the same package, or enqueues a new one.
+        /// Failed and cancelled jobs are not reused, so a later request starts a new attempt.
         /// </summary>
-        /// <param name="definition">The exact package request.</param>
+        /// <param name="packageId">The exact npm package name.</param>
+        /// <param name="version">The exact package version.</param>
+        /// <param name="source">The deployment-configured source identifier.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>The existing or new job.</returns>
-        public async Task<JobInfo> EnqueueAsync(FhirPackageInstallJobDefinition definition, CancellationToken cancellationToken)
+        /// <returns>The active or new job.</returns>
+        public async Task<JobInfo> EnqueueAsync(string packageId, string version, string source, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(definition, nameof(definition));
-            EnsureArg.IsNotNullOrWhiteSpace(definition.PackageId, nameof(definition.PackageId));
-            EnsureArg.IsNotNullOrWhiteSpace(definition.Version, nameof(definition.Version));
-            EnsureArg.IsNotNullOrWhiteSpace(definition.Source, nameof(definition.Source));
-            if (definition.RetryOfJobId <= 0)
+            EnsureArg.IsNotNullOrWhiteSpace(packageId, nameof(packageId));
+            EnsureArg.IsNotNullOrWhiteSpace(version, nameof(version));
+            EnsureArg.IsNotNullOrWhiteSpace(source, nameof(source));
+
+            IReadOnlyList<JobInfo> activeJobs = await _queueClient.GetActiveJobsByQueueTypeAsync(
+                (byte)QueueType.FhirPackageInstall, returnParentOnly: false, cancellationToken);
+            JobInfo activeJob = activeJobs?.FirstOrDefault(job => IsSamePackage(job, packageId, version, source));
+            if (activeJob != null)
             {
-                throw new ArgumentOutOfRangeException(nameof(definition), "A retry job id must be positive.");
+                return activeJob;
             }
 
-            // Concurrent SQL enqueues can race between the existing-job lookup and insert. A second lookup
-            // returns the winner rather than reporting a successful enqueue without a job.
-            for (int attempt = 0; attempt < 2; attempt++)
+            var definition = new FhirPackageInstallJobDefinition
             {
-                IReadOnlyList<JobInfo> jobs = await _queueClient.EnqueueAsync(
-                    QueueType.FhirPackageInstall, cancellationToken, definitions: definition);
+                PackageId = packageId,
+                Version = version,
+                Source = source,
+                Id = Guid.NewGuid().ToString(),
+            };
 
-                if (jobs?.Count == 1)
-                {
-                    return jobs[0];
-                }
+            IReadOnlyList<JobInfo> jobs = await _queueClient.EnqueueAsync(
+                QueueType.FhirPackageInstall, cancellationToken, definitions: definition);
 
-                if (jobs == null || jobs.Count > 1)
-                {
-                    throw new InvalidOperationException("The package install queue returned an invalid job list.");
-                }
+            if (jobs?.Count != 1)
+            {
+                throw new InvalidOperationException("The package install queue returned an invalid job list.");
             }
 
-            throw new InvalidOperationException("The package install queue did not return the enqueued job.");
+            return jobs[0];
+        }
+
+        private static bool IsSamePackage(JobInfo job, string packageId, string version, string source)
+        {
+            FhirPackageInstallJobDefinition definition = job.DeserializeDefinition<FhirPackageInstallJobDefinition>();
+            return definition != null &&
+                string.Equals(definition.PackageId, packageId, StringComparison.Ordinal) &&
+                string.Equals(definition.Version, version, StringComparison.Ordinal) &&
+                string.Equals(definition.Source, source, StringComparison.Ordinal);
         }
     }
 }

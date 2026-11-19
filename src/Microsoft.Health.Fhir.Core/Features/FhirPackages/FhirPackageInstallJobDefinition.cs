@@ -39,9 +39,9 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
         public string Source { get; set; }
 
         /// <summary>
-        /// Gets or sets the previous failed or cancelled job id when starting a new retry.
+        /// Gets or sets the unique request identifier, which keeps each enqueued definition distinct.
         /// </summary>
         [JsonProperty(Order = 4)]
-        public long? RetryOfJobId { get; set; }
+        public string Id { get; set; }
     }
 }
