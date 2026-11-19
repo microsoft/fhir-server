@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Utility;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Extensions.Logging;
@@ -60,10 +61,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 
             // Authentication alone does not challenge anonymous requests. Leave them to authorization
             // without revealing whether a partition exists.
+
+            var endpoint = context.GetEndpoint();
             if (_partitionManager.Partitions.Count > 0
-                && (!_securityConfiguration.Enabled || context.User?.Identity?.IsAuthenticated == true))
+                && (!_securityConfiguration.Enabled || context.User?.Identity?.IsAuthenticated == true || endpoint?.Metadata.GetMetadata<AllowAnonymousAttribute>() != null))
             {
-                var endpoint = context.GetEndpoint();
                 if (endpoint?.Metadata.GetMetadata<PartitionIndependentAttribute>() == null)
                 {
                     string partitionId = context.Request.RouteValues[PartitionRouteMetadata.PartitionId]?.ToString();
