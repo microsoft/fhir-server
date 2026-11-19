@@ -15,60 +15,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         {
             foreach (ControllerModel controller in application.Controllers.Where(x => !x.Attributes.OfType<PartitionIndependentAttribute>().Any()))
             {
-                var controllerRoutes = controller.Selectors.Where(selector => selector.AttributeRouteModel != null).ToArray();
                 foreach (ActionModel action in controller.Actions.Where(x => !x.Attributes.OfType<PartitionIndependentAttribute>().Any()))
                 {
                     foreach (SelectorModel selector in action.Selectors)
                     {
-                        selector.EndpointMetadata.Add(new PartitionRouteMetadata(selector.AttributeRouteModel?.Name, false));
+                        AttributeRouteModel route = selector.AttributeRouteModel;
 
-                        if (selector.AttributeRouteModel?.IsAbsoluteTemplate == true || controllerRoutes.Length == 0)
+                        selector.AttributeRouteModel = new AttributeRouteModel(route)
                         {
-                            AddPartitionSelector(action, selector, null);
-                        }
-                        else
-                        {
-                            foreach (SelectorModel controllerSelector in controllerRoutes)
-                            {
-                                AddPartitionSelector(action, selector, controllerSelector);
-                            }
-                        }
+                            // An absolute template avoids combining the controller prefix a second time.
+                            Template = "/" + PartitionRouteMetadata.TemplatePrefix + "/" + route.Template,
+                            Name = route.Name == null ? null : PartitionRouteMetadata.NamePrefix + route.Name,
+                        };
+                        selector.EndpointMetadata.Add(new PartitionRouteMetadata(route.Name, true));
                     }
                 }
             }
-        }
-
-        private static void AddPartitionSelector(ActionModel action, SelectorModel selector, SelectorModel controllerSelector)
-        {
-            AttributeRouteModel route = AttributeRouteModel.CombineAttributeRouteModel(controllerSelector?.AttributeRouteModel, selector.AttributeRouteModel);
-            if (route == null)
-            {
-                return;
-            }
-
-            var partitionSelector = selector;
-            if (controllerSelector != null)
-            {
-                foreach (var constraint in controllerSelector.ActionConstraints)
-                {
-                    partitionSelector.ActionConstraints.Add(constraint);
-                }
-
-                for (int i = 0; i < controllerSelector.EndpointMetadata.Count; i++)
-                {
-                    partitionSelector.EndpointMetadata.Insert(i, controllerSelector.EndpointMetadata[i]);
-                }
-            }
-
-            partitionSelector.AttributeRouteModel = new AttributeRouteModel(route)
-            {
-                // An absolute template avoids combining the controller prefix a second time.
-                Template = "/" + PartitionRouteMetadata.TemplatePrefix + "/" + route.Template,
-                Name = route.Name == null ? null : PartitionRouteMetadata.NamePrefix + route.Name,
-            };
-            partitionSelector.EndpointMetadata.Add(new PartitionRouteMetadata(route.Name, true));
-
-            // action.Selectors.Add(partitionSelector);
         }
     }
 }
