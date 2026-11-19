@@ -87,7 +87,7 @@ RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft
     ln -s "Microsoft.Health.Fhir.${FHIR_VERSION}.Web.dll" "/build/Microsoft.Health.Fhir.Web.dll"
 
 # Implicitly uses the target platform for the runtime image.
-FROM mcr.microsoft.com/dotnet/aspnet:11.0.0-azurelinux4.0-distroless-extra@sha256:8802cbda723e24afb297993a26a7197f92e327d906a03cc674ad77ffdd0ad059 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0.0-azurelinux4.0-distroless-extra@sha256:22c39cca278856250041b47eeb5a4e4049c78c98ea7d97803c235ef5e9259a65 AS runtime
 
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
     ASPNETCORE_URLS=http://+:8080
