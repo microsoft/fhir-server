@@ -2,18 +2,24 @@
 # and publishes it as output variables of step scope in job ClassifyPr:
 #   ValidationScope         lean | shared | full
 #   ScopeReasons            the rules that matched, '; '-separated (at most 20)
-#   FullRequiresMaintainer  true when the scope is full and the PR comes from a fork
+#   FullRequiresMaintainer  true when the scope is full and the run is a merge-queue run of a fork PR
 # Reference them from another stage as dependencies.<stage>.outputs['ClassifyPr.scope.ValidationScope'], or from a job
 # of another stage as stageDependencies.<stage>.ClassifyPr.outputs['scope.ValidationScope'].
 #
-# Fails closed: any failure to read the changed files gives full, with the reason "fail-closed: <error>". A failure to
-# read the labels does not (ruling R16): the PR is classified by its paths and a warning says how to request full.
+# A PR run is classified by the scopePolicy parameter (draftFirst: a draft PR is lean unless labeled, a ready PR is
+# full; paths: the path rules). Its draft state and labels come from one GitHub API call (pulls/<n>). Failing to read
+# them does not fail the run: the labels are then unknown (ruling R16: classified without them, with a warning) and so
+# is the draft state, which draftFirst treats as ready (full).
+# Fails closed: any other failure (reading the changed files, the classifier) gives full, with the reason
+# "fail-closed: <error>".
+# A fork PR is always lean (the full matrix needs the deployed environments); a timeline warning says when the policy
+# would have given full and how a maintainer runs it.
 # A run that is not a pull request build is full, except that a manual run takes the scopeOverride parameter. A
 # merge-queue run (refs/heads/gh-readonly-queue/...) is full by the classifier's rule, and needs a maintainer when the
-# queued PR comes from a fork or its origin cannot be read from the GitHub API.
-# Job RequireMaintainer fails the run when a fork PR's scope is full, routing fork PRs away from the deployed stages.
-# This is routing, not a security boundary: the PR supplies this file and can edit it. The approval check on the
-# privileged service connection is the gate (ADR-2611).
+# queued PR comes from a fork or its origin cannot be read from the GitHub API: job RequireMaintainer then fails the
+# run and the deployed stages are skipped, which ejects the PR from the queue. This is routing, not a security
+# boundary: the PR supplies this file and can edit it. The approval check on the privileged service connection is the
+# gate (ADR-2611).
 #
 # Needs no service connection or secret. PR values (target branch, number) reach the script through env only.
 parameters:
@@ -27,6 +33,14 @@ parameters:
   - 'lean'
   - 'shared'
   - 'full'
+# How a PR run is classified (build/scripts/Get-PrValidationScope.ps1 -Policy): draftFirst (iteration 1 of the
+# rollout, ADR-2611) or paths.
+- name: scopePolicy
+  type: string
+  default: 'draftFirst'
+  values:
+  - 'draftFirst'
+  - 'paths'
 # Shadow jobs never fail the run.
 - name: shadow
   type: boolean
@@ -56,7 +70,7 @@ jobs:
       $override = $env:TIER1_SCOPE_OVERRIDE
 
       function New-Scope([string] $Scope, [string[]] $Reasons) {
-        [pscustomobject]@{ Scope = $Scope; Reasons = $Reasons; FullRequiresMaintainer = ($Scope -eq 'full' -and $isFork) }
+        [pscustomobject]@{ Scope = $Scope; Reasons = $Reasons; FullRequiresMaintainer = ($Scope -eq 'full' -and $isFork); Warnings = @(); Advisory = '' }
       }
 
       try {
@@ -90,7 +104,7 @@ jobs:
           $files = @(git -c core.quotePath=false diff --no-renames --name-only HEAD~1...HEAD)
           if ($LASTEXITCODE -ne 0) { throw "git diff --no-renames --name-only HEAD~1...HEAD exited with $LASTEXITCODE" }
           Write-Host "$($files.Count) files changed by the last commit."
-          $result = & "$env:BUILD_SOURCESDIRECTORY/build/scripts/Get-PrValidationScope.ps1" `
+          $result = & "$env:BUILD_SOURCESDIRECTORY/build/scripts/Get-PrValidationScope.ps1" -Policy paths `
             -ChangedFiles $files -SourceBranch $env:BUILD_SOURCEBRANCH -IsFork $isFork
           if ($result.Scope -ne 'full') {
             $result = New-Scope 'full' @("not a pull request (Build.Reason=$env:BUILD_REASON)")
@@ -120,33 +134,45 @@ jobs:
             Write-Host "Changed packages: $($packages -join ', '). Changed properties: $($packageProperties -join ', ')."
           }
 
-          # Fork PRs cannot take the full matrix from a label, so their labels are not read. A failure to read them
-          # (HTTP error, timeout, rate limit) does not fail closed: the PR is classified by its paths, with a warning.
+          # The draft state and the labels, from one call; fork PRs too, for the warning that says what full would
+          # have run for. A failure to read them (HTTP error, timeout, rate limit) does not fail closed: both are then
+          # unknown, and the classifier treats an unknown draft state as ready for review.
           $labels = @()
           $labelsUnavailableReason = ''
-          if (-not $isFork) {
-            try {
-              $number = $env:SYSTEM_PULLREQUEST_PULLREQUESTNUMBER
-              if ($number -notmatch '^\d+$') { throw "System.PullRequest.PullRequestNumber '$number' is not a number" }
-              $response = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/fhir-server/issues/$number/labels?per_page=100" `
-                -Headers @{ Accept = 'application/vnd.github+json' } -TimeoutSec 30 -MaximumRetryCount 3 -RetryIntervalSec 5
-              $labels = @($response | ForEach-Object { $_.name })
-              Write-Host "Labels: $($labels -join ', ')"
-            }
-            catch {
-              $labelsUnavailableReason = $_.Exception.Message -replace '[\r\n]+', ' '
-            }
+          $isDraft = $null
+          try {
+            $number = $env:SYSTEM_PULLREQUEST_PULLREQUESTNUMBER
+            if ($number -notmatch '^\d+$') { throw "System.PullRequest.PullRequestNumber '$number' is not a number" }
+            $pr = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/fhir-server/pulls/$number" `
+              -Headers @{ Accept = 'application/vnd.github+json' } -TimeoutSec 30 -MaximumRetryCount 3 -RetryIntervalSec 5
+            $labels = @($pr.labels | ForEach-Object { $_.name })
+            if ($pr.draft -is [bool]) { $isDraft = $pr.draft }
+            Write-Host "Draft: $(if ($null -eq $isDraft) { 'unknown' } else { $isDraft }). Labels: $($labels -join ', ')"
+          }
+          catch {
+            $labelsUnavailableReason = $_.Exception.Message -replace '[\r\n]+', ' '
+            Write-Host "Could not read PR #$number from the GitHub API: $labelsUnavailableReason"
           }
 
-          $result = & "$env:BUILD_SOURCESDIRECTORY/build/scripts/Get-PrValidationScope.ps1" `
-            -ChangedFiles $files -Labels $labels -TargetBranch $target -IsFork $isFork `
+          $result = & "$env:BUILD_SOURCESDIRECTORY/build/scripts/Get-PrValidationScope.ps1" -Policy $env:TIER1_SCOPE_POLICY `
+            -ChangedFiles $files -Labels $labels -IsDraft $isDraft -TargetBranch $target -IsFork $isFork `
             -LabelsUnavailableReason $labelsUnavailableReason -ChangedPackages $packages -ChangedPackageProperties $packageProperties
-          $result.Warnings | ForEach-Object { Write-Host "##vso[task.logissue type=warning]$_" }
         }
       }
       catch {
-        $result = New-Scope 'full' @("fail-closed: $($_.Exception.Message)")
+        $reason = "fail-closed: $($_.Exception.Message -replace '[\r\n]+', ' ')"
+        # A fork PR stays lean: the full matrix never runs for it.
+        if ($isPullRequest -and $isFork) {
+          $result = New-Scope 'lean' @('fork PR: Tier 1 only')
+          $result.Warnings = @("Fork PR: full test matrix not run ($reason). A maintainer can push the reviewed SHA to a branch in microsoft/fhir-server to run it.")
+        }
+        else {
+          $result = New-Scope 'full' @($reason)
+        }
       }
+
+      $result.Warnings | ForEach-Object { Write-Host "##vso[task.logissue type=warning]$_" }
+      if ($result.Advisory) { Write-Host ($result.Advisory -replace '[\r\n]+', ' ') }
 
       $reasons = @($result.Reasons | ForEach-Object { $_ -replace '[\r\n]+', ' ' })
       $published = @($reasons | Select-Object -First 20)
@@ -165,9 +191,11 @@ jobs:
     displayName: 'Classify validation scope'
     env:
       TIER1_SCOPE_OVERRIDE: ${{ parameters.scopeOverride }}
+      TIER1_SCOPE_POLICY: ${{ parameters.scopePolicy }}
 
+# Only a merge-queue run of a fork PR gets here: a fork PR's own runs are lean.
 - job: RequireMaintainer
-  displayName: 'Fork PR needs a maintainer for the full matrix'
+  displayName: 'Queued fork PR needs a maintainer for the full matrix'
   dependsOn: ClassifyPr
   condition: and(succeeded(), eq(dependencies.ClassifyPr.outputs['scope.FullRequiresMaintainer'], 'true'))
   timeoutInMinutes: 5
@@ -180,6 +208,6 @@ jobs:
   steps:
   - checkout: none
   - pwsh: |
-      Write-Host "##vso[task.logissue type=error]This fork PR needs the full Azure matrix (its changed paths, or a merge-queue run). A maintainer must push the reviewed SHA to a branch in microsoft/fhir-server and run it there (ADR-2611, Tier 2)."
+      Write-Host "##vso[task.logissue type=error]This merge-queue run is of a fork PR (or one whose origin could not be read), and the queue runs the full Azure matrix. A maintainer must push the reviewed SHA to a branch in microsoft/fhir-server and run it there (ADR-2611, Tier 2)."
       exit 1
     displayName: 'Require a maintainer'

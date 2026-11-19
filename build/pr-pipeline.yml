@@ -28,9 +28,10 @@ parameters:
   - 'legacy'
   - 'tier1Shadow'
   - 'tier1'
-# The Classify stage sets the scope from the PR's changes (build/templates/jobs/classify-pr.yml): lean runs Tier 1 for
-# R4; shared adds Stu3 and R5; full adds, in tier1 mode, the build artifact and deployed-environment stages. auto
-# classifies; another value sets the scope of a manual run (ignored in PR runs).
+# The Classify stage sets the scope (build/templates/jobs/classify-pr.yml): a PR run by its draft state (draft: lean
+# unless labeled Full-Test-Matrix; ready for review: full), a fork PR always lean. lean runs Tier 1 for R4; shared runs
+# Stu3 and R5 too; full runs, in tier1 mode, the build artifact and deployed-environment stages instead of the Tier 1
+# container tests. auto classifies; another value sets the scope of a manual run (ignored in PR runs).
 - name: tier1Scope
   displayName: 'Tier 1 scope (manual runs)'
   type: string
@@ -136,14 +137,18 @@ stages:
     parameters:
       shadow: ${{ eq(parameters.validationMode, 'tier1Shadow') }}
       scopeOverride: ${{ parameters.tier1Scope }}
+      # How PR runs are classified (build/scripts/Get-PrValidationScope.ps1 -Policy). draftFirst, rollout iteration 1:
+      # a draft PR is lean unless labeled Full-Test-Matrix, a ready PR is full. paths, iteration 2: the path rules.
+      scopePolicy: 'draftFirst'
 
 # The build artifacts, the container shadow stages (which use them) and the deployed environments. Nothing above
 # depends on these stages.
 # In tier1 mode the stages that depend on no other stage below (BuildArtifacts, DockerBuild, provisionEnvironment)
-# also depend on Classify and run only when its scope is full and no maintainer is required, routing fork PRs away
-# from them. This is routing, not a security boundary (the PR supplies this file); the approval check on the
-# privileged service connection is the gate (ADR-2611). Every other stage below depends on one of them, so it is
-# skipped with them, and skipped stages leave the run green.
+# also depend on Classify and run only when its scope is full and no maintainer is required. A fork PR is always lean,
+# so it never reaches them; a merge-queue run of a fork PR needs a maintainer, which skips them. This is routing, not a
+# security boundary (the PR supplies this file); the approval check on the privileged service connection is the gate
+# (ADR-2611). Every other stage below depends on one of them, so it is skipped with them, and skipped stages leave the
+# run green. In a full-scope run the Tier 1 container jobs that these stages duplicate are skipped (stages/tier1.yml).
 - stage: BuildArtifacts
   displayName: 'Build artifacts'
   dependsOn:

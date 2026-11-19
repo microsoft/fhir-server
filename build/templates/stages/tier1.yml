@@ -5,11 +5,11 @@
 #
 # Stages:
 #   Classify          classifies the PR's validation scope (jobs/classify-pr.yml); depends on nothing.
-#   Tier1Tests        R4, the source scanners and the R4 image smoke; depends on nothing, so the lean path never waits
-#                     for the classifier.
-#   Tier1TestsStu3R5  Stu3 and R5, when the scope is shared or full. A separate stage because its condition needs the
-#                     Classify output, and a stage can read another stage's output only by depending on it: in
-#                     Tier1Tests that dependency would delay the R4 legs.
+#   Tier1Build        the R4 test build; depends on nothing, so the R4 artifact never waits for the classifier.
+#   Tier1Tests        the R4 legs, the source scanners and the R4 image smoke. In tier1 mode it depends on Classify and
+#                     its jobs are skipped when the scope is full (the deployed stages run instead); the legs still
+#                     wait for the artifact, which comes later than Classify. A shadow run depends on nothing.
+#   Tier1TestsStu3R5  Stu3 and R5 (build and legs), when the scope is shared (shared or full in a shadow run).
 parameters:
 # Shadow: no job fails the run (jobs and steps continue on error) and test runs are named "[shadow] ...".
 - name: shadow
@@ -24,6 +24,13 @@ parameters:
   - 'lean'
   - 'shared'
   - 'full'
+# How a PR run is classified (jobs/classify-pr.yml): draftFirst or paths.
+- name: scopePolicy
+  type: string
+  default: 'draftFirst'
+  values:
+  - 'draftFirst'
+  - 'paths'
 # Shard indexes of build/test-shards/sql-e2e.json; must list every shard of the manifest.
 - name: shards
   type: object
@@ -36,7 +43,7 @@ parameters:
 - name: e2eTraitArgs
   type: object
   default: ['--filter-trait', 'DataStore=SqlServer', '--filter-not-trait', 'Category=ExportLongRunning']
-# Versions that run only when the scope is shared or full, in run order.
+# Versions that run only when the scope is shared (or, in a shadow run, full), in run order.
 - name: sharedVersions
   type: object
   default: [Stu3, R5]
@@ -49,35 +56,66 @@ stages:
   - template: ../jobs/classify-pr.yml
     parameters:
       scopeOverride: ${{ parameters.scopeOverride }}
+      scopePolicy: ${{ parameters.scopePolicy }}
       shadow: ${{ parameters.shadow }}
 
+# Its own stage, depending on nothing, so the R4 artifact never waits for Classify. It runs in every scope.
+- stage: Tier1Build
+  displayName: 'Tier 1 build (R4 test projects)'
+  dependsOn: []
+  jobs:
+  - template: ../jobs/tier1-build.yml
+    parameters:
+      version: R4
+      shadow: ${{ parameters.shadow }}
+
+# In tier1 mode a full scope skips every job of this stage: the deployed stages run the same tests and scans
+# (BuildArtifacts, AnalyzeSecurity, DockerBuild, the deployed R4 tests), so the containers would only duplicate them.
+# Any other scope runs them, including no scope at all (Classify failed), so a classifier failure never costs Tier 1;
+# hence not(canceled()) rather than succeeded(). The legs claim agents once Classify ends and still wait for the
+# artifact. A shadow run keeps every job, to compare Tier 1 with the stages it shadows.
 - stage: Tier1Tests
   displayName: 'Tier 1 tests (build once, SQL Server and Azurite containers)'
-  dependsOn: []
+  ${{ if parameters.shadow }}:
+    dependsOn: []
+  ${{ else }}:
+    dependsOn: Classify
+    condition: not(canceled())
   jobs:
   # Source scanners (Windows) and the R4 image smoke wait for nothing and run beside the tests.
   - template: ../jobs/tier1-source-scan.yml
     parameters:
       shadow: ${{ parameters.shadow }}
+      ${{ if not(parameters.shadow) }}:
+        condition: and(not(canceled()), ne(stageDependencies.Classify.ClassifyPr.outputs['scope.ValidationScope'], 'full'))
 
   - template: ../jobs/tier1-image-smoke.yml
     parameters:
       shadow: ${{ parameters.shadow }}
+      ${{ if not(parameters.shadow) }}:
+        condition: and(not(canceled()), ne(stageDependencies.Classify.ClassifyPr.outputs['scope.ValidationScope'], 'full'))
 
   - template: ../jobs/tier1-version.yml
     parameters:
       version: R4
+      includeBuild: false
       shadow: ${{ parameters.shadow }}
       shards: ${{ parameters.shards }}
       maxParallel: ${{ parameters.maxParallel }}
       e2eTraitArgs: ${{ parameters.e2eTraitArgs }}
+      ${{ if not(parameters.shadow) }}:
+        condition: and(not(canceled()), ne(stageDependencies.Classify.ClassifyPr.outputs['scope.ValidationScope'], 'full'))
 
-# not(canceled()) rather than succeeded(): a fork PR whose scope is full fails Classify (job RequireMaintainer), and
-# fork PRs still run all of Tier 1. A failed classifier sets no scope, so the stage is skipped (and the run fails).
+# Shared scope in tier1 mode (full runs the deployed Stu3 and R5 stages instead), and also when Classify set no scope;
+# shared or full in a shadow run. not(canceled()) rather than succeeded(): Classify fails when a merge-queue run of a
+# fork PR needs a maintainer (job RequireMaintainer).
 - stage: Tier1TestsStu3R5
-  displayName: 'Tier 1 tests, Stu3 and R5 (shared and full scope)'
+  displayName: 'Tier 1 tests, Stu3 and R5 (shared scope)'
   dependsOn: Classify
-  condition: and(not(canceled()), in(dependencies.Classify.outputs['ClassifyPr.scope.ValidationScope'], 'shared', 'full'))
+  ${{ if parameters.shadow }}:
+    condition: and(not(canceled()), in(dependencies.Classify.outputs['ClassifyPr.scope.ValidationScope'], 'shared', 'full'))
+  ${{ else }}:
+    condition: and(not(canceled()), not(in(dependencies.Classify.outputs['ClassifyPr.scope.ValidationScope'], 'lean', 'full')))
   jobs:
   - ${{ each version in parameters.sharedVersions }}:
     - template: ../jobs/tier1-version.yml

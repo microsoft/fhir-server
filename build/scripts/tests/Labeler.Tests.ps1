@@ -77,7 +77,7 @@ Describe 'Full-Test-Matrix label (.github/labeler.yml)' {
 
     It 'agrees with the classifier on full versus not full for every sample path' {
         foreach ($path in $script:Samples) {
-            $classifiedFull = (& $script:ClassifierPath -ChangedFiles $path -TargetBranch 'main').Scope -eq 'full'
+            $classifiedFull = (& $script:ClassifierPath -Policy paths -ChangedFiles $path -TargetBranch 'main').Scope -eq 'full'
             Test-Labeled $path | Should -Be $classifiedFull -Because $path
         }
     }

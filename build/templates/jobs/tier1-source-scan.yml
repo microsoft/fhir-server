@@ -7,10 +7,16 @@ parameters:
 - name: shadow
   type: boolean
   default: false
+# Job condition; empty for the default.
+- name: condition
+  type: string
+  default: ''
 
 jobs:
 - job: Tier1SourceScan
   displayName: 'Source security scan (CredScan, CSRF, PSScriptAnalyzer, Armory, TemplateAnalyzer)'
+  ${{ if ne(parameters.condition, '') }}:
+    condition: ${{ parameters.condition }}
   ${{ if parameters.shadow }}:
     timeoutInMinutes: 30
   pool:

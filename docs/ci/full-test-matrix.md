@@ -1,4 +1,4 @@
-# Full test matrix: requesting, approving and the merge-queue pilot
+# Full test matrix: requesting, approving, the merge-queue pilot and the draft-first rollout
 
 The PR pipeline (`PR Build & Deploy`, ADO definition 9, `build/pr-pipeline.yml`) validates most PRs with Tier 1 only:
 SQL Server and Azurite in containers on the agent, no Azure credential
@@ -11,8 +11,28 @@ as before.
 
 ## (a) Requesting the full matrix
 
-**Automatically, by path.** The `Classify` stage (`build/templates/jobs/classify-pr.yml`, rules in
-`build/scripts/Get-PrValidationScope.ps1`) makes the scope `full` when the PR changes any of:
+**By PR state (rollout iteration 1, scope policy `draftFirst`).** The `Classify` stage
+(`build/templates/jobs/classify-pr.yml`, rules in `build/scripts/Get-PrValidationScope.ps1`) reads the PR's draft flag
+and labels from GitHub (`GET /repos/microsoft/fhir-server/pulls/<n>`) and sets the scope:
+
+| PR state | Scope |
+|---|---|
+| Draft | `lean` |
+| Draft with the `Full-Test-Matrix` label | `full` |
+| Ready for review | `full` |
+| Draft state unknown (the GitHub call failed) | `full` |
+| Fork PR, in any state | `lean` (see (c)) |
+
+A PR that targets `release/*` or `hotfix/*` is always full. Marking a draft PR ready for review queues a new run of the
+same commit, which takes the full matrix (see (e) to verify this). The path rules below are advisory in this
+iteration: the `Classify validation scope` step logs `Advisory path scope=<scope> (<reasons>)` and does not use it.
+
+A full run skips the Tier 1 container jobs that the deployed stages repeat: the R4 E2E and integration legs, the Stu3
+and R5 Tier 1 stage, the Tier 1 source scan and the R4 image smoke. The Tier 1 R4 test build and the unit test shards
+still run. The 81 tests that only the in-process server runs therefore run on lean and shared runs (draft PRs) only.
+
+**By path (scope policy `paths`, iteration 2).** Under `paths` the draft state is ignored, and the scope is `full` when
+the PR changes any of:
 
 - a `src/` or `test/` project whose directory name contains `Cosmos`, or is a Stu3, R4B or R5 project
   (`*.Stu3.*`, `*.R4B.*`, `*.R5.*`);
@@ -23,12 +43,13 @@ as before.
   `Identity`, `OpenIddict`, `KeyVault` or `SqlClient`, or a build-wide property changes.
 
 A PR that targets `release/*` or `hotfix/*` is always full. The run's `Classify validation scope` step lists every rule
-that matched.
+that matched. The policy is the `scopePolicy` value that `build/pr-pipeline.yml` passes to the Tier 1 template.
 
 **The `Full-Test-Matrix` label.** `.github/labeler.yml` adds the label to PRs to `main` that change the paths above (all but
 `Directory.Packages.props`, which only the classifier can judge), so reviewers see that a PR takes the full matrix.
 `build/scripts/tests/Labeler.Tests.ps1` keeps the label's globs and the classifier in agreement. The labeler never
-removes the label: if a later push drops those paths, the label stays and the PR keeps the full matrix.
+removes the label: if a later push drops those paths, the label stays and the PR keeps the full matrix. Under
+`draftFirst` this label makes a draft PR that changes those paths full, so the path rules decide for such drafts.
 
 To request the full matrix for any other PR:
 
@@ -43,10 +64,11 @@ To request the full matrix for any other PR:
    write access. Whether ADO honors `/azp run` from a bot (`github-actions[bot]` or an app token) is untested, so this
    is a maintainer step.
 
-Fork PRs never take the full matrix from a label: their labels are not read (see (c)).
+Fork PRs never take the full matrix, from a label or otherwise (see (c)).
 
-If the run logs `Could not read PR labels`, the GitHub API failed (often the unauthenticated rate limit on a shared
-agent IP) and the PR was classified by its paths alone. Comment `/azp run PR Build & Deploy` again, or queue the run
+If the run logs `Could not read PR #<n> from the GitHub API`, the call failed (often the unauthenticated rate limit on a
+shared agent IP). The draft state is then unknown, so under `draftFirst` the run is full; under `paths` the labels are
+ignored and a warning (`Could not read PR labels`) says so. Comment `/azp run PR Build & Deploy` again, or queue the run
 manually with full scope (below).
 
 **Manually.** Queue definition 9 on the branch `refs/pull/<n>/merge` with **Validation mode** = `tier1` and **Tier 1
@@ -73,12 +95,19 @@ Admin steps (a project administrator of `microsofthealthoss/FhirServer`; not don
    cover secrets defined in the definition's own settings; see (d), security item 1.
 
 Until the approval check exists, the routing in `classify-pr.yml` (deployed stages run only when the scope is full and
-no maintainer is required) is the only control, and the PR can edit it.
+no maintainer is required; fork PRs are always lean) is the only control, and the PR can edit it.
 
 ## (c) Fork PRs
 
-A fork PR runs all of Tier 1 and never receives a secret or service connection. When its scope is full, job
-`RequireMaintainer` fails the run with a message and the deployed stages are skipped.
+A fork PR runs Tier 1 at lean scope, whether it is a draft, ready for review or labeled, and never receives a secret or
+service connection; the deployed stages are skipped. When the policy would have given full (the label, ready for
+review, an unknown draft state, or a full path), the run logs a warning:
+
+```text
+Fork PR: full test matrix not run (<reasons>). A maintainer can push the reviewed SHA to a branch in microsoft/fhir-server to run it.
+```
+
+Post-merge CI (definition 27) is the backstop.
 
 To run the full matrix for a fork PR, a maintainer:
 
@@ -124,10 +153,11 @@ These pieces are inert while no merge-queue rule exists:
   (`build/scripts/Test-PrResourceGroupName.ps1`). The previous pattern, `msh-fhir-pr-<n>*`, also matched every PR whose
   number starts with the same digits.
 - **Fork gate (`tier1` mode only).** `Classify` looks up the queued PR (`GET /repos/microsoft/fhir-server/pulls/<n>`).
-  When its head repository is not `microsoft/fhir-server`, or the lookup fails, the run needs a maintainer: the deployed
-  stages are skipped and the queue ejects the entry. So in `tier1` mode **every queued fork PR is ejected, by design**:
-  such a PR lands through a same-repository branch, as in (c). This is routing, not security: the queue branch carries
-  the PR's own `build/`. `legacy` mode has no gate at all.
+  When its head repository is not `microsoft/fhir-server`, or the lookup fails, the run needs a maintainer: job
+  `RequireMaintainer` fails the run, the deployed stages are skipped and the queue ejects the entry. So in `tier1` mode
+  **every queued fork PR is ejected, by design**: such a PR lands through a same-repository branch, as in (c). A queue
+  run is not a PR run, so the fork PR rule of (c) (always lean) does not apply to it. This is routing, not security:
+  the queue branch carries the PR's own `build/`. `legacy` mode has no gate at all.
 
 ### Security: required before any pilot
 
@@ -204,3 +234,31 @@ sweep; the fork PR is stopped before any service connection is used or any secre
 definition 9 back on, and delete the pilot PRs' leftover `msh-fhir-pr-<n>-*` resource groups.
 
 Background research: `docs/ci/merge-queue-research.md` on branch `personal/bkowitz/merge-queue-azure-devops-research`.
+
+## (e) Draft-first rollout
+
+**Stage 1 (iteration 1).** Make `validationMode: tier1` the default with scope policy `draftFirst` (table in (a)). Ready
+PRs keep today's deployed coverage, so what merges is validated as today; only draft runs get faster. The cutover gates
+of ADR-2611 still apply before ready PRs go lean.
+
+**Stage 2 (iteration 2).** Set `scopePolicy: 'paths'` in `build/pr-pipeline.yml` (one line). Ready PRs then take the
+path scope, and only full-path PRs deploy.
+
+**Before stage 1: verify the draft-to-ready run.** Iteration 1 is safe only if marking a draft PR ready for review
+queues a new run: otherwise the draft's lean result would stand on the commit that merges. Azure Pipelines does this by
+default (`pr: drafts` defaults to true; GitHub's `ready_for_review` re-queues the PR build), but definition 9's trigger
+is set in its settings, so check it once:
+
+1. Check that no definition 9 run of the test PR is in progress or queued:
+   `GET _apis/build/builds?definitions=9&branchName=refs/pull/<n>/merge&statusFilter=inProgress,notStarted` returns
+   none. Also wait for the definition 120 cleanup of its last run.
+2. On a draft PR whose branch has the `tier1` default (for example PR #6061 with the default changed in a commit), mark
+   it ready for review.
+3. Within about 5 minutes a new definition 9 run must be queued with reason `pullRequest` for the same source commit
+   (compare `sourceVersion` with the previous run's). Its `Classify validation scope` step must log
+   `Draft: False` and `Scope=full Reasons=ready for review`.
+4. Convert the PR back to draft; the next push runs lean (`Reasons=draft PR (draftFirst policy: path rules are
+   advisory)`).
+
+If step 3 queues no run, stage 1 needs a GitHub check that blocks merging until a full run of the head commit has
+passed, or the maintainer comments `/azp run PR Build & Deploy` after marking the PR ready.

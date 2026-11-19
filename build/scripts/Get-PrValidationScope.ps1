@@ -1,10 +1,19 @@
 <#
 .SYNOPSIS
-    Classifies a pull request's validation scope (lean, shared or full) from its changed files, labels and target.
+    Classifies a pull request's validation scope (lean, shared or full) from its draft state, labels, target and
+    changed files.
 
 .DESCRIPTION
-    Implements the path rules of ADR-2611 (docs/arch/adr-2611-tiered-pr-validation.md, "Lean default with
-    path-triggered depth"):
+    Two policies (-Policy):
+
+    draftFirst (the default; ADR-2611 rollout, iteration 1)
+      full    the PR is ready for review; or its draft state is unknown (failing closed); or it has the
+              Full-Test-Matrix label; or it targets release/* or hotfix/*; or the run is on a GitHub merge-queue
+              branch (refs/heads/gh-readonly-queue/...), which has no draft state.
+      lean    otherwise: a draft PR. The path rules below are computed but only reported, as Advisory.
+
+    paths (iteration 2) implements the path rules of ADR-2611 (docs/arch/adr-2611-tiered-pr-validation.md, "Lean
+    default with path-triggered depth"); the draft state is ignored:
 
       full    any changed path is in a src/ or test/ project whose directory name contains Cosmos, or is a Stu3, R4B
               or R5 project (src/*.Stu3.*, src/*.R4B.*, src/*.R5.*, same under test/), or is under build/ or
@@ -25,8 +34,12 @@
       shared  not full, and a changed path is in a src/*.Shared.* or test/*.Shared.* project.
       lean    otherwise.
 
-    Fails closed: an empty or truncated file list gives full. Unreadable labels do not: the PR is classified by its
-    paths and Warnings says how to request the full matrix (ruling R16).
+    Fork PRs are lean under either policy: the full matrix needs the deployed environments, which a fork PR never
+    reaches. When the policy would have given full, Warnings says so and how a maintainer runs it. A merge-queue run
+    of a fork PR is not a PR run: it stays full and needs a maintainer (FullRequiresMaintainer).
+
+    Fails closed: an empty or truncated file list gives full under the paths policy. Unreadable labels do not: the PR
+    is classified without them and Warnings says how to request the full matrix (ruling R16).
 
     Pure: no I/O. Paths are matched case-insensitively after converting backslashes to slashes; a project is the
     second path segment under src/ or test/, so only the project directory name (not the file name) counts for the
@@ -46,9 +59,9 @@
     is full regardless of the files. Empty for a PR run classified by its files alone.
 
 .PARAMETER IsFork
-    Whether the PR comes from a fork. A fork whose scope is full needs a maintainer, which routes it away from the
-    deployed stages. Routing only, not a security boundary: the approval check on the privileged service connection
-    is the gate (ADR-2611).
+    Whether the PR comes from a fork. A fork PR is lean (see above). For a merge-queue run, whether the queued PR comes
+    from a fork: its full scope then needs a maintainer, which routes it away from the deployed stages. Routing only,
+    not a security boundary: the approval check on the privileged service connection is the gate (ADR-2611).
 
 .PARAMETER FileListTruncated
     Whether ChangedFiles is incomplete.
@@ -66,10 +79,18 @@
     build-wide property (the .NET SDK release train, the central package management switches) is full; any other is
     shared, and is classified through its packages. Used only when ChangedFiles includes that file.
 
+.PARAMETER Policy
+    draftFirst (default) or paths; see above.
+
+.PARAMETER IsDraft
+    Whether the PR is a draft: $true, $false, or $null when it could not be read (draftFirst then gives full). Ignored
+    by the paths policy and for a merge-queue run.
+
 .OUTPUTS
     [pscustomobject] with Scope ('lean' | 'shared' | 'full'), Reasons (string[]: each rule that matched, with the path
-    or value that matched it), FullRequiresMaintainer (true only when Scope is full and IsFork) and Warnings
-    (string[], for the caller to log as warnings).
+    or value that matched it), FullRequiresMaintainer (true only for a merge-queue run of a fork PR), Warnings
+    (string[], for the caller to log as warnings) and Advisory (under draftFirst, "Advisory path scope=<scope>
+    (<reasons>)" for the caller to log; empty under paths).
 #>
 [CmdletBinding()]
 param(
@@ -93,7 +114,12 @@ param(
     [string[]] $ChangedPackages = @(),
 
     [AllowEmptyCollection()]
-    [string[]] $ChangedPackageProperties = @()
+    [string[]] $ChangedPackageProperties = @(),
+
+    [ValidateSet('draftFirst', 'paths')]
+    [string] $Policy = 'draftFirst',
+
+    [Nullable[bool]] $IsDraft = $null
 )
 
 $ErrorActionPreference = 'Stop'
@@ -121,6 +147,22 @@ $fullPackageRule = 'Cosmos|^Azure\.|Identity|OpenIddict|KeyVault|SqlClient'
 # train and the central package management switches (ruling R15c).
 $fullPackagePropertyRule = '^(DotNetSdkPackageVersion|ManagePackageVersionsCentrally|CentralPackageVersionOverrideEnabled|CentralPackageTransitivePinningEnabled)$'
 
+# Rules that hold under either policy: the label, a release or hotfix target, and the merge queue.
+$stateFull = [System.Collections.Generic.List[string]]::new()
+if (-not $LabelsUnavailableReason -and @($Labels | Where-Object { $_ -ieq 'Full-Test-Matrix' }).Count -gt 0) {
+    $stateFull.Add('label: Full-Test-Matrix')
+}
+
+if ($TargetBranch -imatch '^(refs/heads/)?(release|hotfix)/') {
+    $stateFull.Add("target branch: $TargetBranch")
+}
+
+$isMergeQueue = $SourceBranch -imatch '^refs/heads/gh-readonly-queue/'
+if ($isMergeQueue) {
+    $stateFull.Add("merge-queue: $SourceBranch")
+}
+
+# The path rules.
 $full = [System.Collections.Generic.List[string]]::new()
 $shared = [System.Collections.Generic.List[string]]::new()
 
@@ -131,22 +173,6 @@ if ($FileListTruncated) {
 $files = @($ChangedFiles | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
 if ($files.Count -eq 0) {
     $full.Add('fail-closed: no changed files')
-}
-
-$warnings = [System.Collections.Generic.List[string]]::new()
-if ($LabelsUnavailableReason) {
-    $warnings.Add("Could not read PR labels ($LabelsUnavailableReason); classifying by paths only. Add the Full-Test-Matrix label and re-run, or queue with tier1Scope=full.")
-}
-elseif (@($Labels | Where-Object { $_ -ieq 'Full-Test-Matrix' }).Count -gt 0) {
-    $full.Add('label: Full-Test-Matrix')
-}
-
-if ($TargetBranch -imatch '^(refs/heads/)?(release|hotfix)/') {
-    $full.Add("target branch: $TargetBranch")
-}
-
-if ($SourceBranch -imatch '^refs/heads/gh-readonly-queue/') {
-    $full.Add("merge-queue: $SourceBranch")
 }
 
 foreach ($file in $files) {
@@ -192,16 +218,59 @@ foreach ($file in $files) {
 }
 
 if ($full.Count -gt 0) {
-    $scope = 'full'
-    $reasons = $full.ToArray()
+    $pathScope = 'full'
+    $pathReasons = $full.ToArray()
 }
 elseif ($shared.Count -gt 0) {
-    $scope = 'shared'
-    $reasons = $shared.ToArray()
+    $pathScope = 'shared'
+    $pathReasons = $shared.ToArray()
 }
 else {
+    $pathScope = 'lean'
+    $pathReasons = @('no full or shared path changed')
+}
+
+# Joins reasons for a log line, listing at most Max of them.
+function Join-ReasonList([string[]] $Reasons, [int] $Max) {
+    $listed = @($Reasons | Select-Object -First $Max)
+    if ($Reasons.Count -gt $Max) { $listed += "(+$($Reasons.Count - $Max) more)" }
+    $listed -join '; '
+}
+
+$advisory = ''
+if ($Policy -eq 'paths') {
+    $fullReasons = @($stateFull) + @($full)
+    $scope = if ($fullReasons.Count -gt 0) { 'full' } else { $pathScope }
+    $reasons = if ($fullReasons.Count -gt 0) { $fullReasons } else { $pathReasons }
+}
+else {
+    # A merge-queue run is not a PR run, so it has no draft state.
+    $fullReasons = @($stateFull)
+    if (-not $isMergeQueue) {
+        if ($null -eq $IsDraft) { $fullReasons += 'fail-closed: draft state unknown' }
+        elseif (-not $IsDraft) { $fullReasons += 'ready for review' }
+    }
+
+    $scope = if ($fullReasons.Count -gt 0) { 'full' } else { 'lean' }
+    $reasons = if ($fullReasons.Count -gt 0) { $fullReasons } else { @('draft PR (draftFirst policy: path rules are advisory)') }
+    $advisory = "Advisory path scope=$pathScope ($(Join-ReasonList $pathReasons 20))"
+}
+
+# A fork PR cannot run the full matrix (it has no access to the deployed environments), so it is lean under either
+# policy, and a warning says what full would have run for. A merge-queue run of a fork PR stays full and needs a
+# maintainer (FullRequiresMaintainer).
+$warnings = [System.Collections.Generic.List[string]]::new()
+if ($IsFork -and -not $isMergeQueue) {
+    $wouldBeFull = @(@($fullReasons) + @($full) | Select-Object -Unique)
     $scope = 'lean'
-    $reasons = @('no full or shared path changed')
+    $reasons = @('fork PR: Tier 1 only')
+    if ($wouldBeFull.Count -gt 0) {
+        $warnings.Add("Fork PR: full test matrix not run ($(Join-ReasonList $wouldBeFull 5)). A maintainer can push the reviewed SHA to a branch in microsoft/fhir-server to run it.")
+    }
+}
+elseif ($LabelsUnavailableReason -and $scope -ne 'full') {
+    $by = if ($Policy -eq 'paths') { 'paths' } else { 'draft state' }
+    $warnings.Add("Could not read PR labels ($LabelsUnavailableReason); classifying by $by only. Add the Full-Test-Matrix label and re-run, or queue with tier1Scope=full.")
 }
 
 [pscustomobject]@{
@@ -209,4 +278,5 @@ else {
     Reasons                = [string[]] $reasons
     FullRequiresMaintainer = ($scope -eq 'full' -and $IsFork)
     Warnings               = [string[]] $warnings.ToArray()
+    Advisory               = $advisory
 }

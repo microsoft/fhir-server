@@ -17,12 +17,22 @@ parameters:
 # Trait filters of the E2E shards; keep them equal to the traitArgs of the shard lint (stages/container-tests.yml).
 - name: e2eTraitArgs
   type: object
+# Whether the build job is part of these jobs; false when the caller runs it in another stage (the legs find its
+# artifact in any stage of the run).
+- name: includeBuild
+  type: boolean
+  default: true
+# Condition of the test legs; empty for the default.
+- name: condition
+  type: string
+  default: ''
 
 jobs:
-- template: tier1-build.yml
-  parameters:
-    version: ${{ parameters.version }}
-    shadow: ${{ parameters.shadow }}
+- ${{ if parameters.includeBuild }}:
+  - template: tier1-build.yml
+    parameters:
+      version: ${{ parameters.version }}
+      shadow: ${{ parameters.shadow }}
 
 - template: e2e-inproc-shard.yml
   parameters:
@@ -33,6 +43,7 @@ jobs:
     shadow: ${{ parameters.shadow }}
     maxParallel: ${{ parameters.maxParallel }}
     artifactSource: tier1
+    condition: ${{ parameters.condition }}
 
 # Two legs, one per shard of build/test-shards/sql-integration.json, each with its own SQL Server.
 - template: sql-integration-container.yml
@@ -42,3 +53,4 @@ jobs:
     shards: [0, 1]
     manifest: sql-integration.json
     artifactSource: tier1
+    condition: ${{ parameters.condition }}

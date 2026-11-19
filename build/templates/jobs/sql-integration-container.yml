@@ -21,6 +21,10 @@ parameters:
 - name: dependsOn
   type: string
   default: ''
+# Job condition; empty for the default.
+- name: condition
+  type: string
+  default: ''
 # Zero-based indexes of the shards of build/test-shards/<manifest> to run, one matrix leg each (<version>_S<index>), all
 # at once. Must list every shard: the last one is the catch-all. Empty (the default) runs all tests in one job.
 - name: shards
@@ -35,6 +39,8 @@ jobs:
   displayName: '${{ parameters.version }} SQL Integration (container)'
   ${{ if ne(parameters.dependsOn, '') }}:
     dependsOn: ${{ parameters.dependsOn }}
+  ${{ if ne(parameters.condition, '') }}:
+    condition: ${{ parameters.condition }}
   ${{ if parameters.shadow }}:
     timeoutInMinutes: 30
   ${{ if ne(length(parameters.shards), 0) }}:

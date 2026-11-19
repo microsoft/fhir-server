@@ -1,6 +1,7 @@
 BeforeAll {
     $script:ScriptPath = Join-Path $PSScriptRoot '..' 'Get-PrValidationScope.ps1'
 
+    # The path rules (the paths policy, Task 3).
     function Get-Scope {
         param(
             [string[]] $ChangedFiles = @(),
@@ -10,8 +11,26 @@ BeforeAll {
             [bool] $FileListTruncated = $false,
             [string[]] $ChangedPackages = @())
 
-        & $script:ScriptPath -ChangedFiles $ChangedFiles -Labels $Labels -TargetBranch $TargetBranch `
+        & $script:ScriptPath -Policy paths -ChangedFiles $ChangedFiles -Labels $Labels -TargetBranch $TargetBranch `
             -IsFork $IsFork -FileListTruncated $FileListTruncated -ChangedPackages $ChangedPackages
+    }
+
+    # A PR run under the default policy (draftFirst). IsDraft $null is a draft state that could not be read.
+    function Get-DraftFirstScope {
+        param(
+            [string[]] $ChangedFiles = @('docs/x.md'),
+            [string[]] $Labels = @(),
+            [Nullable[bool]] $IsDraft,
+            [bool] $IsFork = $false,
+            [string] $TargetBranch = 'main',
+            [string] $LabelsUnavailableReason = '')
+
+        & $script:ScriptPath -ChangedFiles $ChangedFiles -Labels $Labels -IsDraft $IsDraft -IsFork $IsFork `
+            -TargetBranch $TargetBranch -LabelsUnavailableReason $LabelsUnavailableReason
+    }
+
+    function Get-ForkWarning([string] $Reasons) {
+        "Fork PR: full test matrix not run ($Reasons). A maintainer can push the reviewed SHA to a branch in microsoft/fhir-server to run it."
     }
 
     # Classifies a change to the root Directory.Packages.props given its diff lines, as classify-pr.yml does.
@@ -34,7 +53,7 @@ BeforeAll {
             '  </ItemGroup>',
             '</Project>')
         $changes = & (Join-Path $PSScriptRoot '..' 'Get-PackagePropsChanges.ps1') -DiffLines $Diff -Content $content
-        & $script:ScriptPath -ChangedFiles 'Directory.Packages.props' -TargetBranch 'main' `
+        & $script:ScriptPath -Policy paths -ChangedFiles 'Directory.Packages.props' -TargetBranch 'main' `
             -ChangedPackages $changes.Packages -ChangedPackageProperties $changes.Properties
     }
 }
@@ -128,10 +147,12 @@ Describe 'Get-PrValidationScope' {
         ($result.Reasons -join ' ') | Should -Match 'fail-closed'
     }
 
-    It 'fork with full scope returns fullRequiresMaintainer' {
+    # Task 15: a fork PR is lean under either policy; the full matrix can never run for it.
+    It 'fork PR with a full path is lean with a warning' {
         $result = Get-Scope -ChangedFiles 'build/x.yml' -IsFork $true
-        $result.Scope | Should -Be 'full'
-        $result.FullRequiresMaintainer | Should -BeTrue
+        $result.Scope | Should -Be 'lean'
+        $result.FullRequiresMaintainer | Should -BeFalse
+        $result.Warnings | Should -Be @(Get-ForkWarning 'build: build/x.yml')
     }
 
     It 'paths are case-insensitive and accept backslashes' {
@@ -238,7 +259,7 @@ Describe 'Get-PrValidationScope' {
 
     # Ruling R16: a label-read failure does not force full.
     It 'labels unavailable classifies by paths and warns' {
-        $result = & $script:ScriptPath -ChangedFiles 'src/Microsoft.Health.Fhir.R4.Core/Foo.cs' -TargetBranch 'main' `
+        $result = & $script:ScriptPath -Policy paths -ChangedFiles 'src/Microsoft.Health.Fhir.R4.Core/Foo.cs' -TargetBranch 'main' `
             -LabelsUnavailableReason 'HTTP 403 rate limit exceeded'
         $result.Scope | Should -Be 'lean'
         $result.Warnings | Should -Be @(
@@ -246,7 +267,7 @@ Describe 'Get-PrValidationScope' {
     }
 
     It 'labels unavailable still classifies full paths as full' {
-        $result = & $script:ScriptPath -ChangedFiles 'build/x.yml' -TargetBranch 'main' -LabelsUnavailableReason 'timeout'
+        $result = & $script:ScriptPath -Policy paths -ChangedFiles 'build/x.yml' -TargetBranch 'main' -LabelsUnavailableReason 'timeout'
         $result.Scope | Should -Be 'full'
     }
 
@@ -271,20 +292,162 @@ Describe 'Get-PrValidationScope' {
 
     # Task 7: a merge-queue branch (GitHub merge queue, gh-readonly-queue/<base>/pr-<n>-<sha>) always runs the full matrix.
     It 'merge queue branch yields full' {
-        $result = & $script:ScriptPath -ChangedFiles 'docs/x.md' -SourceBranch 'refs/heads/gh-readonly-queue/main/pr-123-abc'
+        $result = & $script:ScriptPath -Policy paths -ChangedFiles 'docs/x.md' -SourceBranch 'refs/heads/gh-readonly-queue/main/pr-123-abc'
         $result.Scope | Should -Be 'full'
         ($result.Reasons -join ' ') | Should -Match 'merge-queue'
     }
 
     It 'ordinary branch does not force full' {
-        (& $script:ScriptPath -ChangedFiles 'docs/x.md' -SourceBranch 'refs/heads/feature/x').Scope | Should -Be 'lean'
+        (& $script:ScriptPath -Policy paths -ChangedFiles 'docs/x.md' -SourceBranch 'refs/heads/feature/x').Scope | Should -Be 'lean'
     }
 
     It 'a PR merge ref does not force full' {
-        (& $script:ScriptPath -ChangedFiles 'docs/x.md' -SourceBranch 'refs/pull/6061/merge').Scope | Should -Be 'lean'
+        (& $script:ScriptPath -Policy paths -ChangedFiles 'docs/x.md' -SourceBranch 'refs/pull/6061/merge').Scope | Should -Be 'lean'
     }
 
     It 'a branch merely containing gh-readonly-queue does not force full' {
-        (& $script:ScriptPath -ChangedFiles 'docs/x.md' -SourceBranch 'refs/heads/personal/gh-readonly-queue/x').Scope | Should -Be 'lean'
+        (& $script:ScriptPath -Policy paths -ChangedFiles 'docs/x.md' -SourceBranch 'refs/heads/personal/gh-readonly-queue/x').Scope | Should -Be 'lean'
+    }
+}
+
+# Task 15, iteration 1: draft PRs are lean unless labeled; ready PRs are full; path rules are advisory.
+Describe 'Get-PrValidationScope draftFirst policy' {
+    It 'is the default policy' {
+        (& $script:ScriptPath -ChangedFiles 'build/x.yml' -IsDraft $true).Scope | Should -Be 'lean'
+    }
+
+    It 'ready PR is full regardless of paths' {
+        $result = Get-DraftFirstScope -ChangedFiles 'docs/x.md' -IsDraft $false
+        $result.Scope | Should -Be 'full'
+        $result.Reasons | Should -Be @('ready for review')
+    }
+
+    It 'draft PR is lean regardless of paths under draftFirst' {
+        foreach ($file in 'build/x.yml', 'src/Microsoft.Health.Fhir.Shared.Core/X.cs', 'docs/x.md') {
+            $result = Get-DraftFirstScope -ChangedFiles $file -IsDraft $true
+            $result.Scope | Should -Be 'lean' -Because $file
+            $result.Reasons | Should -Be @('draft PR (draftFirst policy: path rules are advisory)')
+        }
+    }
+
+    It 'labeled draft PR is full' {
+        $result = Get-DraftFirstScope -Labels 'full-test-matrix' -IsDraft $true
+        $result.Scope | Should -Be 'full'
+        $result.Reasons | Should -Be @('label: Full-Test-Matrix')
+    }
+
+    It 'advisory path scope is reported for a draft' {
+        (Get-DraftFirstScope -ChangedFiles 'docs/x.md', 'build/pr-pipeline.yml' -IsDraft $true).Advisory |
+            Should -Be 'Advisory path scope=full (build: build/pr-pipeline.yml)'
+        (Get-DraftFirstScope -ChangedFiles 'docs/x.md' -IsDraft $true).Advisory |
+            Should -Be 'Advisory path scope=lean (no full or shared path changed)'
+    }
+
+    It 'advisory path scope is reported for a ready PR' {
+        (Get-DraftFirstScope -ChangedFiles 'src/Microsoft.Health.Fhir.Shared.Core/X.cs' -IsDraft $false).Advisory |
+            Should -Be 'Advisory path scope=shared (shared project: src/Microsoft.Health.Fhir.Shared.Core/X.cs)'
+    }
+
+    It 'advisory path scope lists at most twenty reasons' {
+        $files = 1..22 | ForEach-Object { "build/$_.yml" }
+        $expected = ((1..20 | ForEach-Object { "build: build/$_.yml" }) + '(+2 more)') -join '; '
+        (Get-DraftFirstScope -ChangedFiles $files -IsDraft $true).Advisory | Should -Be "Advisory path scope=full ($expected)"
+    }
+
+    It 'paths policy keeps Task 3 behavior' {
+        $paths = @{ Policy = 'paths'; TargetBranch = 'main' }
+        (& $script:ScriptPath @paths -ChangedFiles 'docs/x.md' -IsDraft $false).Scope | Should -Be 'lean'
+        (& $script:ScriptPath @paths -ChangedFiles 'docs/x.md').Scope | Should -Be 'lean'
+        (& $script:ScriptPath @paths -ChangedFiles 'src/Microsoft.Health.Fhir.Shared.Core/X.cs' -IsDraft $false).Scope | Should -Be 'shared'
+        (& $script:ScriptPath @paths -ChangedFiles 'build/x.yml' -IsDraft $true).Scope | Should -Be 'full'
+        (& $script:ScriptPath @paths -ChangedFiles 'docs/x.md').Advisory | Should -BeNullOrEmpty
+    }
+
+    It 'unknown draft state is full' {
+        $result = Get-DraftFirstScope -ChangedFiles 'docs/x.md' -IsDraft $null
+        $result.Scope | Should -Be 'full'
+        $result.Reasons | Should -Be @('fail-closed: draft state unknown')
+    }
+
+    It 'unknown draft state with unreadable labels is full without the label warning' {
+        $result = Get-DraftFirstScope -IsDraft $null -LabelsUnavailableReason 'HTTP 403'
+        $result.Scope | Should -Be 'full'
+        $result.Warnings | Should -BeNullOrEmpty
+    }
+
+    It 'draft PR with unreadable labels is lean and says how to request full' {
+        $result = Get-DraftFirstScope -IsDraft $true -LabelsUnavailableReason 'HTTP 403'
+        $result.Scope | Should -Be 'lean'
+        $result.Warnings | Should -Be @(
+            'Could not read PR labels (HTTP 403); classifying by draft state only. Add the Full-Test-Matrix label and re-run, or queue with tier1Scope=full.')
+    }
+
+    It 'draft PR targeting a release branch is full' {
+        $result = Get-DraftFirstScope -IsDraft $true -TargetBranch 'release/1.2'
+        $result.Scope | Should -Be 'full'
+        $result.Reasons | Should -Be @('target branch: release/1.2')
+    }
+
+    It 'fork draft PR is lean' {
+        $result = Get-DraftFirstScope -ChangedFiles 'docs/x.md' -IsDraft $true -IsFork $true
+        $result.Scope | Should -Be 'lean'
+        $result.Reasons | Should -Be @('fork PR: Tier 1 only')
+        $result.FullRequiresMaintainer | Should -BeFalse
+        $result.Warnings | Should -BeNullOrEmpty
+        $result.Advisory | Should -Be 'Advisory path scope=lean (no full or shared path changed)'
+    }
+
+    It 'fork draft PR with full advisory paths is lean with a warning' {
+        $result = Get-DraftFirstScope -ChangedFiles 'build/x.yml' -IsDraft $true -IsFork $true
+        $result.Scope | Should -Be 'lean'
+        $result.Warnings | Should -Be @(Get-ForkWarning 'build: build/x.yml')
+    }
+
+    It 'ready fork PR is lean with a warning' {
+        $result = Get-DraftFirstScope -ChangedFiles 'docs/x.md' -IsDraft $false -IsFork $true
+        $result.Scope | Should -Be 'lean'
+        $result.FullRequiresMaintainer | Should -BeFalse
+        $result.Warnings | Should -Be @(Get-ForkWarning 'ready for review')
+    }
+
+    It 'labeled fork PR is lean with a warning' {
+        $result = Get-DraftFirstScope -Labels 'Full-Test-Matrix' -IsDraft $true -IsFork $true
+        $result.Scope | Should -Be 'lean'
+        $result.Warnings | Should -Be @(Get-ForkWarning 'label: Full-Test-Matrix')
+    }
+
+    It 'fork PR with an unknown draft state is lean with a warning' {
+        $result = Get-DraftFirstScope -IsDraft $null -IsFork $true -LabelsUnavailableReason 'timeout'
+        $result.Scope | Should -Be 'lean'
+        $result.Warnings | Should -Be @(Get-ForkWarning 'fail-closed: draft state unknown')
+    }
+
+    It 'fork warning lists at most five reasons' {
+        $files = 1..7 | ForEach-Object { "build/$_.yml" }
+        $result = Get-DraftFirstScope -ChangedFiles $files -IsDraft $false -IsFork $true
+        $result.Warnings | Should -Be @(Get-ForkWarning (
+                'ready for review; build: build/1.yml; build: build/2.yml; build: build/3.yml; build: build/4.yml; (+3 more)'))
+    }
+
+    # Non-PR runs: classify-pr.yml makes them full; the merge queue keeps its Task 7 fork gate.
+    It 'non-PR runs unchanged' {
+        $queue = 'refs/heads/gh-readonly-queue/main/pr-123-abc'
+        $result = & $script:ScriptPath -ChangedFiles 'docs/x.md' -SourceBranch $queue
+        $result.Scope | Should -Be 'full'
+        $result.Reasons | Should -Be @("merge-queue: $queue")
+        $result.FullRequiresMaintainer | Should -BeFalse
+
+        $fork = & $script:ScriptPath -ChangedFiles 'docs/x.md' -SourceBranch $queue -IsFork $true
+        $fork.Scope | Should -Be 'full'
+        $fork.FullRequiresMaintainer | Should -BeTrue
+        $fork.Warnings | Should -BeNullOrEmpty
+
+        $paths = & $script:ScriptPath -Policy paths -ChangedFiles 'docs/x.md' -SourceBranch $queue -IsFork $true
+        $paths.Scope | Should -Be 'full'
+        $paths.FullRequiresMaintainer | Should -BeTrue
+    }
+
+    It 'rejects an unknown policy' {
+        { & $script:ScriptPath -Policy 'labels' -ChangedFiles 'docs/x.md' } | Should -Throw
     }
 }

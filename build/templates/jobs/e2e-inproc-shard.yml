@@ -36,12 +36,18 @@ parameters:
 - name: dependsOn
   type: string
   default: ''
+# Job condition; empty for the default.
+- name: condition
+  type: string
+  default: ''
 
 jobs:
 - job: SqlE2EInProc_${{ parameters.version }}
   displayName: '${{ parameters.version }} SQL E2E in-proc (container)'
   ${{ if ne(parameters.dependsOn, '') }}:
     dependsOn: ${{ parameters.dependsOn }}
+  ${{ if ne(parameters.condition, '') }}:
+    condition: ${{ parameters.condition }}
   ${{ if parameters.shadow }}:
     timeoutInMinutes: 30
   strategy:

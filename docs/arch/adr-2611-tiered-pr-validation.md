@@ -173,7 +173,7 @@ The realistic expectation is a p50 of 19–22 minutes. The p90 will be higher, d
   - **Operations.** Ejected builds keep running. At about 2.9 merges a day, a serial queue of 80–95-minute runs needs grouping and a timeout of at least 120 minutes.
   - **Next step.** Definition 9 is made queue-ready (the trigger, and a classifier that treats queue branches as full). A pilot on a test-branch ruleset needs a repository administrator.
 
-The classifier **fails closed** for honest failures: if labels cannot be read completely, the run fails rather than assuming "no label". The label read is authenticated for same-repository PRs. Fork PRs skip it, since they cannot take Tier 2. On the deployed target, tests that assert server-wide counts (`HistoryTests`) run in their own job after the reindex and bulk-update jobs, which write to the same server.
+The classifier **fails closed** for honest failures: an empty or truncated file list is full, and so, under the draft-first policy (see Rollout), is a draft state that cannot be read. Labels that cannot be read do not fail the run: it is classified without them and logs how to request the full matrix. The read is an unauthenticated call to the public repository's API, for fork PRs too, which use it only for the warning that says what full would have run for (see Rollout). On the deployed target, tests that assert server-wide counts (`HistoryTests`) run in their own job after the reindex and bulk-update jobs, which write to the same server.
 
 **One test definition, two targets.** E2E targets a deployed server when `TestEnvironmentUrl*` is set and runs in-proc otherwise. One test-job template with a `container | azure` target is shared by the PR pipeline and post-merge CI; only setup and concurrency differ. `build-variables.yml` defines remote URLs globally, and ADO injects pipeline variables into every task's environment. So on the container target, the test launcher removes every `TestEnvironmentUrl*`, `TestTokenEndpoint` and `Resource` variable in its own process before starting tests, and fails if any remain. In-proc configuration (`launchSettings.json`) must be available next to the test binaries.
 
@@ -195,6 +195,14 @@ The classifier **fails closed** for honest failures: if labels cannot be read co
 - **Revert-first.** The definition 27 failure alert and the revert-first rule are agreed by the team.
 - **Approvals in place.** The ADO approval check exists on the privileged service connection.
 - **Bisect.** The bisect runbook has been exercised once.
+
+**Rollout: draft-first.** The cutover starts with draft PRs, so it changes nothing about what merges are validated against (runbook: `docs/ci/full-test-matrix.md`, sections (a) and (e)).
+
+- **Iteration 1 (scope policy `draftFirst`).** A draft PR is lean unless it has the `Full-Test-Matrix` label; a PR that is ready for review is full; a PR whose draft state cannot be read is full. The draft flag and labels come from one GitHub call (`pulls/<n>`); Azure DevOps exposes no draft variable. The path rules are computed and logged as advisory only. A release or hotfix target is still full. With this policy `validationMode: tier1` can become the default, because every ready PR still gets today's deployed coverage.
+- **Iteration 2 (scope policy `paths`).** Ready PRs take the path scope. The cutover gates above still apply before ready PRs go lean.
+- **Fork PRs are always lean,** in both iterations, whether draft, ready or labeled: the full matrix can never run for them. When the policy would have given full, the run logs a warning that a maintainer can push the reviewed SHA to a branch in `microsoft/fhir-server` to run it. Post-merge CI is the backstop. A merge-queue run of a fork PR is not a PR run: it stays full and needs a maintainer, which ejects it.
+- **A full run skips the duplicate container work.** The deployed stages run the same tests, so a full run skips the Tier 1 R4 legs, the Stu3 and R5 Tier 1 stage, the Tier 1 source scan (Guardian runs) and the R4 image smoke (DockerBuild runs). The Tier 1 R4 test build and unit test shards still run; the R4 build is in its own stage so it never waits for the classifier. A classifier failure never skips Tier 1. **Accepted trade-off:** full runs give up the 81 tests that only the in-process server runs; they still run on lean and shared runs. In iteration 1 that means draft runs only, so a PR opened directly as ready for review never runs them before merge.
+- **Draft to ready.** Iteration 1 relies on Azure Pipelines queuing a new run when a draft PR is marked ready for review (its default for GitHub PRs). This is verified once on definition 9 before the default changes.
 
 ## Consequences
 
