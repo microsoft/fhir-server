@@ -7,11 +7,14 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
+using Hl7.Fhir.Utility;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Partitions;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -83,8 +86,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                     {
                         _logger.LogWarning("Request rejected: a configured partition ID is required after /partition.");
                         context.Response.StatusCode = StatusCodes.Status404NotFound;
-                        context.Response.ContentType = "text/plain";
-                        await context.Response.WriteAsync("A configured partition ID is required after /partition.");
+                        await context.Response.WriteAsJsonAsync(
+                            new
+                            {
+                                resourceType = nameof(OperationOutcome),
+                                issue = new[]
+                                {
+                                    new
+                                    {
+                                        severity = OperationOutcome.IssueSeverity.Error.GetLiteral(),
+                                        code = OperationOutcome.IssueType.NotFound.GetLiteral(),
+                                        diagnostics = "A configured partition ID is required after /partition.",
+                                    },
+                                },
+                            },
+                            options: null,
+                            contentType: KnownContentTypes.JsonContentType,
+                            cancellationToken: context.RequestAborted);
                         return;
                     }
 

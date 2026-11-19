@@ -11,6 +11,7 @@ using System.Net.Http;
 using System.Reflection;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -201,6 +202,28 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             {
                 Assert.Equal(partitionId, Assert.Single(response.Headers.GetValues("X-Test-Partition")));
             }
+        }
+
+        [Theory]
+        [InlineData("/partition/unknown/Patient")]
+        [InlineData("/partition/PARTITION-A/Patient")]
+        public async Task GivenAuthenticatedRequest_WhenPartitionIdIsUnrecognized_ThenResponseContainsOperationOutcome(string path)
+        {
+            using var host = CreateHost(2, securityEnabled: true);
+            using var client = host.GetTestClient();
+            using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(path, UriKind.Relative));
+            request.Headers.Add("Authorization", "Bearer valid");
+
+            using var response = await client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            Assert.Equal("application/fhir+json", response.Content.Headers.ContentType?.MediaType);
+            using var outcome = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            Assert.Equal("OperationOutcome", outcome.RootElement.GetProperty("resourceType").GetString());
+            var issue = Assert.Single(outcome.RootElement.GetProperty("issue").EnumerateArray());
+            Assert.Equal("error", issue.GetProperty("severity").GetString());
+            Assert.Equal("not-found", issue.GetProperty("code").GetString());
+            Assert.False(string.IsNullOrWhiteSpace(issue.GetProperty("diagnostics").GetString()));
         }
 
         public static IEnumerable<object[]> ServiceAuthenticationRequests()
