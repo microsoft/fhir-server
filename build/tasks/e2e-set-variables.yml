@@ -68,7 +68,7 @@ steps:
             return $null
         }
 
-        $fhirSdkProviderSeams = @('', 'SystemDefault', 'FhirPath', 'Import')
+        $fhirSdkProviderSeams = @('', 'SystemDefault', 'FhirPath', 'Import', 'PersistenceWrite')
 
         function Assert-FhirSdkProviderConfiguration {
             param(
