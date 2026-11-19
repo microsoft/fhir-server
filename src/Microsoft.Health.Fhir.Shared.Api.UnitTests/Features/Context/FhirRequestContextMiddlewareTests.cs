@@ -4,9 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Castle.Core.Logging;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
@@ -132,6 +134,40 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             Assert.Equal(new Uri("https://api.example.com/stu3/"), instanceConfiguration.BaseUri);
         }
 
+        [Fact]
+        public async Task GivenAnExceptionHandlerClearedTheResponse_WhenTheResponseStarts_ThenTheRequestIdAndSecurityHeadersAreSet()
+        {
+            // Arrange
+            HttpContext httpContext = CreateHttpContext();
+            httpContext.Request.Headers["X-Request-Id"] = "client-request-id";
+            var responseFeature = new StartableResponseFeature();
+            httpContext.Features.Set<IHttpResponseFeature>(responseFeature);
+
+            var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            var instanceConfiguration = Substitute.For<IFhirServerInstanceConfiguration>();
+            var fhirContextMiddlware = new FhirRequestContextMiddleware(
+                next: innerHttpContext =>
+                {
+                    // BaseExceptionMiddleware and ExceptionHandlerMiddleware clear the response before writing an error.
+                    innerHttpContext.Response.Clear();
+                    return Task.CompletedTask;
+                },
+                Substitute.For<ILogger<FhirRequestContextMiddleware>>());
+            string Provider() => "server-request-id";
+
+            // Act
+            await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, instanceConfiguration, Provider);
+            await responseFeature.StartAsync();
+
+            // Assert
+            IHeaderDictionary headers = httpContext.Response.Headers;
+            Assert.Equal("server-request-id", headers["X-Request-Id"]);
+            Assert.Equal("client-request-id", headers["X-Correlation-Id"]);
+            Assert.Equal("nosniff", headers["X-Content-Type-Options"]);
+            Assert.Equal("SAMEORIGIN", headers["X-Frame-Options"]);
+            Assert.Equal("frame-src 'self';", headers["Content-Security-Policy"]);
+        }
+
         private async Task<IFhirRequestContext> SetupAsync(HttpContext httpContext)
         {
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
@@ -158,6 +194,27 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             httpContext.Request.QueryString = new QueryString("?code=123");
 
             return httpContext;
+        }
+
+        /// <summary>
+        /// A response feature that, like a server, runs the OnStarting callbacks when the response starts.
+        /// </summary>
+        private sealed class StartableResponseFeature : HttpResponseFeature
+        {
+            private readonly Stack<(Func<object, Task> Callback, object State)> _onStarting = new();
+
+            public override void OnStarting(Func<object, Task> callback, object state)
+            {
+                _onStarting.Push((callback, state));
+            }
+
+            public async Task StartAsync()
+            {
+                while (_onStarting.TryPop(out (Func<object, Task> Callback, object State) entry))
+                {
+                    await entry.Callback(entry.State);
+                }
+            }
         }
     }
 }

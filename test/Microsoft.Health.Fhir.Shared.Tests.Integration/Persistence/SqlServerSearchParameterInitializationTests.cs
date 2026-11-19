@@ -46,10 +46,11 @@ public class SqlServerSearchParameterInitializationTests : IClassFixture<SqlServ
         var defaultSearchParameterStatuses = (await _fixture.SqlServerSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None)).ToList();
         List<ResourceSearchParameterStatus> updatedSearchparameterStatuses = [];
 
-        // Disable every 5th search parameter
+        // Disable every 5th search parameter. Unsupported parameters are skipped: initialization
+        // deliberately keeps them Unsupported, so disabling one would make the assertion below fail.
         for (int i = 0; i < defaultSearchParameterStatuses.Count; i++)
         {
-            if ((i + 1) % 5 == 0)
+            if ((i + 1) % 5 == 0 && defaultSearchParameterStatuses[i].Status != SearchParameterStatus.Unsupported)
             {
                 defaultSearchParameterStatuses[i].Status = SearchParameterStatus.Disabled;
                 updatedSearchparameterStatuses.Add(defaultSearchParameterStatuses[i]);
