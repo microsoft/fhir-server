@@ -1,5 +1,5 @@
 ---
-applyTo: "src/**/SMART/**,src/**/Features/Security/**,src/**/Features/Context/**,src/**/Features/Conformance/**,src/**/Modules/**,src/**/Registration/**,src/Microsoft.Health.Fhir.Api.OpenIddict/**,src/**/Configs/**,src/**/roles.json,src/**/appsettings*.json,src/**/Controllers/**,src/**/Features/Filters/**,src/**/Features/KnownHeaders.cs"
+applyTo: "src/**/SMART/**,src/**/Features/Security/**,src/**/Features/Context/**,src/**/Features/Conformance/**,src/**/Modules/**,src/**/Registration/**,src/Microsoft.Health.Fhir.Api.OpenIddict/**,src/**/Configs/**,src/**/roles.json,src/**/appsettings*.json,src/**/Controllers/**,src/**/Features/Filters/**,src/**/Features/KnownHeaders.cs,src/**/Startup.cs,src/**/Features/Operations/Security/**,src/**/Features/Search/SearchOptionsFactory.cs"
 excludeAgent: "cloud-agent"
 ---
 
