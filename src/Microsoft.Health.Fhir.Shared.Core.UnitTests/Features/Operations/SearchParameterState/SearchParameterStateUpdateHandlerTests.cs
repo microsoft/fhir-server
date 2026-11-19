@@ -9,12 +9,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -30,6 +29,7 @@ using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -98,7 +98,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 _searchParameterComparer,
                 searchParameterStatusDataStoreProvider,
                 fhirDataStoreProvider,
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
 
             _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator, _logger);
             _searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(
@@ -111,8 +112,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             _cancellationToken = CancellationToken.None;
 
             _authorizationService.CheckAccess(DataActions.SearchParameter, _cancellationToken).Returns(DataActions.SearchParameter);
-            _searchParameterOperations.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
-            _searchParameterOperations.UpdateSearchParameterStatusAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<SearchParameterStatus>(), Arg.Any<CancellationToken>(), Arg.Any<bool>()).Returns(Task.CompletedTask);
+            _searchParameterOperations.UpdateSearchParameterStatusAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<SearchParameterStatus>(), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
             var searchParamDefinitionStore = new List<SearchParameterInfo>
             {
@@ -229,7 +229,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Supported),
             };
 
-            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
+            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.HandleAsync(new SearchParameterStateUpdateRequest(updates), default);
 
             Assert.NotNull(response);
             Assert.NotNull(response.UpdateStatus);
@@ -240,7 +240,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var statusPart = resourceResponse.Parameter[0].Part.Where(p => p.Name == SearchParameterStateProperties.Status).First();
             Assert.True(urlPart.Value.ToString() == ResourceId);
             Assert.True(statusPart.Value.ToString() == SearchParameterStatus.Supported.ToString());
-            await _searchParameterOperations.Received(1).UpdateSearchParameterStatusAsync(Arg.Is<IReadOnlyCollection<string>>(x => x.Count == 1 && x.First() == ResourceId), SearchParameterStatus.Supported, Arg.Any<CancellationToken>(), false);
+            await _searchParameterOperations.Received(1).UpdateSearchParameterStatusAsync(Arg.Is<IReadOnlyCollection<string>>(x => x.Count == 1 && x.First() == ResourceId), SearchParameterStatus.Supported, Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 new Tuple<Uri, SearchParameterStatus>(new Uri(NotFoundResource), SearchParameterStatus.Supported),
             };
 
-            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
+            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.HandleAsync(new SearchParameterStateUpdateRequest(updates), default);
 
             Assert.NotNull(response);
             Assert.NotNull(response.UpdateStatus);
@@ -271,7 +271,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Deleted),
             };
 
-            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
+            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.HandleAsync(new SearchParameterStateUpdateRequest(updates), default);
 
             Assert.NotNull(response);
             Assert.NotNull(response.UpdateStatus);
@@ -293,7 +293,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Disabled),
             };
 
-            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
+            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.HandleAsync(new SearchParameterStateUpdateRequest(updates), default);
 
             Assert.NotNull(response);
             Assert.NotNull(response.UpdateStatus);
@@ -304,7 +304,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var statusPart = resourceResponse.Parameter[0].Part.Where(p => p.Name == SearchParameterStateProperties.Status).First();
             Assert.True(urlPart.Value.ToString() == ResourceId);
             Assert.True(statusPart.Value.ToString() == SearchParameterStatus.PendingDisable.ToString());
-            await _searchParameterOperations.Received(1).UpdateSearchParameterStatusAsync(Arg.Is<IReadOnlyCollection<string>>(x => x.Count == 1 && x.First() == ResourceId), SearchParameterStatus.PendingDisable, Arg.Any<CancellationToken>(), false);
+            await _searchParameterOperations.Received(1).UpdateSearchParameterStatusAsync(Arg.Is<IReadOnlyCollection<string>>(x => x.Count == 1 && x.First() == ResourceId), SearchParameterStatus.PendingDisable, Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -319,7 +319,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                 new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Disabled),
             };
 
-            SearchParameterStateUpdateResponse response = await searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
+            SearchParameterStateUpdateResponse response = await searchParameterStateUpdateHandler.HandleAsync(new SearchParameterStateUpdateRequest(updates), default);
 
             Assert.NotNull(response);
             Assert.NotNull(response.UpdateStatus);
@@ -333,16 +333,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
 
             Assert.Single(loggers.logger.LogRecords);
             Assert.Contains("Status=PendingDisable", loggers.logger.LogRecords[0].State.ToString());
-        }
-
-        [Fact]
-        public async Task GivenReindexRunningBeforeStatusUpdate_WhenHandlingRequest_ThenJobConflictIsThrown()
-        {
-            _searchParameterOperations
-                .When(x => x.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()))
-                .Do(_ => throw new FhirJobConflictException("reindex running"));
-
-            await Assert.ThrowsAsync<JobConflictException>(() => _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(new List<Tuple<Uri, SearchParameterStatus>>()), default));
         }
 
         private (IAuditLogger auditLogger, TestLogger logger) CreateTestAuditLogger()

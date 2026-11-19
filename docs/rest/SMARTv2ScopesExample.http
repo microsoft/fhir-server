@@ -5,6 +5,10 @@
 # FhirServer:Security:Authorization:ScopesClaim = "scope"
 # Due to the in-memory Identity Provider using "scope"
 # as the claim name for scopes, which is not the default
+#
+# The default smartUser role in roles.json is read-only (read, readById, search, export, smart).
+# Write scopes (c, u, d, write, *) can still be requested, but create, update and delete requests
+# made with the smartUser role return 403 because the role does not grant write data actions.
 
 @hostname = localhost:44348
 
@@ -98,7 +102,7 @@ grant_type=client_credentials
 &client_secret=smartUserClient
 &scope=patient/Patient.c
 
-### Test Create permission - should succeed
+### Test Create permission - should fail (403, smartUser role is read-only)
 POST https://{{hostname}}/Patient
 content-type: application/json
 Authorization: Bearer {{createBearer.response.body.access_token}}
@@ -131,7 +135,7 @@ grant_type=client_credentials
 &client_secret=smartUserClient
 &scope=patient/Patient.u
 
-### Test Update permission - should succeed
+### Test Update permission - should fail (403, smartUser role is read-only)
 PUT https://{{hostname}}/Patient/smart-patient-A
 content-type: application/json
 Authorization: Bearer {{updateBearer.response.body.access_token}}
@@ -165,7 +169,7 @@ grant_type=client_credentials
 &client_secret=smartUserClient
 &scope=patient/Patient.d
 
-### Test Delete permission (soft delete) - should succeed
+### Test Delete permission (soft delete) - should fail (403, smartUser role is read-only)
 DELETE https://{{hostname}}/Patient/smart-patient-A
 Authorization: Bearer {{deleteBearer.response.body.access_token}}
 
@@ -210,7 +214,7 @@ grant_type=client_credentials
 &scope=patient/Patient.cruds
 
 ### Test full CRUDS operations
-# Create
+# Create - should fail (403, smartUser role is read-only)
 POST https://{{hostname}}/Patient
 content-type: application/json
 Authorization: Bearer {{crudBearer.response.body.access_token}}
@@ -233,7 +237,7 @@ Authorization: Bearer {{crudBearer.response.body.access_token}}
 GET https://{{hostname}}/Patient?name=SMARTGivenName1
 Authorization: Bearer {{crudBearer.response.body.access_token}}
 
-# Update - should succeed with cruds scope
+# Update - should fail (403, smartUser role is read-only)
 PUT https://{{hostname}}/Patient/smart-patient-A
 content-type: application/json
 Authorization: Bearer {{crudBearer.response.body.access_token}}
@@ -249,7 +253,7 @@ Authorization: Bearer {{crudBearer.response.body.access_token}}
   ]
 }
 
-# Delete - should succeed with cruds scope
+# Delete - should fail (403, smartUser role is read-only)
 DELETE https://{{hostname}}/Patient/smart-patient-A
 Authorization: Bearer {{crudBearer.response.body.access_token}}
 
@@ -275,7 +279,7 @@ Authorization: Bearer {{mixedBearer.response.body.access_token}}
 GET https://{{hostname}}/Observation?subject=smart-patient-A
 Authorization: Bearer {{mixedBearer.response.body.access_token}}
 
-### Test Encounter create - should succeed
+### Test Encounter create - should fail (403, smartUser role is read-only)
 POST https://{{hostname}}/Encounter
 content-type: application/json
 Authorization: Bearer {{mixedBearer.response.body.access_token}}
@@ -310,7 +314,7 @@ grant_type=client_credentials
 &client_secret=smartUserClient
 &scope=patient/Patient.search patient/Patient.update
 
-### Test conditional update - should succeed (requires both search and update)
+### Test conditional update - should fail (403, smartUser role is read-only)
 PUT https://{{hostname}}/Patient?name=SMARTGivenName1
 content-type: application/json
 Authorization: Bearer {{conditionalBearer.response.body.access_token}}
@@ -335,7 +339,7 @@ grant_type=client_credentials
 &client_secret=smartUserClient
 &scope=patient/Patient.search patient/Patient.delete
 
-### Test conditional delete - should succeed (requires both search and delete)
+### Test conditional delete - should fail (403, smartUser role is read-only)
 DELETE https://{{hostname}}/Patient?name=SMARTConditional
 Authorization: Bearer {{conditionalDeleteBearer.response.body.access_token}}
 
@@ -353,7 +357,7 @@ grant_type=client_credentials
 &client_secret=smartUserClient
 &scope=patient/Patient.read patient/Patient.create patient/Observation.read
 
-### Test bundle with mixed permissions - expect partial success/failure
+### Test bundle with mixed permissions - expect reads to succeed and the create to fail (403, smartUser role is read-only)
 POST https://{{hostname}}
 content-type: application/json
 Authorization: Bearer {{bundleBearer.response.body.access_token}}
@@ -406,7 +410,7 @@ grant_type=client_credentials
 &client_secret=smartUserClient
 &scope=patient/*.*
 
-### Test wildcard access - should succeed for all operations
+### Test wildcard access - reads and searches should succeed, writes should fail (403, smartUser role is read-only)
 GET https://{{hostname}}/Patient/smart-patient-A
 Authorization: Bearer {{wildcardBearer.response.body.access_token}}
 
@@ -414,7 +418,7 @@ Authorization: Bearer {{wildcardBearer.response.body.access_token}}
 GET https://{{hostname}}/Patient?name=SMARTGivenName1
 Authorization: Bearer {{wildcardBearer.response.body.access_token}}
 
-### Create with wildcard
+### Create with wildcard - should fail (403, smartUser role is read-only)
 POST https://{{hostname}}/Patient
 content-type: application/json
 Authorization: Bearer {{wildcardBearer.response.body.access_token}}

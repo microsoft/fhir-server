@@ -14,7 +14,7 @@ DECLARE @SP varchar(100) = 'GetResourcesByTypeAndSurrogateIdRange'
        ,@DummyTop bigint = 9223372036854775807
 
 BEGIN TRY
-  DECLARE @ResourceIds TABLE (ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS PRIMARY KEY)
+  DECLARE @ResourceIds TABLE (ResourceId varchar(128) COLLATE Latin1_General_100_CS_AS PRIMARY KEY)
   DECLARE @SurrogateIds TABLE (MaxSurrogateId bigint PRIMARY KEY)
 
   IF @GlobalEndId IS NOT NULL AND @IncludeHistory = 0 -- snapshot view
@@ -51,10 +51,10 @@ BEGIN TRY
   UNION ALL
   SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource, IsHistory 
     FROM @SurrogateIds
-         JOIN dbo.Resource ON ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId = MaxSurrogateId
+         INNER LOOP JOIN dbo.Resource WITH (FORCESEEK (PKC_Resource (ResourceTypeId, ResourceSurrogateId))) ON ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId = MaxSurrogateId -- LOOP keeps @SurrogateIds outer, FORCESEEK on both PK columns makes each lookup a single-row seek. Plan cached for small range can otherwise read all history rows of the type.
     WHERE IsHistory = 1
       AND (IsDeleted = 0 OR @IncludeDeleted = 1)
-      OPTION (MAXDOP 1)
+    OPTION (MAXDOP 1)
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
 END TRY

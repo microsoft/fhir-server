@@ -3,6 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+#nullable enable
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Ignixa.Abstractions;
@@ -103,7 +108,7 @@ public class IgnixaResourceElement : Core.Models.IResourceElement
     /// <summary>
     /// Gets the timestamp when the resource was last updated.
     /// </summary>
-    public DateTimeOffset? LastUpdated => _resourceNode.Meta.LastUpdated;
+    public DateTimeOffset? LastUpdated => _resourceNode.Meta.LastUpdatedOffset;
 
     /// <summary>
     /// Gets a value indicating whether this is a domain resource (not Bundle, Parameters, or Binary).
@@ -224,6 +229,6 @@ public class IgnixaResourceElement : Core.Models.IResourceElement
     /// <param name="lastUpdated">The timestamp to set.</param>
     public void SetLastUpdated(DateTimeOffset lastUpdated)
     {
-        _resourceNode.Meta.LastUpdated = lastUpdated;
+        _resourceNode.Meta.LastUpdatedOffset = lastUpdated;
     }
 }

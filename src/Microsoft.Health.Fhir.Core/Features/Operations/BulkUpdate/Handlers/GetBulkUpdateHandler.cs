@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Support;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Messages;
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
         }
 
-        public async Task<GetBulkUpdateResponse> Handle(GetBulkUpdateRequest request, CancellationToken cancellationToken)
+        public async Task<GetBulkUpdateResponse> HandleAsync(GetBulkUpdateRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -60,6 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             var resourcesUpdated = new Dictionary<string, long>();
             var resourcesIgnored = new Dictionary<string, long>();
             var resourcesPatchFailed = new Dictionary<string, long>();
+            var overlongReferenceIds = new List<OverlongReferenceIdCount>();
             var issues = new List<OperationOutcomeIssue>();
             var failureResultCode = HttpStatusCode.OK;
 
@@ -89,6 +90,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                             if (issue == "A task was canceled." && job.CancelRequested)
                             {
                                 cancelled = true;
+                            }
+                            else if (IsProfileResourceSkippedIssue(issue))
+                            {
+                                issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, detailsText: issue));
                             }
                             else
                             {
@@ -133,6 +138,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                     UpdateResources(result.ResourcesUpdated, resourcesUpdated);
                     UpdateResources(result.ResourcesIgnored, resourcesIgnored);
                     UpdateResources(result.ResourcesPatchFailed, resourcesPatchFailed);
+                    OverlongReferenceIdCount.Merge(overlongReferenceIds, result.OverlongReferenceIds);
+
+                    if (job.Status == JobStatus.Completed)
+                    {
+                        foreach (string issue in result.Issues)
+                        {
+                            issues.Add(new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Information,
+                                OperationOutcomeConstants.IssueType.Informational,
+                                detailsText: issue));
+                        }
+                    }
                 }
             }
 
@@ -173,7 +190,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             AddParameterComponent(resourcesPatchFailed, ResourcePatchFailedCountName);
 
             HttpStatusCode statusCode;
-            if (failed && issues.Count > 0)
+            if (failed && issues.Any(issue =>
+                issue.Severity == OperationOutcomeConstants.IssueSeverity.Error ||
+                issue.Severity == OperationOutcomeConstants.IssueSeverity.Fatal))
             {
                 statusCode = failureResultCode;
             }
@@ -217,7 +236,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Please use FHIR Patch endpoint for detailed error on Patch failed resources."));
             }
 
+            // Warnings saved when the job was submitted are added last so they don't affect the status logic above.
+            JobInfo orchestratorJob = jobs.FirstOrDefault(job => job.GetJobTypeId() == (int)JobType.BulkUpdateOrchestrator);
+            foreach (string warning in orchestratorJob?.DeserializeDefinition<BulkUpdateDefinition>().SearchWarnings ?? Enumerable.Empty<string>())
+            {
+                issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, diagnostics: warning));
+            }
+
+            // Updated resources with reference ids longer than the maximum resource id length, which are indexed truncated.
+            issues.AddRange(overlongReferenceIds.Select(LongReferenceIdIssue.CreateForJob));
+
             return new GetBulkUpdateResponse(fhirResults, issues, statusCode);
+        }
+
+        private static bool IsProfileResourceSkippedIssue(string issue)
+        {
+            return issue.StartsWith("Skipped ", StringComparison.Ordinal)
+                && issue.Contains("because the submitting caller did not have EditProfileDefinitions permission.", StringComparison.Ordinal);
         }
     }
 }

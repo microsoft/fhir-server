@@ -1,7 +1,8 @@
 ---
 name: Coding Agent
 description: 'Modern code expert for refactoring, optimization, and enterprise patterns. Delegates complex tasks to Complex Coding Agent, simple tasks to Fast Coding Agent.'
-model: Claude Sonnet 4.6 (copilot)
+model: GPT-5.6 Terra (copilot)
+reasoning_effort: high
 tools:
   - read
   - edit

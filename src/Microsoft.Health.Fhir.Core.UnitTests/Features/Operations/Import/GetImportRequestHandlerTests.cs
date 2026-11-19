@@ -5,10 +5,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -58,13 +59,49 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Single(result.JobResult.Error);
         }
 
+        [Fact]
+        public async Task WhenGettingCompletedJobWithOverlongReferenceIds_ThenOneIssuePerResourceTypeAndParameterIsReturned()
+        {
+            var coordResult = new ImportOrchestratorJobResult() { Request = "Request" };
+            var coord = new JobInfo() { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(coordResult), Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()) };
+            var workerResult1 = new ImportProcessingJobResult() { SucceededResources = 2 };
+            workerResult1.OverlongReferenceIds.Add(new OverlongReferenceIdCount("Observation", "performer", 64, 2));
+            var workerResult2 = new ImportProcessingJobResult() { SucceededResources = 1 };
+            workerResult2.OverlongReferenceIds.Add(new OverlongReferenceIdCount("Observation", "performer", 64, 1));
+            var worker1 = new JobInfo() { Id = 1, Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(workerResult1), Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }) };
+            var worker2 = new JobInfo() { Id = 2, Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(workerResult2), Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }) };
+
+            var result = await SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker1, worker2]);
+
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            ImportJobIssue issue = Assert.Single(result.JobResult.Issues);
+            Assert.Equal("information", issue.Severity);
+            Assert.Equal("Observation", issue.Type);
+            Assert.Equal(3, issue.Count);
+            Assert.Equal("Reference parameter 'performer' ID exceeds 64 characters. Index truncation applied after 64 characters, which may yield over-inclusive results", issue.Diagnostics);
+            Assert.Contains("\"issues\":", JsonConvert.SerializeObject(result.JobResult), StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task WhenGettingCompletedJobWithoutOverlongReferenceIds_ThenIssuesAreOmitted()
+        {
+            var coordResult = new ImportOrchestratorJobResult() { Request = "Request" };
+            var coord = new JobInfo() { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(coordResult), Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()) };
+            var worker = new JobInfo() { Id = 1, Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(new ImportProcessingJobResult() { SucceededResources = 1 }), Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }) };
+
+            var result = await SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]);
+
+            Assert.Null(result.JobResult.Issues);
+            Assert.DoesNotContain("\"issues\"", JsonConvert.SerializeObject(result.JobResult), StringComparison.Ordinal);
+        }
+
         [Theory]
         [InlineData(HttpStatusCode.BadRequest)]
         [InlineData(HttpStatusCode.InternalServerError)]
         [InlineData((HttpStatusCode)0)]
         public async Task WhenGettingFailedJob_ThenExecptionIsTrownWithCorrectResponseCode(HttpStatusCode statusCode)
         {
-            var coord = new JobInfo() { Status = JobStatus.Completed };
+            var coord = new JobInfo() { Status = JobStatus.Completed, Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()) };
             var workerResult = new ImportJobErrorResult() { ErrorMessage = "Error", HttpStatusCode = statusCode };
             var worker = new JobInfo() { Id = 1, Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(workerResult), Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }) };
             var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(worker.Definition);
@@ -79,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task WhenGettingFailedJob_WithGenericException_ThenExecptionIsTrownWithCorrectResponseCode()
         {
-            var coord = new JobInfo() { Status = JobStatus.Completed };
+            var coord = new JobInfo() { Status = JobStatus.Completed, Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()) };
             object workerResult = new { message = "Error", stackTrace = "Trace" };
             var worker = new JobInfo() { Id = 1, Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(workerResult), Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }) };
             var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(worker.Definition);
@@ -102,7 +139,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task WhenGettingImportWithCancelledWorkerJob_ThenExceptionIsThrownWithBadResponseCode()
         {
-            var coord = new JobInfo() { Status = JobStatus.Completed };
+            var coord = new JobInfo() { Status = JobStatus.Completed, Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()) };
             var worker = new JobInfo() { Id = 1, Status = JobStatus.Cancelled };
             var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]));
             Assert.Equal(HttpStatusCode.BadRequest, ofe.ResponseStatusCode);
@@ -158,6 +195,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         public async Task WhenGettingANotExistingJob_ThenNotFoundShouldBeReturned()
         {
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.GetImportStatusAsync(1, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task WhenStatusIsRequestedByProcessingJobId_ThenResourceNotFoundExceptionIsThrown()
+        {
+            // A processing job is enqueued with id different from group id. It cannot represent import operation.
+            var worker = new JobInfo()
+            {
+                Id = 1,
+                GroupId = 0,
+                Status = JobStatus.Completed,
+                Result = JsonConvert.SerializeObject(new ImportProcessingJobResult() { SucceededResources = 1, FailedResources = 1, ErrorLogLocation = "http://xyz" }),
+                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { TypeId = (int)JobType.ImportProcessing, ResourceLocation = "http://xyz" }),
+            };
+
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(worker, []));
         }
 
         private async Task<GetImportResponse> SetupAndExecuteGetBulkImportJobByIdAsync(JobInfo coord, List<JobInfo> workers)

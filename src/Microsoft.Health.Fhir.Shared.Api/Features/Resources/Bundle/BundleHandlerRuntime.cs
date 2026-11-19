@@ -14,6 +14,7 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
@@ -25,6 +26,44 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     public static class BundleHandlerRuntime
     {
+        /// <summary>
+        /// Query parameters that do not make a bundle entry conditional.
+        /// </summary>
+        public static readonly string[] NonConditionalQueryParameters = new string[]
+        {
+            KnownQueryParameterNames.MetaHistory,
+        };
+
+        /// <summary>
+        /// Determines whether a bundle entry represents a conditional operation.
+        /// </summary>
+        /// <param name="request">The bundle entry's request component.</param>
+        /// <returns>Whether the request has conditional search criteria.</returns>
+        public static bool IsConditionalOperation(this RequestComponent request)
+        {
+            EnsureArg.IsNotNull(request, nameof(request));
+
+            if (!string.IsNullOrWhiteSpace(request.IfNoneExist))
+            {
+                return true;
+            }
+
+            bool isConditionalWrite = request.Method == HTTPVerb.PUT || request.Method == HTTPVerb.DELETE;
+#if !STU3
+            isConditionalWrite = isConditionalWrite || request.Method == HTTPVerb.PATCH;
+#endif
+
+            if (!isConditionalWrite || string.IsNullOrWhiteSpace(request.Url) || !request.Url.Contains('?', StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            string queryString = request.Url.Split('?').Last();
+            IEnumerable<string> queryParameters = queryString.Split('&', StringSplitOptions.RemoveEmptyEntries).Select(parameter => parameter.Split('=', 2)[0]);
+
+            return queryParameters.Any(parameter => !NonConditionalQueryParameters.Contains(parameter));
+        }
+
         /// <summary>
         /// Delay logic used in case of retry operations.
         /// </summary>
@@ -121,6 +160,38 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EnsureArg.IsNotNull(bundleConfiguration, nameof(bundleConfiguration));
 
             return cancellationToken.IsCancellationRequested && elapsedTime.TotalSeconds < bundleConfiguration.MaxExecutionTimeInSeconds;
+        }
+
+        /// <summary>
+        /// Determines whether a transaction entry failed. An entry fails when its status isn't successful, or when its
+        /// <c>response.outcome</c> has an error or fatal issue. A successful entry whose outcome has only information or warning
+        /// issues, for example when the client sent <c>Prefer: return=OperationOutcome</c>, doesn't fail the transaction.
+        /// </summary>
+        /// <param name="entryComponent">The entry returned for the request.</param>
+        /// <param name="httpStatusCode">The final status code of the entry.</param>
+        /// <returns><c>true</c> if the transaction must fail.</returns>
+        public static bool IsFailedTransactionEntry(EntryComponent entryComponent, HttpStatusCode httpStatusCode)
+        {
+            EnsureArg.IsNotNull(entryComponent, nameof(entryComponent));
+
+            if (entryComponent.Response?.Outcome == null)
+            {
+                return false;
+            }
+
+            if ((int)httpStatusCode < 200 || (int)httpStatusCode > 299)
+            {
+                return true;
+            }
+
+            if (entryComponent.Response.Outcome is not Hl7.Fhir.Model.OperationOutcome outcome)
+            {
+                return true;
+            }
+
+            return outcome.Issue.Count == 0 || outcome.Issue.Any(issue =>
+                issue.Severity != Hl7.Fhir.Model.OperationOutcome.IssueSeverity.Information &&
+                issue.Severity != Hl7.Fhir.Model.OperationOutcome.IssueSeverity.Warning);
         }
 
         internal static bool IsBundleProcessingLogicValid(HttpContext outerHttpContext)

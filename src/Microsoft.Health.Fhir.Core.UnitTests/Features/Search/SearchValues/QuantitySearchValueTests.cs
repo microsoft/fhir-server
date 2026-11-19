@@ -80,13 +80,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Throws<FormatException>(() => QuantitySearchValue.Parse(@"50|sys\|tem|co|de|"));
         }
 
+        public static TheoryData<string, string, string, decimal> GetValidStringData()
+        {
+            return new TheoryData<string, string, string, decimal>
+            {
+                { @"123.3", string.Empty, string.Empty, 123.3m },
+                { @"234.5|system|", "system", string.Empty, 234.5m },
+                { @"0|system|code", "system", "code", 0m },
+                { @"98.565656||code", string.Empty, "code", 98.565656m },
+                { @"5.40e-3|system|code", "system", "code", 0.00540m },
+                { @"12|sys\|tem|co\$de", "sys|tem", "co$de", 12m },
+            };
+        }
+
         [Theory]
-        [InlineData(@"123.3", "", "", 123.3)]
-        [InlineData(@"234.5|system|", "system", "", 234.5)]
-        [InlineData(@"0|system|code", "system", "code", 0)]
-        [InlineData(@"98.565656||code", "", "code", 98.565656)]
-        [InlineData(@"5.40e-3|system|code", "system", "code", 0.00540)]
-        [InlineData(@"12|sys\|tem|co\$de", "sys|tem", "co$de", 12)]
+        [MemberData(nameof(GetValidStringData))]
         public void GivenAValidString_WhenParsed_ThenCorrectSearchValueShouldBeReturned(string s, string expectedSystem, string expectedCode, decimal expectedQuantity)
         {
             QuantitySearchValue value = QuantitySearchValue.Parse(s);
@@ -121,12 +129,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.True(value.IsValidAsCompositeComponent);
         }
 
+        public static TheoryData<decimal, string, string, string> GetQuantityToStringData()
+        {
+            return new TheoryData<decimal, string, string, string>
+            {
+                { 12m, "system", "code", "12|system|code" },
+                { 3.3m, @"sy|ste\|m", @"c$o,\de", @"3.3|sy\|ste\\\|m|c\$o\,\\de" },
+                { 2m, null, null, "2" },
+                { 100m, null, "code", "100||code" },
+                { 14.2034m, "system", null, "14.2034|system" },
+            };
+        }
+
         [Theory]
-        [InlineData(12, "system", "code", "12|system|code")]
-        [InlineData(3.3, @"sy|ste\|m", @"c$o,\de", @"3.3|sy\|ste\\\|m|c\$o\,\\de")]
-        [InlineData(2, null, null, "2")]
-        [InlineData(100, null, "code", "100||code")]
-        [InlineData(14.2034, "system", null, "14.2034|system")]
+        [MemberData(nameof(GetQuantityToStringData))]
         public void GivenASearchValue_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned(decimal quantity, string system, string code, string expected)
         {
             _builder.Value = quantity;

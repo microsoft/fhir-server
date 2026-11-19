@@ -15,7 +15,7 @@
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="FluentValidation" />
     <PackageReference Include="Hl7.Fhir.Base" />
-    <PackageReference Include="MediatR" />
+    <PackageReference Include="Medino" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" />
     <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" />
     <PackageReference Include="Microsoft.Extensions.Http" />

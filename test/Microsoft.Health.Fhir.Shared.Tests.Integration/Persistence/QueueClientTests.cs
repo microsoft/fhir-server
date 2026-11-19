@@ -15,7 +15,6 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
-using Xunit.Abstractions;
 using JobConflictException = Microsoft.Health.JobManagement.JobConflictException;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
@@ -40,8 +39,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         GivenGroupJobs_WhenCancelJobsById_ThenOnlySingleJobShouldBeCancelled,
         GivenGroupJobs_WhenCancelJobsByGroupIdCalledTwice_ThenJobStatusShouldNotChange,
         GivenGroupJobs_WhenOneJobFailedAndRequestCancellation_ThenAllJobsShouldBeCancelled,
+        GivenJobsAcrossQueueTypes_WhenGetJobsByQueueType_ThenOnlyRequestedQueueIsReturned,
+        GivenJobsAcrossQueueTypes_OtherQueue,
+        GivenJobsOutsideCutoff_WhenGetJobsByQueueType_ThenOnlyRecentJobsAreReturned,
+        GivenParentAndChildJobs_WhenGetJobsByQueueType_ThenParentFilterIsApplied,
+        GivenCompletedJob_WhenGetJobsByQueueType_ThenJobIsReturned,
         ExecuteWithHeartbeat,
         ExecuteWithHeartbeatsHeavy,
+        GivenJobsAcrossQueueTypes_EmptyQueue,
     }
 
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]

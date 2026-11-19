@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -11,11 +11,13 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Api.Features.Filters.Metrics;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -30,21 +32,26 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     {
         private readonly IDocRefRequestConverter _converter;
         private readonly USCoreConfiguration _configuration;
+        private readonly ILogger<DocRefController> _logger;
 
         public DocRefController(
             IDocRefRequestConverter converter,
-            IOptions<USCoreConfiguration> configuration)
+            IOptions<USCoreConfiguration> configuration,
+            ILogger<DocRefController> logger)
         {
             EnsureArg.IsNotNull(converter, nameof(converter));
             EnsureArg.IsNotNull(configuration?.Value, nameof(configuration));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _converter = converter;
             _configuration = configuration.Value;
+            _logger = logger;
         }
 
         [HttpGet]
         [Route(KnownRoutes.DocRefResourceType, Name = RouteNames.DocRef)]
         [AuditEventType(AuditEventSubType.SearchSystem)]
+        [TypeFilter(typeof(SearchEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> Search()
         {
             if (!_configuration.EnableDocRef)
@@ -56,7 +63,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var response = await _converter.ConvertAsync(
                 Request.GetQueriesForSearch(),
                 HttpContext.RequestAborted);
-            return FhirResult.Create(response);
+            return FhirResult.Create(_logger, response);
         }
 
         [HttpPost]
@@ -76,7 +83,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var response = await _converter.ConvertAsync(
                 parameterList,
                 HttpContext.RequestAborted);
-            return FhirResult.Create(response);
+            return FhirResult.Create(_logger, response);
         }
 
         private static string Convert(DataType value)

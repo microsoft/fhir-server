@@ -8,15 +8,15 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
+using Microsoft.Health.Fhir.Scoping;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             await Task.WhenAll(tasks);
         }
 
-        public Task Handle(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
+        public Task HandleAsync(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
         {
             _storageReady = true;
             return Task.CompletedTask;

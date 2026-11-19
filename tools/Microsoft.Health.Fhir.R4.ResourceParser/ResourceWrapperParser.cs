@@ -13,15 +13,15 @@ using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
-using Microsoft.Health.Fhir.Core.Features.Search.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.R4.ResourceParser.Code;
-using NSubstitute;
 
 namespace Microsoft.Health.Fhir.R4.ResourceParser
 {
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
         {
             var fhirRequestContextAccessor = new ExecutableRequestContextAccessor();
             var instanceConfiguration = new FhirServerInstanceConfiguration();
-            var referenceSearchValueParser = new ReferenceSearchValueParser(fhirRequestContextAccessor, instanceConfiguration);
+            var referenceSearchValueParser = new ReferenceSearchValueParser(fhirRequestContextAccessor, instanceConfiguration, ResourceIdPolicy.Standard);
             var modelInfoProvider = new VersionSpecificModelInfoProvider();
             ModelInfoProvider.SetProvider(modelInfoProvider);
 
@@ -51,8 +51,13 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
             var referenceToElementResolver = new LightweightReferenceToElementResolver(referenceSearchValueParser, modelInfoProvider);
 
             var logger = new NullLogger<TypedElementSearchIndexer>();
-            var fhirPathProvider = Substitute.For<IFhirPathProvider>();
-            var searchIndexer = new TypedElementSearchIndexer(supportedSearchParameterDefinitionManager, fhirTypedElementToSearchValueConverterManager, referenceToElementResolver, modelInfoProvider, fhirPathProvider, logger);
+            var searchIndexer = new TypedElementSearchIndexer(
+                supportedSearchParameterDefinitionManager,
+                fhirTypedElementToSearchValueConverterManager,
+                referenceToElementResolver,
+                modelInfoProvider,
+                new FirelyFhirPathProvider(),
+                logger);
 
             var compartmentDefinitionManager = new CompartmentDefinitionManager(modelInfoProvider);
 
@@ -98,7 +103,7 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
         {
             var fhirTypedElementConverters = new List<ITypedElementToSearchValueConverter>();
             var instanceConfiguration = new FhirServerInstanceConfiguration();
-            var referenceSearchValueParser = new ReferenceSearchValueParser(requestContextAccessor, instanceConfiguration);
+            var referenceSearchValueParser = new ReferenceSearchValueParser(requestContextAccessor, instanceConfiguration, ResourceIdPolicy.Standard);
 
             fhirTypedElementConverters.Add(new AddressToStringSearchValueConverter());
             fhirTypedElementConverters.Add(new BooleanToTokenSearchValueConverter());

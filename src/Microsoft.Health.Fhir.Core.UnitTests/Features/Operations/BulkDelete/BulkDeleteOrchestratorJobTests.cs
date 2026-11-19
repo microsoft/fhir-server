@@ -34,7 +34,39 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         {
             _queueClient = Substitute.For<IQueueClient>();
             _searchService = Substitute.For<ISearchService>();
-            _orchestratorJob = new BulkDeleteOrchestratorJob(_queueClient, _searchService.CreateMockScopeFactory());
+            _orchestratorJob = new BulkDeleteOrchestratorJob(_queueClient, _searchService.CreateMockScopeProvider());
+        }
+
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.OrchestratorFailureCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenOrchestrationFailure_WhenExecuted_ThenClassificationIsPreserved(string scenario, bool expectedCustomerCaused, string stage)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>())
+                .Returns(_ => stage == "discovery" ? Task.FromException<IReadOnlyList<string>>(failure) : Task.FromResult<IReadOnlyList<string>>(new[] { "Patient" }));
+            _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
+                .Returns(_ => stage == "search" ? Task.FromException<SearchResult>(failure) : Task.FromResult(new SearchResult(2, new List<Tuple<string, string>>())));
+            _queueClient.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns<Task<IReadOnlyList<JobInfo>>>(_ => throw failure);
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, null, null, null, "test", "test", "test");
+            var jobInfo = new JobInfo { GroupId = 1, Definition = JsonConvert.SerializeObject(definition) };
+
+            // Act
+            var exception = await Record.ExceptionAsync(() => _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            if (expectedCustomerCaused)
+            {
+                var jobException = Assert.IsType<JobExecutionException>(exception);
+                Assert.True(jobException.IsCustomerCaused);
+                Assert.Same(failure, jobException.InnerException);
+                Assert.Contains(failure.Message, Assert.IsType<BulkDeleteResult>(jobException.Error).Issues);
+            }
+            else
+            {
+                Assert.Same(failure, exception);
+            }
         }
 
         [Fact]
@@ -73,6 +105,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             // Checks that the processing job lists both resource types
             var actualDefinition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(definitions[0]);
             Assert.Equal(2, actualDefinition.Type.SplitByOrSeparator().Count());
+
+            // Confirms the default last updated search parameter was added
+            Assert.Single(actualDefinition.SearchParameters);
+            Assert.Equal("_lastUpdated", actualDefinition.SearchParameters.First().Item1);
+            Assert.StartsWith("lt", actualDefinition.SearchParameters.First().Item2);
         }
 
         [Fact]

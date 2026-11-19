@@ -457,6 +457,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The value &apos;{1}&apos; of header &apos;{0}&apos; is not valid. Supported values are &apos;create&apos; and &apos;upsert&apos;..
+        /// </summary>
+        public static string InvalidConditionalUpdateNoMatchHeader {
+            get {
+                return ResourceManager.GetString("InvalidConditionalUpdateNoMatchHeader", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Bundle.entry.request.url is required..
         /// </summary>
         public static string InvalidBundleEntryRequestUrl {
@@ -653,7 +662,25 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("MixedSMARTV1AndV2ScopesAreNotAllowed", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to SMART clinical scopes must use a single context. Patient, user, and system scopes cannot be mixed..
+        /// </summary>
+        public static string MixedSMARTScopeContextsAreNotAllowed {
+            get {
+                return ResourceManager.GetString("MixedSMARTScopeContextsAreNotAllowed", resourceCulture);
+            }
+        }
         
+        /// <summary>
+        ///   Looks up a localized string similar to Patient-level SMART scopes require a single valid patient resource id in the patient claim, or a Patient-valued fhirUser claim when the patient claim is absent..
+        /// </summary>
+        public static string SmartPatientContextInvalid {
+            get {
+                return ResourceManager.GetString("SmartPatientContextInvalid", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Search parameter modifiers are not supported in SMART on FHIR clinical scopes. The scope &apos;{0}&apos; contains an unsupported modifier in parameter &apos;{1}&apos;..
         /// </summary>
@@ -700,11 +727,29 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The parameter in &apos;{1}&apos; cannot be enforced as a SMART on FHIR clinical scope constraint. The scope &apos;{0}&apos; must use a search parameter that filters resources..
+        /// </summary>
+        public static string SmartScopeSearchParameterResultParameterNotSupported {
+            get {
+                return ResourceManager.GetString("SmartScopeSearchParameterResultParameterNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Only one profile can be provided between a Parameters resource and the URL.
         /// </summary>
         public static string MultipleProfilesProvided {
             get {
                 return ResourceManager.GetString("MultipleProfilesProvided", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A resource to validate must be provided..
+        /// </summary>
+        public static string ValidateResourceRequired {
+            get {
+                return ResourceManager.GetString("ValidateResourceRequired", resourceCulture);
             }
         }
         

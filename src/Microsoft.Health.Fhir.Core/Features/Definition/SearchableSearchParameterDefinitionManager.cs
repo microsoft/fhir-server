@@ -183,5 +183,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                    _fhirReqeustContextAccessor.RequestContext.IncludePartiallyIndexedSearchParams &&
                    parameter.IsSupported;
         }
+
+        public ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
+        {
+            return _inner.GetDerivedResourceTypes(resourceTypes);
+        }
     }
 }

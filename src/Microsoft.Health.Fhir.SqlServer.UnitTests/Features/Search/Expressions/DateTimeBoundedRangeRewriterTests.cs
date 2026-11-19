@@ -75,6 +75,24 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
+        public void GivenStrictGreaterThanMinimumDate_WhenRewritten_ThenShortRangeBoundIncludesMinimumDate()
+        {
+            // Arrange
+            var greaterThanExpr = Expression.GreaterThan(FieldName.DateTimeEnd, null, DateTimeOffset.MinValue);
+            var lessThanExpr = Expression.LessThan(FieldName.DateTimeStart, null, DateTimeOffset.MinValue.AddHours(12));
+            var sqlRoot = CreateSqlRootWithExpression(Expression.And(greaterThanExpr, lessThanExpr));
+
+            // Act
+            var result = (SqlRootExpression)sqlRoot.AcceptVisitor(DateTimeBoundedRangeRewriter.Instance, null);
+
+            // Assert
+            var concatenationAnd = Assert.IsType<MultiaryExpression>(result.SearchParamTableExpressions[1].Predicate);
+            var startBoundedExpr = Assert.IsType<BinaryExpression>(concatenationAnd.Expressions[2]);
+            Assert.Equal(BinaryOperator.GreaterThanOrEqual, startBoundedExpr.BinaryOperator);
+            Assert.Equal(DateTimeOffset.MinValue, startBoundedExpr.Value);
+        }
+
+        [Fact]
         public void GivenLongDateRange_WhenRewritten_ThenCreatesLongRangeExpression()
         {
             // Arrange

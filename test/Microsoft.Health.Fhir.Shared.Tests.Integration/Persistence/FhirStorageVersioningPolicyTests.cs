@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Build.Utilities;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -108,6 +108,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             Assert.Equal(WeakETag.FromVersionId(updateResult.RawResourceElement.VersionId).ToString(), bundle.Entry.Max(entry => entry.Response.Etag));
             Assert.Equal(WeakETag.FromVersionId(medicationResource.VersionId).ToString(), bundle.Entry.Min(entry => entry.Response.Etag));
+        }
+
+        [Fact]
+        public async Task GivenAResourceTypeWithVersionedUpdateVersioningPolicy_WhenUpsertingCreateOnlyWithoutETag_ThenConflictIsReturned()
+        {
+            RawResourceElement medicationResource = await Mediator.CreateResourceAsync(Samples.GetDefaultMedication());
+
+            await Assert.ThrowsAsync<ResourceConflictException>(
+                () => Mediator.UpsertResourceAsync(new UpsertResourceRequest(Samples.GetDefaultMedication().UpdateId(medicationResource.Id), createOnly: true)));
+
+            RawResourceElement current = await Mediator.GetResourceAsync(new ResourceKey<Medication>(medicationResource.Id));
+            Assert.Equal(medicationResource.VersionId, current.VersionId);
         }
 
         [Fact]

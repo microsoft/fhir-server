@@ -326,6 +326,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
         }
 
         [Theory]
+        [InlineData(KnownResourceTypes.Patient, DataActions.Search, DataActions.Delete)]
+        [InlineData(KnownResourceTypes.All, DataActions.Search, DataActions.Delete)]
+        [InlineData(KnownResourceTypes.Observation, DataActions.Search, DataActions.None)]
+        [InlineData(KnownResourceTypes.Patient, DataActions.HardDelete, DataActions.Delete | DataActions.HardDelete)]
+        public void GivenSmartScopes_WhenAuthorizingAnExplicitResourceType_ThenUsesTargetTypeAndCombinesMatchingScopes(
+            string scopeResourceType,
+            DataActions additionalActions,
+            DataActions expected)
+        {
+            // Arrange
+            var context = new DefaultFhirRequestContext { ResourceType = KnownResourceTypes.Observation };
+            context.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(scopeResourceType, DataActions.Delete, "user"));
+            context.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(scopeResourceType, additionalActions, "user"));
+            _fhirRequestContextAccessor.RequestContext.Returns(context);
+
+            // Act
+            var result = _fhirRequestContextAccessor.CheckSMARTScopeAccess(DataActions.Delete | DataActions.HardDelete, KnownResourceTypes.Patient);
+
+            // Assert
+            Assert.Equal(expected, result);
+            Assert.Equal(KnownResourceTypes.Observation, context.ResourceType);
+        }
+
+        [Theory]
         [MemberData(nameof(GetAuthorizationTestData))]
         public async Task CombinedAuthorizationTests(
             string testDescription,

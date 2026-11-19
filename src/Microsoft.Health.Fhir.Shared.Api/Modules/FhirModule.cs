@@ -6,11 +6,9 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
-using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Hl7.FhirPath;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +28,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Security;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -65,8 +64,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton(xmlSerializer);
             services.AddSingleton<BundleSerializer>();
 
-            FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
-
             ResourceElement SetMetadata(Resource resource, string versionId, DateTimeOffset lastModified)
             {
                 resource.VersionId = versionId;
@@ -97,13 +94,13 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     .AsSelf()
                     .AsService<IResourceSerializer>();
 
-            // Register Ignixa schema context (singleton - schema is immutable per FHIR version)
-            // This requires IModelInfoProvider which is registered below
-            services.AddSingleton<IIgnixaSchemaContext, IgnixaSchemaContext>();
-
-            // Register Ignixa FHIRPath provider for high-performance search indexing
-            // Uses delegate compilation for ~80% of common patterns, ~10x faster than Firely
-            services.AddIgnixaFhirPath(provider => provider.GetRequiredService<IIgnixaSchemaContext>().Schema);
+            // Register the Ignixa schema context once (singleton - schema is immutable per FHIR version) and expose
+            // the same instance both as itself and as IIgnixaSchemaContext. This requires IModelInfoProvider which is
+            // registered below. The FHIRPath provider is selected by SearchModule from CoreFeatures:FhirSdkProvider.
+            services.Add<IgnixaSchemaContext>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IIgnixaSchemaContext>();
 
             services.AddSingleton<IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>>(provider =>
             {
@@ -160,9 +157,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<QueryLatencyOverEfficiencyFilterAttribute>();
             services.AddSingleton<QueryCacheFilterAttribute>();
 
-            // Support for resolve()
-            FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
-
             // Registers the Ignixa JSON serializer and the concrete Ignixa formatter singletons.
             // Whether either JSON formatter family (Firely and/or Ignixa) actually participates in
             // MVC formatter negotiation -- and in what order -- is mode-gated by SdkModeFeatureModule,
@@ -194,15 +188,20 @@ namespace Microsoft.Health.Fhir.Api.Modules
             ModelExtensions.SetModelInfoProvider();
             services.Add(_ => ModelInfoProvider.Instance).Singleton().AsSelf().AsImplementedInterfaces();
 
-            // Register a factory to resolve a scope that returns all components that provide capabilities
-            services.AddFactory<IScoped<IEnumerable<IProvideCapability>>>();
-
             // Register pipeline behavior to intercept create/update requests and check presence of provenace header.
-            services.Add<ProvenanceHeaderBehavior>().Scoped().AsSelf().AsImplementedInterfaces();
+            services.Add<ProvenanceHeaderBehavior>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
             services.Add<ProvenanceHeaderState>().Scoped().AsSelf().AsImplementedInterfaces();
 
             // Register pipeline behavior to check service permission for CUD actions on StructuredDefinition,ValueSet,CodeSystem, ConceptMap.
-            services.Add<ProfileResourcesBehaviour>().Singleton().AsSelf().AsImplementedInterfaces();
+            services.Add<ProfileResourcesBehaviour>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<ExportSmartScopeAuthorizer>().Transient().AsSelf().AsImplementedInterfaces();
 
             // Register a router for Bundle requests.
             services.AddSingleton<IRouter, BundleRouter>();
@@ -228,7 +227,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddHealthChecks().AddCheck<StorageInitializedHealthCheck>(name: "StorageInitializedHealthCheck");
 
             services.AddLazy();
-            services.AddScoped();
 
             services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
 
@@ -238,7 +236,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AssignableTo<IInstantiateCapability>()
                 .Transient()
                 .AsService<IInstantiateCapability>();
-            services.AddFactory<IScoped<IEnumerable<IInstantiateCapability>>>();
         }
     }
 }

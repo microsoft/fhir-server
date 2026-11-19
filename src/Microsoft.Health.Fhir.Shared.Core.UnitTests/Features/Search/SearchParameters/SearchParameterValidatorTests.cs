@@ -68,7 +68,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     x[3] = searchParameterInfo;
                     return true;
                 });
-            _searchParameterOperations.EnsureNoActiveReindexJobAsync(CancellationToken.None).Returns(Task.CompletedTask);
             _searchParameterOperations.SearchParamLastUpdated.Returns(System.DateTimeOffset.UtcNow);
         }
 
@@ -316,18 +315,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             // Act - should not throw
             await validator.ValidateSearchParameterInput(searchParam, "PUT", CancellationToken.None);
-        }
-
-        [Fact]
-        public async Task GivenActiveReindexJob_WhenValidatingSearchParam_ThenJobConflictExceptionThrown()
-        {
-            _searchParameterOperations
-                .When(x => x.EnsureNoActiveReindexJobAsync(Arg.Any<CancellationToken>()))
-                .Do(_ => throw new System.Exception("reindex running"));
-
-            var exception = await Assert.ThrowsAsync<System.Exception>(() => CreateValidator().ValidateSearchParameterInput(new SearchParameter { Url = "http://unique" }, "POST", CancellationToken.None));
-
-            Assert.Equal("reindex running", exception.Message);
         }
 
         private SearchParameterValidator CreateValidator() =>

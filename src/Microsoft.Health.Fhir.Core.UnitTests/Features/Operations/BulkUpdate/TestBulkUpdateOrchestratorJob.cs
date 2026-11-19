@@ -10,7 +10,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -37,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         public TestBulkUpdateOrchestratorJob(
             IQueueClient queueClient,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            Func<IScoped<ISearchService>> searchService,
+            IScopeProvider<ISearchService> searchService,
             ILogger<BulkUpdateOrchestratorJob> logger,
             IFhirRequestContext testContext)
             : base(queueClient, contextAccessor, searchService, logger)

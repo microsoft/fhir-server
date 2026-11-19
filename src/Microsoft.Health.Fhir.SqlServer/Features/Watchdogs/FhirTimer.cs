@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         /// <summary>
         /// Runs the execution of the timer until the <see cref="CancellationToken"/> is cancelled.
         /// </summary>
-        public async Task ExecuteAsync(string name, double periodSec, Func<CancellationToken, Task> onNextTick, CancellationToken cancellationToken, double initialDelaySec = 0)
+        public async Task ExecuteAsync(string name, double periodSec, Func<CancellationToken, Task> onNextTick, CancellationToken cancellationToken)
         {
             Name = EnsureArg.IsNotNull(name, nameof(name));
             EnsureArg.IsNotNull(onNextTick, nameof(onNextTick));
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             }
 
             _active = true;
-            var initialDelay = initialDelaySec > 0 ? TimeSpan.FromSeconds(initialDelaySec * RandomNumberGenerator.GetInt32(1000) / 1000) : TimeSpan.FromSeconds(PeriodSec * RandomNumberGenerator.GetInt32(1000) / 1000);
+            var initialDelay = TimeSpan.FromSeconds(PeriodSec * RandomNumberGenerator.GetInt32(1000) / 1000);
             await Task.Delay(initialDelay, cancellationToken);
             using var periodicTimer = new PeriodicTimer(TimeSpan.FromSeconds(PeriodSec));
 

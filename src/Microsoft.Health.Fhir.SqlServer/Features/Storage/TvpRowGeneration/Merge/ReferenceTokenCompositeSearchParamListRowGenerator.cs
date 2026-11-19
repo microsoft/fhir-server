@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -11,6 +12,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
     internal class ReferenceTokenCompositeSearchParamListRowGenerator : CompositeSearchParamRowGenerator<(ReferenceSearchValue component1, TokenSearchValue component2), ReferenceTokenCompositeSearchParamListRow>
     {
+        private static readonly IEqualityComparer<ReferenceTokenCompositeSearchParamListRow> RowComparer = EqualityComparer<ReferenceTokenCompositeSearchParamListRow>.Create(
+            (left, right) =>
+                left.ResourceTypeId == right.ResourceTypeId &&
+                left.ResourceSurrogateId == right.ResourceSurrogateId &&
+                left.SearchParamId == right.SearchParamId &&
+                string.Equals(left.BaseUri1, right.BaseUri1, StringComparison.Ordinal) &&
+                left.ReferenceResourceTypeId1 == right.ReferenceResourceTypeId1 &&
+                string.Equals(left.ReferenceResourceId1, right.ReferenceResourceId1, StringComparison.Ordinal) &&
+                left.ReferenceResourceVersion1 == right.ReferenceResourceVersion1 &&
+                left.SystemId2 == right.SystemId2 &&
+                string.Equals(left.Code2, right.Code2, StringComparison.Ordinal) &&
+                string.Equals(left.CodeOverflow2, right.CodeOverflow2, StringComparison.Ordinal),
+            row =>
+            {
+                var hash = default(HashCode);
+                hash.Add(row.ResourceTypeId);
+                hash.Add(row.ResourceSurrogateId);
+                hash.Add(row.SearchParamId);
+                hash.Add(row.BaseUri1);
+                hash.Add(row.ReferenceResourceTypeId1);
+                hash.Add(row.ReferenceResourceId1);
+                hash.Add(row.ReferenceResourceVersion1);
+                hash.Add(row.SystemId2);
+                hash.Add(row.Code2);
+                hash.Add(row.CodeOverflow2);
+                return hash.ToHashCode();
+            });
+
         private readonly ReferenceSearchParamListRowGenerator _referenceRowGenerator;
         private readonly TokenSearchParamListRowGenerator _tokenRowGenerator;
 
@@ -19,7 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             ReferenceSearchParamListRowGenerator referenceRowGenerator,
             TokenSearchParamListRowGenerator tokenRowGenerator,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap)
-            : base(model, searchParameterTypeMap)
+            : base(model, searchParameterTypeMap, RowComparer)
         {
             _referenceRowGenerator = referenceRowGenerator;
             _tokenRowGenerator = tokenRowGenerator;

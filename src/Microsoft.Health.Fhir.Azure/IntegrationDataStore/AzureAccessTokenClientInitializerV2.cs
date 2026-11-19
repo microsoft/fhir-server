@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
         private static ManagedIdentityCredential CreateManagedIdentityCredential()
         {
-            return new ManagedIdentityCredential();
+            return new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned);
         }
     }
 }

@@ -20,6 +20,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Audit;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -29,6 +31,9 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -47,17 +52,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly AsyncRetryPolicy _retryPolicy;
-        private readonly FhirRequestContextAccessor _contextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IAuditLogger _auditLogger;
         private readonly CoreFeatureConfiguration _configuration;
         private readonly IFhirRuntimeConfiguration _fhirRuntimeConfiguration;
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly IResourceDeserializer _resourceDeserializer;
+        private readonly IProvideProfilesForValidation _profilesProvider;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ILogger<DeletionService> _logger;
         private readonly SemaphoreSlim _searchParamDeleteSemaphore;
         private bool _disposed;
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
         private const int MaxParallelThreads = 64;
+        private static readonly HashSet<string> ProfileResourceTypes = new HashSet<string>(OperationsConstants.ProtectedProfileResourceTypes, StringComparer.OrdinalIgnoreCase);
 
         public DeletionService(
             IResourceWrapperFactory resourceWrapperFactory,
@@ -65,12 +73,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IDeletionServiceDataStoreFactory dataStoreFactory,
             IScopeProvider<ISearchService> searchServiceFactory,
             ResourceIdProvider resourceIdProvider,
-            FhirRequestContextAccessor contextAccessor,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IAuditLogger auditLogger,
             IOptions<CoreFeatureConfiguration> configuration,
             IFhirRuntimeConfiguration fhirRuntimeConfiguration,
             ISearchParameterOperations searchParameterOperations,
             IResourceDeserializer resourceDeserializer,
+            IProvideProfilesForValidation profilesProvider,
+            IAuthorizationService<DataActions> authorizationService,
             ILogger<DeletionService> logger)
         {
             _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
@@ -85,6 +95,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _fhirRuntimeConfiguration = EnsureArg.IsNotNull(fhirRuntimeConfiguration, nameof(fhirRuntimeConfiguration));
             _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             _resourceDeserializer = EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
+            _profilesProvider = EnsureArg.IsNotNull(profilesProvider, nameof(profilesProvider));
+            _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _searchParamDeleteSemaphore = new SemaphoreSlim(1, 1);
 
             _retryPolicy = Policy
@@ -109,6 +121,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             switch (request.DeleteOperation)
             {
                 case DeleteOperation.SoftDelete:
+                    if (key.ResourceType == KnownResourceTypes.SearchParameter
+                        //// we should skip direct status updates when context contains pending status
+                        && (_contextAccessor.RequestContext == null
+                            || _contextAccessor.RequestContext.Properties == null
+                            || !_contextAccessor.RequestContext.Properties.ContainsKey(SearchParameterRequestContextPropertyNames.PendingStatus)))
+                    {
+                        await DeleteSearchParameter(fhirDataStore, key, false, cancellationToken);
+                        break;
+                    }
+
                     ResourceWrapper deletedWrapper = CreateSoftDeletedWrapper(key.ResourceType, request.ResourceKey.Id);
 
                     bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
@@ -120,12 +142,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 case DeleteOperation.HardDelete:
                     if (key.ResourceType == KnownResourceTypes.SearchParameter)
                     {
-                        var resourceWrapper = await fhirDataStore.GetAsync(key, cancellationToken);
-                        if (resourceWrapper != null && !resourceWrapper.IsDeleted)
-                        {
-                            await _retryPolicy.ExecuteAsync(async () => await _searchParameterOperations.DeleteSearchParameterAsync(resourceWrapper.RawResource, cancellationToken, ignoreSearchParameterNotSupportedException: true, isHardDelete: true));
-                        }
-
+                        await DeleteSearchParameter(fhirDataStore, key, true, cancellationToken);
                         break;
                     }
 
@@ -141,12 +158,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return new ResourceKey(key.ResourceType, key.Id, version);
         }
 
-        public async Task<IDictionary<string, long>> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken, IList<string> excludedResourceTypes = null)
+        private async Task DeleteSearchParameter(IFhirDataStore dataStore, ResourceKey key, bool isHardDelete, CancellationToken cancellationToken)
         {
-            return await DeleteMultipleAsyncInternal(request, MaxParallelThreads, excludedResourceTypes, null, cancellationToken);
+            var resourceWrapper = await dataStore.GetAsync(key, cancellationToken);
+            if (resourceWrapper != null && !resourceWrapper.IsDeleted)
+            {
+                await _retryPolicy.ExecuteAsync(async () => await _searchParameterOperations.MarkSearchParameterForDeletionAsync(resourceWrapper.RawResource, cancellationToken, isHardDelete: isHardDelete));
+            }
         }
 
-        private async Task<IDictionary<string, long>> DeleteMultipleAsyncInternal(ConditionalDeleteResourceRequest request, int parallelThreads, IList<string> excludedResourceTypes, string continuationToken, CancellationToken cancellationToken)
+        public async Task<IDictionary<string, long>> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken, IList<string> excludedResourceTypes = null, Action<string, long> onProfileResourceSkipped = null)
+        {
+            return await DeleteMultipleAsyncInternal(request, MaxParallelThreads, excludedResourceTypes, null, onProfileResourceSkipped, cancellationToken);
+        }
+
+        private async Task<IDictionary<string, long>> DeleteMultipleAsyncInternal(ConditionalDeleteResourceRequest request, int parallelThreads, IList<string> excludedResourceTypes, string continuationToken, Action<string, long> onProfileResourceSkipped, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -179,6 +205,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     .ToList();
             }
 
+            if (onProfileResourceSkipped == null)
+            {
+                // _include/_revinclude can pull in resources of a different type than request.ResourceType, and those
+                // included results are deleted together with the primary matches below. Authorize the whole page -
+                // primary matches and included results alike - before anything is queued for deletion.
+                await EnsureResourceDeletionAuthorizedAsync(results, request.DeleteOperation, cancellationToken);
+            }
+            else
+            {
+                results = FilterProfileResourcesForBulkDelete(results, onProfileResourceSkipped);
+            }
+
             Dictionary<string, long> resourceTypesDeleted = new Dictionary<string, long>();
             long numQueuedForDeletion = 0;
 
@@ -193,7 +231,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     if (!request.DeleteAll || !IsIncludeEnabled())
                     {
                         var innerException = new BadRequestException(string.Format(CultureInfo.InvariantCulture, Core.Resources.TooManyIncludeResults, _configuration.DefaultIncludeCountPerSearch, _configuration.MaxIncludeCountPerSearch));
-                        throw new IncompleteOperationException<Dictionary<string, long>>(innerException, resourceTypesDeleted);
+                        throw new IncompleteOperationException<IDictionary<string, long>>(innerException, resourceTypesDeleted);
                     }
 
                     ConditionalDeleteResourceRequest clonedRequest = request.Clone();
@@ -203,21 +241,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         Tuple.Create(KnownQueryParameterNames.ContinuationToken, ct),
                     };
                     clonedRequest.ConditionalParameters = cloneList;
-                    var subresult = await DeleteMultipleAsyncInternal(clonedRequest, parallelThreads, excludedResourceTypes, ict, cancellationToken);
+                    var subresult = await DeleteMultipleAsyncInternal(clonedRequest, parallelThreads, excludedResourceTypes, ict, onProfileResourceSkipped, cancellationToken);
 
                     if (subresult != null)
                     {
                         resourceTypesDeleted = new Dictionary<string, long>(subresult);
                     }
                 }
-                catch (IncompleteOperationException<Dictionary<string, long>> ex)
+                catch (IncompleteOperationException<IDictionary<string, long>> ex)
                 {
                     _logger.LogError(ex, "Error with include delete");
-                    throw new IncompleteOperationException<Dictionary<string, long>>(ex, ex.PartialResults);
+                    RefreshProfilesIfNeeded(request, ex.PartialResults, operationCompletedSuccessfully: false);
+                    throw new IncompleteOperationException<IDictionary<string, long>>(ex, ex.PartialResults);
                 }
             }
 
             // Delete the matched results...
+            List<Exception> exceptionsOutsideTasks = new List<Exception>();
             try
             {
                 while (results.Any() || !string.IsNullOrEmpty(ct))
@@ -272,6 +312,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                 .ToList();
                         }
 
+                        if (onProfileResourceSkipped == null)
+                        {
+                            // Authorize this newly fetched page - primary matches and included results alike - before it is
+                            // queued for deletion on the next loop iteration.
+                            await EnsureResourceDeletionAuthorizedAsync(results, request.DeleteOperation, cancellationToken);
+                        }
+                        else
+                        {
+                            results = FilterProfileResourcesForBulkDelete(results, onProfileResourceSkipped);
+                        }
+
                         // If the next page of results has more than one page of included results, delete all pages of included results before deleting the primary results.
                         if (!request.IsIncludesRequest && AreIncludeResultsTruncated(ict))
                         {
@@ -290,13 +341,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                     Tuple.Create(KnownQueryParameterNames.ContinuationToken, ct),
                                 };
                                 clonedRequest.ConditionalParameters = cloneList;
-                                var subresult = await DeleteMultipleAsyncInternal(clonedRequest, parallelThreads - deleteTasks.Count, excludedResourceTypes, ict, cancellationToken);
+                                var subresult = await DeleteMultipleAsyncInternal(clonedRequest, parallelThreads - deleteTasks.Count, excludedResourceTypes, ict, onProfileResourceSkipped, cancellationToken);
 
                                 resourceTypesDeleted = AppendDeleteResults(resourceTypesDeleted, new List<Dictionary<string, long>>() { new Dictionary<string, long>(subresult) });
                             }
-                            catch (IncompleteOperationException<Dictionary<string, long>> ex)
+                            catch (IncompleteOperationException<IDictionary<string, long>> ex)
                             {
-                                resourceTypesDeleted = AppendDeleteResults(resourceTypesDeleted, new List<Dictionary<string, long>>() { ex.PartialResults });
+                                resourceTypesDeleted = AppendDeleteResults(resourceTypesDeleted, new List<Dictionary<string, long>>() { new Dictionary<string, long>(ex.PartialResults) });
                                 _logger.LogError(ex, "Error with include delete");
                                 throw;
                             }
@@ -311,6 +362,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting");
+                exceptionsOutsideTasks.Add(ex);
                 await cancellationTokenSource.CancelAsync();
             }
 
@@ -334,9 +386,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             resourceTypesDeleted = AppendDeleteResults(resourceTypesDeleted, deleteTasks.Where(x => x.IsCompletedSuccessfully).Select(task => task.Result));
 
-            if (deleteTasks.Any((task) => task.IsFaulted || task.IsCanceled) || tooManyIncludeResults)
+            if (deleteTasks.Any((task) => task.IsFaulted || task.IsCanceled) || tooManyIncludeResults || exceptionsOutsideTasks.Any())
             {
-                var exceptions = new List<Exception>();
+                var exceptions = new List<Exception>(exceptionsOutsideTasks);
 
                 if (tooManyIncludeResults)
                 {
@@ -358,20 +410,126 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                         if (result.IsFaulted)
                         {
-                            // Filter out noise from the cancellation exceptions caused by the core exception.
-                            exceptions.AddRange(result.Exception.InnerExceptions.Where(e => e is not TaskCanceledException));
+                            exceptions.AddRange(result.Exception.InnerExceptions);
                         }
                     }
+                    else if (result.IsCanceled)
+                    {
+                        // A canceled task has no Exception; retain evidence of cancellation.
+                        exceptions.Add(new TaskCanceledException(result));
+                    }
                 });
+                var nonCancellationFailures = exceptions.Where(exception => !IsCancellationOnly(exception)).ToList();
+                if (nonCancellationFailures.Count > 0)
+                {
+                    exceptions = nonCancellationFailures;
+                }
+
                 var aggregateException = new AggregateException(exceptions);
-                throw new IncompleteOperationException<Dictionary<string, long>>(aggregateException, resourceTypesDeleted);
+                RefreshProfilesIfNeeded(request, resourceTypesDeleted, operationCompletedSuccessfully: false);
+                throw new IncompleteOperationException<IDictionary<string, long>>(aggregateException, resourceTypesDeleted);
             }
 
+            RefreshProfilesIfNeeded(request, resourceTypesDeleted, operationCompletedSuccessfully: true);
             return resourceTypesDeleted;
+        }
+
+        /// <summary>
+        /// Requires SMART delete permissions for each target resource type, including resources returned by
+        /// <c>_include</c>/<c>_revinclude</c>, and <see cref="DataActions.EditProfileDefinitions"/> for profile defining types.
+        /// </summary>
+        /// <remarks>
+        /// Background jobs (for example $bulk-delete processing jobs) execute without a principal; this check only applies
+        /// to interactive requests that have a request context.
+        /// </remarks>
+        private async Task EnsureResourceDeletionAuthorizedAsync(IReadOnlyCollection<SearchResultEntry> resultsToDelete, DeleteOperation deleteOperation, CancellationToken cancellationToken)
+        {
+            if (_contextAccessor.RequestContext == null || _contextAccessor.RequestContext.IsBackgroundTask)
+            {
+                return;
+            }
+
+            if (_contextAccessor.RequestContext.AccessControlContext.ApplyFineGrainedAccessControl)
+            {
+                var requiredActions = DataActions.Delete | (deleteOperation != DeleteOperation.SoftDelete ? DataActions.HardDelete : DataActions.None);
+                foreach (var resourceType in resultsToDelete.Select(entry => entry.Resource.ResourceTypeName).Distinct())
+                {
+                    if (_contextAccessor.CheckSMARTScopeAccess(requiredActions, resourceType) != requiredActions)
+                    {
+                        throw new UnauthorizedFhirActionException();
+                    }
+                }
+            }
+
+            IReadOnlySet<string> profileTypes = _profilesProvider.GetProfilesTypes();
+            if (profileTypes == null || profileTypes.Count == 0)
+            {
+                return;
+            }
+
+            if (resultsToDelete.Any(entry => profileTypes.Contains(entry.Resource.ResourceTypeName)))
+            {
+                await _authorizationService.CheckAccess(DataActions.EditProfileDefinitions, true, cancellationToken);
+            }
+        }
+
+        private void RefreshProfilesIfNeeded(
+            ConditionalDeleteResourceRequest request,
+            IEnumerable<KeyValuePair<string, long>> resourceTypesDeleted,
+            bool operationCompletedSuccessfully)
+        {
+            if (request.IsIncludesRequest)
+            {
+                return;
+            }
+
+            IReadOnlySet<string> profileTypes = _profilesProvider.GetProfilesTypes();
+            if (profileTypes == null ||
+                !resourceTypesDeleted.Any(result => result.Value > 0 && profileTypes.Contains(result.Key)))
+            {
+                return;
+            }
+
+            // The API pipeline owns refresh for successful direct profile deletes and bundle inner requests.
+            // This service owns refresh for include deletes, background operations, and partial failures.
+            bool pipelineWillRefresh =
+                profileTypes.Contains(request.ResourceType) &&
+                (request.IsBundleInnerRequest || operationCompletedSuccessfully) &&
+                _contextAccessor.RequestContext != null &&
+                !_contextAccessor.RequestContext.IsBackgroundTask;
+
+            if (!pipelineWillRefresh)
+            {
+                _profilesProvider.Refresh();
+            }
+        }
+
+        private static IReadOnlyCollection<SearchResultEntry> FilterProfileResourcesForBulkDelete(
+            IReadOnlyCollection<SearchResultEntry> resultsToDelete,
+            Action<string, long> onProfileResourceSkipped)
+        {
+            if (onProfileResourceSkipped == null)
+            {
+                return resultsToDelete;
+            }
+
+            foreach (IGrouping<string, SearchResultEntry> skipped in resultsToDelete
+                .Where(entry => ProfileResourceTypes.Contains(entry.Resource.ResourceTypeName))
+                .GroupBy(entry => entry.Resource.ResourceTypeName, StringComparer.OrdinalIgnoreCase))
+            {
+                onProfileResourceSkipped(skipped.Key, skipped.LongCount());
+            }
+
+            return resultsToDelete
+                .Where(entry => !ProfileResourceTypes.Contains(entry.Resource.ResourceTypeName))
+                .ToList();
         }
 
         private async Task<Dictionary<string, long>> SoftDeleteResourcePage(ConditionalDeleteResourceRequest request, IReadOnlyCollection<SearchResultEntry> resourcesToDelete, CancellationToken cancellationToken)
         {
+            var guid = Guid.NewGuid();
+            _logger.LogInformation("Soft deleting {Count} resources with request {RequestId}", resourcesToDelete.Count, guid);
+
             await CreateAuditLog(
                 request.ResourceType,
                 request.DeleteOperation,
@@ -395,7 +553,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleResourceContext: request.BundleResourceContext);
             }));
 
-            var partialResults = new List<(string, string, bool)>();
+            var partialResults = new List<(string ResourceType, string ResourceId, bool IsInclude)>();
             try
             {
                 using var scopedDataStore = _dataStoreFactory.GetScopedDataStore();
@@ -439,6 +597,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     ex.InnerException,
                     ids.GroupBy(pair => pair.ResourceType).ToDictionary(group => group.Key, group => (long)group.Count()));
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error soft deleting");
+                await CreateAuditLog(request.ResourceType, request.DeleteOperation, true, partialResults);
+                throw new IncompleteOperationException<Dictionary<string, long>>(
+                    ex,
+                    partialResults.GroupBy(pair => pair.ResourceType).ToDictionary(group => group.Key, group => (long)group.Count()));
+            }
 
             await CreateAuditLog(
                 request.ResourceType,
@@ -446,11 +612,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 true,
                 resourcesToDelete.Select((item) => (item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include)));
 
-            return resourcesToDelete.GroupBy(x => x.Resource.ResourceTypeName).ToDictionary(x => x.Key, x => (long)x.Count());
+            var results = resourcesToDelete.GroupBy(x => x.Resource.ResourceTypeName).ToDictionary(x => x.Key, x => (long)x.Count());
+            _logger.LogInformation("Soft deleted {Count} resources with request {RequestId}", results.Sum(x => x.Value), guid);
+
+            return results;
         }
 
         private async Task<Dictionary<string, long>> HardDeleteResourcePage(ConditionalDeleteResourceRequest request, IReadOnlyCollection<SearchResultEntry> resourcesToDelete, CancellationToken cancellationToken)
         {
+            var guid = Guid.NewGuid();
+            _logger.LogInformation("Hard deleting {Count} resources with request {RequestId}", resourcesToDelete.Count, guid);
+
             await CreateAuditLog(
                 request.ResourceType,
                 request.DeleteOperation,
@@ -458,6 +630,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 resourcesToDelete.Select((item) => (item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include)));
 
             var parallelBag = new ConcurrentBag<(string, string, bool)>();
+            var failures = new ConcurrentBag<Exception>();
             try
             {
                 if (request.RemoveReferences)
@@ -475,19 +648,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 var matchedResources = resourcesToDelete.Where(resource => resource.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
 
                 // Delete includes first so that if there is a failure, the match resources are not deleted. This allows the job to restart.
-                // This throws AggregateExceptions.
                 // Note: includedResources cannot have search params
-                await Parallel.ForEachAsync(includedResources, cancellationToken, async (item, innerCt) =>
-                {
-                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
-                    parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
-                });
+                await Parallel.ForEachAsync(includedResources, cancellationToken, DeleteResourceAsync);
 
-                await Parallel.ForEachAsync(matchedResources.Where(_ => _.Resource.ResourceTypeName != KnownResourceTypes.SearchParameter), cancellationToken, async (item, innerCt) =>
+                await Parallel.ForEachAsync(matchedResources.Where(_ => _.Resource.ResourceTypeName != KnownResourceTypes.SearchParameter), cancellationToken, DeleteResourceAsync);
+
+                async ValueTask DeleteResourceAsync(SearchResultEntry item, CancellationToken innerCt)
                 {
-                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
-                    parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
-                });
+                    try
+                    {
+                        await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
+                        parallelBag.Add((item.Resource.ResourceTypeName, item.Resource.ResourceId, item.SearchEntryMode == ValueSets.SearchEntryMode.Include));
+                    }
+                    catch (Exception ex)
+                    {
+                        failures.Add(ex);
+                        throw;
+                    }
+                }
 
                 // SearchParameter handling depends on whether this is PurgeHistory or HardDelete
                 foreach (var item in matchedResources.Where(_ => _.Resource.ResourceTypeName == KnownResourceTypes.SearchParameter))
@@ -509,12 +687,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             catch (Exception ex)
             {
                 await CreateAuditLog(request.ResourceType, request.DeleteOperation, true, parallelBag);
-                throw new IncompleteOperationException<Dictionary<string, long>>(ex, parallelBag.GroupBy(x => x.Item1).ToDictionary(x => x.Key, x => (long)x.Count()));
+
+                // Await can surface cancellation even when another parallel worker failed.
+                Exception failure = ex;
+                if (ex is OperationCanceledException)
+                {
+                    var nonCancellationFailures = failures.Where(error => !IsCancellationOnly(error)).ToList();
+                    failure = nonCancellationFailures.Count switch
+                    {
+                        0 => ex,
+                        1 => nonCancellationFailures[0],
+                        _ => new AggregateException(nonCancellationFailures),
+                    };
+                }
+
+                throw new IncompleteOperationException<Dictionary<string, long>>(failure, parallelBag.GroupBy(x => x.Item1).ToDictionary(x => x.Key, x => (long)x.Count()));
             }
 
             await CreateAuditLog(request.ResourceType, request.DeleteOperation, true, parallelBag);
 
-            return parallelBag.GroupBy(x => x.Item1).ToDictionary(x => x.Key, x => (long)x.Count());
+            var results = parallelBag.GroupBy(x => x.Item1).ToDictionary(x => x.Key, x => (long)x.Count());
+            _logger.LogInformation("Hard deleted {Count} resources with request {RequestId}", results.Sum(x => x.Value), guid);
+
+            return results;
+        }
+
+        private static bool IsCancellationOnly(Exception exception)
+        {
+            return exception switch
+            {
+                OperationCanceledException => true,
+                AggregateException aggregate => aggregate.InnerExceptions.Count > 0 && aggregate.InnerExceptions.All(IsCancellationOnly),
+                IncompleteOperationException<IDictionary<string, long>> incomplete => IsCancellationOnly(incomplete.InnerException),
+                IncompleteOperationException<Dictionary<string, long>> incomplete => IsCancellationOnly(incomplete.InnerException),
+                _ => false,
+            };
         }
 
         private ResourceWrapper CreateSoftDeletedWrapper(string resourceType, string resourceId)
@@ -616,7 +823,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                     using var scopedDataStore = _dataStoreFactory.GetScopedDataStore();
                     var fhirDataStore = scopedDataStore.GetDataStore();
-                    await fhirDataStore.MergeAsync(modifiedResources, cancellationToken);
+                    MergeOutcome mergeOutcome = await fhirDataStore.MergeAsync(modifiedResources, cancellationToken);
+
+                    // A referencing resource that the data store rejects (for example because of URI values its index can't tell apart)
+                    // still holds the reference. Fail before the target is deleted so no dangling reference is left.
+                    BadRequestException rejected = mergeOutcome.Results.Values.Select(r => r.Exception).OfType<BadRequestException>().FirstOrDefault();
+                    if (rejected != null)
+                    {
+                        throw rejected;
+                    }
 
                     if (includesContinuationToken != null)
                     {
@@ -688,7 +903,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 await SearchParameterRetry.ExecuteAsync(
                     async () =>
                     {
-                        await _searchParameterOperations.DeleteSearchParameterAsync(item.Resource.RawResource, cancellationToken, ignoreSearchParameterNotSupportedException: true, isHardDelete: isHardDelete);
+                        await _searchParameterOperations.MarkSearchParameterForDeletionAsync(item.Resource.RawResource, cancellationToken, isHardDelete: isHardDelete);
                     },
                     "Deletion");
             }

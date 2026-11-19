@@ -19,8 +19,6 @@ jobs:
     name: '$(InternalPool)'
     demands:
       - ImageOverride -equals $(InternalLinuxImage)
-  variables:
-    AllowPtrToDetectTestRunRetryFiles: true
   steps:
   - checkout: self
     fetchDepth: 1
@@ -64,23 +62,29 @@ jobs:
         Write-Host "$dataStoreResourceId"
         Write-Host "##vso[task.setvariable variable=DataStoreResourceId]$($dataStoreResourceId)"
 
-  - task: DotNetCoreCLI@2
-    displayName: 'Build Integration Test Projects'
-    inputs:
-      command: build
-      projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--configuration $(buildConfiguration) -f $(defaultBuildFramework)'
-
-  - task: DotNetCoreCLI@2
+  - task: PowerShell@2
     displayName: 'Run Cosmos Integration Tests with coverage'
     inputs:
-      command: test
-      projects: '$(Pipeline.Workspace)/source/test/**/*${{ parameters.version }}.Tests.Integration.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f $(defaultBuildFramework) -- --filter "FullyQualifiedName!~SqlServer" --retry-failed-tests 3 --coverage --coverage-output-format cobertura --coverage-settings "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml" --report-trx'
-      testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
-      # Disable the task's built-in (non-retry-aware) result publishing so the
-      # explicit retry-aware PublishTestResults@2 task below is the sole publisher.
-      publishTestResults: false
+      targetType: inline
+      pwsh: true
+      script: |
+        $ErrorActionPreference = 'Stop'
+        $testRoot = "$(Agent.TempDirectory)/IntegrationTests"
+        $testName = "Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration"
+        $dll = Get-ChildItem -Path $testRoot -Recurse -Filter "$testName.dll" | Select-Object -First 1
+        if (-not $dll) {
+          throw "Could not find $testName.dll under $testRoot"
+        }
+
+        # Both filters are required to exclude SqlServer traits and traitless SqlServer classes.
+        $args = @('--filter-not-trait', 'DataStore=SqlServer', '--filter-not-class', '*SqlServer*', '--retry-failed-tests', '3', '--coverage', '--coverage-output-format', 'cobertura', '--coverage-settings', "$(System.DefaultWorkingDirectory)/CodeCoverage.Mtp.settings.xml", '--report-trx', '--publish-azdo-test-results', '--publish-azdo-run-name', '${{ parameters.version }} Cosmos Integration Tests')
+
+        Write-Host "Running dotnet $($dll.FullName)"
+        & dotnet $dll.FullName @args
+        $testExitCode = $LASTEXITCODE
+        if ($testExitCode -ne 0) {
+          throw "Cosmos integration tests failed with exit code $testExitCode"
+        }
     env:
       'CosmosDb__Host': $(CosmosDb--Host)
       'FhirServer__ResourceManager__DataStoreResourceId': '$(DataStoreResourceId)'
@@ -90,16 +94,6 @@ jobs:
       'AZURESUBSCRIPTION_TENANT_ID': '$(AZURESUBSCRIPTION_TENANT_ID)'
       'AZURESUBSCRIPTION_SERVICE_CONNECTION_ID': '$(AZURESUBSCRIPTION_SERVICE_CONNECTION_ID)'
       'SYSTEM_ACCESSTOKEN': $(System.AccessToken)
-
-  - task: PublishTestResults@2
-    displayName: 'Publish integration test results'
-    inputs:
-      testResultsFormat: 'VSTest'
-      testResultsFiles: '$(Agent.TempDirectory)/coverage/**/*.trx'
-      mergeTestResults: true
-      testRunTitle: '${{ parameters.version }} Cosmos Integration Tests'
-      failTaskOnFailedTests: true
-    condition: succeededOrFailed()
 
   - task: reportgenerator@5
     displayName: 'Aggregate Cosmos integration test coverage'
@@ -123,8 +117,6 @@ jobs:
     name: '$(InternalPool)'
     demands:
       - ImageOverride -equals $(InternalLinuxImage)
-  variables:
-    AllowPtrToDetectTestRunRetryFiles: true
   steps:
   - template: e2e-setup.yml
   - template: e2e-tests.yml
@@ -142,8 +134,6 @@ jobs:
       name: '$(InternalPool)'
       demands:
         - ImageOverride -equals $(InternalLinuxImage)
-    variables:
-      AllowPtrToDetectTestRunRetryFiles: true
     steps:
     - template: e2e-setup.yml
     - template: e2e-tests.yml

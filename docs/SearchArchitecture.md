@@ -109,6 +109,36 @@ The validation ensures the following conditions are met:
 
 Once the bundle is validated, then the search parameter definition will be cached for lookup use.
 
+#### Derived temporal type metadata
+
+`SearchParameterInfo.TemporalType` describes the FHIR temporal leaf type proven for the complete
+search parameter expression: `Date`, `DateTime`, `Instant`, `Period`, `Timing`, `Mixed`, or `Unknown`.
+It is more specific than the FHIR search type `date`, which can index several different temporal types.
+
+`FhirServer:CoreFeatures:EnableSearchParameterTemporalClassification` controls classification during
+definition loading. It defaults to `false` and is read at startup; changing it requires a restart.
+This setting is a temporary rollout safeguard.
+When enabled, the provider-aware `SearchParameterInfo` constructor classifies built-in definitions
+using the active version's `IModelInfoProvider`. Custom definitions remain `Unknown`.
+A retained definition keeps its expression and matching classification. Classification is not
+repeated while constructing each query, and all definitions remain `Unknown` when the setting is off.
+The property is internally assigned, excluded from both JSON serializers, and is not a field clients can
+set on a FHIR `SearchParameter` resource. No schema migration or reindexing is required.
+
+`SearchParameterTemporalTypeClassifier` supports exact-case, resource-qualified property paths and
+unions of those paths. Every branch must resolve unambiguously through the active model. Homogeneous
+branches retain their type; different known temporal types yield `Mixed`. An unknown branch, choice
+element, unsupported function or cast, unresolved metadata, or composite parameter yields `Unknown`.
+When classification is enabled, `Slot.start` is `Instant`, while the built-in birthdate union
+`Patient.birthDate | Person.birthDate | RelatedPerson.birthDate` is `Date`.
+
+Unexpected model provider failures can prevent initialization when classification is enabled.
+To disable classification, turn off the Core setting and restart the server.
+
+This is shared model knowledge, not permission to apply a storage optimization. Consumers retain their
+own activation, expression-shape, precision, and storage checks, including the
+[SQL instant optimization](SqlSearchArchitecture.md#instant-date-predicates).
+
 #### Search parameter definition file
 
 The search parameter definition file bundled with the code is the [published STU3 version](http://hl7.org/fhir/STU3/downloads.html).
@@ -423,6 +453,10 @@ MultiaryExpression(
     )
 )
 ```
+
+### SQL Server search
+
+The [SQL Server search architecture](SqlSearchArchitecture.md) describes SQL generation, query shape comments, and instant date predicates.
 
 ### Translate expressions into the Cosmos SQL Query
 

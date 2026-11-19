@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Globalization;
 using System.Text.Json;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -62,6 +64,88 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Equal(12345L, continuationToken.ResourceSurrogateId);
             Assert.Equal((short)103, continuationToken.ResourceTypeId);
             Assert.Equal("sortValue", continuationToken.SortValue);
+        }
+
+        [Theory]
+        [InlineData("[\"0.125\",103,12345]", 0.125, 103, 12345L)]
+        [InlineData("[\"-0.125\",-1,-1]", -0.125, -1, -1L)]
+        [InlineData("[\"3\",103,0]", 3.0, 103, 0L)]
+        [InlineData("[\"0\",-32768,-9223372036854775808]", 0.0, short.MinValue, long.MinValue)]
+        [InlineData("[\"0\",32767,9223372036854775807]", 0.0, short.MaxValue, long.MaxValue)]
+        public void GivenValidSemanticToken_WhenDecoded_ThenAllPaginationKeysArePreserved(
+            string json,
+            double expectedDistance,
+            short expectedResourceTypeId,
+            long expectedResourceSurrogateId)
+        {
+            // Arrange
+            ContinuationToken continuationToken = ContinuationToken.FromString(json);
+
+            // Act
+            bool result = continuationToken.TryGetSemanticSearchContinuationToken(out SemanticSearchContinuationToken semanticContinuationToken);
+
+            // Assert
+            Assert.True(result);
+            Assert.NotNull(semanticContinuationToken);
+            Assert.Equal(expectedDistance, semanticContinuationToken.Distance);
+            Assert.Equal(expectedResourceTypeId, semanticContinuationToken.ResourceTypeId);
+            Assert.Equal(expectedResourceSurrogateId, semanticContinuationToken.ResourceSurrogateId);
+        }
+
+        [Theory]
+        [InlineData("[\"NaN\",103,12345]")]
+        [InlineData("[\"Infinity\",103,12345]")]
+        [InlineData("[\"-Infinity\",103,12345]")]
+        [InlineData("[\"not-a-number\",103,12345]")]
+        [InlineData("[\"0.125\",0,12345]")]
+        [InlineData("[\"0.125\",32768,12345]")]
+        [InlineData("[\"0.125\",-32769,12345]")]
+        [InlineData("[\"0.125\",\"103\",12345]")]
+        [InlineData("[0,103,12345]")]
+        [InlineData("[\"0.125\",103,\"12345\"]")]
+        [InlineData("[\"0.125\",null,12345]")]
+        [InlineData("[\"0.125\",103,null]")]
+        [InlineData("[]")]
+        [InlineData("[\"0.125\"]")]
+        [InlineData("[\"0.125\",103]")]
+        [InlineData("[\"0.125\",103,12345,99]")]
+        public void GivenInvalidSemanticToken_WhenDecoded_ThenNoSemanticContinuationTokenIsProduced(string json)
+        {
+            // Arrange
+            ContinuationToken continuationToken = ContinuationToken.FromString(json);
+
+            // Act
+            bool result = continuationToken.TryGetSemanticSearchContinuationToken(out SemanticSearchContinuationToken semanticContinuationToken);
+
+            // Assert
+            Assert.False(result);
+            Assert.Null(semanticContinuationToken);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GivenSemanticToken_WhenDecodedWithOrWithoutRoundTrip_ThenDistancePrecisionAndKeysArePreserved(bool roundTrip)
+        {
+            // Arrange
+            double distance = Math.BitIncrement(0.125);
+            var token = new ContinuationToken(new object[]
+            {
+                distance.ToString("R", CultureInfo.InvariantCulture),
+                (short)103,
+                12345L,
+            });
+
+            // Act
+            ContinuationToken decoded = roundTrip ? ContinuationToken.FromString(token.ToJson()) : token;
+            bool result = decoded.TryGetSemanticSearchContinuationToken(out SemanticSearchContinuationToken semanticContinuationToken);
+
+            // Assert
+            Assert.True(result);
+            Assert.NotNull(semanticContinuationToken);
+            Assert.Equal(distance, semanticContinuationToken.Distance);
+            Assert.Equal((short)103, semanticContinuationToken.ResourceTypeId);
+            Assert.Equal(12345L, semanticContinuationToken.ResourceSurrogateId);
         }
 
         [Fact]

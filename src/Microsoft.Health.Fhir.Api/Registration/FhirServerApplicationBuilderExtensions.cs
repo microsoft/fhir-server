@@ -16,6 +16,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Newtonsoft.Json;
 
 namespace Microsoft.AspNetCore.Builder
@@ -55,6 +56,9 @@ namespace Microsoft.AspNetCore.Builder
             useDevelopmentIdentityProvider?.Invoke(app);
             useHttpLoggingMiddleware?.Invoke(app);
 
+            IServiceMetricHandler serviceMetricHandler = app.ApplicationServices.GetRequiredService<IServiceMetricHandler>();
+            HealthCheckResponseWriter healthCheckResponseWriter = new HealthCheckResponseWriter(serviceMetricHandler);
+
             app.UseEndpoints(
                 endpoints =>
                 {
@@ -66,20 +70,7 @@ namespace Microsoft.AspNetCore.Builder
                             Predicate = healthCheckOptionsPredicate,
                             ResponseWriter = async (httpContext, healthReport) =>
                             {
-                                var response = JsonConvert.SerializeObject(
-                                    new
-                                    {
-                                        overallStatus = healthReport.Status.ToString(),
-                                        details = healthReport.Entries.Select(entry => new
-                                        {
-                                            name = entry.Key,
-                                            status = Enum.GetName<HealthStatus>(entry.Value.Status),
-                                            description = entry.Value.Description,
-                                            data = entry.Value.Data,
-                                        }),
-                                    });
-                                httpContext.Response.ContentType = MediaTypeNames.Application.Json;
-                                await httpContext.Response.WriteAsync(response).ConfigureAwait(false);
+                                await healthCheckResponseWriter.WriteAsync(httpContext, healthReport);
                             },
                         });
                     mapAdditionalEndpoints?.Invoke(endpoints);
@@ -88,7 +79,7 @@ namespace Microsoft.AspNetCore.Builder
             return app;
         }
 
-        private class PathBaseMiddleware
+        private sealed class PathBaseMiddleware
         {
             private readonly RequestDelegate _next;
             private readonly PathString _pathBase;
@@ -117,6 +108,46 @@ namespace Microsoft.AspNetCore.Builder
                 {
                     context.Request.PathBase = originalPathBase;
                 }
+            }
+        }
+
+        private sealed class HealthCheckResponseWriter
+        {
+            private readonly IServiceMetricHandler _serviceMetricHandler;
+
+            public HealthCheckResponseWriter(IServiceMetricHandler serviceMetricHandler)
+            {
+                EnsureArg.IsNotNull(serviceMetricHandler, nameof(serviceMetricHandler));
+                _serviceMetricHandler = serviceMetricHandler;
+            }
+
+            public async Task WriteAsync(HttpContext httpContext, HealthReport healthReport)
+            {
+                // Emit availability metrics based on the health check response status code.
+                if (httpContext.Response.StatusCode >= 500)
+                {
+                    _serviceMetricHandler.ReportAvailabilityDowntime();
+                }
+                else
+                {
+                    _serviceMetricHandler.ReportAvailabilityUptime();
+                }
+
+                // Serialize the health report to JSON and write it to the response.
+                var response = JsonConvert.SerializeObject(
+                    new
+                    {
+                        overallStatus = healthReport.Status.ToString(),
+                        details = healthReport.Entries.Select(entry => new
+                        {
+                            name = entry.Key,
+                            status = Enum.GetName<HealthStatus>(entry.Value.Status),
+                            description = entry.Value.Description,
+                            data = entry.Value.Data,
+                        }),
+                    });
+                httpContext.Response.ContentType = MediaTypeNames.Application.Json;
+                await httpContext.Response.WriteAsync(response).ConfigureAwait(false);
             }
         }
     }

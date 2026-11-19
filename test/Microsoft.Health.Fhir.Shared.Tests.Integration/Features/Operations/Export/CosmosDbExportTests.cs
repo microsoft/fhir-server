@@ -10,7 +10,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -31,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
     public class CosmosDbExportTests : IClassFixture<CosmosDbFhirExportTestFixture>
     {
         private readonly CosmosDbFhirStorageTestsFixture _fixture;
-        private readonly Func<IScoped<ISearchService>> _searchServiceScopeFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceScopeFactory;
         private readonly CosmosFhirOperationDataStore _operationDataStore;
         private readonly IQueueClient _queueClient;
         private readonly byte _queueType = (byte)QueueType.Export;
@@ -41,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         public CosmosDbExportTests(CosmosDbFhirExportTestFixture fixture)
         {
             _fixture = fixture;
-            _searchServiceScopeFactory = _fixture.GetService<Func<IScoped<ISearchService>>>();
+            _searchServiceScopeFactory = _fixture.GetService<IScopeProvider<ISearchService>>();
             _operationDataStore = _fixture.GetService<CosmosFhirOperationDataStore>();
             _queueClient = _fixture.GetService<IQueueClient>();
             _logger = Substitute.For<ILogger<CosmosExportOrchestratorJob>>();

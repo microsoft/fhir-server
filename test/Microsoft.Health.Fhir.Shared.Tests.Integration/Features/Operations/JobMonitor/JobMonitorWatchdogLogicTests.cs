@@ -221,7 +221,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.JobMonitor
                 [QueueType.Import] = 0,
             };
 
-            await notifier.Handle(MakeNotification(ages), CancellationToken.None);
+            await notifier.HandleAsync(MakeNotification(ages), CancellationToken.None);
 
             Assert.Equal(754.0, notifier.QueueAges[QueueType.Export]);
             Assert.Equal(0.0, notifier.QueueAges[QueueType.Import]);
@@ -237,11 +237,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.JobMonitor
             var notificationHandler = new DefaultJobMonitorMetricHandler(factory);
             var notifier = new JobMonitorMetricNotifier(notificationHandler);
 
-            await notifier.Handle(
+            await notifier.HandleAsync(
                 MakeNotification(new Dictionary<QueueType, long> { [QueueType.Export] = 500 }),
                 CancellationToken.None);
 
-            await notifier.Handle(
+            await notifier.HandleAsync(
                 MakeNotification(new Dictionary<QueueType, long> { [QueueType.Export] = 0 }),
                 CancellationToken.None);
 
@@ -266,7 +266,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.JobMonitor
                 [QueueType.Import] = new QueueDepth(Pending: 0, Running: 0),
             };
 
-            await notifier.Handle(MakeNotification(new Dictionary<QueueType, long>(), depths), CancellationToken.None);
+            await notifier.HandleAsync(MakeNotification(new Dictionary<QueueType, long>(), depths), CancellationToken.None);
 
             Assert.Equal(new QueueDepth(3, 1), notifier.QueueDepths[QueueType.Export]);
             Assert.Equal(new QueueDepth(0, 0), notifier.QueueDepths[QueueType.Import]);
@@ -282,13 +282,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.JobMonitor
             var notificationHandler = new DefaultJobMonitorMetricHandler(factory);
             var notifier = new JobMonitorMetricNotifier(notificationHandler);
 
-            await notifier.Handle(
+            await notifier.HandleAsync(
                 MakeNotification(
                     new Dictionary<QueueType, long>(),
                     new Dictionary<QueueType, QueueDepth> { [QueueType.Export] = new QueueDepth(5, 2) }),
                 CancellationToken.None);
 
-            await notifier.Handle(
+            await notifier.HandleAsync(
                 MakeNotification(
                     new Dictionary<QueueType, long>(),
                     new Dictionary<QueueType, QueueDepth> { [QueueType.Export] = new QueueDepth(0, 0) }),
@@ -307,7 +307,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.JobMonitor
             {
                 [QueueType.Export] = new QueueDepth(Pending: 4, Running: 2),
             };
-            await notifier.Handle(MakeNotification(new Dictionary<QueueType, long>(), depths), CancellationToken.None);
+            await notifier.HandleAsync(MakeNotification(new Dictionary<QueueType, long>(), depths), CancellationToken.None);
 
             notificationHandler.Received(1).ReportJobQueuePending("Export", 4);
             notificationHandler.Received(1).ReportJobQueueRunning("Export", 2);
@@ -333,7 +333,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.JobMonitor
                 [QueueType.Export] = new QueueDepth(Pending: 4, Running: 2),
                 [QueueType.Import] = new QueueDepth(Pending: 5, Running: 1),
             };
-            await notifier.Handle(MakeNotification(ages, depths), CancellationToken.None);
+            await notifier.HandleAsync(MakeNotification(ages, depths), CancellationToken.None);
 
             notificationHandler.Received(1).ReportJobQueueAge("Export", 754L);
             notificationHandler.Received(1).ReportJobQueueAge("Import", 120L);
@@ -359,7 +359,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.JobMonitor
                 [QueueType.Import] = 120L,
             };
 
-            await notifier.Handle(MakeNotification(ages), CancellationToken.None);
+            await notifier.HandleAsync(MakeNotification(ages), CancellationToken.None);
 
             notificationHandler.Received(1).ReportJobQueueAge("Export", 754L);
             notificationHandler.Received(1).ReportJobQueueAge("Import", 120L);
@@ -374,7 +374,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.JobMonitor
             var notifier = new JobMonitorMetricNotifier(notificationHandler);
 
             // First snapshot: Export only.
-            await notifier.Handle(
+            await notifier.HandleAsync(
                 MakeNotification(new Dictionary<QueueType, long> { [QueueType.Export] = 100 }),
                 CancellationToken.None);
             notificationHandler.Received(1).ReportJobQueueAge("Export", 100);
@@ -382,7 +382,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.JobMonitor
             notificationHandler.DidNotReceive().ReportJobQueueRunning(Arg.Any<string>(), Arg.Any<long>());
 
             // Second snapshot: Import only — Export must not survive the replacement.
-            await notifier.Handle(
+            await notifier.HandleAsync(
                 MakeNotification(new Dictionary<QueueType, long> { [QueueType.Import] = 50 }),
                 CancellationToken.None);
             notificationHandler.Received(1).ReportJobQueueAge("Import", 50);

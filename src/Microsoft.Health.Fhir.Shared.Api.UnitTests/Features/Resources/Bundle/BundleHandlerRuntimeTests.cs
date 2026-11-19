@@ -30,6 +30,36 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private readonly BundleConfiguration _bundleConfiguration = new BundleConfiguration();
 
         [Theory]
+        [InlineData("201", null, false)]
+        [InlineData("201", "information", false)]
+        [InlineData("200", "warning", false)]
+        [InlineData("204", "information,warning", false)]
+        [InlineData("201", "information,error", true)]
+        [InlineData("200", "fatal", true)]
+        [InlineData("400", "warning", true)]
+        [InlineData("412", "error", true)]
+        [InlineData("not-a-status", "warning", true)]
+        [InlineData("201", "", true)]
+        public void IsFailedTransactionEntry_ReturnsTrueOnlyForUnsuccessfulStatusesOrErrorOutcomes(string status, string severities, bool expected)
+        {
+            var entry = new EntryComponent { Response = new ResponseComponent { Status = status } };
+            if (severities != null)
+            {
+                var outcome = new OperationOutcome();
+                foreach (string severity in severities.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    outcome.Issue.Add(new OperationOutcome.IssueComponent { Severity = Enum.Parse<OperationOutcome.IssueSeverity>(severity, ignoreCase: true), Code = OperationOutcome.IssueType.Informational });
+                }
+
+                entry.Response.Outcome = outcome;
+            }
+
+            HttpStatusCode statusCode = Enum.TryParse(status, out HttpStatusCode parsed) ? parsed : HttpStatusCode.BadRequest;
+
+            Assert.Equal(expected, BundleHandlerRuntime.IsFailedTransactionEntry(entry, statusCode));
+        }
+
+        [Theory]
         [InlineData(BundleType.Transaction, BundleProcessingLogic.Parallel)]
         [InlineData(BundleType.Batch, BundleProcessingLogic.Sequential)]
         public void GetDefaultBundleProcessingLogic_BatchAndTransaction_ReturnsExpectedProcessingLogic(
@@ -243,6 +273,69 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
                 Assert.True(e is FhirTransactionCancelledException);
             }
+        }
+
+        [Fact]
+        public void IsConditionalOperation_WhenIfNoneExistIsSet_ReturnsTrue()
+        {
+            var request = new RequestComponent
+            {
+                Method = HTTPVerb.POST,
+                Url = "Patient",
+                IfNoneExist = "identifier=12345",
+            };
+
+            Assert.True(request.IsConditionalOperation());
+        }
+
+        [Theory]
+        [InlineData("Patient?identifier=12345")]
+        [InlineData("Patient?_id=abc&name=John")]
+        public void IsConditionalOperation_WhenUrlHasSearchQueryParameters_ReturnsTrue(string url)
+        {
+            var request = new RequestComponent
+            {
+                Method = HTTPVerb.PUT,
+                Url = url,
+            };
+
+            Assert.True(request.IsConditionalOperation());
+        }
+
+        [Theory]
+        [InlineData("Patient")]
+        [InlineData("Patient/123")]
+        [InlineData(null)]
+        [InlineData("")]
+        public void IsConditionalOperation_WhenUrlHasNoQueryStringAndNoIfNoneExist_ReturnsFalse(string url)
+        {
+            var request = new RequestComponent
+            {
+                Method = HTTPVerb.PUT,
+                Url = url,
+            };
+
+            Assert.False(request.IsConditionalOperation());
+        }
+
+        [Fact]
+        public void IsConditionalOperation_WhenUrlOnlyContainsNonConditionalQueryParameters_ReturnsFalse()
+        {
+            var request = new RequestComponent
+            {
+                Method = HTTPVerb.GET,
+                Url = "Patient/123?_meta-history",
+            };
+
+            Assert.False(request.IsConditionalOperation());
+        }
+
+        [Fact]
+        public void IsConditionalOperation_WhenNullRequest_Throws()
+        {
+            RequestComponent request = null;
+
+            Assert.Throws<ArgumentNullException>(() => request.IsConditionalOperation());
         }
 
         private static HttpContext GetHttpContext()

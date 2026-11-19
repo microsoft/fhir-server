@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
 
             _bundleFactory.CreateSearchBundle(searchResult).Returns(expectedBundle);
 
-            SearchCompartmentResponse actualResponse = await _searchCompartmentHandler.Handle(request, CancellationToken.None);
+            SearchCompartmentResponse actualResponse = await _searchCompartmentHandler.HandleAsync(request, CancellationToken.None);
 
             Assert.NotNull(actualResponse);
             Assert.Equal(expectedBundle, actualResponse.Bundle);

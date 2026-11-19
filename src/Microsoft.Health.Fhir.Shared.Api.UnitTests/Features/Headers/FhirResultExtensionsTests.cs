@@ -9,6 +9,7 @@ using System.Net;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             var urlResolver = Substitute.For<IUrlResolver>();
             urlResolver.ResolveResourceUrl(Arg.Any<ResourceElement>(), Arg.Any<bool>()).Returns(locationUrl);
 
-            var fhirResult = FhirResult.Create(_mockResource).SetLocationHeader(urlResolver);
+            var fhirResult = FhirResult.Create(NullLogger.Instance, _mockResource).SetLocationHeader(urlResolver);
 
             Assert.Equal(locationUrl.AbsoluteUri, fhirResult.Headers[HeaderNames.Location]);
         }
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         public void WhenSettingAnETagHeader_ThenFhirResultHasAnETagHeader()
         {
             var version = _mockResource.VersionId;
-            var fhirResult = FhirResult.Create(_mockResource).SetETagHeader();
+            var fhirResult = FhirResult.Create(NullLogger.Instance, _mockResource).SetETagHeader();
 
             Assert.Equal(string.Format(ETagFormat, version), fhirResult.Headers[HeaderNames.ETag]);
         }
@@ -72,7 +73,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         [Fact]
         public void WhenSettingALastModifiedHeader_ThenFhirResultHasALastModifierHeader()
         {
-            var fhirResult = FhirResult.Create(_mockResource).SetLastModifiedHeader();
+            var fhirResult = FhirResult.Create(NullLogger.Instance, _mockResource).SetLastModifiedHeader();
 
             Assert.Equal(_mockResource.LastUpdated?.ToString("r", CultureInfo.InvariantCulture), fhirResult.Headers[HeaderNames.LastModified]);
         }
@@ -80,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         [Fact]
         public void WhenCreatingAFhirResultAndNotSettingHeaders_ThenThereIsNoHeaders()
         {
-            var fhirResult = FhirResult.Create(_mockResource);
+            var fhirResult = FhirResult.Create(NullLogger.Instance, _mockResource);
 
             Assert.Empty(fhirResult.Headers);
         }
@@ -88,7 +89,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         [Fact]
         public void WhenAddingTwoHeaders_ThenFhirResultHasAtLeastTwoHeaders()
         {
-            var fhirResult = FhirResult.Create(_mockResource).SetLastModifiedHeader().SetETagHeader();
+            var fhirResult = FhirResult.Create(NullLogger.Instance, _mockResource).SetLastModifiedHeader().SetETagHeader();
 
             Assert.Equal(2, fhirResult.Headers.Count);
         }
@@ -96,7 +97,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         [Fact]
         public void WhenAddingSameHeaderTwice_ThenOnlyOneHeaderIsPresent()
         {
-            var result = FhirResult.Create(_mockResource)
+            var result = FhirResult.Create(NullLogger.Instance, _mockResource)
                 .SetLastModifiedHeader()
                 .SetLastModifiedHeader();
 
@@ -106,7 +107,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         [Fact]
         public void WhenAddingStringEtag_ThenStringETagIsReturned()
         {
-            var fhirResult = FhirResult.Create(_mockResource).SetETagHeader(WeakETag.FromVersionId("etag"));
+            var fhirResult = FhirResult.Create(NullLogger.Instance, _mockResource).SetETagHeader(WeakETag.FromVersionId("etag"));
 
             Assert.Equal("W/\"etag\"", fhirResult.Headers[HeaderNames.ETag]);
         }
@@ -125,6 +126,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
             urlResolver.ResolveResourceUrl(Arg.Any<ResourceElement>(), Arg.Any<bool>()).Returns(locationUrl);
 
             var fhirResult = FhirResult.Create(
+                NullLogger.Instance,
                 _mockResource,
                 HttpStatusCode.OK,
                 true,
@@ -157,6 +159,59 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
                     resource.Issue,
                     x => string.Equals(operationOutcomeMessage, x.Diagnostics, StringComparison.Ordinal) && string.Equals(operationOutcomeMessage, x.Details?.Text, StringComparison.Ordinal));
             }
+        }
+
+        [Theory]
+        [InlineData(ReturnPreference.OperationOutcome, true)]
+        [InlineData(ReturnPreference.Representation, false)]
+        [InlineData(null, false)]
+        public void GivenAdditionalIssues_WhenCreatingFhirResult_ThenTheyAreAddedOnlyToAnOperationOutcome(ReturnPreference? returnPreference, bool expectOperationOutcome)
+        {
+            var additionalIssue = new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.Informational, "long uri warning");
+
+            var fhirResult = FhirResult.Create(
+                NullLogger.Instance,
+                _mockResource,
+                HttpStatusCode.Created,
+                returnPreference: returnPreference,
+                operationOutcomeMessage: "created",
+                additionalIssues: new[] { additionalIssue });
+
+            if (!expectOperationOutcome)
+            {
+                Assert.Equal(_mockResource, fhirResult.Result);
+                return;
+            }
+
+            var outcome = ((ResourceElement)fhirResult.Result).Instance.ToPoco<OperationOutcome>();
+            Assert.Collection(
+                outcome.Issue,
+                x => Assert.Equal("created", x.Diagnostics),
+                x =>
+                {
+                    Assert.Equal(OperationOutcome.IssueSeverity.Warning, x.Severity);
+                    Assert.Equal(OperationOutcome.IssueType.Informational, x.Code);
+                    Assert.Equal("long uri warning", x.Diagnostics);
+                });
+            Assert.Equal(HttpStatusCode.Created, fhirResult.StatusCode);
+        }
+
+        [Fact]
+        public void GivenNoOperationOutcomeMessage_WhenCreatingAnOperationOutcome_ThenOnlyTheAdditionalIssuesAreReturned()
+        {
+            var additionalIssue = new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Warning, OperationOutcomeConstants.IssueType.Informational, "long uri warning");
+
+            var fhirResult = FhirResult.Create(
+                NullLogger.Instance,
+                _mockResource,
+                HttpStatusCode.OK,
+                setETagheader: true,
+                returnPreference: ReturnPreference.OperationOutcome,
+                additionalIssues: new[] { additionalIssue });
+
+            var outcome = ((ResourceElement)fhirResult.Result).Instance.ToPoco<OperationOutcome>();
+            Assert.Equal("long uri warning", Assert.Single(outcome.Issue).Diagnostics);
+            Assert.Equal(WeakETag.FromVersionId(_mockResource.VersionId).ToString(), fhirResult.Headers[HeaderNames.ETag]);
         }
     }
 }

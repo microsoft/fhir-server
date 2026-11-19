@@ -13,9 +13,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
@@ -30,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Scoping;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
@@ -56,7 +58,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             ISearchParameterComparer<SearchParameterInfo> searchParameterComparer,
             IScopeProvider<ISearchParameterStatusDataStore> searchParameterStatusDataStoreFactory,
             IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
-            ILogger<SearchParameterDefinitionManager> logger)
+            ILogger<SearchParameterDefinitionManager> logger,
+            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -65,6 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             EnsureArg.IsNotNull(searchParameterStatusDataStoreFactory, nameof(searchParameterStatusDataStoreFactory));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(coreFeatureConfiguration, nameof(coreFeatureConfiguration));
 
             _modelInfoProvider = modelInfoProvider;
             _mediator = mediator;
@@ -90,7 +94,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 _modelInfoProvider,
                 _searchParameterComparer,
                 _logger,
-                isSystemDefined: true);
+                isSystemDefined: true,
+                enableTemporalClassification: coreFeatureConfiguration.Value.EnableSearchParameterTemporalClassification);
         }
 
         internal ConcurrentDictionary<string, SearchParameterInfo> UrlLookup { get; set; }
@@ -112,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 _initialized = true;
                 await LoadSearchParamsFromDataStore(cancellationToken);
 
-                await _mediator.Publish(new SearchParameterDefinitionManagerInitialized(), cancellationToken);
+                await _mediator.PublishAsync(new SearchParameterDefinitionManagerInitialized(), cancellationToken);
             }
             catch
             {
@@ -324,7 +329,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        public async Task Handle(SearchParametersUpdatedNotification notification, CancellationToken cancellationToken)
+        public async Task HandleAsync(SearchParametersUpdatedNotification notification, CancellationToken cancellationToken)
         {
             var retry = 0;
             while (retry < 3)
@@ -333,7 +338,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 {
                     _logger.LogInformation("SearchParameterDefinitionManager: Search parameters updated");
                     CalculateSearchParameterHash();
-                    await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
+                    await _mediator.PublishAsync(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
                     return;
                 }
                 catch (Exception ex)
@@ -344,10 +349,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
 
             // Not reporting notification while we investigate why this could happen
-            // await _mediator.Publish(new ImproperBehaviorNotification("Error calculating search parameter hash"), cancellationToken);
+            // await _mediator.PublishAsync(new ImproperBehaviorNotification("Error calculating search parameter hash"), cancellationToken);
         }
 
-        public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
+        public async Task HandleAsync(StorageInitializedNotification notification, CancellationToken cancellationToken)
         {
             var retry = 0;
             while (retry < 3)
@@ -366,7 +371,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
 
             // Not reporting notification while we investigate why this could happen
-            // await _mediator.Publish(new ImproperBehaviorNotification("Error initializing search parameters"), cancellationToken);
+            // await _mediator.PublishAsync(new ImproperBehaviorNotification("Error initializing search parameters"), cancellationToken);
         }
 
         private async Task LoadSearchParamsFromDataStore(CancellationToken cancellationToken)
@@ -451,8 +456,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return searchParameter != null;
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "Collection defined on model")]
-        private ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
+        public ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
         {
             return GetDerivedResourceTypes(_modelInfoProvider, resourceTypes);
         }

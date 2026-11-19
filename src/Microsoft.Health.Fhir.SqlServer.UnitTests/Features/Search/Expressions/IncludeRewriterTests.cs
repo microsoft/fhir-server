@@ -6,8 +6,10 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -39,12 +41,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             _searchParameterDefinitionManager = fixture.SearchParameterDefinitionManager;
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             await _fixture.Start();
         }
 
-        public Task DisposeAsync() => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         // Basic Queries with 0-2 include search parameters with all the pair combinations
 
@@ -1659,7 +1661,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     searchParameterComparer,
                     statusDataStore.CreateMockScopeProvider(),
                     fhirDataStore.CreateMockScopeProvider(),
-                    logger);
+                    logger,
+                    Options.Create(new CoreFeatureConfiguration()));
             }
 
             public ISearchParameterDefinitionManager SearchParameterDefinitionManager { get; }

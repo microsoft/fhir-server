@@ -25,4 +25,10 @@ When creating or updating an ADR in `docs/arch/`:
 
 ---
 
+## Code Review
+
+When reviewing a pull request, use [REVIEW.md](../REVIEW.md) and the applicable [FHIR security review guidelines](instructions/fhir-security.instructions.md). `AGENTS.md` remains authoritative; these documents add review criteria, not new runtime policy. See [review verification](REVIEWING.md) for instruction-loading evidence and maintainer checks.
+
+---
+
 Happy coding!

@@ -11,11 +11,13 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -46,6 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
         private readonly ILogger<CreateBulkUpdateHandler> _logger;
         private readonly List<string> _bulkUpdateSupportedOperations = new() { "Upsert", "Replace" };
         private readonly IResourceSerializer _resourceSerializer;
+        private readonly CoreFeatureConfiguration _coreFeatures;
 
         public CreateBulkUpdateHandler(
             IAuthorizationService<DataActions> authorizationService,
@@ -53,7 +56,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ISearchService searchService,
             IResourceSerializer resourceSerializer,
-            ILogger<CreateBulkUpdateHandler> logger)
+            ILogger<CreateBulkUpdateHandler> logger,
+            IOptions<CoreFeatureConfiguration> coreFeatures)
         {
             _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
@@ -61,17 +65,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
             _resourceSerializer = EnsureArg.IsNotNull(resourceSerializer, nameof(resourceSerializer));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
         }
 
-        public async Task<CreateBulkUpdateResponse> Handle(CreateBulkUpdateRequest request, CancellationToken cancellationToken)
+        public async Task<CreateBulkUpdateResponse> HandleAsync(CreateBulkUpdateRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
             // Check access - Only super writer can perform bulk update
             await _authorizationService.CheckAccess(DataActions.BulkOperator, true, cancellationToken);
+            bool allowProfileResourceModification = await _authorizationService.CheckAccess(DataActions.EditProfileDefinitions, false, cancellationToken);
 
-            // Should not run bulk Update if it is trying to update a resource types like SearchParameter and StructureDefinition
-            if (OperationsConstants.ExcludedResourceTypesForBulkUpdate.Any(x => string.Equals(x, request.ResourceType, StringComparison.OrdinalIgnoreCase)))
+            if (_coreFeatures.EnableSmartBulkUpdateRestriction &&
+                _contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+            {
+                throw new UnauthorizedFhirActionException();
+            }
+
+            if (OperationsConstants.ExcludedResourceTypesForBulkUpdate.Any(
+                excludedType => string.Equals(request.ResourceType, excludedType, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new BadRequestException($"Bulk update is not supported for resource type {request.ResourceType}.");
             }
@@ -94,7 +106,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
 
             // Should not run bulk Update if any of the search parameters are invalid as it can lead to unpredicatable results
             await _searchService.ConditionalSearchAsync(request.ResourceType, searchParameters, cancellationToken, count: 1, logger: _logger);
-            if (_contextAccessor.RequestContext?.BundleIssues?.Count > 0 && _contextAccessor.RequestContext.BundleIssues.Any(x => !string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase)))
+            List<string> searchWarnings = _contextAccessor.RequestContext?.BundleIssues?.Where(PartiallyComparedSearchValueIssue.IsMatch).Select(i => i.Diagnostics).ToList();
+            if (searchWarnings?.Count > 0)
+            {
+                // Not an invalid parameter: the value is valid but only partially compared, so the job may update more resources than intended.
+                _logger.LogWarning("Bulk update filter uses search values that are only partially compared, so it can match more resources than intended. ResourceType={ResourceType}", request.ResourceType);
+            }
+
+            if (_contextAccessor.RequestContext?.BundleIssues?.Count > 0
+                && _contextAccessor.RequestContext.BundleIssues.Any(x => !string.Equals(x.Diagnostics, Core.Resources.TruncatedIncludeMessageForIncludes, StringComparison.OrdinalIgnoreCase) && !PartiallyComparedSearchValueIssue.IsMatch(x)))
             {
                 throw new BadRequestException(_contextAccessor.RequestContext.BundleIssues.Select(issue => issue.Diagnostics).ToList());
             }
@@ -123,7 +143,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate.Handlers
                 parametersString,
                 request.IsParallel,
                 maximumNumberOfResourcesPerQuery: request.MaxCount,
-                metaHistory: request.MetaHistory);
+                metaHistory: request.MetaHistory,
+                allowProfileResourceModification: allowProfileResourceModification,
+                searchWarnings: searchWarnings);
 
             IReadOnlyList<JobInfo> jobInfo;
             try

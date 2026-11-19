@@ -12,17 +12,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public struct SearchResultEntry : IEquatable<SearchResultEntry>
     {
-        public SearchResultEntry(ResourceWrapper resourceWrapper, SearchEntryMode searchEntryMode = SearchEntryMode.Match)
+        public SearchResultEntry(
+            ResourceWrapper resourceWrapper,
+            SearchEntryMode searchEntryMode = SearchEntryMode.Match,
+            decimal? score = null)
         {
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
 
             Resource = resourceWrapper;
             SearchEntryMode = searchEntryMode;
+            Score = score;
         }
 
         public ResourceWrapper Resource { get; }
 
         public SearchEntryMode SearchEntryMode { get; }
+
+        /// <summary>
+        /// Gets the normalized semantic relevance score, where higher is more relevant.
+        /// </summary>
+        public decimal? Score { get; }
 
         public static bool operator ==(SearchResultEntry left, SearchResultEntry right)
         {

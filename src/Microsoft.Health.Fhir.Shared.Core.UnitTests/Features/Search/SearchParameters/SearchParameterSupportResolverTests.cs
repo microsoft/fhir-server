@@ -20,13 +20,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     {
         private SearchParameterSupportResolver _resolver;
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             _resolver = new SearchParameterSupportResolver(
                 await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync());
         }
 
-        public Task DisposeAsync() => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         [Fact]
         public void GivenASupportedSearchParameter_WhenResolvingSupport_ThenTrueIsReturned()
@@ -40,6 +40,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 baseResourceTypes: new[] { "Condition" });
 
             var supported = _resolver.IsSearchParameterSupported(sp);
+
+            Assert.True(supported.Supported);
+            Assert.False(supported.IsPartiallySupported);
+        }
+
+        [Fact]
+        public void GivenAVectorSearchParameterUsingToString_WhenResolvingSupport_ThenTrueIsReturned()
+        {
+            var searchParameter = new SearchParameterInfo(
+                "DocumentReferenceSemanticText",
+                "semantic-text",
+                SearchParamType.Special,
+                new Uri("https://example.org/fhir/SearchParameter/document-reference-semantic-text"),
+                expression: "DocumentReference.content.attachment.url.toString()",
+                baseResourceTypes: new[] { "DocumentReference" },
+                vectorConfig: new VectorSearchParameterConfig());
+
+            var supported = _resolver.IsSearchParameterSupported(searchParameter);
 
             Assert.True(supported.Supported);
             Assert.False(supported.IsPartiallySupported);
@@ -115,6 +133,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 baseResourceTypes: new string[0]);
 
             Assert.Throws<NotSupportedException>(() => _resolver.IsSearchParameterSupported(sp));
+        }
+
+        [Fact]
+        public void GivenAnExpressionCastingToAnUnknownType_WhenResolvingSupport_ThenNotSupportedIsThrown()
+        {
+            var sp = new SearchParameterInfo(
+                "Patient-name-unknown",
+                "Patient-name-unknown",
+                SearchParamType.String,
+                new Uri("http://example.org/fhir/SearchParameter/Patient-name-unknown"),
+                expression: "Patient.name.as(NotAType)",
+                baseResourceTypes: new[] { "Patient" });
+
+            NotSupportedException exception = Assert.Throws<NotSupportedException>(() => _resolver.IsSearchParameterSupported(sp));
+
+            Assert.Contains("'NotAType'", exception.Message, StringComparison.Ordinal);
         }
     }
 }

@@ -15,7 +15,9 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.FirelySdk.Features.Operations.Import;
 using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -31,13 +33,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
     {
         private readonly FhirJsonSerializer _jsonSerializer = new FhirJsonSerializer();
 
-        private readonly IIgnixaJsonSerializer _ignixaSerializer = new IgnixaJsonSerializer();
-
-        private readonly IIgnixaSchemaContext _schemaContext = new IgnixaSchemaContext(ModelInfoProvider.Instance);
+        private readonly FhirJsonParser _jsonParser = new();
 
         private readonly ResourceWrapperFactory _wrapperFactory;
 
-        private readonly ImportResourceParser _importResourceParser;
+        private readonly FirelyImportResourceParser _importResourceParser;
 
         public ImportResourceParserTests()
         {
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             requestContextAccessor.RequestContext.Uri.Returns(new Uri("https://unittest/Patient/123"));
 
             _wrapperFactory = new ResourceWrapperFactory(
-                                    new RawResourceFactory(_ignixaSerializer, new FhirJsonSerializer()),
+                                    new RawResourceFactory(new IgnixaJsonSerializer(), new FhirJsonSerializer()),
                                     requestContextAccessor,
                                     Substitute.For<ISearchIndexer>(),
                                     Substitute.For<IClaimsExtractor>(),
@@ -55,10 +55,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                                     Substitute.For<ISearchParameterDefinitionManager>(),
                                     Deserializers.ResourceDeserializer);
 
-            _importResourceParser = new(_ignixaSerializer, _wrapperFactory, _schemaContext);
+            _importResourceParser = new(_jsonParser, _wrapperFactory, ResourceIdPolicy.Standard);
         }
 
-        [RetryFact(MaxRetries = 3, DelayBetweenRetriesMs = 5000)]
+        [Fact]
         public void GivenImportWithSoftDeletedFile_WhenParsed_DeletedExtensionShouldBeRemoved()
         {
             Patient patient = new Patient();

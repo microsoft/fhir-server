@@ -4,10 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -24,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
 
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly ReferenceSearchValueParser _referenceSearchValueParser;
+        private readonly IFhirServerInstanceConfiguration _instanceConfig;
 
         public ReferenceSearchValueParserTests()
         {
@@ -40,7 +45,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             instanceConfig.BaseUri.Returns(BaseUri);
 
-            _referenceSearchValueParser = new ReferenceSearchValueParser(_fhirRequestContextAccessor, instanceConfig);
+            _instanceConfig = instanceConfig;
+            _referenceSearchValueParser = CreateParser(ResourceIdPolicy.Standard);
         }
 
         [Fact]
@@ -86,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             instanceConfig.BaseUri.Returns(baseUri);
 
-            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig);
+            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig, ResourceIdPolicy.Standard);
 
             // Act - Use an internal reference that matches the instance configuration base URI
             ReferenceSearchValue value = parser.Parse("https://localhost/stu3/Observation/abc");
@@ -109,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             instanceConfig.BaseUri.Returns(baseUri);
 
-            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig);
+            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig, ResourceIdPolicy.Standard);
 
             // Act - Use an external reference that does NOT match the instance configuration base URI
             ReferenceSearchValue value = parser.Parse("https://external-server.com/fhir/Observation/xyz");
@@ -133,7 +139,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             var instanceConfig = Substitute.For<IFhirServerInstanceConfiguration>();
             instanceConfig.BaseUri.Returns(baseUri);
 
-            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig);
+            var parser = new ReferenceSearchValueParser(nullContextAccessor, instanceConfig, ResourceIdPolicy.Standard);
 
             // Act - Use a relative reference
             ReferenceSearchValue value = parser.Parse("Patient/123");
@@ -144,5 +150,135 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(ResourceType.Patient.ToString(), value.ResourceType);
             Assert.Equal("123", value.ResourceId);
         }
+
+        [Theory]
+        [InlineData(false, 63, 63)]
+        [InlineData(false, 64, 64)]
+        [InlineData(false, 65, 64)]
+        [InlineData(false, 100, 64)]
+        [InlineData(false, 127, 64)]
+        [InlineData(false, 128, 64)]
+        [InlineData(false, 129, 64)]
+        [InlineData(true, 63, 63)]
+        [InlineData(true, 64, 64)]
+        [InlineData(true, 65, 65)]
+        [InlineData(true, 127, 127)]
+        [InlineData(true, 128, 128)]
+        [InlineData(true, 129, 128)]
+        [InlineData(true, 200, 128)]
+        public void GivenARelativeReferenceWithAnIdNearTheLimits_WhenParsing_ThenTheExpectedPrefixIsCaptured(bool useLongResourceIds, int length, int expectedLength)
+        {
+            // Arrange
+            string resourceId = CreateResourceId(length);
+            ReferenceSearchValueParser parser = CreateParser(ResourceIdPolicy.From(useLongResourceIds));
+
+            // Act
+            ReferenceSearchValue value = parser.Parse($"Patient/{resourceId}");
+
+            // Assert
+            Assert.Equal(ReferenceKind.InternalOrExternal, value.Kind);
+            Assert.Null(value.BaseUri);
+            Assert.Equal(ResourceType.Patient.ToString(), value.ResourceType);
+            Assert.Equal(resourceId[..expectedLength], value.ResourceId);
+        }
+
+        [Theory]
+        [InlineData(false, 129, 64, "", "/_history/version-2", ReferenceKind.InternalOrExternal, null)]
+        [InlineData(false, 129, 64, "https://localhost/stu3/", "", ReferenceKind.Internal, null)]
+        [InlineData(false, 129, 64, "https://localhost/stu3/", "/_history/version-2", ReferenceKind.Internal, null)]
+        [InlineData(false, 129, 64, "https://external-server.com/fhir/", "", ReferenceKind.External, "https://external-server.com/fhir/")]
+        [InlineData(false, 129, 64, "https://external-server.com/fhir/", "/_history/version-2", ReferenceKind.External, "https://external-server.com/fhir/")]
+        [InlineData(false, 63, 63, "", "/_history/version-2", ReferenceKind.InternalOrExternal, null)]
+        [InlineData(false, 63, 63, "https://localhost/stu3/", "/_history/version-2", ReferenceKind.Internal, null)]
+        [InlineData(false, 63, 63, "https://external-server.com/fhir/", "/_history/version-2", ReferenceKind.External, "https://external-server.com/fhir/")]
+        [InlineData(true, 129, 128, "", "/_history/version-2", ReferenceKind.InternalOrExternal, null)]
+        [InlineData(true, 129, 128, "https://localhost/stu3/", "", ReferenceKind.Internal, null)]
+        [InlineData(true, 129, 128, "https://localhost/stu3/", "/_history/version-2", ReferenceKind.Internal, null)]
+        [InlineData(true, 129, 128, "https://external-server.com/fhir/", "", ReferenceKind.External, "https://external-server.com/fhir/")]
+        [InlineData(true, 129, 128, "https://external-server.com/fhir/", "/_history/version-2", ReferenceKind.External, "https://external-server.com/fhir/")]
+        [InlineData(true, 127, 127, "", "/_history/version-2", ReferenceKind.InternalOrExternal, null)]
+        [InlineData(true, 127, 127, "https://localhost/stu3/", "/_history/version-2", ReferenceKind.Internal, null)]
+        [InlineData(true, 127, 127, "https://external-server.com/fhir/", "/_history/version-2", ReferenceKind.External, "https://external-server.com/fhir/")]
+        public void GivenAReferenceWithALongId_WhenParsing_ThenThePrefixAndReferenceClassificationArePreserved(
+            bool useLongResourceIds,
+            int length,
+            int expectedLength,
+            string referenceBaseUri,
+            string history,
+            ReferenceKind expectedKind,
+            string expectedBaseUri)
+        {
+            // Arrange
+            string resourceId = CreateResourceId(length);
+            ReferenceSearchValueParser parser = CreateParser(ResourceIdPolicy.From(useLongResourceIds));
+
+            // Act
+            ReferenceSearchValue value = parser.Parse($"{referenceBaseUri}Patient/{resourceId}{history}");
+
+            // Assert
+            Assert.Equal(expectedKind, value.Kind);
+            Assert.Equal(expectedBaseUri == null ? null : new Uri(expectedBaseUri), value.BaseUri);
+            Assert.Equal(ResourceType.Patient.ToString(), value.ResourceType);
+            Assert.Equal(resourceId[..expectedLength], value.ResourceId);
+        }
+
+        [Theory]
+        [InlineData(false, 63, null)]
+        [InlineData(false, 64, null)]
+        [InlineData(false, 65, 65)]
+        [InlineData(false, 129, 129)]
+        [InlineData(true, 64, null)]
+        [InlineData(true, 128, null)]
+        [InlineData(true, 129, 129)]
+        [InlineData(true, 200, 200)]
+        public void GivenAReferenceWithAnIdNearTheLimits_WhenParsing_ThenTheOverlongIdLengthIsReported(bool useLongResourceIds, int length, int? expectedOverlongLength)
+        {
+            string resourceId = CreateResourceId(length);
+            ReferenceSearchValueParser parser = CreateParser(ResourceIdPolicy.From(useLongResourceIds));
+            int? expectedMaxLength = expectedOverlongLength == null ? null : (useLongResourceIds ? 128 : 64);
+
+            foreach (ReferenceSearchValue value in new[] { $"Patient/{resourceId}", $"https://localhost/stu3/Patient/{resourceId}", $"https://external-server.com/fhir/Patient/{resourceId}/_history/2", resourceId }.Select(parser.Parse))
+            {
+                Assert.Equal(expectedOverlongLength, value.OverlongResourceIdLength);
+                Assert.Equal(expectedMaxLength, value.MaxResourceIdLength);
+            }
+        }
+
+        [Fact]
+        public void GivenALongReferenceThatIsNotAResourceId_WhenParsing_ThenNoOverlongIdLengthIsReported()
+        {
+            ReferenceSearchValueParser parser = CreateParser(ResourceIdPolicy.Standard);
+
+            Assert.Null(parser.Parse("urn:oid:" + string.Join('.', Enumerable.Repeat("1234567890", 10))).OverlongResourceIdLength);
+            Assert.Null(parser.Parse("http://test.com/" + new string('a', 100)).OverlongResourceIdLength);
+            Assert.Null(parser.Parse("#" + new string('a', 100)).OverlongResourceIdLength);
+        }
+
+        [Theory]
+        [InlineData(KnownDataStores.SqlServer, 65)]
+        [InlineData(KnownDataStores.CosmosDb, null)]
+        public void GivenAnOverlongBareId_WhenParsing_ThenItIsFlaggedOnlyWhenTheDataStoreTruncatesIt(string dataStore, int? expectedOverlongLength)
+        {
+            var runtimeConfiguration = Substitute.For<IFhirRuntimeConfiguration>();
+            runtimeConfiguration.DataStore.Returns(dataStore);
+            var parser = new ReferenceSearchValueParser(_fhirRequestContextAccessor, _instanceConfig, ResourceIdPolicy.Standard, runtimeConfiguration);
+            string resourceId = CreateResourceId(65);
+
+            ReferenceSearchValue bare = parser.Parse(resourceId);
+            ReferenceSearchValue typed = parser.Parse($"Patient/{resourceId}");
+
+            Assert.Equal(resourceId, bare.ResourceId);
+            Assert.Equal(expectedOverlongLength, bare.OverlongResourceIdLength);
+
+            // A typed reference is truncated by the parser itself, so it is flagged on every data store.
+            Assert.Equal(64, typed.ResourceId.Length);
+            Assert.Equal(65, typed.OverlongResourceIdLength);
+        }
+
+        private static string CreateResourceId(int length)
+            => string.Concat(Enumerable.Range(0, length).Select(i => (char)('A' + (i % 26))));
+
+        private ReferenceSearchValueParser CreateParser(ResourceIdPolicy policy)
+            => new ReferenceSearchValueParser(_fhirRequestContextAccessor, _instanceConfig, policy);
     }
 }

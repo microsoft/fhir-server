@@ -27,8 +27,13 @@ param(
 
     [Parameter(Mandatory = $false)] [string] $SqlServerName = '',
     [Parameter(Mandatory = $false)] [string] $SqlElasticPoolName = '',
+    [Parameter(Mandatory = $false)] [string] $SqlDatabaseName = '',
+    [Parameter(Mandatory = $false)] [ValidateSet('', 'Firely', 'Ignixa')] [string] $FhirSdkProviderSystemDefault = '',
     [Parameter(Mandatory = $false)] [string] $SchemaAutomaticUpdatesEnabled = 'auto',
     [Parameter(Mandatory = $false)] [string] $ReindexEnabled = 'true',
+
+    # Enables the in-memory $import test source. Test-only; must stay 'false' outside test pipelines.
+    [Parameter(Mandatory = $false)] [string] $ImportInMemoryTestEnabled = 'false',
 
     # ACA scaling/sizing (sourced from ci-variables.yml / pr-variables.yml)
     [Parameter(Mandatory = $true)] [int]    $MinReplicas,
@@ -42,13 +47,15 @@ param(
     [Parameter(Mandatory = $true)] [int]    $TaskHostingMaxRunningTaskCount,
     [Parameter(Mandatory = $true)] [int]    $SearchParameterCacheRefreshIntervalSeconds,
     [Parameter(Mandatory = $true)] [int]    $SystemConformanceProviderRefreshIntervalSeconds,
-    [Parameter(Mandatory = $true)] [int]    $ReindexCacheRefreshWaitMultiplier
+    [Parameter(Mandatory = $true)] [int]    $ReindexCacheRefreshWaitMultiplier,
+    [Parameter(Mandatory = $true)] [int]    $ReindexJobsPollingIntervalSec
 )
 
 $ErrorActionPreference = 'Stop'
 
 # Bool-ish string args from the YAML wrapper get parsed here so that 'false' actually means false.
 $reindexEnabledBool = $ReindexEnabled -eq 'true'
+$importInMemoryTestEnabledBool = $ImportInMemoryTestEnabled -eq 'true'
 
 Add-Type -AssemblyName System.Web
 
@@ -66,7 +73,23 @@ $additionalProperties["TaskHosting__MaxRunningTaskCount"] = $TaskHostingMaxRunni
 $additionalProperties["FhirServer__CoreFeatures__SearchParameterCacheRefreshIntervalSeconds"] = $SearchParameterCacheRefreshIntervalSeconds
 $additionalProperties["FhirServer__CoreFeatures__SystemConformanceProviderRefreshIntervalSeconds"] = $SystemConformanceProviderRefreshIntervalSeconds
 $additionalProperties["FhirServer__Operations__Reindex__CacheRefreshWaitMultiplier"] = $ReindexCacheRefreshWaitMultiplier
+$additionalProperties["FhirServer__Operations__Reindex__JobsPollingIntervalSec"] = $ReindexJobsPollingIntervalSec
+$additionalProperties["FhirServer__Operations__Import__InMemoryTestEnabled"] = $importInMemoryTestEnabledBool.ToString().ToLowerInvariant()
 $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
+
+$fhirSdkProviderSettingName = "FhirServer__CoreFeatures__FhirSdkProvider__SystemDefault"
+if ($DataStore -eq 'sql') {
+    $configuredProvider = [string]$additionalProperties[$fhirSdkProviderSettingName]
+    if (-not [string]::IsNullOrWhiteSpace($configuredProvider) -and $configuredProvider -notin @('Firely', 'Ignixa')) {
+        throw "Configured FHIR SDK provider '$configuredProvider' is unsupported."
+    }
+    if (-not [string]::IsNullOrWhiteSpace($FhirSdkProviderSystemDefault)) {
+        if (-not [string]::IsNullOrWhiteSpace($configuredProvider) -and $configuredProvider -ne $FhirSdkProviderSystemDefault) {
+            throw "Deployment FHIR SDK provider '$FhirSdkProviderSystemDefault' conflicts with configured provider '$configuredProvider'."
+        }
+        $additionalProperties[$fhirSdkProviderSettingName] = $FhirSdkProviderSystemDefault
+    }
+}
 
 $staticEnvNames = @(
     "ASPNETCORE_FORWARDEDHEADERS_ENABLED",
@@ -140,7 +163,9 @@ $resourceGroupName = $ResourceGroup
 # --- Data-store-specific pre-deploy setup ---
 if ($DataStore -eq 'sql') {
     $sqlServerName = $SqlServerName.ToLowerInvariant()
-    $sqlDatabaseName = "FHIR$Version"
+    if ([string]::IsNullOrWhiteSpace($SqlDatabaseName)) {
+        $SqlDatabaseName = "FHIR$Version"
+    }
     $sqlElasticPoolName = $SqlElasticPoolName
     $existingDb = Get-AzSqlDatabase -ResourceGroupName $resourceGroupName -ServerName $sqlServerName -DatabaseName $sqlDatabaseName -ErrorAction SilentlyContinue
     if ($null -eq $existingDb) {
@@ -272,6 +297,7 @@ $templateParameters = @{
 
 if ($DataStore -eq 'sql') {
     $templateParameters["sqlServerName"] = $sqlServerName
+    $templateParameters["sqlDatabaseName"] = $sqlDatabaseName
     $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = $SchemaAutomaticUpdatesEnabled
 } else {
     $templateParameters["cosmosDbAccountName"] = $cosmosDbAccountName

@@ -4,9 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -42,12 +46,44 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
 
             var searchOptions = new SearchOptions { CountOnly = true };
 
+            // A regular count-only search emits no include table expressions, so nothing reads the main CTE.
+            Assert.False(searchOptions.IsIncludesOperation);
+
             // Act
             var result = TopRewriter.Instance.VisitSqlRoot(sqlRoot, searchOptions);
 
             // Assert - Should return unchanged for count-only queries
             Assert.Same(sqlRoot, result);
             Assert.Single(((SqlRootExpression)result).SearchParamTableExpressions);
+        }
+
+        [Fact]
+        public void GivenCountOnlyIncludesQuery_WhenVisited_ThenAddsTopExpression()
+        {
+            // Arrange
+            var stringExpression = Expression.StringEquals(FieldName.String, null, "test", ignoreCase: false);
+            var searchParamExpression = new SearchParameterExpression(TestSearchParam, stringExpression);
+            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
+                new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
+
+            var searchOptions = new SearchOptions
+            {
+                CountOnly = true,
+                IncludesContinuationToken = new IncludesContinuationToken(
+                    new object[] { (short)10, 100L, 300L }).ToJson(),
+            };
+
+            Assert.True(searchOptions.IsIncludesOperation);
+
+            // Act
+            var result = (SqlRootExpression)TopRewriter.Instance.VisitSqlRoot(sqlRoot, searchOptions);
+
+            // Assert - The include table expressions reference the main CTE, which only the Top expression
+            // assigns, so it must still be emitted even though only a count was requested.
+            Assert.NotSame(sqlRoot, result);
+            Assert.Equal(2, result.SearchParamTableExpressions.Count);
+            Assert.Same(searchParamExpression, result.SearchParamTableExpressions[0].Predicate);
+            Assert.Equal(SearchParamTableExpressionKind.Top, result.SearchParamTableExpressions[1].Kind);
         }
 
         [Fact]
@@ -93,6 +129,100 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             // Second expression should be TOP
             Assert.Equal(SearchParamTableExpressionKind.Top, result.SearchParamTableExpressions[1].Kind);
             Assert.Null(result.SearchParamTableExpressions[1].Predicate);
+        }
+
+        [Fact]
+        public void GivenPreparedVectorQuery_WhenVisited_ThenDoesNotLimitStructuredCandidates()
+        {
+            // Arrange
+            var searchParamExpression = new SearchParameterExpression(
+                TestSearchParam,
+                Expression.StringEquals(FieldName.String, null, "test", ignoreCase: false));
+            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
+                new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal));
+            var vectorSearchParameter = new SearchParameterInfo(
+                name: "SemanticText",
+                code: "semantic-text",
+                searchParamType: SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"));
+            var searchOptions = new SqlSearchOptions(new SearchOptions
+            {
+                CountOnly = false,
+                SearchParameters = Array.Empty<SearchParameterInfo>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                Sort = Array.Empty<(SearchParameterInfo, SortOrder)>(),
+            })
+            {
+                PreparedVectorQuery = new PreparedVectorSearchQuery(
+                    vectorSearchParameter,
+                    embeddingModelId: 1,
+                    Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray()),
+            };
+
+            // Act
+            Expression result = TopRewriter.Instance.VisitSqlRoot(sqlRoot, searchOptions);
+
+            // Assert
+            Assert.Same(sqlRoot, result);
+            Assert.Single(((SqlRootExpression)result).SearchParamTableExpressions);
+        }
+
+        [Fact]
+        public void GivenPreparedVectorQueryWithIncludes_WhenVisited_ThenAddsTopToRankMatchesBeforeIncludes()
+        {
+            // Arrange
+            var searchParamExpression = new SearchParameterExpression(
+                TestSearchParam,
+                Expression.StringEquals(FieldName.String, null, "test", ignoreCase: false));
+            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
+                new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Include));
+
+            // Act
+            var result = (SqlRootExpression)TopRewriter.Instance.VisitSqlRoot(sqlRoot, CreateVectorSearchOptions(countOnly: false));
+
+            // Assert - the include table expressions join on the main CTE, which only Top assigns.
+            Assert.Equal(
+                new[] { SearchParamTableExpressionKind.Normal, SearchParamTableExpressionKind.Include, SearchParamTableExpressionKind.Top },
+                result.SearchParamTableExpressions.Select(t => t.Kind));
+        }
+
+        [Fact]
+        public void GivenCountOnlyPreparedVectorQueryWithIncludes_WhenVisited_ThenReturnsUnchanged()
+        {
+            // Arrange
+            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Include));
+
+            // Act
+            Expression result = TopRewriter.Instance.VisitSqlRoot(sqlRoot, CreateVectorSearchOptions(countOnly: true));
+
+            // Assert - a count reads the final select only; it never expands includes.
+            Assert.Same(sqlRoot, result);
+        }
+
+        private static SqlSearchOptions CreateVectorSearchOptions(bool countOnly)
+        {
+            var vectorSearchParameter = new SearchParameterInfo(
+                name: "SemanticText",
+                code: "semantic-text",
+                searchParamType: SearchParamType.Special,
+                url: new Uri("https://example.org/fhir/SearchParameter/semantic-text"));
+
+            return new SqlSearchOptions(new SearchOptions
+            {
+                CountOnly = countOnly,
+                SearchParameters = Array.Empty<SearchParameterInfo>(),
+                UnsupportedSearchParams = Array.Empty<Tuple<string, string>>(),
+                Sort = Array.Empty<(SearchParameterInfo, SortOrder)>(),
+            })
+            {
+                PreparedVectorQuery = new PreparedVectorSearchQuery(
+                    vectorSearchParameter,
+                    embeddingModelId: 1,
+                    Enumerable.Repeat(0.25f, VectorSearchConfiguration.SupportedDimensions).ToArray()),
+            };
         }
 
         [Fact]

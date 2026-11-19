@@ -17,19 +17,20 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using Microsoft.SqlServer.Dac.Model;
-using Microsoft.VisualStudio.TestPlatform.Utilities;
 using NSubstitute.Core;
 using Xunit;
-using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
+    [Collection(SqlServerCreateStatsTests.SerialCollectionName)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class SqlServerCreateStatsTests : IClassFixture<FhirStorageTestsFixture>
     {
+        internal const string SerialCollectionName = "SqlServerCreateStatsTests serial collection";
+
         private readonly FhirStorageTestsFixture _fixture;
         private readonly ITestOutputHelper _output;
 
@@ -102,9 +103,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenSearchByReferenceParam_NormalPath_StatsAreCreated()
+        public async Task GivenSearchByReferenceParam_ThreeColumnTypedStatIsGatedByFeatureFlag()
         {
-            // Arrange — DiagnosticReport.subject is a reference search parameter stored in dbo.ReferenceSearchParam
+            // DiagnosticReport.subject is a reference search parameter stored in dbo.ReferenceSearchParam.
+            // The 3-column ReferenceResourceTypeId-filtered stat is gated behind the
+            // Search.ReferenceResourceTypeFilteredStats.IsEnabled feature flag, which is OFF by default.
+            // Both phases run inside a single test so the ordering of the shared feature flag is controlled.
             const string resourceType = "DiagnosticReport";
             const string searchParamUrl = "http://hl7.org/fhir/SearchParameter/DiagnosticReport-subject";
             var query = new[] { Tuple.Create("subject", "Patient/test-patient-1") };
@@ -113,25 +117,36 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             short searchParamId = sqlSearchService.Model.GetSearchParamId(new Uri(searchParamUrl));
             short patientTypeId = sqlSearchService.Model.GetResourceTypeId("Patient");
 
-            // Act
-            await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
-
-            // Assert — a filtered stat on ReferenceResourceId with ReferenceResourceTypeId in the filter
-            var cacheAfter = SqlServerSearchService.GetStatsFromCache().ToList();
-            var databaseAfter = (await sqlSearchService.GetStatsFromDatabase(CancellationToken.None)).ToList();
-
-            bool MatchesStat((string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId) s) =>
+            bool IsReferenceIdStat((string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId) s) =>
                 s.TableName == VLatest.ReferenceSearchParam.TableName
                 && s.ColumnName == VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name
                 && s.ResourceTypeId == resourceTypeId
-                && s.SearchParamId == searchParamId
-                && s.ReferenceResourceTypeId == patientTypeId;
+                && s.SearchParamId == searchParamId;
 
-            // Cache
-            Assert.True(cacheAfter.Any(MatchesStat), "Expected the cache to contain a filtered statistics entry for ReferenceResourceId with a ReferenceResourceTypeId filter.");
+            try
+            {
+                // Phase 1 — flag disabled (default). The typed reference search must fall back to the broader
+                // 2-column stat (no ReferenceResourceTypeId filter) and must NOT create the gated 3-column stat.
+                await SetReferenceResourceTypeFilteredStatsFlagAsync(enabled: false);
+                await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
 
-            // Database
-            Assert.True(databaseAfter.Any(MatchesStat), "Expected the database to contain a filtered statistics entry for ReferenceResourceId with a ReferenceResourceTypeId filter.");
+                var disabledDatabase = (await sqlSearchService.GetStatsFromDatabase(CancellationToken.None)).ToList();
+                Assert.Contains(disabledDatabase, s => IsReferenceIdStat(s) && s.ReferenceResourceTypeId == null);
+                Assert.DoesNotContain(disabledDatabase, s => IsReferenceIdStat(s) && s.ReferenceResourceTypeId == patientTypeId);
+
+                // Phase 2 — flag enabled. The same typed reference search now creates the 3-column stat that
+                // additionally filters on ReferenceResourceTypeId.
+                await SetReferenceResourceTypeFilteredStatsFlagAsync(enabled: true);
+                await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
+
+                var enabledDatabase = (await sqlSearchService.GetStatsFromDatabase(CancellationToken.None)).ToList();
+                Assert.Contains(enabledDatabase, s => IsReferenceIdStat(s) && s.ReferenceResourceTypeId == patientTypeId);
+            }
+            finally
+            {
+                // Restore the default (disabled) state so the process-global flag does not leak into other tests.
+                await SetReferenceResourceTypeFilteredStatsFlagAsync(enabled: false);
+            }
         }
 
         [Fact]
@@ -176,9 +191,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // and must NOT fan out a stat for every base resource type of the parameter.
             const string resourceType = "Patient";
             var query = new[] { Tuple.Create("gender:missing", "true") };
+            var statsBefore = SqlServerSearchService.GetStatsFromCache().ToHashSet();
+
             await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
 
-            var statsFromCache = SqlServerSearchService.GetStatsFromCache();
+            var statsFromCache = SqlServerSearchService.GetStatsFromCache().ToList();
+            var newStatsFromCache = statsFromCache.Where(stat => !statsBefore.Contains(stat)).ToList();
             foreach (var stat in statsFromCache)
             {
                 _output.WriteLine($"cache {stat}");
@@ -195,11 +213,34 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                   && _.SearchParamId == genderParamId);
 
             // The BaseResourceTypes fallback is intentionally not used for NotExists, so the gender stat is
-            // never created for any resource type other than the one in the search URL.
-            Assert.DoesNotContain(statsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
+            // not newly created for any resource type other than the one in the search URL. Existing entries
+            // are ignored because earlier tests may populate the process-wide cache. This test class belongs
+            // to a non-parallel collection, so no other test can modify the cache between the two snapshots.
+            Assert.DoesNotContain(newStatsFromCache, _ => _.TableName == VLatest.TokenSearchParam.TableName
                   && _.ColumnName == "Code"
                   && _.ResourceTypeId != patientResourceTypeId
                   && _.SearchParamId == genderParamId);
+        }
+
+        private async Task SetReferenceResourceTypeFilteredStatsFlagAsync(bool enabled)
+        {
+            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
+            if (conn.State != System.Data.ConnectionState.Open)
+            {
+                await conn.OpenAsync(CancellationToken.None);
+            }
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+DELETE FROM dbo.Parameters WHERE Id = @id;
+IF @number IS NOT NULL
+    INSERT INTO dbo.Parameters (Id, Number) VALUES (@id, @number);";
+            cmd.Parameters.AddWithValue("@id", SqlServerSearchService.ReferenceResourceTypeFilteredStatsParameterId);
+            cmd.Parameters.AddWithValue("@number", enabled ? (object)1 : DBNull.Value);
+            await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+
+            // Force the cached feature-flag value to be re-read from the Parameters table on the next stats call.
+            SqlServerSearchService.ResetReferenceResourceTypeFilteredStatsCache();
         }
     }
 }

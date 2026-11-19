@@ -10,11 +10,9 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search.FhirPath;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Ignixa;
-using Microsoft.Health.Fhir.Ignixa.FhirPath;
 using Microsoft.Health.Fhir.Tests.Common;
 
 namespace Microsoft.Health.Fhir.Benchmarks;
@@ -60,7 +58,7 @@ public class FhirPathBenchmarks
         var resourceNode = ignixaSerializer.Parse(patientJson);
         var ignixaResourceElement = new IgnixaResourceElement(resourceNode, schemaContext.Schema);
         _ignixaElement = ignixaResourceElement.ToTypedElement();
-        _ignixaProvider = new IgnixaFhirPathProvider(schemaContext.Schema);
+        _ignixaProvider = new IgnixaFhirPathProvider(schemaContext);
 
         // Warm caches
         foreach (var expr in Expressions)
@@ -77,7 +75,7 @@ public class FhirPathBenchmarks
         foreach (var expr in Expressions)
         {
             var compiled = _firelyProvider.Compile(expr);
-            total += compiled.Evaluate(_firelyElement).Count();
+            total += compiled.Select(_firelyElement).Count();
         }
 
         return total;
@@ -90,21 +88,36 @@ public class FhirPathBenchmarks
         foreach (var expr in Expressions)
         {
             var compiled = _ignixaProvider.Compile(expr);
-            total += compiled.Evaluate(_ignixaElement).Count();
+            total += compiled.Select(_ignixaElement).Count();
         }
 
         return total;
     }
 
     [Benchmark(Description = "Firely: Scalar (Patient.name.family)")]
-    public string Firely_Scalar() => _firelyProvider.Scalar<string>(_firelyElement, "Patient.name.family");
+    public string Firely_Scalar() => Scalar(_firelyProvider, _firelyElement, "Patient.name.family");
 
     [Benchmark(Description = "Ignixa: Scalar (Patient.name.family)")]
-    public string Ignixa_Scalar() => _ignixaProvider.Scalar<string>(_ignixaElement, "Patient.name.family");
+    public string Ignixa_Scalar() => Scalar(_ignixaProvider, _ignixaElement, "Patient.name.family");
 
     [Benchmark(Description = "Firely: Predicate (Patient.active)")]
-    public bool Firely_Predicate() => _firelyProvider.Predicate(_firelyElement, "Patient.active");
+    public bool Firely_Predicate() => Predicate(_firelyProvider, _firelyElement, "Patient.active");
 
     [Benchmark(Description = "Ignixa: Predicate (Patient.active)")]
-    public bool Ignixa_Predicate() => _ignixaProvider.Predicate(_ignixaElement, "Patient.active");
+    public bool Ignixa_Predicate() => Predicate(_ignixaProvider, _ignixaElement, "Patient.active");
+
+    private static string Scalar(IFhirPathProvider provider, ITypedElement element, string expression)
+        => provider.Compile(expression).Select(element).FirstOrDefault()?.Value as string;
+
+    // An empty result or a single false value is false; any other result is true.
+    private static bool Predicate(IFhirPathProvider provider, ITypedElement element, string expression)
+    {
+        ITypedElement[] result = provider.Compile(expression).Select(element).Take(2).ToArray();
+        return result.Length switch
+        {
+            0 => false,
+            1 when result[0].Value is bool value => value,
+            _ => true,
+        };
+    }
 }

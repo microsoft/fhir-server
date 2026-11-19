@@ -38,15 +38,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
             _metricHandler = _fixture?.MetricHandler;
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             // Send an empty request to guarantee that there is a bearer token set and the call isn't recorded in the metric handler.
             await _client.HttpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, string.Empty));
         }
 
-        public Task DisposeAsync()
+        public ValueTask DisposeAsync()
         {
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
 
         [Fact]

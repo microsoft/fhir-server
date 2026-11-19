@@ -4,8 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Globalization;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -34,6 +36,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 i => i.Value = dateTimeOffset,
                 ValidateDateTime,
                 "2018-01-20T13:34:24.0000000-00:00");
+        }
+
+        [Theory]
+        [InlineData("2026-10-01T00:00:00Z")]
+        [InlineData("2026-10-01T00:00:00.0Z")]
+        [InlineData("2026-10-01T00:00:00.1234567Z")]
+        [InlineData("2026-10-01T05:30:00.0000001+05:30")]
+        [InlineData("2026-09-30T17:00:00.9999999-07:00")]
+        [InlineData("0001-01-01T00:00:00.0000000Z")]
+        [InlineData("9999-12-31T23:59:59.9999999Z")]
+        public async Task GivenAnInstant_WhenConverted_ThenBothEndpointsAreTheSameUtcTick(string literal)
+        {
+            DateTimeOffset instant = DateTimeOffset.Parse(literal, CultureInfo.InvariantCulture);
+            Element.Value = instant;
+            ITypedElementToSearchValueConverter converter = await GetTypeConverterAsync();
+
+            var value = Assert.IsType<DateTimeSearchValue>(Assert.Single(converter.ConvertTo(TypedElement)));
+
+            Assert.Equal(instant.ToUniversalTime(), value.Start);
+            Assert.Equal(instant.ToUniversalTime(), value.End);
+            Assert.Equal(TimeSpan.Zero, value.Start.Offset);
+            Assert.Equal(TimeSpan.Zero, value.End.Offset);
         }
     }
 }

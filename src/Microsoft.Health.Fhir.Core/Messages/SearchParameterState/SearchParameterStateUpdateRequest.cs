@@ -5,7 +5,7 @@
 
 using System;
 using System.Collections.Generic;
-using MediatR;
+using Medino;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 
 namespace Microsoft.Health.Fhir.Core.Messages.SearchParameterState

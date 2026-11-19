@@ -5,7 +5,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using MediatR;
+using Medino;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.<JobName>.Mediator
 {
@@ -13,6 +13,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.<JobName>.Mediator
     {
         public <Action><JobName>Handler() { }
 
-        public async Task<<Action><JobName>Response> Handle(<Action><JobName>Request request, CancellationToken cancellationToken) { }
+        public async Task<<Action><JobName>Response> HandleAsync(<Action><JobName>Request request, CancellationToken cancellationToken) { }
     }
 }

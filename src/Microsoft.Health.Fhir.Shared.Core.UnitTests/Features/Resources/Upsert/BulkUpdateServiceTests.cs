@@ -19,7 +19,6 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -37,6 +36,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence;
 using Microsoft.Health.Fhir.Ignixa;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.JobManagement;
@@ -86,6 +86,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 new Dictionary<string, StringValues>());
             _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             _fhirRequestContextAccessor.RequestContext.Returns(dummyRequestContext);
+
+            // Data stores return an empty outcome by default; tests that need specific outcomes set up their own data store.
+            IFhirDataStore defaultFhirDataStore = CreateFhirDataStore();
+            var defaultScopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            defaultScopedFhirDataStore.Value.Returns(defaultFhirDataStore);
+            _fhirDataStoreFactory.Invoke().Returns(defaultScopedFhirDataStore);
 
             _claimsExtractor = Substitute.For<IClaimsExtractor>();
             _compartmentIndexer = Substitute.For<ICompartmentIndexer>();
@@ -147,6 +153,297 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.Empty(result.ResourcesUpdated);
             Assert.Empty(result.ResourcesIgnored);
             Assert.Empty(result.ResourcesPatchFailed);
+        }
+
+        [Theory]
+        [InlineData("CodeSystem", false, true)]
+        [InlineData("CodeSystem", true, true)]
+        [InlineData("ValueSet", false, true)]
+        [InlineData("ValueSet", true, true)]
+        [InlineData("StructureDefinition", false, true)]
+        [InlineData("StructureDefinition", true, true)]
+        [InlineData("Patient", false, false)]
+        [InlineData("Patient", true, false)]
+        public async Task UpdateMultipleAsync_WhenResourceReturned_RespectsProfileModificationPermission(
+            string resourceType,
+            bool allowProfileResourceModification,
+            bool isProtectedProfileResource)
+        {
+            // Arrange
+            const string patchParameters = "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Resource\"},{\"name\":\"name\",\"valueString\":\"language\"},{\"name\":\"value\",\"valueCode\":\"en\"}]}]}";
+            var conditionalParameters = new List<Tuple<string, string>>();
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(
+                resourceType,
+                conditionalParameters,
+                CancellationToken.None,
+                true,
+                ResourceVersionType.Latest,
+                false,
+                false).Returns(GenerateSearchResult(new Dictionary<string, int> { { resourceType, 1 } }));
+            var fhirDataStore = CreateFhirDataStore();
+            var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            scopedFhirDataStore.Value.Returns(fhirDataStore);
+            _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
+
+            // Act
+            var result = await _service.UpdateMultipleAsync(
+                resourceType,
+                patchParameters,
+                false,
+                0,
+                false,
+                conditionalParameters,
+                bundleResourceContext: null,
+                true,
+                CancellationToken.None,
+                allowProfileResourceModification);
+
+            // Assert
+            if (isProtectedProfileResource && !allowProfileResourceModification)
+            {
+                Assert.Empty(result.ResourcesUpdated);
+                Assert.Equal(1, result.ResourcesIgnored[resourceType]);
+                await fhirDataStore.DidNotReceiveWithAnyArgs().MergeAsync(default, default);
+            }
+            else
+            {
+                Assert.Equal(1, result.ResourcesUpdated[resourceType]);
+                Assert.Empty(result.ResourcesIgnored);
+
+                var mergeCall = Assert.Single(fhirDataStore.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(IFhirDataStore.MergeAsync));
+                var operations = Assert.IsAssignableFrom<IReadOnlyList<ResourceWrapperOperation>>(mergeCall.GetArguments()[0]);
+                ResourceWrapperOperation operation = Assert.Single(operations);
+                Assert.Contains("\"language\":\"en\"", operation.Wrapper.RawResource.Data, StringComparison.Ordinal);
+            }
+        }
+
+        [Fact]
+        public async Task UpdateMultipleAsync_WhenSearchParameterReturnedAndProfileModificationAllowed_SearchParameterIsIgnored()
+        {
+            // Arrange
+            const string resourceType = "SearchParameter";
+            const string patchParameters = "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Resource\"},{\"name\":\"name\",\"valueString\":\"language\"},{\"name\":\"value\",\"valueCode\":\"en\"}]}]}";
+            var conditionalParameters = new List<Tuple<string, string>>();
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(
+                resourceType,
+                conditionalParameters,
+                CancellationToken.None,
+                true,
+                ResourceVersionType.Latest,
+                false,
+                false).Returns(GenerateSearchResult(new Dictionary<string, int> { { resourceType, 1 } }));
+            var fhirDataStore = CreateFhirDataStore();
+            var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            scopedFhirDataStore.Value.Returns(fhirDataStore);
+            _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
+
+            // Act
+            var result = await _service.UpdateMultipleAsync(
+                resourceType,
+                patchParameters,
+                false,
+                0,
+                false,
+                conditionalParameters,
+                bundleResourceContext: null,
+                true,
+                CancellationToken.None,
+                allowProfileResourceModification: true);
+
+            // Assert
+            Assert.Empty(result.ResourcesUpdated);
+            Assert.Equal(1, result.ResourcesIgnored[resourceType]);
+            await fhirDataStore.DidNotReceiveWithAnyArgs().MergeAsync(default, default);
+        }
+
+        [Fact]
+        public async Task UpdateMultipleAsync_WhenTheDataStoreRejectsAResource_ItIsCountedAsFailedNotUpdated()
+        {
+            // Arrange
+            const string resourceType = "Patient";
+            const string rejection = "The resource has more than one value for the URI search parameter '_profile' that are identical in their first 256 characters.";
+            const string patchParameters = "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Resource\"},{\"name\":\"name\",\"valueString\":\"language\"},{\"name\":\"value\",\"valueCode\":\"en\"}]}]}";
+            var conditionalParameters = new List<Tuple<string, string>>();
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(
+                resourceType,
+                conditionalParameters,
+                CancellationToken.None,
+                true,
+                ResourceVersionType.Latest,
+                false,
+                false).Returns(GenerateSearchResult(new Dictionary<string, int> { { resourceType, 3 } }));
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>()).Returns(callInfo =>
+            {
+                ResourceWrapperOperation first = callInfo.Arg<IReadOnlyList<ResourceWrapperOperation>>()[0];
+                return new MergeOutcome(
+                    MergeOutcomeFinalState.Completed,
+                    new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> { { first.GetIdentifier(), new DataStoreOperationOutcome(new BadRequestException(rejection)) } });
+            });
+            var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            scopedFhirDataStore.Value.Returns(fhirDataStore);
+            _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
+
+            // Act
+            var result = await _service.UpdateMultipleAsync(
+                resourceType,
+                patchParameters,
+                false,
+                0,
+                false,
+                conditionalParameters,
+                bundleResourceContext: null,
+                true,
+                CancellationToken.None);
+
+            // Assert
+            Assert.Equal(2, result.ResourcesUpdated[resourceType]);
+            Assert.Equal(1, result.ResourcesPatchFailed[resourceType]);
+            Assert.Contains(rejection, result.Issues);
+        }
+
+        [Fact]
+        public async Task UpdateMultipleAsync_WhenTheDataStoreRejectsAResourceOnlyOnALaterPage_TheRejectionIsReported()
+        {
+            // Arrange
+            const string resourceType = "Patient";
+            const string rejection = "The resource has more than one value for the URI search parameter '_profile' that are identical in their first 256 characters.";
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(
+                resourceType,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                true,
+                ResourceVersionType.Latest,
+                false,
+                false).Returns(
+                    GenerateSearchResult(new Dictionary<string, int> { { resourceType, 2 } }, "continuationToken"),
+                    GenerateSearchResult(new Dictionary<string, int> { { resourceType, 2 } }));
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            int mergeCalls = 0;
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>()).Returns(callInfo =>
+            {
+                // The sub-page is processed before the current page, so the first merge is for the later page.
+                if (Interlocked.Increment(ref mergeCalls) != 1)
+                {
+                    return MergeOutcome.Empty;
+                }
+
+                ResourceWrapperOperation first = callInfo.Arg<IReadOnlyList<ResourceWrapperOperation>>()[0];
+                return new MergeOutcome(
+                    MergeOutcomeFinalState.Completed,
+                    new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> { { first.GetIdentifier(), new DataStoreOperationOutcome(new BadRequestException(rejection)) } });
+            });
+            var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            scopedFhirDataStore.Value.Returns(fhirDataStore);
+            _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
+
+            // Act
+            var result = await _service.UpdateMultipleAsync(
+                resourceType,
+                fhirPatchParameters,
+                true,
+                0,
+                false,
+                new List<Tuple<string, string>>(),
+                bundleResourceContext: null,
+                true,
+                CancellationToken.None);
+
+            // Assert
+            Assert.Equal(1, result.ResourcesPatchFailed[resourceType]);
+            Assert.Equal(3, result.ResourcesUpdated[resourceType]);
+            Assert.Equal(new[] { rejection }, result.Issues);
+        }
+
+        [Fact]
+        public async Task UpdateMultipleAsync_WhenUpdatedResourcesHaveOverlongReferenceIds_OnlyUpdatedResourcesAreCounted()
+        {
+            const string resourceType = "Patient";
+            SetUpOverlongReferenceSearch(resourceType, 3);
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>()).Returns(callInfo =>
+            {
+                ResourceWrapperOperation first = callInfo.Arg<IReadOnlyList<ResourceWrapperOperation>>()[0];
+                return new MergeOutcome(
+                    MergeOutcomeFinalState.Completed,
+                    new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> { { first.GetIdentifier(), new DataStoreOperationOutcome(new BadRequestException("rejected")) } });
+            });
+            SetUpFhirDataStore(fhirDataStore);
+
+            BulkUpdateResult result = await _service.UpdateMultipleAsync(resourceType, "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Resource\"},{\"name\":\"name\",\"valueString\":\"language\"},{\"name\":\"value\",\"valueCode\":\"en\"}]}]}", false, 0, false, new List<Tuple<string, string>>(), bundleResourceContext: null, true, CancellationToken.None);
+
+            OverlongReferenceIdCount count = Assert.Single(result.OverlongReferenceIds);
+            Assert.Equal(resourceType, count.ResourceType);
+            Assert.Equal("general-practitioner", count.SearchParameterCode);
+            Assert.Equal(64, count.MaxResourceIdLength);
+            Assert.Equal(2, count.Count);
+        }
+
+        [Fact]
+        public async Task UpdateMultipleAsync_WhenAWriteFailsWithAnotherException_ThatResourceIsNotCounted()
+        {
+            const string resourceType = "Patient";
+            SetUpOverlongReferenceSearch(resourceType, 3);
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>()).Returns(callInfo =>
+            {
+                IReadOnlyList<ResourceWrapperOperation> operations = callInfo.Arg<IReadOnlyList<ResourceWrapperOperation>>();
+                return new MergeOutcome(
+                    MergeOutcomeFinalState.CompletedWithFailures,
+                    new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>
+                    {
+                        { operations[0].GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(operations[0].Wrapper, SaveOutcomeType.Updated)) },
+                        { operations[1].GetIdentifier(), new DataStoreOperationOutcome(new RequestRateExceededException(TimeSpan.FromSeconds(1))) },
+                        { operations[2].GetIdentifier(), new DataStoreOperationOutcome(new PreconditionFailedException("precondition failed")) },
+                    });
+            });
+            SetUpFhirDataStore(fhirDataStore);
+
+            BulkUpdateResult result = await _service.UpdateMultipleAsync(resourceType, "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Resource\"},{\"name\":\"name\",\"valueString\":\"language\"},{\"name\":\"value\",\"valueCode\":\"en\"}]}]}", false, 0, false, new List<Tuple<string, string>>(), bundleResourceContext: null, true, CancellationToken.None);
+
+            OverlongReferenceIdCount count = Assert.Single(result.OverlongReferenceIds);
+            Assert.Equal(1, count.Count);
+        }
+
+        [Fact]
+        public async Task UpdateMultipleAsync_WhenTheMergeFailsAfterSavingSomeResources_TheSavedResourcesAreCounted()
+        {
+            const string resourceType = "Patient";
+            SetUpOverlongReferenceSearch(resourceType, 3);
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>()).Returns<MergeOutcome>(callInfo =>
+            {
+                IReadOnlyList<ResourceWrapperOperation> operations = callInfo.Arg<IReadOnlyList<ResourceWrapperOperation>>();
+                var partialResults = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>
+                {
+                    { operations[0].GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(operations[0].Wrapper, SaveOutcomeType.Updated)) },
+                    { operations[1].GetIdentifier(), new DataStoreOperationOutcome(new BadRequestException("rejected")) },
+                };
+                throw new IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>>(new InvalidOperationException("failed"), partialResults);
+            });
+            SetUpFhirDataStore(fhirDataStore);
+
+            var ex = await Assert.ThrowsAsync<IncompleteOperationException<BulkUpdateResult>>(() => _service.UpdateMultipleAsync(resourceType, "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"operation\",\"part\":[{\"name\":\"type\",\"valueCode\":\"upsert\"},{\"name\":\"path\",\"valueString\":\"Resource\"},{\"name\":\"name\",\"valueString\":\"language\"},{\"name\":\"value\",\"valueCode\":\"en\"}]}]}", false, 0, false, new List<Tuple<string, string>>(), bundleResourceContext: null, true, CancellationToken.None));
+
+            OverlongReferenceIdCount count = Assert.Single(ex.PartialResults.OverlongReferenceIds);
+            Assert.Equal(resourceType, count.ResourceType);
+            Assert.Equal(1, count.Count);
         }
 
         [Theory]
@@ -442,7 +739,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             Assert.True(result.ResourcesIgnored["Observation"] == 1); // Observations ignored as no applicable patch request
         }
 
-        [RetryTheory(MaxRetries = 3)]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task UpdateMultipleAsync_WhenSingleMatchAndMoreThanMaxParallelThreadsIncludePagesWithGivenReadNextPage_ResourcesAreUpdated(bool readNextPage)
@@ -670,7 +967,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             }
         }
 
-        [RetryTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task UpdateMultipleAsync__WhenMoreThanMaxParallelThreadsMatchAndIncludePagesWithGivenReadNextPage_ResourcesAreUpdated(bool readNextPage)
@@ -738,7 +1035,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
         }
 
         [Fact]
-        public async Task UpdateMultipleAsync_WhenMergeAsyncThrowsIncompleteOperationException_ThrowsIncompleteOperationExceptionBulkUpdateResult()
+        public async Task UpdateMultipleAsync_WhenProtectedResourcesAreIgnoredAcrossIncludePagesAndMergeFails_ReturnsIgnoredCountsWithPartialResults()
         {
             // Arrange
             var resourceType = "Patient";
@@ -764,7 +1061,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             // Simulate a search result
             searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>(), Arg.Any<ResourceVersionType>(), Arg.Any<bool>(), isIncludesRequest).Returns((x) =>
             {
-                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 5 }, { "Observation", 1 }, { "Practitioner", 2 }, { "Organization", 2 } }, "continuationToken", "includesContinuationToken"));
+                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 5 }, { "Observation", 1 }, { "Practitioner", 2 }, { "Organization", 2 }, { "CodeSystem", 1 } }, "continuationToken", "includesContinuationToken"));
             });
 
             // Simulate a include search result
@@ -773,10 +1070,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             {
                 callCountForIncludeResults++;
                 var includesContinuationToken = callCountForIncludeResults <= 2 ? "includesContinuationToken" : null;
-                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Organization", 2 } }, null, includesContinuationToken));
+                return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Organization", 2 }, { "ValueSet", 1 } }, null, includesContinuationToken));
             });
 
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
             scopedFhirDataStore.Value.Returns(fhirDataStore);
             _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
@@ -816,7 +1113,17 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             // Act & Assert
             var ex = await Assert.ThrowsAsync<IncompleteOperationException<BulkUpdateResult>>(async () =>
             {
-                await _service.UpdateMultipleAsync(resourceType, fhirPatchParameters, readNextPage, 0, isIncludesRequest, conditionalParameters, bundleResourceContext: null, true, cancellationToken);
+                await _service.UpdateMultipleAsync(
+                    resourceType,
+                    fhirPatchParameters,
+                    readNextPage,
+                    0,
+                    isIncludesRequest,
+                    conditionalParameters,
+                    bundleResourceContext: null,
+                    true,
+                    cancellationToken,
+                    allowProfileResourceModification: false);
             });
 
             // The inner exception should be an AggregateException containing the simulated failure
@@ -831,12 +1138,19 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
             // The partial results should be present
             Assert.NotNull(ex.PartialResults);
             Assert.True(ex.PartialResults.ResourcesUpdated.Count == 2);
-            Assert.True(ex.PartialResults.ResourcesIgnored.Count == 1);
+            Assert.True(ex.PartialResults.ResourcesIgnored.Count == 3);
             Assert.True(ex.PartialResults.ResourcesPatchFailed.Count == 1);
             Assert.True(ex.PartialResults.ResourcesUpdated["Patient"] == 3);
             Assert.True(ex.PartialResults.ResourcesUpdated["Organization"] == 8);
             Assert.True(ex.PartialResults.ResourcesIgnored["Observation"] == 1);
+            Assert.True(ex.PartialResults.ResourcesIgnored["CodeSystem"] == 1);
+            Assert.True(ex.PartialResults.ResourcesIgnored["ValueSet"] == 3);
             Assert.True(ex.PartialResults.ResourcesPatchFailed["Practitioner"] == 2);
+            Assert.DoesNotContain(
+                fhirDataStore.ReceivedCalls()
+                    .Where(call => call.GetMethodInfo().Name == nameof(IFhirDataStore.MergeAsync))
+                    .SelectMany(call => (IReadOnlyList<ResourceWrapperOperation>)call.GetArguments()[0]),
+                operation => OperationsConstants.ProtectedProfileResourceTypes.Contains(operation.Wrapper.ResourceTypeName));
         }
 
         [Fact]
@@ -868,7 +1182,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                     return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 2 }, { "Observation", 1 }, { "Practitioner", 2 } }));
                 });
 
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
             scopedFhirDataStore.Value.Returns(fhirDataStore);
             _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
@@ -933,7 +1247,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 false,
                 isIncludesRequest).Returns(Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 1 } })));
 
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
             scopedFhirDataStore.Value.Returns(fhirDataStore);
             _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
@@ -987,7 +1301,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                     return Task.FromResult(GenerateSearchResult(new Dictionary<string, int> { { "Patient", 2 }, { "Observation", 1 }, { "Practitioner", 2 } }));
                 });
 
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            var fhirDataStore = CreateFhirDataStore();
             var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
             scopedFhirDataStore.Value.Returns(fhirDataStore);
             _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
@@ -1086,6 +1400,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                 Arg.Is<IReadOnlyDictionary<string, string>>(d => d.ContainsKey("Affected Items")));
         }
 
+        private static IFhirDataStore CreateFhirDataStore()
+        {
+            var fhirDataStore = Substitute.For<IFhirDataStore>();
+            fhirDataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>()).Returns(MergeOutcome.Empty);
+            return fhirDataStore;
+        }
+
         private SearchResult GenerateSearchResult(
             Dictionary<string, int> resourceTypeCounts,
             string continuationToken = null,
@@ -1150,6 +1471,21 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                             case "Organization":
                                 resource = Samples.GetDefaultOrganization().ToPoco<Organization>();
                                 break;
+                            case "CodeSystem":
+                                resource = new CodeSystem
+                                {
+                                    Status = PublicationStatus.Draft,
+                                };
+                                break;
+                            case "ValueSet":
+                                resource = new ValueSet();
+                                break;
+                            case "StructureDefinition":
+                                resource = new StructureDefinition();
+                                break;
+                            case "SearchParameter":
+                                resource = new SearchParameter();
+                                break;
                             default:
                                 throw new ArgumentException($"Unsupported resource type: {resourceType}");
                         }
@@ -1167,6 +1503,31 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Upsert
                     }
                 }
             }
+        }
+
+        private void SetUpOverlongReferenceSearch(string resourceType, int count)
+        {
+            var searchService = Substitute.For<ISearchService>();
+            var scopedSearchService = Substitute.For<IScoped<ISearchService>>();
+            scopedSearchService.Value.Returns(searchService);
+            _searchServiceFactory.Invoke().Returns(scopedSearchService);
+            searchService.SearchAsync(resourceType, Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), true, ResourceVersionType.Latest, false, false)
+                .Returns(GenerateSearchResult(new Dictionary<string, int> { { resourceType, count } }));
+
+            var generalPractitioner = new SearchParameterInfo("general-practitioner", "general-practitioner", ValueSets.SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Patient-general-practitioner"));
+            var overlongReference = new Microsoft.Health.Fhir.Core.Features.Search.SearchValues.ReferenceSearchValue(Microsoft.Health.Fhir.Core.Features.Search.SearchValues.ReferenceKind.InternalOrExternal, null, "Practitioner", new string('a', 64))
+            {
+                OverlongResourceIdLength = 65,
+                MaxResourceIdLength = 64,
+            };
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new List<SearchIndexEntry> { new SearchIndexEntry(generalPractitioner, overlongReference) });
+        }
+
+        private void SetUpFhirDataStore(IFhirDataStore fhirDataStore)
+        {
+            var scopedFhirDataStore = Substitute.For<IScoped<IFhirDataStore>>();
+            scopedFhirDataStore.Value.Returns(fhirDataStore);
+            _fhirDataStoreFactory.Invoke().Returns(scopedFhirDataStore);
         }
     }
 }

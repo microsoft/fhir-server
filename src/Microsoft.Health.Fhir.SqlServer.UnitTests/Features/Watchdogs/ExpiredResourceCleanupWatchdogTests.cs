@@ -5,14 +5,17 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
@@ -29,6 +32,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
     [Trait(Traits.Category, Categories.Operations)]
     public class ExpiredResourceCleanupWatchdogTests
     {
+        private const string CleanupUrl = "./ExpiredResourceCleanupWatchdog";
+
         private readonly ExpiredResourceCleanupWatchdog _watchdog;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly IQueueClient _queueClient;
@@ -59,8 +64,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
             var watchdog = new ExpiredResourceCleanupWatchdog();
 
             // Assert
-            Assert.Equal(4 * 3600, watchdog.PeriodSec);
-            Assert.Equal(3600, watchdog.LeasePeriodSec);
+            Assert.Equal(4 * 60 * 60, watchdog.PeriodSec);
+            Assert.Equal(15 * 60, watchdog.LeasePeriodSec);
             Assert.False(watchdog.AllowRebalance);
         }
 
@@ -119,33 +124,45 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
         }
 
         [Fact]
-        public async Task GivenWatchdogEnabled_WhenEnqueueFails_ThenNoExceptionIsThrown()
+        public async Task GivenWatchdogEnabled_WhenEnqueueFails_ThenExceptionIsPropagated()
         {
+            // Arrange
+            var exception = new Exception("Enqueue failed");
             _queueClient.EnqueueAsync(
                 Arg.Any<byte>(),
                 Arg.Any<string[]>(),
                 Arg.Any<long?>(),
                 Arg.Any<bool>(),
                 Arg.Any<CancellationToken>())
-                .Returns(Task.FromException<IReadOnlyList<JobInfo>>(new Exception("Enqueue failed")));
+                .Returns(Task.FromException<IReadOnlyList<JobInfo>>(exception));
 
-            // Act & Assert - should not throw
-            await _watchdog.RunWorkForTestingAsync(CancellationToken.None);
+            // Act
+            var actualException = await Assert.ThrowsAsync<Exception>(() => _watchdog.RunWorkForTestingAsync(CancellationToken.None));
+
+            // Assert
+            Assert.Same(exception, actualException);
         }
 
-        [Fact]
-        public async Task GivenWatchdogEnabled_WhenEnqueueReturnsNull_ThenNoExceptionIsThrown()
+        private static JobInfo CreateBulkDeleteJob(long jobId, string url, DateTime createDate)
         {
-            _queueClient.EnqueueAsync(
-                Arg.Any<byte>(),
-                Arg.Any<string[]>(),
-                Arg.Any<long?>(),
-                Arg.Any<bool>(),
-                Arg.Any<CancellationToken>())
-                .Returns((IReadOnlyList<JobInfo>)null);
+            var definition = new BulkDeleteDefinition(
+                JobType.BulkDeleteOrchestrator,
+                DeleteOperation.HardDelete,
+                type: null,
+                searchParameters: new List<Tuple<string, string>>(),
+                excludedResourceTypes: null,
+                url,
+                baseUrl: url,
+                parentRequestId: Guid.NewGuid().ToString(),
+                versionType: ResourceVersionType.Latest,
+                removeReferences: false);
 
-            // Act & Assert - should not throw
-            await _watchdog.RunWorkForTestingAsync(CancellationToken.None);
+            return new JobInfo
+            {
+                Id = jobId,
+                Definition = JsonConvert.SerializeObject(definition),
+                CreateDate = createDate,
+            };
         }
 
         private static bool VerifyBulkDeleteDefinition(string definitionJson)
@@ -153,7 +170,24 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
             var definition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(definitionJson);
             return definition != null &&
                    definition.TypeId == (int)JobType.BulkDeleteOrchestrator &&
-                   definition.DeleteOperation == DeleteOperation.HardDelete;
+                   definition.DeleteOperation == DeleteOperation.HardDelete &&
+                   definition.Url == CleanupUrl &&
+                   definition.BaseUrl == CleanupUrl &&
+                   definition.VersionType == ResourceVersionType.Latest &&
+                   !definition.RemoveReferences &&
+                   definition.AllowProfileResourceModification &&
+                   definition.SearchParameters.Any(parameter => parameter.Item1 == "_expiryDate" && parameter.Item2.StartsWith("lt", StringComparison.Ordinal)) &&
+                   definition.SearchParameters.Any(parameter => parameter.Item1 == KnownQueryParameterNames.RemoveReferences && parameter.Item2 == "true");
+        }
+
+        private async Task AssertBulkDeleteJobWasNotEnqueuedAsync()
+        {
+            await _queueClient.DidNotReceive().EnqueueAsync(
+                (byte)QueueType.BulkDelete,
+                Arg.Any<string[]>(),
+                Arg.Any<long?>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>());
         }
     }
 }

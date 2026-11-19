@@ -10,6 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// An abstract <see cref="IExpressionVisitor{TContext,TOutput}"/> for rewriting an expression tree.
     /// Expression trees are treated as immutable, so if no changes have been made, the same instance is returned.
+    /// Rebuilt multiary and union expressions retain their SMART scope authorization marker.
     /// </summary>
     /// <typeparam name="TContext">The type of the context parameter passed to each Visit method</typeparam>
     public abstract class ExpressionRewriter<TContext> : IExpressionVisitor<TContext, Expression>
@@ -23,6 +24,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             }
 
             return new SearchParameterExpression(expression.Parameter, visitedExpression);
+        }
+
+        public virtual Expression VisitVectorSearch(VectorSearchExpression expression, TContext context)
+        {
+            return expression;
         }
 
         public virtual Expression VisitBinary(BinaryExpression expression, TContext context)
@@ -74,13 +80,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public virtual Expression VisitMultiary(MultiaryExpression expression, TContext context)
         {
             IReadOnlyList<Expression> rewrittenExpressions = VisitArray(expression.Expressions, context);
-            return ReferenceEquals(rewrittenExpressions, expression.Expressions) ? expression : new MultiaryExpression(expression.MultiaryOperation, rewrittenExpressions);
+            return ReferenceEquals(rewrittenExpressions, expression.Expressions) ? expression : new MultiaryExpression(expression.MultiaryOperation, rewrittenExpressions)
+            {
+                IsSmartV2UnionExpressionForScopesSearchParameters = expression.IsSmartV2UnionExpressionForScopesSearchParameters,
+            };
         }
 
         public virtual Expression VisitUnion(UnionExpression expression, TContext context)
         {
             IReadOnlyList<Expression> rewrittenExpressions = VisitArray(expression.Expressions, context);
-            return ReferenceEquals(rewrittenExpressions, expression.Expressions) ? expression : new UnionExpression(expression.Operator, rewrittenExpressions);
+            return ReferenceEquals(rewrittenExpressions, expression.Expressions) ? expression : new UnionExpression(expression.Operator, rewrittenExpressions)
+            {
+                IsSmartV2UnionExpressionForScopesSearchParameters = expression.IsSmartV2UnionExpressionForScopesSearchParameters,
+            };
         }
 
         public virtual Expression VisitString(StringExpression expression, TContext context)
@@ -114,6 +126,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         public Expression VisitNotReferenced(NotReferencedExpression expression, TContext context)
+        {
+            return expression;
+        }
+
+        public virtual Expression VisitNotReferencing(NotReferencingExpression expression, TContext context)
         {
             return expression;
         }

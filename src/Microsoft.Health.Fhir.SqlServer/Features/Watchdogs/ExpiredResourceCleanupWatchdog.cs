@@ -14,6 +14,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -30,9 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     internal sealed class ExpiredResourceCleanupWatchdog : Watchdog<ExpiredResourceCleanupWatchdog>
     {
         private const int DefaultPeriodSec = 4 * 3600; // 4 hours
-        private const int DefaultLeasePeriodSec = 3600; // 1 hour
-
-        private readonly ISqlRetryService _sqlRetryService;
+        private const int DefaultLeasePeriodSec = 15 * 60; // 15 minutes
         private readonly IQueueClient _queueClient;
         private readonly ILogger<ExpiredResourceCleanupWatchdog> _logger;
         private readonly ExpiredResourceConfiguration _configuration;
@@ -44,7 +43,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             ILogger<ExpiredResourceCleanupWatchdog> logger)
             : base(sqlRetryService, logger)
         {
-            _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _configuration = EnsureArg.IsNotNull(watchdogConfiguration?.Value?.ExpiredResource, nameof(watchdogConfiguration));
@@ -77,7 +75,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             if (!_configuration.Enabled)
             {
-                _logger.LogDebug("ExpiredResourceCleanupWatchdog is disabled. Skipping cleanup.");
+                _logger.LogInformation("ExpiredResourceCleanupWatchdog is disabled. Skipping cleanup.");
                 return;
             }
 
@@ -88,8 +86,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             try
             {
-                var cutoffDate = Clock.UtcNow;
-                var cutoffDateString = cutoffDate.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                var cutoffDateString = Clock.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
                 var searchParameters = new List<Tuple<string, string>>
                 {
@@ -107,25 +104,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     baseUrl: $"./ExpiredResourceCleanupWatchdog",
                     parentRequestId: Guid.NewGuid().ToString(),
                     versionType: ResourceVersionType.Latest,
-                    removeReferences: false);
+                    removeReferences: false,
+                    allowProfileResourceModification: true);
 
-                var jobs = await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, definitions: definition);
-
-                if (jobs != null && jobs.Count > 0)
-                {
-                    _logger.LogInformation(
-                        "ExpiredResourceCleanupWatchdog: Enqueued bulk delete job {JobId} to delete resources older than {CutoffDate}.",
-                        jobs[0].Id,
-                        cutoffDateString);
-                }
-                else
-                {
-                    _logger.LogWarning("ExpiredResourceCleanupWatchdog: Failed to enqueue bulk delete job.");
-                }
+                var job = (await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, definitions: definition))[0];
+                _logger.LogInformation("ExpiredResourceCleanupWatchdog: Enqueued bulk delete job {JobId} to delete resources older than {CutoffDate}.", job.Id, cutoffDateString);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ExpiredResourceCleanupWatchdog: Error while enqueuing bulk delete job.");
+                throw; // do not update last run time if there is an error, so that the watchdog will retry on the next run.
             }
         }
     }

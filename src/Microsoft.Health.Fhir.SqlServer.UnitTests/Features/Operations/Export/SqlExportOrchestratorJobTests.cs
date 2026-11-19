@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Castle.Core.Logging;
@@ -37,6 +38,73 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
         private IQueueClient _mockQueueClient = Substitute.For<IQueueClient>();
         private IOptions<ExportJobConfiguration> _exportJobConfiguration = Options.Create(new ExportJobConfiguration());
 
+        public SqlExportOrchestratorJobTests()
+        {
+            _mockSearchService.IsValidResourceType(Arg.Any<string>()).Returns(true);
+        }
+
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.OrchestratorFailureCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenOrchestrationFailure_WhenExecuted_ThenClassificationIsPreserved(string scenario, bool expectedCustomerCaused, string stage)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            _mockSearchService.GetUsedResourceTypes(Arg.Any<CancellationToken>())
+                .Returns(_ => stage == "discovery" ? Task.FromException<IReadOnlyList<string>>(failure) : Task.FromResult<IReadOnlyList<string>>(new[] { "Patient" }));
+            _mockSearchService.GetSurrogateIdRanges(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(_ => stage == "search"
+                    ? Task.FromException<IReadOnlyList<(long, long, int)>>(failure)
+                    : Task.FromResult<IReadOnlyList<(long, long, int)>>(new[] { (1L, 2L, 2) }));
+            _mockQueueClient.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns<Task<IReadOnlyList<JobInfo>>>(_ => throw failure);
+            var jobInfo = GetJobInfoArray(0, 10000, false, 10000, isParallel: true).First();
+            var job = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration, _logger);
+
+            // Act
+            var exception = await Record.ExceptionAsync(() => job.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            if (expectedCustomerCaused)
+            {
+                var jobException = Assert.IsType<JobExecutionException>(exception);
+                Assert.True(jobException.IsCustomerCaused);
+                Assert.Same(failure, jobException.InnerException);
+                var record = Assert.IsType<ExportJobRecord>(jobException.Error);
+                Assert.Equal(OperationStatus.Failed, record.Status);
+                Assert.True(record.FailureDetails.IsCustomerCaused);
+                Assert.Contains(failure.Message, record.FailureDetails.FailureReason);
+            }
+            else
+            {
+                Assert.Same(failure, exception);
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.FailureStatusCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenOrchestrationFailure_WhenCustomerCaused_ThenStatusMatchesApi(string scenario, HttpStatusCode expectedStatus)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            _mockSearchService.GetUsedResourceTypes(Arg.Any<CancellationToken>())
+                .Returns<Task<IReadOnlyList<string>>>(_ => throw failure);
+            var jobInfo = GetJobInfoArray(0, 10000, false, 10000, isParallel: true).First();
+            var job = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration, _logger);
+
+            // Act
+            var exception = await Record.ExceptionAsync(() => job.ExecuteAsync(jobInfo, CancellationToken.None));
+
+            // Assert
+            if (expectedStatus != HttpStatusCode.InternalServerError)
+            {
+                Assert.Equal(expectedStatus, Assert.IsType<ExportJobRecord>(Assert.IsType<JobExecutionException>(exception).Error).FailureDetails.FailureStatusCode);
+            }
+            else
+            {
+                Assert.Same(failure, exception);
+            }
+        }
+
         [Theory]
         [InlineData(ExportJobType.Patient, 100, 100)]
         [InlineData(ExportJobType.Group, 1, 1)]
@@ -48,8 +116,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, exportJobType: exportJobType)[0];
             var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration, _logger);
-            var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, CancellationToken.None);
-            var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
+            await exportOrchestratorJob.ExecuteAsync(orchestratorJob, CancellationToken.None);
 
             CheckJobsQueued(expectedEnqueueCalls, expectedJobCount);
         }
@@ -88,21 +155,101 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
             CheckJobsQueued(3, numExpectedJobsPerResourceType * 3);
         }
 
-        [Fact]
-        public async Task GivenAnExportJobWithTypeRestrictions_WhenRun_ThenProcessingJobsShouldBeCreatedPerResourceType()
+        [Theory]
+        [InlineData("Patient,Observation", "Observation", "Patient")]
+        [InlineData("Patient, ServiceRequest", "Patient", "ServiceRequest")]
+        [InlineData(" Patient , ServiceRequest ", "Patient", "ServiceRequest")]
+        public async Task GivenAnExportJobWithTypeRestrictions_WhenRun_ThenProcessingJobsShouldBeCreatedPerResourceType(
+            string typeFilter,
+            string firstExpectedResourceType,
+            string secondExpectedResourceType)
         {
             int numExpectedJobs = 100;
             long orchestratorJobId = 10000;
 
             SetupMockQueue(numExpectedJobs, orchestratorJobId);
 
-            JobInfo orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, typeFilter: "Patient,Observation").First();
+            JobInfo orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, typeFilter: typeFilter).First();
             var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration, _logger);
             string result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, CancellationToken.None);
             ExportJobRecord jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             Assert.Equal(OperationStatus.Completed, jobResult.Status);
 
             CheckJobsQueued(2, numExpectedJobs * 2);
+
+            var searchedResourceTypes = _mockSearchService.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name.Equals("GetSurrogateIdRanges"))
+                .Select(call => (string)call.GetOriginalArguments()[0])
+                .Distinct()
+                .OrderBy(resourceType => resourceType);
+            var queuedResourceTypes = _mockQueueClient.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name.Equals("EnqueueAsync"))
+                .SelectMany(call => (string[])call.GetOriginalArguments()[1])
+                .Select(definition => JsonConvert.DeserializeObject<ExportJobRecord>(definition).ResourceType)
+                .Distinct()
+                .OrderBy(resourceType => resourceType);
+
+            Assert.Equal(new[] { firstExpectedResourceType, secondExpectedResourceType }, searchedResourceTypes);
+            Assert.Equal(new[] { firstExpectedResourceType, secondExpectedResourceType }, queuedResourceTypes);
+        }
+
+        [Theory]
+        [InlineData(ExportJobType.All, false, false)]
+        [InlineData(ExportJobType.Patient, true, false)]
+        [InlineData(ExportJobType.Group, true, false)]
+        [InlineData(ExportJobType.All, true, true)]
+        public async Task GivenAnExportJobThatInheritsWhitespacePaddedTypeRestrictions_WhenRun_ThenQueuedJobsUseNormalizedResourceTypes(
+            ExportJobType exportJobType,
+            bool isParallel,
+            bool hasFilter)
+        {
+            const long orchestratorJobId = 10000;
+
+            SetupMockQueue(1, orchestratorJobId);
+
+            JobInfo orchestratorJob = GetJobInfoArray(
+                0,
+                orchestratorJobId,
+                false,
+                orchestratorJobId,
+                isParallel: isParallel,
+                typeFilter: " Patient , ServiceRequest ",
+                exportJobType: exportJobType,
+                hasFilter: hasFilter).First();
+            var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration, _logger);
+
+            await exportOrchestratorJob.ExecuteAsync(orchestratorJob, CancellationToken.None);
+
+            var queuedResourceTypes = _mockQueueClient.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name.Equals("EnqueueAsync"))
+                .SelectMany(call => (string[])call.GetOriginalArguments()[1])
+                .Select(definition => JsonConvert.DeserializeObject<ExportJobRecord>(definition).ResourceType);
+
+            Assert.Equal(new[] { "Patient,ServiceRequest" }, queuedResourceTypes.Distinct());
+        }
+
+        [Theory]
+        [InlineData("Patient,InvalidType", "InvalidType")]
+        [InlineData("Patient,,Observation", "<empty>")]
+        [InlineData("Patient, ,Observation", "<empty>")]
+        [InlineData(" ", "<empty>")]
+        public async Task GivenAnExportJobWithInvalidResourceType_WhenRun_ThenJobExecutionExceptionIsThrown(
+            string typeFilter,
+            string invalidResourceType)
+        {
+            long orchestratorJobId = 10000;
+
+            _mockSearchService.IsValidResourceType("InvalidType").Returns(false);
+            SetupMockQueue(1, orchestratorJobId);
+
+            var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, typeFilter: typeFilter).First();
+            var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration, _logger);
+            var ex = await Assert.ThrowsAsync<JobExecutionException>(() => exportOrchestratorJob.ExecuteAsync(orchestratorJob, CancellationToken.None));
+            var failedRecord = Assert.IsType<ExportJobRecord>(ex.Error);
+
+            Assert.Contains(invalidResourceType, ex.Message);
+            Assert.Equal(System.Net.HttpStatusCode.BadRequest, failedRecord.FailureDetails.FailureStatusCode);
+            CheckJobsQueued(0, 0);
         }
 
         private IReadOnlyList<JobInfo> GetJobInfoArray(
@@ -113,9 +260,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
             bool isParallel = false,
             string typeFilter = null,
             ExportJobType exportJobType = ExportJobType.All,
+            bool hasFilter = false,
             bool failure = false)
         {
             var jobInfoArray = new List<JobInfo>();
+            List<ExportJobFilter> filters = hasFilter ? [new(KnownResourceTypes.Patient, [])] : null;
 
             if (orchestratorJobId != -1)
             {
@@ -124,7 +273,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
                                 exportJobType,
                                 ExportFormatTags.ResourceName,
                                 typeFilter,
-                                null,
+                                filters,
                                 "hash",
                                 0,
                                 groupId: $"{groupId}",

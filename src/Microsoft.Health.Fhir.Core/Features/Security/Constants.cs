@@ -42,6 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
             "permission-patient",
             "permission-user",
             "permission-offline",
+            "permission-v1",
             "permission-v2",
         };
 

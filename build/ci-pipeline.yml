@@ -78,30 +78,17 @@ stages:
     majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
     nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
   jobs:
-  - job: Windows_dotnet9
+  - job: Windows_dotnet11
     pool:
       name: '$(InternalPool)'
       demands:
         - ImageOverride -equals $(InternalWindowsImage)
-    variables:
-      AllowPtrToDetectTestRunRetryFiles: true
     steps:
     - template: ./jobs/build.yml
       parameters:
         targetBuildFramework: $(defaultBuildFramework)
         unitTest: false
         codeCoverage: true
-  - job: Linux_dotnet9
-    pool:
-      name: '$(InternalPool)'
-      demands:
-        - ImageOverride -equals $(InternalLinuxImage)
-    variables:
-      AllowPtrToDetectTestRunRetryFiles: true
-    steps:
-    - template: ./jobs/build.yml
-      parameters:
-        targetBuildFramework: $(defaultBuildFramework)
 
 - stage: BuildArtifacts
   displayName: 'Build artifacts'
@@ -206,7 +193,7 @@ stages:
       version: Stu3
       keyVaultName: $(KeyVaultNameSql)
       containerAppName: $(DeploymentEnvironmentNameSql)
-      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      integrationSqlServerName: $(DeploymentEnvironmentName)integrtest
       mainCategoryFilter: 'Category!=ExportLongRunning'
       runReindexJob: false
       runBulkUpdateJob: false
@@ -263,7 +250,7 @@ stages:
       version: R4
       keyVaultName: $(KeyVaultNameR4Sql)
       containerAppName: $(DeploymentEnvironmentNameR4Sql)
-      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      integrationSqlServerName: $(DeploymentEnvironmentName)integrtest
       mainCategoryFilter: 'Category!=ExportLongRunning'
       runReindexJob: false
       runBulkUpdateJob: false
@@ -293,7 +280,7 @@ stages:
       version: R5
       keyVaultName: $(KeyVaultNameR5Sql)
       containerAppName: $(DeploymentEnvironmentNameR5Sql)
-      integrationSqlServerName: $(DeploymentEnvironmentName)inttest
+      integrationSqlServerName: $(DeploymentEnvironmentName)integrtest
       mainCategoryFilter: 'Category!=ExportLongRunning'
       runReindexJob: false
       runBulkUpdateJob: false

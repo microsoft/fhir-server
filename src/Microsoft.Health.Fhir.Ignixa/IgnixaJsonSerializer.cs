@@ -3,6 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+#nullable enable
+
+using System;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Ignixa.Serialization;
 using Ignixa.Serialization.SourceNodes;

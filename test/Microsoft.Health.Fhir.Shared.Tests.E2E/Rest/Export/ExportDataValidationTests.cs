@@ -15,7 +15,6 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
-using Xunit.Abstractions;
 using FhirGroup = Hl7.Fhir.Model.Group;
 using Task = System.Threading.Tasks.Task;
 

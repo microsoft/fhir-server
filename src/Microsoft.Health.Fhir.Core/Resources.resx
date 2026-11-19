@@ -204,7 +204,7 @@
     <value>Parameter {0} cannot a be a value in the future.</value>
   </data>
   <data name="IdRequirements" xml:space="preserve">
-    <value>Id must be any combination of upper or lower case ASCII letters ('A'..'Z', and 'a'..'z'), numerals ('0'..'9'), '-' and '.', with a length limit of 64 characters. (This might be an integer, an un-prefixed OID, UUID, or any other identifier pattern that meets these constraints.)</value>
+    <value>Id must be any combination of upper or lower case ASCII letters ('A'..'Z', and 'a'..'z'), numerals ('0'..'9'), '-' and '.', with a length limit of {0} characters. (This might be an integer, an un-prefixed OID, UUID, or any other identifier pattern that meets these constraints.)</value>
   </data>
   <data name="IfMatchHeaderRequiredForResource" xml:space="preserve">
     <value>A valid if-match header is required for resource type '{0}'.</value>
@@ -343,6 +343,10 @@
   </data>
   <data name="RequestedActionNotAllowed" xml:space="preserve">
     <value>The requested action is not allowed.</value>
+  </data>
+  <data name="ResourceAlreadyExists" xml:space="preserve">
+    <value>Resource type '{0}' with id '{1}' already exists and did not match the conditional update criteria.</value>
+    <comment>{0} is the resource type. {1} is the resource id. Used when a create-only conditional update conflicts with an existing live resource.</comment>
   </data>
   <data name="ResourceCreationNotAllowed" xml:space="preserve">
     <value>Resource creation is not allowed.</value>
@@ -500,7 +504,7 @@
     <value>The search parameter with Uri '{0}' is defined by the FHIR specification and cannot be updated or deleted. Custom search parameters must use a different URL.</value>
   </data>
   <data name="ChangesToSearchParametersNotAllowedWhileReindexing" xml:space="preserve">
-    <value>Changes to search parameters is not allowed while a reindex job is ongoing.  Wait for the reindex job with Id: {0} to finish, or cancel it.</value>
+    <value>Changes to search parameters are not allowed while a reindex job is in progress. Wait for the reindex job with Id: {0} to finish, or cancel it.</value>
     <comment>{0} Id of currently active Reindex job.</comment>
   </data>
   <data name="ConvertDataFailed" xml:space="preserve">
@@ -539,6 +543,10 @@
   </data>
   <data name="CustomSearchUpdateError" xml:space="preserve">
     <value>An error occurred updating the custom search parameter.  The issue must be resolved and the update resubmitted to be applied.</value>
+  </data>
+  <data name="ExportUnauthorizedIncludesOmitted" xml:space="preserve">
+    <value>Included resources of type '{0}' were excluded because the caller does not have the required SMART export permissions for this resource type.</value>
+    <comment>{0} is the resource type excluded from the export.</comment>
   </data>
   <data name="TypeFilterUnparseable" xml:space="preserve">
     <value>The _typeFilter segment '{0}' could not be parsed.</value>
@@ -700,11 +708,18 @@
   <data name="ChainedResourceTypesNotAllowedDueToScope" xml:space="preserve">
     <value>The (rev)chained resource type is not allowed.  Additional clinical scopes must be requested to allow searches using the chained type.</value>
   </data>
+  <data name="ChainedResourceTypeNotAllowedDueToScope" xml:space="preserve">
+    <value>The (rev)chained resource type {0} is not allowed. Additional clinical scopes must be requested to allow searches using the chained type.</value>
+    <comment>{0} is a string of the name of the resource type.</comment>
+  </data>
   <data name="OperationCanceled" xml:space="preserve">
     <value>The attempted operation was cancelled, please retry the request. If you believe you have received this message in error, please contact Customer Support.</value>
   </data>
   <data name="TransactionDeadlock" xml:space="preserve">
     <value>There was resource contention with another process in the datastore. Please retry this transaction.</value>
+  </data>
+  <data name="TransactionEntryFailedDependency" xml:space="preserve">
+    <value>The request was not completed because another entry in the transaction failed. Review the other entries in the bundle for the original error.</value>
   </data>
   <data name="FhirUserClaimMustHaveResourceTypeAndId" xml:space="preserve">
     <value>The given fhirUser claim:{0} is not valid.  It must have a resource type of Patient or Practicioner and a resource id.</value>
@@ -861,6 +876,10 @@
     <value>Reindex failed with unknown error. Please resubmit to try again.</value>
     <comment>Error message when a reindex job fails with an unknown error</comment>
   </data>
+  <data name="SearchParameterEvaluationFailed" xml:space="preserve">
+    <value>Failed to evaluate search parameter '{0}'. Review its expression.</value>
+    <comment>Safe evaluation error identifying the search parameter, without resource values or underlying exception details.</comment>
+  </data>
   <data name="ReindexingFailedForResourcesListed" xml:space="preserve">
     <value>{0} resource(s) of the following type(s) failed to be reindexed: '{1}'.</value>
   </data>
@@ -876,6 +895,10 @@
   <data name="ReindexingNoSearchParameterstoReindex" xml:space="preserve">
     <value>There are no search parameters to reindex for job Id: {0}.</value>
   </data>
+  <data name="ReindexWarningsOmitted" xml:space="preserve">
+    <value>{0} more reindex warning(s) were not listed.</value>
+    <comment>{0} is the number of warnings not listed.</comment>
+  </data>
   <data name="SearchParameterDefinitionInvalidUriExceedsMaxLength" xml:space="preserve">
     <value>Search Parameter URL {0} exceeds the maximum length limit of {1}</value>
   </data>
@@ -884,5 +907,144 @@
   </data>
   <data name="TruncatedIncludeMessageForIterativeInclude" xml:space="preserve">
     <value>Include result was truncated. Iterative include results cannot be paged though, please narrow your search.</value>
+  </data>
+  <data name="FhirPackageStoreNotEmpty" xml:space="preserve">
+    <value>The FHIR package '{0}' version '{1}' was not installed because the data store already contains resources. Package SearchParameters can only be applied to a new service before any data is written. To add these SearchParameters to a service that has data, create each SearchParameter and then run $reindex.</value>
+  </data>
+  <data name="FhirPackageWriteConflictRetryable" xml:space="preserve">
+    <value>The FHIR package '{0}' version '{1}' was not installed because a concurrent SearchParameter change or a running reindex job conflicted with it. Nothing was written. Retry the installation. Details: {2}</value>
+  </data>
+  <data name="FhirPackageInstalledWithDifferentContent" xml:space="preserve">
+    <value>The FHIR package '{0}' is already installed at version '{1}' with integrity '{2}'. It can't be installed at version '{3}' with integrity '{4}' because package upgrades are not supported.</value>
+  </data>
+  <data name="FhirPackageSearchParameterResourceConflict" xml:space="preserve">
+    <value>The FHIR package '{0}' version '{1}' was not installed because a SearchParameter resource it would create already exists and is not owned by this package. Nothing was written. Details: {2}</value>
+  </data>
+  <data name="FhirPackageRejected" xml:space="preserve">
+    <value>The FHIR package was rejected. Nothing from the package was installed.</value>
+  </data>
+  <data name="FhirPackageNoInstallableResources" xml:space="preserve">
+    <value>The FHIR package &apos;{0}&apos; version &apos;{1}&apos; contains no resources that can be installed. Only {2} resources at the package root are installed.</value>
+  </data>
+  <data name="FhirPackageIgnoredResourceType" xml:space="preserve">
+    <value>The FHIR package contains {0} &apos;{1}&apos; resource(s) that were not installed. Only {2} resources at the package root are installed.</value>
+  </data>
+  <data name="FhirPackageIgnoredDependency" xml:space="preserve">
+    <value>The FHIR package declares a dependency on &apos;{0}&apos;, which was not resolved or installed.</value>
+  </data>
+  <data name="FhirPackageEntryInvalid" xml:space="preserve">
+    <value>Package entry &apos;{0}&apos; could not be read as a {1} resource: {2}</value>
+  </data>
+  <data name="FhirPackageSearchParameterIssue" xml:space="preserve">
+    <value>Package entry &apos;{0}&apos; (SearchParameter &apos;{1}&apos;): {2}</value>
+  </data>
+  <data name="FhirPackageSearchParameterMissingElement" xml:space="preserve">
+    <value>The required element &apos;{0}&apos; is missing.</value>
+  </data>
+  <data name="FhirPackageSearchParameterInvalidUrl" xml:space="preserve">
+    <value>The url must be an absolute URI of at most {0} characters.</value>
+  </data>
+  <data name="FhirPackageSearchParameterDuplicateUrl" xml:space="preserve">
+    <value>The url is used by more than one SearchParameter in the package.</value>
+  </data>
+  <data name="FhirPackageSearchParameterDuplicateId" xml:space="preserve">
+    <value>The id is used by more than one SearchParameter in the package.</value>
+  </data>
+  <data name="FhirPackageSearchParameterDuplicateCode" xml:space="preserve">
+    <value>The code &apos;{0}&apos; is used by more than one SearchParameter on base &apos;{1}&apos; in the package.</value>
+  </data>
+  <data name="FhirPackageSearchParameterUnsupportedBase" xml:space="preserve">
+    <value>The base &apos;{0}&apos; applies to SearchParameter resources, which package SearchParameters can't target because package installs don't reindex existing resources. Use base types that exclude SearchParameter.</value>
+  </data>
+  <data name="FhirPackageSearchParameterSystemDefinedUrl" xml:space="preserve">
+    <value>The url belongs to a SearchParameter defined by the FHIR specification or by the server, and can&apos;t be installed from a package.</value>
+  </data>
+  <data name="FhirPackageSearchParameterMissingComponent" xml:space="preserve">
+    <value>A composite SearchParameter must define at least one component, and every component must have a definition and an expression.</value>
+  </data>
+  <data name="FhirPackageSearchParameterUnresolvedComponent" xml:space="preserve">
+    <value>Component {0} references &apos;{1}&apos;, which is not a core SearchParameter, a SearchParameter in this package, or an existing SearchParameter.</value>
+  </data>
+  <data name="FhirPackageSearchParameterCompositeComponent" xml:space="preserve">
+    <value>Component {0} references &apos;{1}&apos;, which is itself a composite SearchParameter.</value>
+  </data>
+  <data name="FhirPackageSearchParameterNotSupported" xml:space="preserve">
+    <value>The SearchParameter is not supported by this server. {0}</value>
+  </data>
+  <data name="FhirPackageSearchParameterPartiallySupported" xml:space="preserve">
+    <value>The expression can be indexed for only some of its target types, so searches would silently miss data.</value>
+  </data>
+  <data name="FhirPackageSearchParameterInvalidExpression" xml:space="preserve">
+    <value>The expression &apos;{0}&apos; is not valid FHIRPath: {1}</value>
+  </data>
+  <data name="FhirPackageSearchParameterUnresolvableExpression" xml:space="preserve">
+    <value>The expression can&apos;t be resolved against the FHIR model: {0}</value>
+  </data>
+  <data name="FhirPackageSearchParameterUnsupportedExpression" xml:space="preserve">
+    <value>The server can&apos;t determine which element types the expression or a component expression selects, so it can&apos;t index them. Use element paths combined with where(), first(), exists(), extension(), as(), is(), ofType(), indexers, and the &apos;|&apos; union operator.</value>
+  </data>
+  <data name="UnknownTypeInExpression" xml:space="preserve">
+    <value>The type &apos;{0}&apos; is not a known FHIR type.</value>
+  </data>
+  <data name="FhirPackageSearchParameterIneligibleComponent" xml:space="preserve">
+    <value>Component {0} references &apos;{1}&apos;, whose status is &apos;{2}&apos;. A component outside the package must reference a SearchParameter whose status is Enabled or Supported.</value>
+  </data>
+  <data name="FhirPackageSearchParameterModelInvalid" xml:space="preserve">
+    <value>The resource is not valid: {0}</value>
+  </data>
+  <data name="FhirPackageSearchParameterInvalidComponentDefinition" xml:space="preserve">
+    <value>Component {0} has the definition &apos;{1}&apos;, which is not an absolute URI.</value>
+  </data>
+  <data name="FhirPackageIntegrityInvalid" xml:space="preserve">
+    <value>The expected package integrity must be a single sha512 Subresource Integrity value, as reported in npm &apos;dist.integrity&apos;.</value>
+  </data>
+  <data name="FhirPackageIntegrityMismatch" xml:space="preserve">
+    <value>The package archive doesn&apos;t match its expected sha512 integrity.</value>
+  </data>
+  <data name="FhirPackageCompressedSizeExceeded" xml:space="preserve">
+    <value>The package archive is larger than the {0}-byte limit.</value>
+  </data>
+  <data name="FhirPackageArchiveRejected" xml:space="preserve">
+    <value>The package archive was rejected: {0}.</value>
+  </data>
+  <data name="FhirPackageArchiveEntryDetail" xml:space="preserve">
+    <value> at archive entry {0}</value>
+  </data>
+  <data name="FhirPackageArchiveLimitDetail" xml:space="preserve">
+    <value> (limit {0})</value>
+  </data>
+  <data name="FhirPackageExpansionRatioExceeded" xml:space="preserve">
+    <value>The package archive expands to {0} bytes from {1} compressed bytes, which exceeds the {2}:1 expansion limit.</value>
+  </data>
+  <data name="FhirPackageIdentityMismatch" xml:space="preserve">
+    <value>The package manifest declares &apos;{0}&apos; version &apos;{1}&apos;, but &apos;{2}&apos; version &apos;{3}&apos; was expected.</value>
+  </data>
+  <data name="FhirPackageFhirVersionMismatch" xml:space="preserve">
+    <value>The package declares FHIR version &apos;{0}&apos;, but this server supports only FHIR version &apos;{1}&apos;.</value>
+  </data>
+  <data name="FhirPackageCoreDependencyMissing" xml:space="preserve">
+    <value>The package doesn&apos;t declare a dependency on &apos;{0}&apos;. Packages for this server must depend on &apos;{0}&apos; version &apos;{1}&apos;.</value>
+  </data>
+  <data name="FhirPackageCoreDependencyMismatch" xml:space="preserve">
+    <value>The package depends on &apos;{0}&apos; version &apos;{1}&apos;, but this server supports only &apos;{2}&apos; version &apos;{3}&apos;.</value>
+  </data>
+  <data name="FhirPackageManifestInvalid" xml:space="preserve">
+    <value>The package manifest is not valid: {0}</value>
+  </data>
+  <data name="SmartScopeSearchParameterNotEnforceable" xml:space="preserve">
+    <value>The granted SMART scope restricts access using the search parameter '{0}', which is not currently available on this server. The request cannot be authorized.</value>
+    <comment>{0} is the code of the search parameter the SMART clinical scope depends on.</comment>
+  </data>
+  <data name="LongUriSearchValue" xml:space="preserve">
+    <value>URI parameter '{0}' exceeds {1} characters. Evaluation is limited to the first {1} characters, which may return broader search results.</value>
+    <comment>{0} is a comma-separated list of search parameter codes. {1} is the number of URI characters the data store compares.</comment>
+  </data>
+  <data name="LongReferenceId" xml:space="preserve">
+    <value>Reference parameter '{0}' ID exceeds {1} characters. Index truncation applied after {1} characters, which may yield over-inclusive results</value>
+    <comment>{0} is the code of the search parameter. {1} is the maximum resource id length.</comment>
+  </data>
+  <data name="LongReferenceIdAffectedResources" xml:space="preserve">
+    <value>Resource type '{0}': {1} resource(s) affected.</value>
+    <comment>{0} is a resource type. {1} is the number of resources with a reference id longer than the maximum resource id length.</comment>
   </data>
 </root>

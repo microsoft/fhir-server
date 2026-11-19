@@ -24,16 +24,19 @@ using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
+using Microsoft.Health.Fhir.Api.Features.Logging;
 using Microsoft.Health.Fhir.Api.Features.Metrics;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -79,13 +82,26 @@ namespace Microsoft.Extensions.DependencyInjection
             var fhirServerConfiguration = new FhirServerConfiguration();
 
             string dataStore = configurationRoot == null ? string.Empty : configurationRoot["DataStore"];
+            if (configurationRoot != null)
+            {
+                FhirSdkProviderConfiguration.Validate(
+                    configurationRoot.GetSection($"{FhirServerConfigurationSectionName}:CoreFeatures:FhirSdkProvider"));
+            }
+
             configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
             configureAction?.Invoke(fhirServerConfiguration);
+
+            fhirServerConfiguration.CoreFeatures.VectorSearch.Validate();
+            fhirServerConfiguration.Bundle.Validate();
+            fhirServerConfiguration.CircuitBreaker.Validate();
+
+            services.AddSingleton(ResourceIdPolicy.From(fhirServerConfiguration.CoreFeatures.UseLongResourceIds));
 
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Security));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Features));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.CoreFeatures));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.CoreFeatures.VectorSearch));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Cors));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Export));
@@ -97,6 +113,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Terminology));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Audit));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Bundle));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.CircuitBreaker));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.SmartIdentityProvider));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Watchdog));
             services.AddSingleton<ISearchParameterStatusManager, SearchParameterStatusManager>();
@@ -109,23 +126,41 @@ namespace Microsoft.Extensions.DependencyInjection
 
             if (string.Equals(configurationRoot?["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
             {
+                // Parsed eagerly so that invalid entries fail at startup.
+                var knownProxies = fhirServerConfiguration.ForwardedHeaders.KnownProxies.Select(ParseProxy).ToList();
+                var knownNetworks = fhirServerConfiguration.ForwardedHeaders.KnownNetworks.Select(ParseNetwork).ToList();
+
                 services.Configure<ForwardedHeadersOptions>(options =>
                 {
                     // Default value for options.ForwardedHeaders is ForwardedHeaders.None.
                     options.ForwardedHeaders |= ForwardedHeaders.XForwardedHost | ForwardedHeaders.XForwardedPrefix;
 
-                    // Only loopback proxies are allowed by default.
-                    // Clear that restriction because forwarders are enabled by explicit
-                    // configuration.
-                    options.KnownNetworks.Clear();
+                    // Only loopback proxies are allowed by default. Replace that default with the
+                    // configured trusted forwarders. If neither list is configured, both stay empty
+                    // and any caller is trusted (legacy behavior; clients can forge X-Forwarded-* headers).
                     options.KnownProxies.Clear();
+                    foreach (IPAddress proxy in knownProxies)
+                    {
+                        options.KnownProxies.Add(proxy);
+                    }
+
+                    options.KnownIPNetworks.Clear();
+                    foreach (System.Net.IPNetwork network in knownNetworks)
+                    {
+                        options.KnownIPNetworks.Add(network);
+                    }
                 });
             }
 
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ArtifactStore));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides.USCore));
-            services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
+
+            // Extended HTTP Inbound Request logging for FHIR server.
+            services.AddSingleton<IHttpInboundRequestLogger, HttpInboundRequestLogger>();
+
+            // IStartupFilter registering.
+            services.AddTransient<IStartupFilter, FhirServerStartupFilter>((x) => new FhirServerStartupFilter(fhirServerConfiguration));
 
             // Register global instance configuration for storing base URI and instance ID
             // This is available to all services including background tasks that don't have access to HttpContext
@@ -176,6 +211,26 @@ namespace Microsoft.Extensions.DependencyInjection
             return fhirServerBuilder;
         }
 
+        private static IPAddress ParseProxy(string value)
+        {
+            if (!IPAddress.TryParse(value, out IPAddress address))
+            {
+                throw new InvalidOperationException($"Invalid FhirServer:ForwardedHeaders:KnownProxies entry '{value}'. Expected an IP address.");
+            }
+
+            return address;
+        }
+
+        private static System.Net.IPNetwork ParseNetwork(string value)
+        {
+            if (!System.Net.IPNetwork.TryParse(value, out System.Net.IPNetwork network))
+            {
+                throw new InvalidOperationException($"Invalid FhirServer:ForwardedHeaders:KnownNetworks entry '{value}'. Expected CIDR notation, e.g. 10.0.0.0/8.");
+            }
+
+            return network;
+        }
+
         /// <summary>
         /// Registers the default metric emitter.
         /// </summary>
@@ -191,6 +246,7 @@ namespace Microsoft.Extensions.DependencyInjection
             // Feature specific metric handlers.
             services.TryAddSingleton<IBundleMetricHandler, DefaultBundleMetricHandler>();
             services.TryAddSingleton<ISearchParameterCacheRefresherMetricHandler, DefaultSearchParameterCacheRefresherMetricHandler>();
+            services.TryAddSingleton<IServiceMetricHandler, DefaultServiceMetricHandler>();
 
             // Job metric handlers.
             services.TryAddSingleton<IBulkDeleteMetricHandler, DefaultBulkDeleteMetricHandler>();
@@ -220,6 +276,15 @@ namespace Microsoft.Extensions.DependencyInjection
         /// </summary>
         private class FhirServerStartupFilter : IStartupFilter
         {
+            private readonly FhirServerConfiguration _fhirServerConfiguration;
+
+            public FhirServerStartupFilter(FhirServerConfiguration fhirServerConfiguration)
+            {
+                EnsureArg.IsNotNull(fhirServerConfiguration, nameof(fhirServerConfiguration));
+
+                _fhirServerConfiguration = fhirServerConfiguration;
+            }
+
             public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
             {
                 return app =>
@@ -268,7 +333,11 @@ namespace Microsoft.Extensions.DependencyInjection
                     // The audit module needs to come after the exception handler because we need to catch the response before it gets converted to custom error.
                     app.UseAudit();
 
+                    // Platform network validation and application authentication.
                     app.UseFhirRequestContextAuthentication();
+
+                    // Add FHIR runtime middleware, that runs validations on top of the state of the FHIR service.
+                    app.UseFhirRuntimeState(_fhirServerConfiguration);
 
                     app.UseMiddleware<SearchPostReroutingMiddleware>();
 

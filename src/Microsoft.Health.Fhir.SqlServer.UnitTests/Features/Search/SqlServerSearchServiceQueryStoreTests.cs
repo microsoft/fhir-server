@@ -38,6 +38,25 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         }
 
         [Theory]
+        [InlineData("Patient?name")]
+        [InlineData("Observation?code")]
+        public void GivenShapeOnlyStatement_WhenQueryStoreTextNormalized_ThenShapeIsPreserved(string normalizedQueryShape)
+        {
+            // Arrange
+            string queryBody = $"SELECT /* fhir={normalizedQueryShape} */ ResourceId FROM dbo.Resource WHERE ResourceTypeId = @p0";
+            string queryText = "SET STATISTICS IO ON;\r\nSET STATISTICS TIME ON;\r\nDECLARE @p0 smallint = 79;\r\n" + queryBody;
+
+            // Act
+            string fragment = Assert.Single(SqlServerSearchService.SplitIntoSearchFragments(InvokeStripQueryPreambleLines(queryText)));
+            string normalizedText = SqlServerSearchService.StripAllWhitespace(fragment);
+
+            // Assert
+            Assert.Null(SqlServerSearchService.ExtractParameterHash(fragment));
+            Assert.Equal(queryBody, fragment);
+            Assert.Equal($"SELECT/*fhir={normalizedQueryShape}*/ResourceIdFROMdbo.ResourceWHEREResourceTypeId=@p0", normalizedText);
+        }
+
+        [Theory]
         [InlineData(null)]
         [InlineData("")]
         [InlineData("   ")]

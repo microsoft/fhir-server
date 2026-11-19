@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -80,6 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             patientResult1.ResourcesUpdated.Add(KnownResourceTypes.Patient, 15);
             patientResult1.ResourcesIgnored.Add(KnownResourceTypes.Practitioner, 1);
             patientResult1.ResourcesIgnored.Add(KnownResourceTypes.Device, 3);
+            patientResult1.Issues.Add("Skipped protected resources because the submitting caller did not have EditProfileDefinitions permission.");
 
             var patientResult2 = new BulkUpdateResult();
             patientResult2.ResourcesUpdated.Add(KnownResourceTypes.Patient, 7);
@@ -104,6 +105,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             {
                 { _resourceUpdatedCountLabel, resourcesUpdated },
                 { _resourceIgnoredCountLabel, resourcesIgnored },
+            };
+            var issues = new List<OperationOutcomeIssue>
+            {
+                new(
+                    OperationOutcomeConstants.IssueSeverity.Information,
+                    OperationOutcomeConstants.IssueType.Informational,
+                    detailsText: patientResult1.Issues.Single()),
             };
 
             await RunGetBulkUpdateTest(
@@ -131,7 +139,38 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                         },
                         5),
                 },
-                new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), null, System.Net.HttpStatusCode.OK));
+                new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.OK));
+        }
+
+        [Fact]
+        public async Task GivenCompletedBulkUpdateJobsThatUpdatedResourcesWithOverlongReferenceIds_WhenStatusRequested_ThenOneIssuePerResourceTypeAndParameterIsReturned()
+        {
+            var result1 = new BulkUpdateResult();
+            result1.ResourcesUpdated.Add(KnownResourceTypes.Patient, 2);
+            result1.OverlongReferenceIds.Add(new OverlongReferenceIdCount(KnownResourceTypes.Patient, "general-practitioner", 64, 2));
+
+            var result2 = new BulkUpdateResult();
+            result2.ResourcesUpdated.Add(KnownResourceTypes.Patient, 1);
+            result2.OverlongReferenceIds.Add(new OverlongReferenceIdCount(KnownResourceTypes.Patient, "general-practitioner", 64, 1));
+
+            var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()
+            {
+                { _resourceUpdatedCountLabel, new List<Tuple<string, Base>> { new(KnownResourceTypes.Patient, new Integer64(3)) } },
+            };
+            var issues = new List<OperationOutcomeIssue>
+            {
+                LongReferenceIdIssue.CreateForJob(new OverlongReferenceIdCount(KnownResourceTypes.Patient, "general-practitioner", 64, 3)),
+            };
+
+            await RunGetBulkUpdateTest(
+                new List<Tuple<JobInfo, int>>
+                {
+                    new Tuple<JobInfo, int>(new() { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(result1) }, 2),
+                    new Tuple<JobInfo, int>(new() { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(result2) }, 1),
+                },
+                new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.OK));
+
+            Assert.Equal("Resource type 'Patient': 3 resource(s) affected.", issues.Single().DetailsText);
         }
 
         [Fact]
@@ -381,6 +420,117 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
         }
 
         [Fact]
+        public async Task GivenCompletedProfileSkipJobAndSoftFailedJob_WhenAnotherJobIsRunning_ThenAcceptedIsReturned()
+        {
+            var skippedResult = new BulkUpdateResult();
+            skippedResult.ResourcesIgnored.Add(KnownResourceTypes.StructureDefinition, 2);
+            skippedResult.Issues.Add("Skipped 2 StructureDefinition resource(s) because the submitting caller did not have EditProfileDefinitions permission. The resources were not updated.");
+
+            var softFailedResult = new BulkUpdateResult();
+            softFailedResult.ResourcesPatchFailed.Add(KnownResourceTypes.Patient, 1);
+
+            var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>
+            {
+                {
+                    _resourceIgnoredCountLabel,
+                    new List<Tuple<string, Base>>
+                    {
+                        new(KnownResourceTypes.StructureDefinition, new Integer64(2)),
+                    }
+                },
+                {
+                    _resourcePatchFailedCountLabel,
+                    new List<Tuple<string, Base>>
+                    {
+                        new(KnownResourceTypes.Patient, new Integer64(1)),
+                    }
+                },
+            };
+            var issues = new List<OperationOutcomeIssue>
+            {
+                new(
+                    OperationOutcomeConstants.IssueSeverity.Information,
+                    OperationOutcomeConstants.IssueType.Informational,
+                    detailsText: skippedResult.Issues.Single()),
+                new(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.Exception,
+                    detailsText: "Encountered an unhandled exception. The job will be marked as failed."),
+                new(
+                    OperationOutcomeConstants.IssueSeverity.Information,
+                    OperationOutcomeConstants.IssueType.Informational,
+                    detailsText: "Job In Progress"),
+                new(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.Exception,
+                    detailsText: "Please use FHIR Patch endpoint for detailed error on Patch failed resources."),
+            };
+
+            await RunGetBulkUpdateTest(
+                new List<Tuple<JobInfo, int>>
+                {
+                    new(new JobInfo { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(skippedResult) }, 0),
+                    new(new JobInfo { Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(softFailedResult) }, 0),
+                    new(new JobInfo { Status = JobStatus.Running }, 0),
+                },
+                new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.Accepted));
+        }
+
+        [Fact]
+        public async Task GivenSoftFailedJobWithIgnoredProfiles_WhenAnotherJobIsRunning_ThenAcceptedIsReturned()
+        {
+            var softFailedResult = new BulkUpdateResult();
+            softFailedResult.ResourcesIgnored.Add(KnownResourceTypes.ValueSet, 1);
+            softFailedResult.ResourcesPatchFailed.Add(KnownResourceTypes.Patient, 2);
+            softFailedResult.Issues.Add("Skipped 1 ValueSet resource(s) because the submitting caller did not have EditProfileDefinitions permission. The resources were not updated.");
+
+            var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>
+            {
+                {
+                    _resourceIgnoredCountLabel,
+                    new List<Tuple<string, Base>>
+                    {
+                        new(KnownResourceTypes.ValueSet, new Integer64(1)),
+                    }
+                },
+                {
+                    _resourcePatchFailedCountLabel,
+                    new List<Tuple<string, Base>>
+                    {
+                        new(KnownResourceTypes.Patient, new Integer64(2)),
+                    }
+                },
+            };
+            var issues = new List<OperationOutcomeIssue>
+            {
+                new(
+                    OperationOutcomeConstants.IssueSeverity.Information,
+                    OperationOutcomeConstants.IssueType.Informational,
+                    detailsText: softFailedResult.Issues.Single()),
+                new(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.Exception,
+                    detailsText: "Encountered an unhandled exception. The job will be marked as failed."),
+                new(
+                    OperationOutcomeConstants.IssueSeverity.Information,
+                    OperationOutcomeConstants.IssueType.Informational,
+                    detailsText: "Job In Progress"),
+                new(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.Exception,
+                    detailsText: "Please use FHIR Patch endpoint for detailed error on Patch failed resources."),
+            };
+
+            await RunGetBulkUpdateTest(
+                new List<Tuple<JobInfo, int>>
+                {
+                    new(new JobInfo { Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(softFailedResult) }, 0),
+                    new(new JobInfo { Status = JobStatus.Running }, 0),
+                },
+                new GetBulkUpdateResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.Accepted));
+        }
+
+        [Fact]
         public async Task GivenEmptyResultsJob_WhenStatusRequested_ThenReturnsNoResults()
         {
             var result = new BulkUpdateResult(); // No resources updated/ignored/failed
@@ -534,7 +684,43 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.None);
 
             var request = new GetBulkUpdateRequest(1);
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenAJobSubmittedWithSearchWarnings_WhenStatusRequested_ThenTheWarningsAreReturned()
+        {
+            const string warning = "URI parameter '_profile' exceeds 256 characters.";
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
+            var orchestratorJob = new JobInfo
+            {
+                Status = JobStatus.Completed,
+                Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, null, null, "test", "test", "test", null, searchWarnings: new List<string> { warning })),
+            };
+            var processingJob = new JobInfo
+            {
+                Status = JobStatus.Completed,
+                Definition = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateProcessing, null, null, "test", "test", "test", null)),
+                Result = JsonConvert.SerializeObject(new BulkUpdateResult()),
+            };
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkUpdate, Arg.Any<long>(), true, Arg.Any<CancellationToken>()).Returns(new List<JobInfo> { orchestratorJob, processingJob });
+
+            GetBulkUpdateResponse response = await _handler.HandleAsync(new GetBulkUpdateRequest(1), CancellationToken.None);
+
+            Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
+            OperationOutcomeIssue issue = Assert.Single(response.Issues);
+            Assert.Equal(OperationOutcomeConstants.IssueSeverity.Information, issue.Severity);
+            Assert.Equal(OperationOutcomeConstants.IssueType.Informational, issue.Code);
+            Assert.Equal(warning, issue.Diagnostics);
+        }
+
+        [Fact]
+        public void GivenADefinitionWithoutSearchWarnings_WhenSerialized_ThenTheFieldIsOmitted()
+        {
+            string json = JsonConvert.SerializeObject(new BulkUpdateDefinition(JobType.BulkUpdateOrchestrator, null, null, "test", "test", "test", null, searchWarnings: new List<string>()));
+
+            Assert.DoesNotContain(JobRecordProperties.SearchWarnings, json, StringComparison.Ordinal);
+            Assert.Null(JsonConvert.DeserializeObject<BulkUpdateDefinition>(json).SearchWarnings);
         }
 
         [Fact]
@@ -544,7 +730,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkUpdate, Arg.Any<long>(), false, Arg.Any<CancellationToken>()).Returns(new List<JobInfo>());
 
             var request = new GetBulkUpdateRequest(1);
-            await Assert.ThrowsAsync<JobNotFoundException>(async () => await _handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<JobNotFoundException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
         }
 
         private async Task RunGetBulkUpdateTest(IReadOnlyList<Tuple<JobInfo, int>> jobs, GetBulkUpdateResponse expectedResponse)
@@ -559,7 +745,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkUpdate, Arg.Any<long>(), true, Arg.Any<CancellationToken>()).Returns(jobs.Select(job => job.Item1).ToList());
             var request = new GetBulkUpdateRequest(1);
-            var response = await _handler.Handle(request, CancellationToken.None);
+            var response = await _handler.HandleAsync(request, CancellationToken.None);
 
             Assert.Equal(expectedResponse.HttpStatusCode, response.HttpStatusCode);
 

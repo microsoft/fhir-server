@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -40,5 +41,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         /// Data informing the service how to apply fine grained access control
         /// </summary>
         AccessControlContext AccessControlContext { get; }
+
+        /// <summary>
+        /// A timer that measures the duration of the request.
+        /// </summary>
+        ActionTimer RequestTimer { get; set; }
     }
 }

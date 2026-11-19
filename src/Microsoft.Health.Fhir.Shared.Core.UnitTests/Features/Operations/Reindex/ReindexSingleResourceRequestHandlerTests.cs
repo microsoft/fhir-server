@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -42,6 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
         private const string HttpGetName = "GET";
         private const string HttpPostName = "POST";
+        private const DataActions ReindexAndReadActions = DataActions.Reindex | DataActions.Read | DataActions.ReadById;
 
         public ReindexSingleResourceRequestHandlerTests()
         {
@@ -51,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _resourceDeserializer = Substitute.For<IResourceDeserializer>();
             _cancellationToken = CancellationToken.None;
 
-            _authorizationService.CheckAccess(Arg.Is(DataActions.Reindex), Arg.Any<CancellationToken>()).Returns(DataActions.Reindex);
+            _authorizationService.CheckAccess(Arg.Is(ReindexAndReadActions), Arg.Any<CancellationToken>()).Returns(ReindexAndReadActions);
 
             var searchParameterOperations = Substitute.For<ISearchParameterOperations>();
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
@@ -68,10 +70,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         [Fact]
         public async Task GivenUserDoesNotHavePermissionForReindex_WhenHandle_ThenUnauthorizedExceptionIsThrown()
         {
-            _authorizationService.CheckAccess(Arg.Is(DataActions.Reindex), Arg.Any<CancellationToken>()).Returns(DataActions.None);
+            _authorizationService.CheckAccess(Arg.Is(ReindexAndReadActions), Arg.Any<CancellationToken>()).Returns(DataActions.Read | DataActions.ReadById);
             var request = GetReindexRequest(HttpGetName);
 
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _reindexHandler.Handle(request, _cancellationToken));
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _reindexHandler.HandleAsync(request, _cancellationToken));
+        }
+
+        [Fact]
+        public async Task GivenUserDoesNotHaveReadOrReadByIdPermission_WhenHandle_ThenUnauthorizedExceptionIsThrown()
+        {
+            _authorizationService.CheckAccess(Arg.Is(ReindexAndReadActions), Arg.Any<CancellationToken>()).Returns(DataActions.Reindex);
+            var request = GetReindexRequest(HttpGetName);
+
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _reindexHandler.HandleAsync(request, _cancellationToken));
+            await _fhirDataStore.DidNotReceive().GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
+        [InlineData(DataActions.Read)]
+        [InlineData(DataActions.ReadById)]
+        public async Task GivenUserHasReadOrReadByIdPermission_WhenHandle_ThenAccessIsAllowed(DataActions readAction)
+        {
+            _authorizationService.CheckAccess(Arg.Is(ReindexAndReadActions), Arg.Any<CancellationToken>()).Returns(DataActions.Reindex | readAction);
+            SetupDataStoreToReturnDummyResourceWrapper();
+            _resourceDeserializer.Deserialize(Arg.Any<ResourceWrapper>()).Returns(Samples.GetDefaultPatient());
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(Array.Empty<SearchIndexEntry>());
+
+            await _reindexHandler.HandleAsync(GetReindexRequest(HttpGetName), _cancellationToken);
+
+            await _authorizationService.Received(1).CheckAccess(ReindexAndReadActions, _cancellationToken);
         }
 
         [Fact]
@@ -80,7 +107,38 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), _cancellationToken).Returns(Task.FromResult<ResourceWrapper>(null));
 
             var request = GetReindexRequest(HttpGetName);
-            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _reindexHandler.Handle(request, _cancellationToken));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _reindexHandler.HandleAsync(request, _cancellationToken));
+        }
+
+        [Theory]
+        [InlineData(HttpGetName)]
+        [InlineData(HttpPostName)]
+        public async Task GivenAResourceWithAnOverlongReferenceId_WhenHandle_ThenTheResponseHasAnIssuesParameterWithTheWarning(string httpMethodName)
+        {
+            SetupDataStoreToReturnDummyResourceWrapper();
+            var performer = new SearchParameterInfo("performer", "performer");
+            var reference = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, "Patient", new string('a', 64)) { OverlongResourceIdLength = 65, MaxResourceIdLength = 64 };
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new List<SearchIndexEntry> { new SearchIndexEntry(performer, reference), new SearchIndexEntry(performer, reference) });
+
+            ReindexSingleResourceResponse response = await _reindexHandler.HandleAsync(GetReindexRequest(httpMethodName), _cancellationToken);
+
+            Parameters parameters = response.ParameterResource.ToPoco<Parameters>();
+            var outcome = Assert.IsType<OperationOutcome>(Assert.Single(parameters.Parameter, p => p.Name == "Issues").Resource);
+            OperationOutcome.IssueComponent issue = Assert.Single(outcome.Issue);
+            Assert.Equal(OperationOutcome.IssueSeverity.Warning, issue.Severity);
+            Assert.Equal("Reference parameter 'performer' ID exceeds 64 characters. Index truncation applied after 64 characters, which may yield over-inclusive results", issue.Diagnostics);
+        }
+
+        [Fact]
+        public async Task GivenAResourceWithoutOverlongReferenceIds_WhenHandle_ThenTheResponseHasNoIssuesParameter()
+        {
+            SetupDataStoreToReturnDummyResourceWrapper();
+            var reference = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, "Patient", new string('a', 64));
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new List<SearchIndexEntry> { new SearchIndexEntry(new SearchParameterInfo("performer", "performer"), reference) });
+
+            ReindexSingleResourceResponse response = await _reindexHandler.HandleAsync(GetReindexRequest(HttpGetName), _cancellationToken);
+
+            Assert.DoesNotContain(response.ParameterResource.ToPoco<Parameters>().Parameter, p => p.Name == "Issues");
         }
 
         [Theory]
@@ -99,7 +157,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var request = GetReindexRequest(httpMethodName);
 
-            ReindexSingleResourceResponse response = await _reindexHandler.Handle(request, _cancellationToken);
+            ReindexSingleResourceResponse response = await _reindexHandler.HandleAsync(request, _cancellationToken);
             Assert.NotNull(response.ParameterResource);
 
             Parameters parameterResponse = response.ParameterResource.ToPoco<Parameters>();
@@ -142,7 +200,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var request = GetReindexRequest(httpMethodName);
 
-            ReindexSingleResourceResponse response = await _reindexHandler.Handle(request, _cancellationToken);
+            ReindexSingleResourceResponse response = await _reindexHandler.HandleAsync(request, _cancellationToken);
             Assert.NotNull(response.ParameterResource);
 
             Parameters parameterResponse = response.ParameterResource.ToPoco<Parameters>();
@@ -203,15 +261,42 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             return new ReindexSingleResourceRequest(httpMethod, resourceType, resourceId);
         }
 
+        [Fact]
+        public async Task GivenThePostDataStoreExcludesValues_WhenHandle_ThenTheResponseListsOnlyStoredValuesAndTheWarning()
+        {
+            SetupDataStoreToReturnDummyResourceWrapper();
+            var kept = new SearchIndexEntry(new SearchParameterInfo("kept", "kept"), new StringSearchValue("value"));
+            var excluded = new SearchIndexEntry(new SearchParameterInfo("ext-uri", "ext-uri"), new UriSearchValue("https://example.org/a", false));
+            _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new List<SearchIndexEntry> { kept, excluded });
+            const string warning = "Resource Patient/1 was not indexed for the URI search parameter 'ext-uri'.";
+            _fhirDataStore.BulkUpdateSearchParameterIndicesAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    ResourceWrapper resource = callInfo.Arg<IReadOnlyCollection<ResourceWrapper>>().Single();
+                    resource.UpdateSearchIndices(new List<SearchIndexEntry> { kept });
+                    return Task.FromResult<IReadOnlyList<string>>(new List<string> { warning });
+                });
+
+            ReindexSingleResourceResponse response = await _reindexHandler.HandleAsync(GetReindexRequest(HttpPostName), _cancellationToken);
+
+            Parameters parameters = response.ParameterResource.ToPoco<Parameters>();
+            Assert.Contains(parameters.Parameter, p => p.Name == "kept");
+            Assert.DoesNotContain(parameters.Parameter, p => p.Name == "ext-uri");
+            var issues = Assert.IsType<OperationOutcome>(Assert.Single(parameters.Parameter, p => p.Name == "Issues").Resource);
+            OperationOutcome.IssueComponent issue = Assert.Single(issues.Issue);
+            Assert.Equal(OperationOutcome.IssueSeverity.Warning, issue.Severity);
+            Assert.Equal(warning, issue.Diagnostics);
+        }
+
         private async Task ValidateUpdateCallBasedOnHttpMethodType(string httpMethodName)
         {
             if (httpMethodName == HttpPostName)
             {
-                await _fhirDataStore.Received().UpdateSearchParameterIndicesAsync(Arg.Any<ResourceWrapper>(), _cancellationToken);
+                await _fhirDataStore.Received().BulkUpdateSearchParameterIndicesAsync(Arg.Is<IReadOnlyCollection<ResourceWrapper>>(r => r.Count == 1), _cancellationToken);
             }
             else if (httpMethodName == HttpGetName)
             {
-                await _fhirDataStore.DidNotReceive().UpdateSearchParameterIndicesAsync(Arg.Any<ResourceWrapper>(), _cancellationToken);
+                await _fhirDataStore.DidNotReceive().BulkUpdateSearchParameterIndicesAsync(Arg.Any<IReadOnlyCollection<ResourceWrapper>>(), Arg.Any<CancellationToken>());
             }
         }
     }

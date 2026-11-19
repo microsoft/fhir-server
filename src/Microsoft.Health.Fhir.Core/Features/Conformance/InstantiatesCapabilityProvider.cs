@@ -10,7 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
@@ -19,11 +19,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
     /// </summary>
     public class InstantiatesCapabilityProvider : IProvideCapability
     {
-        private readonly Func<IScoped<IEnumerable<IInstantiateCapability>>> _instantiateCapabilityDelegate;
+        private readonly IScopeProvider<IEnumerable<IInstantiateCapability>> _instantiateCapabilityDelegate;
         private readonly ILogger<InstantiatesCapabilityProvider> _logger;
 
         public InstantiatesCapabilityProvider(
-            Func<IScoped<IEnumerable<IInstantiateCapability>>> instantiateCapabilityDelegate,
+            IScopeProvider<IEnumerable<IInstantiateCapability>> instantiateCapabilityDelegate,
             ILogger<InstantiatesCapabilityProvider> logger)
         {
             EnsureArg.IsNotNull(instantiateCapabilityDelegate, nameof(instantiateCapabilityDelegate));
@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private async Task<HashSet<string>> GetUrlsAsync(CancellationToken cancellationToken)
         {
             var capabilityUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            using (var scopedCapabilities = _instantiateCapabilityDelegate())
+            using (var scopedCapabilities = _instantiateCapabilityDelegate.Invoke())
             {
                 var capabilities = scopedCapabilities.Value?.ToList() ?? new List<IInstantiateCapability>();
                 foreach (var capability in capabilities)

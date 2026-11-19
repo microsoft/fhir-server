@@ -55,7 +55,7 @@ public class IgnixaFhirJsonOutputFormatterTests
             _ignixaSerializer,
             firelySerializer,
             ModelInfoProvider.Instance,
-            new BundleSerializer(),
+            new BundleSerializer(new FhirJsonSerializer()),
             Deserializers.ResourceDeserializer);
 
         var requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();

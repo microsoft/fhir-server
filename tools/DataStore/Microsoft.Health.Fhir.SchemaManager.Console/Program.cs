@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.CommandLine.Parsing;
+using System.CommandLine;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Fhir.SchemaManager;
 
@@ -22,8 +22,8 @@ internal static class Program
             })
             .Build();
 
-        Parser parser = SchemaManagerParserBuilder.Build(host.Services);
+        RootCommand rootCommand = SchemaManagerParserBuilder.Build(host.Services);
 
-        return await parser.InvokeAsync(args).ConfigureAwait(false);
+        return await rootCommand.Parse(args).InvokeAsync().ConfigureAwait(false);
     }
 }

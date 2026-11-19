@@ -11,12 +11,11 @@ using System.Numerics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using MediatR;
+using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -24,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -41,7 +41,6 @@ using Microsoft.SqlServer.Dac.Compare;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
 using NSubstitute;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
@@ -124,7 +123,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchParameterComparer,
                 statusDataStore.CreateMockScopeProvider(),
                 fhirDataStore.CreateMockScopeProvider(),
-                NullLogger<SearchParameterDefinitionManager>.Instance);
+                NullLogger<SearchParameterDefinitionManager>.Instance,
+                Options.Create(new CoreFeatureConfiguration()));
             FilebasedSearchParameterStatusDataStore statusStore = new FilebasedSearchParameterStatusDataStore(defManager, ModelInfoProvider.Instance);
 
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.MinForUpgrade, maxSchemaVersion);
@@ -150,6 +150,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 defaultSqlConnectionWrapperFactory.CreateMockScopeProvider(),
                 Substitute.For<IMediator>(),
                 sqlRetryService,
+                ResourceIdPolicy.Standard,
                 NullLogger<SqlServerFhirModel>.Instance);
 
             var testHelper = new SqlServerFhirStorageTestHelper(

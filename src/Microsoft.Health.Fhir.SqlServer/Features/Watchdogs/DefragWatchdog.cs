@@ -54,11 +54,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         internal string IsEnabledId => $"{Name}.IsEnabled";
 
-        public override double LeasePeriodSec { get; internal set; } = 2 * 3600;
+        public override double LeasePeriodSec { get; internal set; } = 3600; // 1 hour
 
         public override bool AllowRebalance { get; internal set; } = false;
 
-        public override double PeriodSec { get; internal set; } = 24 * 3600;
+        public override double PeriodSec { get; internal set; } = 24 * 3600; // 1 day
 
         protected override async Task RunWorkAsync(CancellationToken cancellationToken)
         {

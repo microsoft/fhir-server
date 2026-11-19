@@ -31,6 +31,8 @@ namespace Microsoft.Health.Fhir.Api.Configs
 
         public ThrottlingConfiguration Throttling { get; } = new ThrottlingConfiguration();
 
+        public CircuitBreakerConfiguration CircuitBreaker { get; } = new CircuitBreakerConfiguration();
+
         public ArtifactStoreConfiguration ArtifactStore { get; } = new ArtifactStoreConfiguration();
 
         public ImplementationGuidesConfiguration ImplementationGuides { get; } = new ImplementationGuidesConfiguration();
@@ -42,5 +44,7 @@ namespace Microsoft.Health.Fhir.Api.Configs
         public SmartIdentityProviderConfiguration SmartIdentityProvider { get; } = new SmartIdentityProviderConfiguration();
 
         public WatchdogConfiguration Watchdog { get; } = new WatchdogConfiguration();
+
+        public ForwardedHeadersConfiguration ForwardedHeaders { get; } = new ForwardedHeadersConfiguration();
     }
 }

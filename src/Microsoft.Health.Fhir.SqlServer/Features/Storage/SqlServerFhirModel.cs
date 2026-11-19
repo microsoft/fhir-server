@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -12,20 +12,21 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Storage;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
@@ -76,6 +77,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             IScopeProvider<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory,
             IMediator mediator,
             ISqlRetryService sqlRetryService,
+            ResourceIdPolicy resourceIdPolicy,
             ILogger<SqlServerFhirModel> logger)
         {
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
@@ -94,7 +96,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _mediator = mediator;
             _sqlRetryService = sqlRetryService;
             _logger = logger;
+            ResourceIdPolicy = EnsureArg.IsNotNull(resourceIdPolicy, nameof(resourceIdPolicy));
         }
+
+        /// <summary>
+        /// Gets the resource id policy that the database schema must support.
+        /// </summary>
+        public ResourceIdPolicy ResourceIdPolicy { get; }
 
         public (short lowestId, short highestId) ResourceTypeIdRange
         {
@@ -226,7 +234,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             _highestInitializedVersion = version;
 
-            await _mediator.Publish(new StorageInitializedNotification(), CancellationToken.None);
+            await _mediator.PublishAsync(new StorageInitializedNotification(), CancellationToken.None);
         }
 
         private async Task InitializeBase(CancellationToken cancellationToken)
@@ -434,7 +442,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             fileStatuses.ForEach(fs =>
             {
-                fs.Status = hasResources ? SearchParameterStatus.Supported : SearchParameterStatus.Enabled;
+                // Preserve the Unsupported status that comes from unsupported-search-parameters.json.
+                // Overwriting it would cause parameters that the server cannot search on to be reported
+                // as Enabled/Supported, and returning 500 error instead of an OperationOutcome warning.
+                if (fs.Status != SearchParameterStatus.Unsupported)
+                {
+                    fs.Status = hasResources ? SearchParameterStatus.Supported : SearchParameterStatus.Enabled;
+                }
+
                 fs.LastUpdated = existingParams.FirstOrDefault(p => p.Uri == fs.Uri)?.LastUpdated ?? fs.LastUpdated;
             });
 

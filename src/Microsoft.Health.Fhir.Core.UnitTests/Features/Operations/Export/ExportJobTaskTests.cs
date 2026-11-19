@@ -12,13 +12,13 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
-using MediatR;
+using Medino;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -33,7 +33,10 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json;
 using NSubstitute;
 using NSubstitute.ClearExtensions;
 using NSubstitute.ExceptionExtensions;
@@ -448,6 +451,121 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
         }
 
+        [Theory]
+        [InlineData(false, false, true)]
+        [InlineData(true, false, true)]
+        [InlineData(false, true, true)]
+        [InlineData(false, false, false)]
+        public async Task GivenIncludedSearchResults_WhenExecuted_ThenOnlyAuthorizedInclusionsAreWritten(
+            bool resumed,
+            bool patientAuthorized,
+            bool smartRequest)
+        {
+            // Arrange
+            var authorizedTypes = patientAuthorized
+                ? new[] { KnownResourceTypes.Observation, KnownResourceTypes.Patient }
+                : new[] { KnownResourceTypes.Observation };
+            var job = CreateExportJobRecord(
+                exportJobType: ExportJobType.All,
+                resourceType: KnownResourceTypes.Observation,
+                smartRequest: smartRequest,
+                authorizedIncludeResourceTypes: authorizedTypes,
+                filters: new List<ExportJobFilter>
+                {
+                    new ExportJobFilter(KnownResourceTypes.Observation, new List<Tuple<string, string>>
+                    {
+                        Tuple.Create("_include", "Observation:subject"),
+                    }),
+                });
+            if (resumed)
+            {
+                job.Progress = new ExportJobProgress(null, 0);
+                job.Progress.SetFilter(job.Filters[0]);
+                if (smartRequest && !patientAuthorized)
+                {
+                    job.Issues.Add(new OperationOutcomeIssue(
+                        OperationOutcomeConstants.IssueSeverity.Warning,
+                        OperationOutcomeConstants.IssueType.Forbidden,
+                        "Included resources of type 'Patient' were excluded because the caller does not have the required SMART export permissions for this resource type."));
+                }
+            }
+
+            job = JsonConvert.DeserializeObject<ExportJobRecord>(JsonConvert.SerializeObject(job));
+            SetupExportJobRecordAndOperationDataStore(job);
+            _searchService.SearchAsync(
+                KnownResourceTypes.Observation,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true)
+                .Returns(_ => CreateSearchResult(new[]
+                {
+                    CreateSearchResultEntry("observation-1", KnownResourceTypes.Observation),
+                    CreateSearchResultEntry("patient-secret", KnownResourceTypes.Patient, SearchEntryMode.Include),
+                    CreateSearchResultEntry("patient-secret-2", KnownResourceTypes.Patient, SearchEntryMode.Include),
+                }));
+
+            // Act
+            await _exportJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
+
+            // Assert
+            Assert.Equal(OperationStatus.Completed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Null(job.FailureDetails);
+            Assert.Equal("observation-1", _inMemoryDestinationClient.GetExportedData(ObservationFileName));
+            if (patientAuthorized || !smartRequest)
+            {
+                Assert.Equal("patient-secretpatient-secret-2", _inMemoryDestinationClient.GetExportedData(PatientFileName));
+                Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+                Assert.Empty(job.Issues);
+            }
+            else
+            {
+                Assert.Null(_inMemoryDestinationClient.GetExportedData(PatientFileName));
+                Assert.False(job.Output.ContainsKey(KnownResourceTypes.Patient));
+                Assert.Equal(1, _inMemoryDestinationClient.ExportedDataFileCount);
+                var warning = Assert.Single(job.Issues);
+                Assert.Equal(OperationOutcomeConstants.IssueSeverity.Warning, warning.Severity);
+                Assert.Equal(OperationOutcomeConstants.IssueType.Forbidden, warning.Code);
+                Assert.Equal(
+                    "Included resources of type 'Patient' were excluded because the caller does not have the required SMART export permissions for this resource type.",
+                    warning.Diagnostics);
+                Assert.DoesNotContain("patient-secret", warning.Diagnostics);
+                _resourceDeserializer.DidNotReceive().Deserialize(Arg.Is<ResourceWrapper>(r => r.ResourceTypeName == KnownResourceTypes.Patient));
+            }
+        }
+
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        public async Task GivenSmartJobWithWildcardOrMissingIncludePermissions_WhenExecuted_ThenIncludesFailClosedUnlessWildcardIsGranted(
+            bool wildcard,
+            bool missingPermissions)
+        {
+            // Arrange
+            var job = CreateExportJobRecord(
+                smartRequest: true,
+                authorizedIncludeResourceTypes: missingPermissions ? null : wildcard ? new[] { KnownResourceTypes.All } : Array.Empty<string>());
+            SetupExportJobRecordAndOperationDataStore(job);
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true)
+                .Returns(_ => CreateSearchResult(new[]
+                {
+                    CreateSearchResultEntry("observation-1", KnownResourceTypes.Observation),
+                    CreateSearchResultEntry("patient-secret", KnownResourceTypes.Patient, SearchEntryMode.Include),
+                }));
+
+            // Act
+            await _exportJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
+
+            // Assert
+            Assert.Equal(OperationStatus.Completed, job.Status);
+            Assert.Equal("observation-1", _inMemoryDestinationClient.GetExportedData(ObservationFileName));
+            Assert.Equal(wildcard ? "patient-secret" : null, _inMemoryDestinationClient.GetExportedData(PatientFileName));
+        }
+
         [Fact]
         public async Task GivenSearchFailed_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
         {
@@ -506,6 +624,76 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
         }
 
+        [Theory]
+        [InlineData(ExportJobType.Patient)]
+        [InlineData(ExportJobType.Group)]
+        public async Task GivenSmartCompartmentExportWithUnauthorizedIncludes_WhenExecuted_ThenIncludesAreNeitherExportedNorUsedForCompartmentSelection(ExportJobType exportType)
+        {
+            // Arrange
+            var job = CreateExportJobRecord(
+                exportJobType: exportType,
+                resourceType: KnownResourceTypes.Observation,
+                groupId: "group-1",
+                smartRequest: true,
+                authorizedIncludeResourceTypes: new[] { KnownResourceTypes.Patient, KnownResourceTypes.Observation });
+            SetupExportJobRecordAndOperationDataStore(job);
+            _groupMemberExtractor.GetGroupPatientIds(Arg.Any<string>(), Arg.Any<DateTimeOffset>(), _cancellationToken)
+                .Returns(new HashSet<string> { "patient-1" });
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true)
+                .Returns(_ => CreateSearchResult(new[]
+                {
+                    CreateSearchResultEntry("patient-1", KnownResourceTypes.Patient),
+                    CreateSearchResultEntry("unauthorized-compartment", KnownResourceTypes.Encounter, SearchEntryMode.Include),
+                }));
+            _searchService.SearchCompartmentAsync(
+                KnownResourceTypes.Patient,
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true,
+                true)
+                .Returns(_ => CreateSearchResult(new[]
+                {
+                    CreateSearchResultEntry("observation-1", KnownResourceTypes.Observation),
+                    CreateSearchResultEntry("encounter-secret", KnownResourceTypes.Encounter, SearchEntryMode.Include),
+                }));
+
+            // Act
+            await _exportJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
+
+            // Assert
+            Assert.Equal(OperationStatus.Completed, job.Status);
+            Assert.Equal("observation-1", _inMemoryDestinationClient.GetExportedData(ObservationFileName));
+            Assert.Equal(1, _inMemoryDestinationClient.ExportedDataFileCount);
+            var warning = Assert.Single(job.Issues);
+            Assert.Equal(OperationOutcomeConstants.IssueSeverity.Warning, warning.Severity);
+            Assert.Equal(OperationOutcomeConstants.IssueType.Forbidden, warning.Code);
+            Assert.Equal(
+                "Included resources of type 'Encounter' were excluded because the caller does not have the required SMART export permissions for this resource type.",
+                warning.Diagnostics);
+            await _searchService.Received(1).SearchCompartmentAsync(
+                KnownResourceTypes.Patient,
+                "patient-1",
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true,
+                true);
+            await _searchService.DidNotReceive().SearchCompartmentAsync(
+                Arg.Any<string>(),
+                "unauthorized-compartment",
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>());
+        }
+
         [Fact]
         public async Task GivenSearchHadIssues_WhenExecuted_ThenIssuesAreRecorded()
         {
@@ -531,6 +719,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
             Assert.True(_exportJobRecord.Issues.Contains(issue));
+        }
+
+        [Fact]
+        public async Task GivenEachPageSearchRaisesTheSameIssue_WhenCommittedAfterEachPage_ThenTheIssueIsRecordedOnce()
+        {
+            SetupExportJobRecordAndOperationDataStore(CreateExportJobRecord(numberOfPagesPerCommit: 1));
+
+            int numberOfCalls = 0;
+            _searchService.SearchAsync(
+                null,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true)
+                .Returns(x =>
+                {
+                    numberOfCalls++;
+                    _contextAccessor.RequestContext.BundleIssues.Add(new OperationOutcomeIssue("warning", "informational", "long uri warning"));
+                    return CreateSearchResult(
+                        new[] { CreateSearchResultEntry(numberOfCalls.ToString(CultureInfo.InvariantCulture), KnownResourceTypes.Patient) },
+                        continuationToken: numberOfCalls >= 3 ? null : "ct");
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.Equal(3, numberOfCalls);
+            Assert.Equal("long uri warning", Assert.Single(_exportJobRecord.Issues).Diagnostics);
         }
 
         [Fact]
@@ -570,6 +784,158 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // All of the ids should be present since it should have committed one last time after all the results were exported.
             CheckAllSingleIdFiles(KnownResourceTypes.Patient, 3, 0, 1);
+        }
+
+        [Fact]
+        public async Task GivenTooManySqlParameters_WhenExportProcessingExecutes_ThenFailureIsCustomerCaused()
+        {
+            // Arrange
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                true,
+                ResourceVersionType.Latest)
+                .Returns<Task<SearchResult>>(_ => throw new RequestNotValidException(Core.Resources.TooManyParameters));
+            var processingJob = CreateProcessingJob(_exportJobTask);
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(_exportJobRecord) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(jobInfo, _cancellationToken));
+
+            // Assert
+            Assert.True(exception.IsCustomerCaused);
+            var record = Assert.IsType<ExportJobRecord>(exception.Error);
+            Assert.Equal(HttpStatusCode.BadRequest, record.FailureDetails.FailureStatusCode);
+            Assert.Equal(Core.Resources.TooManyParameters, record.FailureDetails.FailureReason);
+        }
+
+        [Theory]
+        [InlineData(HttpStatusCode.Unauthorized, true)]
+        [InlineData(HttpStatusCode.Forbidden, true)]
+        [InlineData(HttpStatusCode.BadRequest, true)]
+        [InlineData(HttpStatusCode.NotFound, true)]
+        [InlineData(HttpStatusCode.PreconditionFailed, false)]
+        [InlineData(HttpStatusCode.InternalServerError, false)]
+        public async Task GivenDestinationConnectionFailure_WhenExportProcessingExecutes_ThenFailureClassificationIsPreserved(HttpStatusCode statusCode, bool isCustomerCaused)
+        {
+            // Arrange
+            var destinationClient = Substitute.For<IExportDestinationClient>();
+            destinationClient.ConnectAsync(Arg.Any<ExportJobConfiguration>(), Arg.Any<CancellationToken>(), Arg.Any<string>())
+                .Returns<Task>(_ => throw new DestinationConnectionException("Cannot connect to storage.", statusCode));
+            var processingJob = CreateProcessingJob(CreateExportJobTask(exportDestinationClient: destinationClient));
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(_exportJobRecord) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(jobInfo, _cancellationToken));
+
+            // Assert
+            Assert.Equal(isCustomerCaused, exception.IsCustomerCaused);
+            Assert.Equal(statusCode, Assert.IsType<ExportJobRecord>(exception.Error).FailureDetails.FailureStatusCode);
+        }
+
+        [Theory]
+        [InlineData(HttpStatusCode.BadRequest)]
+        [InlineData(HttpStatusCode.NotFound)]
+        [InlineData(HttpStatusCode.Unauthorized)]
+        [InlineData(HttpStatusCode.Forbidden)]
+        [InlineData(HttpStatusCode.PreconditionFailed)]
+        [InlineData(HttpStatusCode.InternalServerError)]
+        public async Task GivenDestinationCommitFailure_WhenExportProcessingExecutes_ThenFailureIsSystemCaused(HttpStatusCode statusCode)
+        {
+            // Arrange
+            _exportJobConfiguration.RetryDelayMilliseconds = 0;
+            var destinationClient = Substitute.For<IExportDestinationClient>();
+            destinationClient.Commit()
+                .Returns(_ => throw new DestinationConnectionException("Cannot commit exported data.", statusCode));
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                true,
+                ResourceVersionType.Latest)
+                .Returns(CreateSearchResult());
+            var processingJob = CreateProcessingJob(CreateExportJobTask(exportDestinationClient: destinationClient));
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(_exportJobRecord) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(jobInfo, _cancellationToken));
+
+            // Assert
+            Assert.False(exception.IsCustomerCaused);
+            var failure = Assert.IsType<ExportJobRecord>(exception.Error).FailureDetails;
+            Assert.Equal(statusCode, failure.FailureStatusCode);
+            Assert.Equal("Cannot commit exported data.", failure.FailureReason);
+        }
+
+        [Fact]
+        public async Task GivenMissingAnonymizationConfiguration_WhenExportProcessingExecutes_ThenFailureIsCustomerCaused()
+        {
+            // Arrange
+            var record = CreateExportJobRecord(anonymizationConfigurationLocation: "missing-config");
+            var factory = Substitute.For<IAnonymizerFactory>();
+            factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>())
+                .Returns<Task<IAnonymizer>>(_ => throw new AnonymizationConfigurationNotFoundException("Configuration not found."));
+            var processingJob = CreateProcessingJob(CreateExportJobTask(anonymizerFactory: factory.CreateMockScopeProvider()));
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(record) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(jobInfo, _cancellationToken));
+
+            // Assert
+            Assert.True(exception.IsCustomerCaused);
+            Assert.Equal(HttpStatusCode.BadRequest, Assert.IsType<ExportJobRecord>(exception.Error).FailureDetails.FailureStatusCode);
+        }
+
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.ExportClassificationCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenSearchFailure_WhenExportProcessingExecutes_ThenUnderlyingErrorsDetermineClassification(string scenario, bool expectedCustomerCaused)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<CancellationToken>(),
+                true,
+                ResourceVersionType.Latest)
+                .Returns<Task<SearchResult>>(_ => throw failure);
+            var processingJob = CreateProcessingJob(_exportJobTask);
+            var jobInfo = new JobInfo { Definition = JsonConvert.SerializeObject(_exportJobRecord) };
+
+            // Act
+            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(jobInfo, _cancellationToken));
+
+            // Assert
+            Assert.Equal(expectedCustomerCaused, exception.IsCustomerCaused);
+            var record = Assert.IsType<ExportJobRecord>(exception.Error);
+            Assert.Equal(OperationStatus.Failed, record.Status);
+            Assert.Equal(expectedCustomerCaused, record.FailureDetails.IsCustomerCaused);
+        }
+
+        [Theory]
+        [MemberData(nameof(JobFailureTestData.FailureStatusCases), MemberType = typeof(JobFailureTestData))]
+        public async Task GivenCustomerSearchFailure_WhenExportExecutes_ThenStatusMatchesApi(string scenario, HttpStatusCode expectedStatus)
+        {
+            // Arrange
+            var failure = JobFailureTestData.CreateException(scenario);
+            _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), true, ResourceVersionType.Latest)
+                .Returns<Task<SearchResult>>(_ => throw failure);
+
+            // Act
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            // Assert
+            Assert.Equal(expectedStatus, _exportJobRecord.FailureDetails.FailureStatusCode);
+        }
+
+        private ExportProcessingJob CreateProcessingJob(IExportJobTask exportJobTask)
+        {
+            return new ExportProcessingJob(
+                () => exportJobTask,
+                _searchService.CreateMockScopeProvider(),
+                Substitute.For<IQueueClient>(),
+                NullLogger<ExportProcessingJob>.Instance);
         }
 
         [Fact]
@@ -1533,7 +1899,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult<IAnonymizer>(anonymizer));
             var inMemoryDestinationClient = new InMemoryExportDestinationClient();
 
-            var anonymizedExportJobTask = CreateExportJobTask(exportDestinationClient: inMemoryDestinationClient, anonymizerFactory: factory.CreateMockScope());
+            var anonymizedExportJobTask = CreateExportJobTask(exportDestinationClient: inMemoryDestinationClient, anonymizerFactory: factory.CreateMockScopeProvider());
 
             await anonymizedExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
@@ -1541,6 +1907,114 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             Assert.Equal("anonymized-resource", exportedValue);
             Assert.True(capturedSearch);
+        }
+
+        [Theory]
+        [InlineData(OperationStatus.Completed)]
+        [InlineData(OperationStatus.Failed)]
+        [InlineData(OperationStatus.Canceled)]
+        public async Task GivenAnonymizedExport_WhenAwaitingWork_ThenScopeLivesUntilWorkEnds(OperationStatus outcome)
+        {
+            // Arrange
+            SetupExportJobRecordAndOperationDataStore(CreateExportJobRecord(anonymizationConfigurationLocation: "config"));
+            SetupExportJobRecordAndOperationDataStore(_exportJobRecord, CancellationToken.None);
+            var factory = Substitute.For<IAnonymizerFactory, IDisposable>();
+            var anonymizer = Substitute.For<IAnonymizer>();
+            var creation = new TaskCompletionSource<IAnonymizer>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var searchStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var search = new TaskCompletionSource<SearchResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            bool usedAnonymizer = false;
+            factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), _cancellationToken).Returns(creation.Task);
+            anonymizer.Anonymize(Arg.Any<ResourceElement>()).Returns(call =>
+            {
+                ((IDisposable)factory).DidNotReceive().Dispose();
+                usedAnonymizer = true;
+                return call.Arg<ResourceElement>();
+            });
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true).Returns(_ =>
+                {
+                    searchStarted.SetResult();
+                    return search.Task;
+                });
+            using var root = new ServiceCollection()
+                .AddScoped<IAnonymizerFactory>(_ => factory)
+                .BuildServiceProvider();
+            var job = CreateExportJobTask(anonymizerFactory: new ScopeProvider<IAnonymizerFactory>(root));
+
+            // Act
+            Task execution = job.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+            try
+            {
+                Assert.False(execution.IsCompleted);
+                ((IDisposable)factory).DidNotReceive().Dispose();
+                creation.SetResult(anonymizer);
+                await searchStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                ((IDisposable)factory).DidNotReceive().Dispose();
+                if (outcome == OperationStatus.Canceled)
+                {
+                    _cancellationTokenSource.Cancel();
+                    search.SetCanceled(_cancellationToken);
+                }
+                else if (outcome == OperationStatus.Failed)
+                {
+                    search.SetException(new InvalidOperationException("Search failed."));
+                }
+                else
+                {
+                    search.SetResult(CreateSearchResult(new[] { CreateSearchResultEntry("1", "Patient") }));
+                }
+
+                await execution.WaitAsync(TimeSpan.FromSeconds(10));
+
+                // Assert
+                Assert.Equal(outcome, _exportJobRecord.Status);
+                Assert.Equal(outcome == OperationStatus.Completed, usedAnonymizer);
+                ((IDisposable)factory).Received(1).Dispose();
+            }
+            finally
+            {
+                creation.TrySetResult(anonymizer);
+                search.TrySetResult(CreateSearchResult());
+                await execution.WaitAsync(TimeSpan.FromSeconds(10));
+            }
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenAnonymizerCreationFails_WhenExecuted_ThenScopeIsDisposed(bool faultedTask)
+        {
+            // Arrange
+            ExportJobRecord record = CreateExportJobRecord(anonymizationConfigurationLocation: "config");
+            SetupExportJobRecordAndOperationDataStore(record);
+            var factory = Substitute.For<IAnonymizerFactory, IDisposable>();
+            var error = new AnonymizationConfigurationNotFoundException("config not found");
+            if (faultedTask)
+            {
+                factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), _cancellationToken)
+                    .Returns(Task.FromException<IAnonymizer>(error));
+            }
+            else
+            {
+                factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), _cancellationToken)
+                    .Returns<Task<IAnonymizer>>(_ => throw error);
+            }
+
+            using var root = new ServiceCollection()
+                .AddScoped<IAnonymizerFactory>(_ => factory)
+                .BuildServiceProvider();
+            var job = CreateExportJobTask(anonymizerFactory: new ScopeProvider<IAnonymizerFactory>(root));
+
+            // Act
+            await job.ExecuteAsync(record, _weakETag, _cancellationToken);
+
+            // Assert
+            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
+            ((IDisposable)factory).Received(1).Dispose();
         }
 
         [Theory]
@@ -1558,7 +2032,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
             factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw (Exception)Activator.CreateInstance(exceptionType, expectedErrorMessage));
 
-            var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScope());
+            var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScopeProvider());
 
             await exportJobTask.ExecuteAsync(exportJobRecordWithOneResource, _weakETag, _cancellationToken);
 
@@ -1595,7 +2069,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
             factory.CreateAnonymizerAsync(Arg.Any<ExportJobRecord>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => Task.FromResult(anonymizer));
 
-            var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScope());
+            var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScopeProvider());
 
             await exportJobTask.ExecuteAsync(exportJobRecordWithOneResource, _weakETag, _cancellationToken);
 
@@ -2280,7 +2754,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             string anonymizationConfigurationLocation = null,
             string anonymizationConfigurationFileEtag = null,
             bool includeHistory = false,
-            bool includeDeleted = false)
+            bool includeDeleted = false,
+            bool smartRequest = false,
+            IReadOnlyCollection<string> authorizedIncludeResourceTypes = null)
         {
             return new ExportJobRecord(
                 new Uri(requestEndpoint),
@@ -2301,13 +2777,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 anonymizationConfigurationLocation: anonymizationConfigurationLocation,
                 anonymizationConfigurationFileETag: anonymizationConfigurationFileEtag,
                 includeHistory: includeHistory,
-                includeDeleted: includeDeleted);
+                includeDeleted: includeDeleted,
+                smartRequest: smartRequest,
+                authorizedIncludeResourceTypes: authorizedIncludeResourceTypes);
         }
 
         private ExportJobTask CreateExportJobTask(
             ExportJobConfiguration exportJobConfiguration = null,
             IExportDestinationClient exportDestinationClient = null,
-            IScoped<IAnonymizerFactory> anonymizerFactory = null,
+            IScopeProvider<IAnonymizerFactory> anonymizerFactory = null,
             ILogger<ExportJobTask> logger = null)
         {
             _resourceToByteArraySerializer.StringSerialize(Arg.Any<ResourceElement>()).Returns(x => x.ArgAt<ResourceElement>(0).Instance.Value.ToString());
@@ -2316,9 +2794,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
             return new ExportJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
+                _fhirOperationDataStore.CreateMockScopeProvider(),
                 Options.Create(exportJobConfiguration == null ? _exportJobConfiguration : exportJobConfiguration),
-                () => _searchService.CreateMockScope(),
+                _searchService.CreateMockScopeProvider(),
                 _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 exportDestinationClient == null ? _inMemoryDestinationClient : exportDestinationClient,
@@ -2339,7 +2817,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             return new SearchResult(resourceWrappers, continuationToken, null, new Tuple<string, string>[0]);
         }
 
-        private SearchResultEntry CreateSearchResultEntry(string id, string type)
+        private SearchResultEntry CreateSearchResultEntry(string id, string type, SearchEntryMode searchEntryMode = SearchEntryMode.Match)
         {
             return new SearchResultEntry(
                             new ResourceWrapper(
@@ -2352,7 +2830,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                                 false,
                                 null,
                                 null,
-                                null));
+                                null),
+                            searchEntryMode);
         }
 
         private void SetupExportJobRecordAndOperationDataStore(ExportJobRecord exportJobRecord = null, CancellationToken? token = null)

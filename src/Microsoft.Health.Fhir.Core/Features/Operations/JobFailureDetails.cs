@@ -11,13 +11,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
     public class JobFailureDetails
     {
-        public JobFailureDetails(string failureReason, HttpStatusCode statusCode, string failureDetails = "")
+        public JobFailureDetails(string failureReason, HttpStatusCode statusCode, string failureDetails = "", bool isCustomerCaused = false)
         {
             EnsureArg.IsNotNullOrWhiteSpace(failureReason, nameof(failureReason));
 
             FailureReason = failureReason;
             FailureStatusCode = statusCode;
             FailureDetails = failureDetails;
+            IsCustomerCaused = isCustomerCaused;
         }
 
         [JsonConstructor]
@@ -33,5 +34,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         [JsonProperty(JobRecordProperties.FailureStatusCode)]
         public HttpStatusCode FailureStatusCode { get; private set; }
+
+        /// <summary>
+        /// Gets whether the failure was caused by customer configuration or input.
+        /// </summary>
+        [JsonProperty(JobRecordProperties.IsCustomerCaused, DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public bool IsCustomerCaused { get; private set; }
     }
 }

@@ -12,7 +12,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Ignixa.Serialization.SourceNodes;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Context;
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
 
-        public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(UpsertResourceRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             {
                 // Update the ResourceJsonNode with the new ID and metadata
                 resourceJsonNode.Id = resource.Id;
-                resourceJsonNode.Meta.LastUpdated = resource.Meta.LastUpdated.Value;
+                resourceJsonNode.Meta.LastUpdatedOffset = resource.Meta.LastUpdated.Value;
 
                 // Create IgnixaResourceElement and pass it as ResourceInstance for direct property access
                 var ignixaElement = new IgnixaResourceElement(resourceJsonNode, _schemaContext.Schema);
@@ -151,7 +151,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
 
             ResourceWrapper resourceWrapper = ResourceWrapperFactory.Create(resourceElement, deleted: false, keepMeta: allowCreate);
 
-            UpsertOutcome result = await FhirDataStore.UpsertAsync(new ResourceWrapperOperation(resourceWrapper, allowCreate, keepHistory, request.WeakETag, requireETagOnUpdate, false, request.BundleResourceContext, request.MetaHistory), cancellationToken);
+            UpsertOutcome result = await FhirDataStore.UpsertAsync(
+                new ResourceWrapperOperation(
+                    wrapper: resourceWrapper,
+                    allowCreate: allowCreate,
+                    keepHistory: keepHistory,
+                    weakETag: request.WeakETag,
+                    requireETagOnUpdate: requireETagOnUpdate,
+                    keepVersion: false,
+                    bundleResourceContext: request.BundleResourceContext,
+                    metaHistory: request.MetaHistory,
+                    createOnly: request.CreateOnly),
+                cancellationToken);
 
             resource.VersionId = result.Wrapper.Version;
 

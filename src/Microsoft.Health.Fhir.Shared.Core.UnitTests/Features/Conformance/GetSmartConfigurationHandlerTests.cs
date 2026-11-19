@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             var handler = CreateHandler(securityConfiguration);
 
-            OperationFailedException e = await Assert.ThrowsAsync<OperationFailedException>(() => handler.Handle(request, CancellationToken.None));
+            OperationFailedException e = await Assert.ThrowsAsync<OperationFailedException>(() => handler.HandleAsync(request, CancellationToken.None));
             Assert.Equal(HttpStatusCode.BadRequest, e.ResponseStatusCode);
         }
 
@@ -87,11 +87,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             var handler = CreateHandler(securityConfiguration);
 
-            GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
+            GetSmartConfigurationResponse response = await handler.HandleAsync(request, CancellationToken.None);
 
             Assert.Equal(baseEndpoint + "/oauth2/v2.0/authorize", response.AuthorizationEndpoint.ToString());
             Assert.Equal(baseEndpoint + "/oauth2/v2.0/token", response.TokenEndpoint.ToString());
             Assert.Equal(ExpectedBaseCapabilities, response.Capabilities);
+            Assert.Contains("permission-v1", response.Capabilities);
+            Assert.Contains("permission-v2", response.Capabilities);
             Assert.Equal(baseEndpoint + "/v2.0", response.Issuer);
             Assert.Equal(baseEndpoint + "/discovery/v2.0/keys", response.JwksUri);
 
@@ -124,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             var handler = CreateHandler(securityConfiguration, oidcDiscoveryService: oidcService);
 
-            OperationFailedException exception = await Assert.ThrowsAsync<OperationFailedException>(() => handler.Handle(request, CancellationToken.None));
+            OperationFailedException exception = await Assert.ThrowsAsync<OperationFailedException>(() => handler.HandleAsync(request, CancellationToken.None));
             Assert.Equal(HttpStatusCode.BadRequest, exception.ResponseStatusCode);
         }
 
@@ -153,7 +155,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             var handler = CreateHandler(securityConfiguration, smartIdentityProviderConfiguration);
 
-            GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
+            GetSmartConfigurationResponse response = await handler.HandleAsync(request, CancellationToken.None);
 
             Assert.Equal(baseEndpoint + "/oauth2/v2.0/authorize", response.AuthorizationEndpoint.ToString());
             Assert.Equal(baseEndpoint + "/oauth2/v2.0/token", response.TokenEndpoint.ToString());
@@ -187,7 +189,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             var handler = CreateHandler(securityConfiguration);
 
-            GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
+            GetSmartConfigurationResponse response = await handler.HandleAsync(request, CancellationToken.None);
 
             Assert.Equal("https://fhir.example.com/AadSmartOnFhirProxy/authorize", response.AuthorizationEndpoint.ToString());
             Assert.Equal("https://fhir.example.com/AadSmartOnFhirProxy/token", response.TokenEndpoint.ToString());
@@ -217,7 +219,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             var handler = CreateHandler(securityConfiguration);
 
-            GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
+            GetSmartConfigurationResponse response = await handler.HandleAsync(request, CancellationToken.None);
 
             Assert.Equal(authority + "/oauth2/v2.0/authorize", response.AuthorizationEndpoint.ToString());
             Assert.Equal(authority + "/oauth2/v2.0/token", response.TokenEndpoint.ToString());
@@ -249,7 +251,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             var handler = CreateHandler(securityConfiguration, smartIdentityProviderConfiguration);
 
-            GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
+            GetSmartConfigurationResponse response = await handler.HandleAsync(request, CancellationToken.None);
 
             var expectedAuthority = !string.IsNullOrEmpty(authority) ? authority.TrimEnd('/') : baseUri;
             Assert.Equal(expectedAuthority + "/oauth2/v2.0/authorize", response.AuthorizationEndpoint.ToString());

@@ -9,5 +9,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
     {
         public const string BlobPropertyETag = "ETag";
         public const string BlobPropertyLength = "Length";
+
+        /// <summary>
+        /// The reserved URI scheme identifying the in-memory synthetic import source used for CPU-only
+        /// $import measurements. Always recognized; never used for real storage endpoints.
+        /// See InMemoryTestDataSource in Microsoft.Health.Fhir.Azure for the implementation.
+        /// </summary>
+        public const string InMemoryTestSourceScheme = "inmemorytest";
     }
 }

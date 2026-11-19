@@ -169,6 +169,41 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return base.VisitNotReferenced(expression, context);
         }
 
+        public override SearchParameterQueryGeneratorContext VisitNotReferencing(NotReferencingExpression expression, SearchParameterQueryGeneratorContext context)
+        {
+            short sourceResourceTypeId = context.Model.GetResourceTypeId(expression.SourceResourceType);
+            short referenceSearchParamId = context.Model.GetSearchParamId(expression.ReferenceSearchParameter.Url);
+
+            context.StringBuilder.AppendLine($"{VLatest.Resource.ResourceTypeId} = {sourceResourceTypeId}");
+
+            // Reference index rows are removed when a version becomes history or is deleted, so absence of a
+            // reference only proves "unassigned" for the current, non-deleted version.
+            context.StringBuilder.AppendLine($"AND {VLatest.Resource.IsHistory} = 0");
+            context.StringBuilder.AppendLine($"AND {VLatest.Resource.IsDeleted} = 0");
+            context.StringBuilder.AppendLine("AND NOT EXISTS ").AppendLine("(");
+            using (context.StringBuilder.Indent())
+            {
+                context.StringBuilder.AppendLine("SELECT *");
+                context.StringBuilder.Append($"FROM (SELECT RefResourceTypeId = {VLatest.ReferenceSearchParam.ResourceTypeId}, RefResourceSurrogateId = {VLatest.ReferenceSearchParam.ResourceSurrogateId}, {VLatest.ReferenceSearchParam.SearchParamId} FROM ").Append(VLatest.ReferenceSearchParam).AppendLine(") R");
+
+                using (var nestedDelimited = context.StringBuilder.BeginDelimitedWhereClause())
+                {
+                    nestedDelimited.BeginDelimitedElement();
+                    context.StringBuilder.Append($"RefResourceTypeId = {VLatest.Resource.ResourceTypeId}");
+
+                    nestedDelimited.BeginDelimitedElement();
+                    context.StringBuilder.Append($"RefResourceSurrogateId = {VLatest.Resource.ResourceSurrogateId}");
+
+                    nestedDelimited.BeginDelimitedElement();
+                    context.StringBuilder.Append($"{VLatest.ReferenceSearchParam.SearchParamId} = {referenceSearchParamId}");
+                }
+            }
+
+            context.StringBuilder.AppendLine(")");
+
+            return context;
+        }
+
         protected static SearchParameterQueryGenerator GetSearchParameterQueryGeneratorIfResourceColumnSearchParameter(SearchParameterExpressionBase searchParameter)
         {
             switch (searchParameter.Parameter.Code)

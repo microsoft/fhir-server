@@ -20,6 +20,33 @@ The current authentication settings exposed in configuration are the following:
 |Authentication:Audience|Identifies the recipient that the token is intended for. In this context it should be set to something representing the FHIR API itself.|
 |Authentication:Authority|The issuer of the jwt token.|
 
+## SMART patient context
+
+[Patient-level SMART scopes](https://hl7.org/fhir/smart-app-launch/scopes-and-launch-context.html#patient-specific-scopes)
+authorize access for one patient, not for the logged-in practitioner's compartment.
+For a token with `patient/` scopes (including the supported legacy forms such as
+`patient.all.read`), the authenticated `patient` claim selects the Patient
+compartment. Its value must be a single FHIR resource id, not a resource reference
+or URL, and must satisfy the server's resource id length policy. Duplicate or
+invalid patient claims are rejected with a `400 Bad Request` OperationOutcome.
+The patient context must come from the authenticated token, not request headers
+or query parameters.
+
+For compatibility, when the `patient` claim is absent, an existing `fhirUser`
+(or `extension_fhirUser`) identifying a Patient continues to select that patient's
+compartment. A Practitioner identity without a patient context is rejected for
+patient scopes, even when `ErrorOnMissingFhirUserClaim` is disabled. A valid
+`patient` claim takes precedence over `fhirUser` and does not require that identity
+claim to be present. Rejecting previously accepted practitioner fallback or invalid
+patient context is an intentional security-related behavior change. `user/` and
+`system/` scope behavior is unchanged.
+
+## SMART compartment reference identity
+
+SMART compartment authorization requires references to identify the compartment root on this FHIR server. A relative reference such as `Patient/123` and an absolute reference to the same Patient under this server's FHIR base URL establish the same membership. An absolute reference to a different FHIR base does not establish local compartment membership, even when its resource type and ID match. This applies to searches, direct reads, and conditionally patient-assigned Devices when the SMART Device restriction is enabled.
+
+This follows [FHIR reference identity](https://hl7.org/fhir/R4/references.html#literal). Ordinary reference-search matching is unchanged; compartment authorization additionally requires a local reference.
+
 ## Development Identity Provider
 For the F5 experience and test environments, an in-process identity provider is included that can act as the authentication provider for the FHIR API. 
 

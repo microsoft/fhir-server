@@ -10,14 +10,15 @@ using System.Diagnostics;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
-using Hl7.FhirPath;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
-using Microsoft.Health.Fhir.Core.Features.Search.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
+using EvaluationContext = Hl7.FhirPath.EvaluationContext;
 using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="fhirElementTypeConverterManager">The FHIR element type converter manager.</param>
         /// <param name="referenceToElementResolver">Used for parsing reference strings</param>
         /// <param name="modelInfoProvider">Model info provider</param>
-        /// <param name="fhirPathProvider">The FHIRPath provider for expression evaluation.</param>
+        /// <param name="fhirPathProvider">FHIRPath provider</param>
         /// <param name="logger">The logger.</param>
         public TypedElementSearchIndexer(
             ISupportedSearchParameterDefinitionManager searchParameterDefinitionManager,
@@ -100,20 +101,87 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
-            return entries.Distinct().ToList();
+            return Distinct(entries);
+        }
+
+        /// <summary>
+        /// Removes duplicate entries, keeping the order and the first entry's indexed values, like <c>Enumerable.Distinct</c>.
+        /// Duplicates compare reference ids case-insensitively, but the data store indexes them as written, so the first entry is
+        /// kept as is. Only the overlong reference id length of a later duplicate is carried over, so the truncation is still
+        /// reported when the resource is written.
+        /// </summary>
+        private static List<SearchIndexEntry> Distinct(List<SearchIndexEntry> entries)
+        {
+            var indexes = new Dictionary<SearchIndexEntry, int>();
+            var result = new List<SearchIndexEntry>(entries.Count);
+            foreach (SearchIndexEntry entry in entries)
+            {
+                if (!indexes.TryGetValue(entry, out int index))
+                {
+                    indexes.Add(entry, result.Count);
+                    result.Add(entry);
+                }
+                else
+                {
+                    result[index] = new SearchIndexEntry(result[index].SearchParameter, MergeOverlongResourceIdLength(result[index].Value, entry.Value));
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Returns <paramref name="kept"/> with the larger overlong reference id length of the two equal values, including in composite components.
+        /// </summary>
+        private static ISearchValue MergeOverlongResourceIdLength(ISearchValue kept, ISearchValue duplicate)
+        {
+            switch (kept)
+            {
+                case ReferenceSearchValue keptReference when duplicate is ReferenceSearchValue duplicateReference
+                    && duplicateReference.OverlongResourceIdLength.GetValueOrDefault() > keptReference.OverlongResourceIdLength.GetValueOrDefault():
+                    return new ReferenceSearchValue(keptReference.Kind, keptReference.BaseUri, keptReference.ResourceType, keptReference.ResourceId)
+                    {
+                        OverlongResourceIdLength = duplicateReference.OverlongResourceIdLength,
+                        MaxResourceIdLength = duplicateReference.MaxResourceIdLength,
+                    };
+                case CompositeSearchValue keptComposite when duplicate is CompositeSearchValue duplicateComposite
+                    && keptComposite.Components.Count == duplicateComposite.Components.Count:
+                    bool changed = false;
+                    var components = new List<IReadOnlyList<ISearchValue>>(keptComposite.Components.Count);
+                    for (int i = 0; i < keptComposite.Components.Count; i++)
+                    {
+                        IReadOnlyList<ISearchValue> keptValues = keptComposite.Components[i];
+                        IReadOnlyList<ISearchValue> duplicateValues = duplicateComposite.Components[i];
+                        var values = new List<ISearchValue>(keptValues.Count);
+                        for (int j = 0; j < keptValues.Count; j++)
+                        {
+                            ISearchValue merged = j < duplicateValues.Count ? MergeOverlongResourceIdLength(keptValues[j], duplicateValues[j]) : keptValues[j];
+                            changed |= !ReferenceEquals(merged, keptValues[j]);
+                            values.Add(merged);
+                        }
+
+                        components.Add(values);
+                    }
+
+                    return changed ? new CompositeSearchValue(components) : kept;
+                default:
+                    return kept;
+            }
         }
 
         private IEnumerable<SearchIndexEntry> ProcessCompositeSearchParameter(SearchParameterInfo searchParameter, ITypedElement resource, EvaluationContext context)
         {
             Debug.Assert(searchParameter?.Type == SearchParamType.Composite, "The search parameter must be composite.");
+            Uri searchParameterUrl = EnsureArg.IsNotNull(searchParameter.Url, nameof(searchParameter.Url));
 
             SearchParameterInfo compositeSearchParameterInfo = searchParameter;
 
-            ICompiledFhirPath compiledExpression = _fhirPathProvider.Compile(searchParameter.Expression);
-
-            IEnumerable<ITypedElement> rootObjects = compiledExpression.Evaluate(resource, context);
-
-            foreach (var rootObject in rootObjects)
+            foreach (ITypedElement rootObject in EvaluateFhirPath(
+                searchParameterUrl.ToString(),
+                searchParameterUrl,
+                resource,
+                searchParameter.Expression,
+                context))
             {
                 int numberOfComponents = searchParameter.Component.Count;
                 bool skip = false;
@@ -134,7 +202,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         componentSearchParameterDefinition.TargetResourceTypes,
                         rootObject,
                         component.Expression,
-                        context);
+                        context,
+                        searchParameterUrl);
 
                     // Filter out any search value that's not valid as a composite component.
                     extractedComponentValues = extractedComponentValues
@@ -173,7 +242,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchParameter.TargetResourceTypes,
                 resource,
                 searchParameter.Expression,
-                context))
+                context,
+                searchParameter.Url))
             {
                 if (searchValue != null)
                 {
@@ -199,58 +269,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IReadOnlyList<string> allowedReferenceResourceTypes,
             ITypedElement element,
             string fhirPathExpression,
-            EvaluationContext context)
+            EvaluationContext context,
+            Uri evaluationErrorSearchParameterUrl)
         {
             Debug.Assert(searchParameterType != SearchParamType.Composite, "The search parameter must be non-composite.");
 
             var results = new List<ISearchValue>();
 
             // For simple value type, we can parse the expression directly.
-            IEnumerable<ITypedElement> extractedValues = Enumerable.Empty<ITypedElement>();
+            IEnumerable<ITypedElement> extractedValues = EvaluateFhirPath(
+                searchParameterDefinitionUrl,
+                evaluationErrorSearchParameterUrl,
+                element,
+                fhirPathExpression,
+                context);
 
-            try
+            // If there is target set, then filter the extracted values to only those types.
+            if (searchParameterType == SearchParamType.Reference &&
+                allowedReferenceResourceTypes?.Count > 0)
             {
-                ICompiledFhirPath compiledExpression = _fhirPathProvider.Compile(fhirPathExpression);
-
-                extractedValues = compiledExpression.Evaluate(element, context);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(
-                    ex,
-                    "Failed to extract the values using '{FhirPathExpression}' against '{ElementType}'.",
-                    fhirPathExpression,
-                    element.GetType());
-            }
-
-            Debug.Assert(extractedValues != null, "The extracted values should not be null.");
-            if (extractedValues == null)
-            {
-                _logger.LogWarning("The extracted values should not be null.");
-                return results;
-            }
-
-            try
-            {
-                // If there is target set, then filter the extracted values to only those types.
-                if (searchParameterType == SearchParamType.Reference &&
-                    allowedReferenceResourceTypes?.Count > 0)
+                List<string> targetResourceTypes = _targetTypesLookup.GetOrAdd(searchParameterDefinitionUrl, _ =>
                 {
-                    List<string> targetResourceTypes = _targetTypesLookup.GetOrAdd(searchParameterDefinitionUrl, _ =>
-                    {
-                        return allowedReferenceResourceTypes.Select(t => t.ToString()).ToList();
-                    });
+                    return allowedReferenceResourceTypes.Select(t => t.ToString()).ToList();
+                });
 
-                    // TODO: The expression for reference search parameters in STU3 has issues.
-                    // The reference search parameter could be pointing to an element that can be multiple types. For example,
-                    // the Appointment.participant.actor can be type of Patient, Practitioner, Related Person, Location, and so on.
-                    // Some search parameter could refer to this property but restrict to certain types. For example,
-                    // Appointment's location search parameter is returned only when Appointment.participant.actor is Location element.
-                    // The STU3 expressions don't have this restriction so everything is being returned. This is addressed in R4 release (see
-                    // http://community.fhir.org/t/expression-seems-incorrect-for-reference-search-parameter-thats-only-applicable-to-certain-types/916/2).
-                    // Therefore, for now, we will need to compare the reference value itself (which can be internal or external references), and restrict
-                    // the values ourselves.
-                    extractedValues = extractedValues.Where(ev =>
+                // TODO: The expression for reference search parameters in STU3 has issues.
+                // The reference search parameter could be pointing to an element that can be multiple types. For example,
+                // the Appointment.participant.actor can be type of Patient, Practitioner, Related Person, Location, and so on.
+                // Some search parameter could refer to this property but restrict to certain types. For example,
+                // Appointment's location search parameter is returned only when Appointment.participant.actor is Location element.
+                // The STU3 expressions don't have this restriction so everything is being returned. This is addressed in R4 release (see
+                // http://community.fhir.org/t/expression-seems-incorrect-for-reference-search-parameter-thats-only-applicable-to-certain-types/916/2).
+                // Therefore, for now, we will need to compare the reference value itself (which can be internal or external references), and restrict
+                // the values ourselves.
+                extractedValues = extractedValues
+                    .Where(ev =>
                     {
                         if (ev == null)
                         {
@@ -262,71 +315,152 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                         if (ev?.InstanceType != null && ev.InstanceType.Equals("ResourceReference", StringComparison.OrdinalIgnoreCase))
                         {
-                            return ev.Scalar("reference") is string rr && targetResourceTypes.Any(trt => rr.Contains(trt, StringComparison.Ordinal));
+                            return EvaluateFhirPath(
+                                searchParameterDefinitionUrl,
+                                evaluationErrorSearchParameterUrl,
+                                ev,
+                                "reference",
+                                null).SingleOrDefault()?.Value is string rr &&
+                                targetResourceTypes.Any(trt => rr.Contains(trt, StringComparison.Ordinal));
                         }
 
                         return true;
-                    });
+                    })
+                    .ToArray();
+            }
+
+            foreach (var extractedValue in extractedValues)
+            {
+                if (extractedValue == null)
+                {
+                    _logger.LogWarning(
+                        "The FHIR element should not be null. Expression: '{FhirPathExpression}', ElementType: '{ElementType}'.",
+                        fhirPathExpression,
+                        element.GetType());
+                    continue;
                 }
 
-                foreach (var extractedValue in extractedValues)
+                if (!_fhirElementTypeConverterManager.TryGetConverter(extractedValue.InstanceType, GetSearchValueTypeForSearchParamType(searchParameterType), out ITypedElementToSearchValueConverter converter))
                 {
-                    if (extractedValue == null)
+                    _logger.LogWarning(
+                        "The FHIR element '{ElementType}' is not supported.",
+                        extractedValue.InstanceType);
+
+                    continue;
+                }
+
+                var searchValues = converter.ConvertTo(extractedValue).ToList();
+
+                if (searchValues != null)
+                {
+                    if (searchParameterType == SearchParamType.Reference && allowedReferenceResourceTypes?.Count == 1)
                     {
-                        _logger.LogWarning(
-                            "The FHIR element should not be null. Expression: '{FhirPathExpression}', ElementType: '{ElementType}'.",
-                            fhirPathExpression,
-                            element.GetType());
-                        continue;
-                    }
-
-                    if (!_fhirElementTypeConverterManager.TryGetConverter(extractedValue.InstanceType, GetSearchValueTypeForSearchParamType(searchParameterType), out ITypedElementToSearchValueConverter converter))
-                    {
-                        _logger.LogWarning(
-                            "The FHIR element '{ElementType}' is not supported.",
-                            extractedValue.InstanceType);
-
-                        continue;
-                    }
-
-                    var searchValues = converter.ConvertTo(extractedValue).ToList();
-
-                    if (searchValues != null)
-                    {
-                        if (searchParameterType == SearchParamType.Reference && allowedReferenceResourceTypes?.Count == 1)
+                        // For references, if the type is not specified in the reference string, we can set the type on the search value because
+                        // in this case it can only be of one type.
+                        string singleAllowedResourceType = allowedReferenceResourceTypes[0];
+                        foreach (ISearchValue searchValue in searchValues)
                         {
-                            // For references, if the type is not specified in the reference string, we can set the type on the search value because
-                            // in this case it can only be of one type.
-                            string singleAllowedResourceType = allowedReferenceResourceTypes[0];
-                            foreach (ISearchValue searchValue in searchValues)
+                            if (searchValue is ReferenceSearchValue rsr && string.IsNullOrEmpty(rsr.ResourceType))
                             {
-                                if (searchValue is ReferenceSearchValue rsr && string.IsNullOrEmpty(rsr.ResourceType))
+                                results.Add(new ReferenceSearchValue(rsr.Kind, rsr.BaseUri, singleAllowedResourceType, rsr.ResourceId)
                                 {
-                                    results.Add(new ReferenceSearchValue(rsr.Kind, rsr.BaseUri, singleAllowedResourceType, rsr.ResourceId));
-                                }
-                                else
-                                {
-                                    results.Add(searchValue);
-                                }
+                                    OverlongResourceIdLength = rsr.OverlongResourceIdLength,
+                                    MaxResourceIdLength = rsr.MaxResourceIdLength,
+                                });
+                            }
+                            else
+                            {
+                                results.Add(searchValue);
                             }
                         }
-                        else
-                        {
-                            results.AddRange(searchValues);
-                        }
+                    }
+                    else
+                    {
+                        results.AddRange(searchValues);
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(
-                    ex,
-                    "Failed to extract the values using '{FhirPathExpression}' against '{ElementType}'.",
-                    fhirPathExpression,
-                    element.GetType());
             }
 
             return results;
+        }
+
+        private ITypedElement[] EvaluateFhirPath(
+            string searchParameterDefinitionUrl,
+            Uri evaluationErrorSearchParameterUrl,
+            ITypedElement element,
+            string fhirPathExpression,
+            EvaluationContext context)
+        {
+            // Compile failures are contained, matching the pre-seam indexer (now also for composite roots): the
+            // warning carries the exception (and, with OpenTelemetry logging, feeds the log enricher's failure metric)
+            // so the missing index entries stay observable. Evaluation failures from
+            // either provider are wrapped in SearchParameterEvaluationException, which names the owning search
+            // parameter without resource values, so the write or reindex job fails safely. Cancellation and
+            // OutOfMemoryException propagate unwrapped so the caller can cancel or recover from memory pressure.
+            ICompiledFhirPath expression;
+            try
+            {
+                expression = _fhirPathProvider.Compile(fhirPathExpression);
+            }
+            catch (Exception ex) when (ex is not (OperationCanceledException or OutOfMemoryException))
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to extract search parameter '{SearchParameterDefinitionUrl}' using '{FhirPathExpression}' against '{ElementType}'.",
+                    searchParameterDefinitionUrl,
+                    fhirPathExpression,
+                    element.InstanceType);
+
+                return Array.Empty<ITypedElement>();
+            }
+
+            IEnumerable<ITypedElement> values;
+            try
+            {
+                values = expression.Select(element, context);
+            }
+            catch (Exception ex) when (ex is not (OperationCanceledException or OutOfMemoryException))
+            {
+                throw new SearchParameterEvaluationException(evaluationErrorSearchParameterUrl, ex);
+            }
+
+            return EnumerateSearchParameterValues(values, evaluationErrorSearchParameterUrl).ToArray();
+        }
+
+        internal static IEnumerable<ITypedElement> EnumerateSearchParameterValues(IEnumerable<ITypedElement> values, Uri searchParameterUrl)
+        {
+            IEnumerator<ITypedElement> enumerator;
+            try
+            {
+                enumerator = values.GetEnumerator();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException && ex is not OutOfMemoryException)
+            {
+                throw new SearchParameterEvaluationException(searchParameterUrl, ex);
+            }
+
+            using (enumerator)
+            {
+                while (true)
+                {
+                    ITypedElement current;
+                    try
+                    {
+                        if (!enumerator.MoveNext())
+                        {
+                            yield break;
+                        }
+
+                        current = enumerator.Current;
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException && ex is not OutOfMemoryException)
+                    {
+                        throw new SearchParameterEvaluationException(searchParameterUrl, ex);
+                    }
+
+                    yield return current;
+                }
+            }
         }
 
         internal static Type GetSearchValueTypeForSearchParamType(SearchParamType? searchParamType)

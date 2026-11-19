@@ -6,7 +6,7 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
-using Hl7.FhirPath;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             }
 
             // Contained resources will not be searchable.
-            if (reference.StartsWith('#')
+            if (reference.StartsWith("#", StringComparison.Ordinal)
                 || reference.StartsWith("urn:", StringComparison.Ordinal))
             {
                 yield break;

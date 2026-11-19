@@ -308,6 +308,16 @@ namespace Microsoft.Health.JobManagement.UnitTests
             return Task.FromResult<IReadOnlyList<JobInfo>>(activeJobs);
         }
 
+        public Task<JobInfo> GetMostRecentJobByQueueTypeAsync(byte queueType, CancellationToken cancellationToken)
+        {
+            var jobs = jobInfos.Where(j => j.QueueType == queueType).ToList();
+            jobs = jobs.Where(j => j.Id == j.GroupId).ToList();
+
+            var mostRecentJob = jobs.OrderByDescending(j => j.GroupId).FirstOrDefault();
+
+            return Task.FromResult(mostRecentJob);
+        }
+
         public void ClearJobs()
         {
             jobInfos.Clear();

@@ -10,12 +10,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Scoping;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
@@ -24,12 +24,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     /// </summary>
     public class GroupMemberExtractor : IGroupMemberExtractor
     {
-        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
+        private readonly IScopeProvider<IFhirDataStore> _fhirDataStoreFactory;
         private readonly ResourceDeserializer _resourceDeserializer;
         private readonly IReferenceToElementResolver _referenceToElementResolver;
 
         public GroupMemberExtractor(
-            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
+            IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
             ResourceDeserializer resourceDeserializer,
             IReferenceToElementResolver referenceToElementResolver)
         {

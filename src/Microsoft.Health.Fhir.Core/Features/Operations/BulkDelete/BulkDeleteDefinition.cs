@@ -24,7 +24,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             string baseUrl,
             string parentRequestId,
             ResourceVersionType versionType = ResourceVersionType.Latest,
-            bool removeReferences = false)
+            bool removeReferences = false,
+            bool allowProfileResourceModification = false,
+            IList<string> searchWarnings = null)
         {
             TypeId = (int)jobType;
             DeleteOperation = deleteOperation;
@@ -36,6 +38,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             ParentRequestId = parentRequestId;
             VersionType = versionType;
             RemoveReferences = removeReferences;
+            AllowProfileResourceModification = allowProfileResourceModification;
+            SearchWarnings = searchWarnings?.Count > 0 ? searchWarnings : null;
         }
 
         [JsonConstructor]
@@ -72,5 +76,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
         [JsonProperty(JobRecordProperties.RemoveReferences)]
         public bool RemoveReferences { get; private set; }
+
+        [JsonProperty(JobRecordProperties.AllowProfileResourceModification)]
+        public bool AllowProfileResourceModification { get; private set; }
+
+        /// <summary>
+        /// Gets warnings from validating the search parameters when the job was submitted, returned with the job status.
+        /// </summary>
+        [JsonProperty(JobRecordProperties.SearchWarnings, NullValueHandling = NullValueHandling.Ignore)]
+        public IList<string> SearchWarnings { get; private set; }
     }
 }

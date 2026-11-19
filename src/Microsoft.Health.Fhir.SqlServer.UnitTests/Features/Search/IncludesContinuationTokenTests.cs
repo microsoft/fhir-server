@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
     /// <summary>
     /// Unit tests for IncludesContinuationToken.
     /// Tests the parsing, validation, and serialization of includes continuation tokens.
-    /// The token structure supports 3-7 elements with complex nested token handling.
+    /// The token structure supports legacy ranges and replayable sorted pages with nested phases.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
@@ -344,6 +344,101 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.NotNull(result);
             Assert.NotEmpty(result);
             Assert.Equal(token.ToJson(), result);
+        }
+
+        [Theory]
+        [InlineData(null, false)]
+        [InlineData(null, true)]
+        [InlineData("[\"2024-01-01T00:00:00.0000000Z\",123]", false)]
+        [InlineData("[123]", false)]
+        public void GivenSortedPageToken_WhenRoundTripped_ThenMatchCursorAndPageSizeArePreserved(string cursor, bool secondPhase)
+        {
+            // Arrange
+            var token = new IncludesContinuationToken(new object[] { (short)10, 300L, 100L, null, null, secondPhase, null, cursor, 3 });
+
+            // Act
+            var result = IncludesContinuationToken.FromString(token.ToJson());
+
+            // Assert
+            Assert.Equal(cursor, result.MatchContinuationToken);
+            Assert.Equal(3, result.MatchPageSize);
+            Assert.Equal(secondPhase, result.SortQuerySecondPhase);
+            Assert.Null(result.SecondPhaseContinuationToken);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        [InlineData(null)]
+        [InlineData("invalid")]
+        public void GivenInvalidSortedPageSize_WhenCreated_ThenTokenIsRejected(object pageSize)
+        {
+            // Arrange
+            var tokens = new object[] { (short)10, 100L, 300L, null, null, false, null, null, pageSize };
+
+            // Act and Assert
+            Assert.Throws<ArgumentException>(() => new IncludesContinuationToken(tokens));
+        }
+
+        [Fact]
+        public void GivenSortedPageTokenWithoutPageSize_WhenCreated_ThenTokenIsRejected()
+        {
+            // Arrange
+            var tokens = new object[] { (short)10, 100L, 300L, null, null, false, null, "[123]" };
+
+            // Act and Assert
+            Assert.Throws<ArgumentException>(() => new IncludesContinuationToken(tokens));
+        }
+
+        [Fact]
+        public void GivenSortedPageToken_WhenIncludesAdvanceAcrossTwoPhases_ThenBothMatchScopesArePreserved()
+        {
+            // Arrange
+            var firstPhase = new IncludesContinuationToken(new object[] { (short)10, 300L, 100L, (short)20, 500L, false, null, "[123]", 3 });
+            var secondPhase = new IncludesContinuationToken(new object[] { (short)10, 400L, 600L, null, null, true, null, null, 2 });
+
+            // Act
+            var combined = firstPhase.WithSecondPhase(secondPhase);
+            var result = IncludesContinuationToken.FromString(combined.WithIncludeCursor(25, 700).ToJson());
+
+            // Assert
+            Assert.Equal("[123]", result.MatchContinuationToken);
+            Assert.Equal(3, result.MatchPageSize);
+            Assert.False(result.SortQuerySecondPhase);
+            Assert.Equal((short)25, result.IncludeResourceTypeId);
+            Assert.Equal(700L, result.IncludeResourceSurrogateId);
+            Assert.Equal(2, result.SecondPhaseContinuationToken.MatchPageSize);
+            Assert.Null(result.SecondPhaseContinuationToken.MatchContinuationToken);
+            Assert.True(result.SecondPhaseContinuationToken.SortQuerySecondPhase);
+            Assert.Equal(500L, firstPhase.IncludeResourceSurrogateId);
+            Assert.Null(firstPhase.SecondPhaseContinuationToken);
+            Assert.Equal(500L, combined.IncludeResourceSurrogateId);
+        }
+
+        [Theory]
+        [InlineData("[10,100,300]")]
+        [InlineData("[10,100,300,20,500]")]
+        [InlineData("[10,100,300,20,500,false]")]
+        [InlineData("[10,100,300,20,500,false,\"[10,400,600]\"]")]
+        public void GivenLegacyToken_WhenIncludeCursorAdvances_ThenRangeAndRemainingPhaseArePreserved(string json)
+        {
+            // Arrange
+            var token = IncludesContinuationToken.FromString(json);
+
+            // Act
+            var result = IncludesContinuationToken.FromString(token.WithIncludeCursor(25, 700).ToJson());
+
+            // Assert
+            Assert.Equal(token.MatchResourceTypeId, result.MatchResourceTypeId);
+            Assert.Equal(token.MatchResourceSurrogateIdMin, result.MatchResourceSurrogateIdMin);
+            Assert.Equal(token.MatchResourceSurrogateIdMax, result.MatchResourceSurrogateIdMax);
+            Assert.Equal(token.SortQuerySecondPhase, result.SortQuerySecondPhase);
+            Assert.Equal(token.SecondPhaseContinuationToken?.ToJson(), result.SecondPhaseContinuationToken?.ToJson());
+            Assert.Equal((short)25, result.IncludeResourceTypeId);
+            Assert.Equal(700L, result.IncludeResourceSurrogateId);
+            Assert.Null(result.MatchPageSize);
+            Assert.Null(result.MatchContinuationToken);
+            Assert.Equal(json, token.ToJson());
         }
     }
 }

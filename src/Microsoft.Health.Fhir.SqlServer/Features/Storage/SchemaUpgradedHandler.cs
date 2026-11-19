@@ -6,7 +6,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Health.SqlServer.Features.Schema.Messages.Notifications;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _sqlServerFhirModel = sqlServerFhirModel;
         }
 
-        public async Task Handle(SchemaUpgradedNotification notification, CancellationToken cancellationToken)
+        public async Task HandleAsync(SchemaUpgradedNotification notification, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(notification, nameof(notification));
 

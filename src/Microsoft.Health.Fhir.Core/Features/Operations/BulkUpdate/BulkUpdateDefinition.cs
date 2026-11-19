@@ -29,7 +29,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             string globalStartSurrogateId = null,
             string globalEndSurrogateId = null,
             uint maximumNumberOfResourcesPerQuery = 10000,
-            bool metaHistory = true)
+            bool metaHistory = true,
+            bool allowProfileResourceModification = false,
+            IList<string> searchWarnings = null)
         {
             TypeId = (int)jobType;
             Type = type;
@@ -46,6 +48,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
             GlobalEndSurrogateId = globalEndSurrogateId;
             MaximumNumberOfResourcesPerQuery = maximumNumberOfResourcesPerQuery > 0 ? maximumNumberOfResourcesPerQuery : 10000;
             MetaHistory = metaHistory;
+            AllowProfileResourceModification = allowProfileResourceModification;
+            SearchWarnings = searchWarnings?.Count > 0 ? searchWarnings : null;
         }
 
         [JsonConstructor]
@@ -97,5 +101,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
         [JsonProperty(JobRecordProperties.MetaHistory)]
         public bool MetaHistory { get; private set; } = true;
+
+        [JsonProperty(JobRecordProperties.AllowProfileResourceModification)]
+        public bool AllowProfileResourceModification { get; private set; }
+
+        /// <summary>
+        /// Gets warnings from validating the search parameters when the job was submitted, returned with the job status.
+        /// </summary>
+        [JsonProperty(JobRecordProperties.SearchWarnings, NullValueHandling = NullValueHandling.Ignore)]
+        public IList<string> SearchWarnings { get; private set; }
     }
 }

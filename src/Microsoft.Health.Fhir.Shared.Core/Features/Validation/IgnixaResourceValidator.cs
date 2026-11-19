@@ -154,12 +154,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             // Convert ResourceJsonNode to IElement for validation
             var element = resourceNode.ToElement(_schemaContext.Schema);
 
-            // Initialize validation state
-            var state = new ValidationState()
-                .WithInstance(resourceType, resourceNode.Id);
-
             // Execute validation
-            var result = schema.Validate(element, _validationSettings, state);
+            var result = schema.Validate(element, _validationSettings);
 
             // Convert issues to ValidationResult if collection is provided
             if (validationResults != null)

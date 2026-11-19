@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
+using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -80,28 +80,32 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 async () =>
                 {
                     // Create the database.
-                    await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
-                    await connection.OpenAsync(cancellationToken);
-
-                    await using SqlCommand command = connection.CreateCommand();
-                    command.CommandTimeout = 300;
-                    command.CommandText = @$"
-                        IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '{databaseName}')
-                        BEGIN
-                          CREATE DATABASE {databaseName};
-                        END";
-
                     await DbSetupSemaphore.WaitAsync(cancellationToken);
                     try
                     {
+                        await using SqlConnection connection = await _sqlConnectionBuilder.CreateConnectionAsync(
+                            builder =>
+                            {
+                                builder.InitialCatalog = _masterDatabaseName;
+                                builder.Pooling = false;
+                            },
+                            cancellationToken);
+                        await connection.OpenAsync(cancellationToken);
+
+                        await using SqlCommand command = connection.CreateCommand();
+                        command.CommandTimeout = 300;
+                        command.CommandText = @$"
+                            IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '{databaseName}')
+                            BEGIN
+                              CREATE DATABASE {databaseName};
+                            END";
+
                         await command.ExecuteNonQueryAsync(cancellationToken);
                     }
                     finally
                     {
                         DbSetupSemaphore.Release();
                     }
-
-                    await connection.CloseAsync();
                 });
 
             // Verify that we can connect to the new database. This sometimes does not work right away with Azure SQL.
@@ -119,8 +123,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var isEmpty = await IsEmpty();
 
             var minVersion = targetSchemaVersion == SchemaVersionConstants.Max ? SchemaVersionConstants.Max : SchemaVersionConstants.MinForUpgrade;
-            var (schemaInitializer, upgradeRunner) = CreateSchemaInitializerAndUpgradeRunner(testConnectionString, minVersion, targetSchemaVersion);
-            await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade: false, cancellationToken); });
+            var (schemaInitializer, upgradeRunner, provider) = CreateSchemaInitializerAndUpgradeRunner(testConnectionString, minVersion, targetSchemaVersion);
+            using var serviceProvider = provider;
+            using var scope = serviceProvider.CreateScope();
+            await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(scope, forceIncrementalSchemaUpgrade: false, cancellationToken: cancellationToken); });
             for (var version = minVersion + 1; version <= targetSchemaVersion; version++)
             {
                 await _dbSetupRetryPolicy.ExecuteAsync(async () => { await upgradeRunner.ApplySchemaAsync(version, applyFullSchemaSnapshot: false, cancellationToken); });
@@ -276,9 +282,29 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
                     await DbSetupSemaphore.WaitAsync(cancellationToken);
                     try
                     {
-                        SqlConnection.ClearAllPools();
+                        await using (SqlConnection targetConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, null, cancellationToken))
+                        {
+                            SqlConnection.ClearPool(targetConnection);
+                        }
 
-                        await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
+                        await using (SqlConnection mergeConnection = await _sqlConnectionBuilder.CreateConnectionAsync(
+                            builder =>
+                            {
+                                builder.InitialCatalog = databaseName;
+                                builder.ApplicationName = SqlServerFhirDataStore.MergeApplicationName;
+                            },
+                            cancellationToken))
+                        {
+                            SqlConnection.ClearPool(mergeConnection);
+                        }
+
+                        await using SqlConnection connection = await _sqlConnectionBuilder.CreateConnectionAsync(
+                            builder =>
+                            {
+                                builder.InitialCatalog = _masterDatabaseName;
+                                builder.Pooling = false;
+                            },
+                            cancellationToken);
                         await connection.OpenAsync(cancellationToken);
                         await using SqlCommand command = connection.CreateCommand();
 
@@ -404,7 +430,7 @@ UPDATE dbo.SearchParam
             }
         }
 
-        private (SchemaInitializer initializer, SchemaUpgradeRunner upgradeRunner) CreateSchemaInitializerAndUpgradeRunner(string testConnectionString, int minSchemaVersion, int maxSchemaVersion)
+        private (SchemaInitializer initializer, SchemaUpgradeRunner upgradeRunner, ServiceProvider serviceProvider) CreateSchemaInitializerAndUpgradeRunner(string testConnectionString, int minSchemaVersion, int maxSchemaVersion)
         {
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
@@ -426,8 +452,11 @@ UPDATE dbo.SearchParam
             collection.AddScoped(schemaUpgradeRunnerFactory);
             var serviceProvider = collection.BuildServiceProvider();
             var schemaInformationForInit = new SchemaInformation(minSchemaVersion, minSchemaVersion);
-            var schemaInitializer = new SchemaInitializer(serviceProvider, config, schemaInformationForInit, Substitute.For<IMediator>(), NullLogger<SchemaInitializer>.Instance);
-            return (schemaInitializer, schemaUpgradeRunner);
+            var schemaWriteGate = Substitute.For<ISchemaWriteGate>();
+            schemaWriteGate.CanWriteAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+            var schemaWriteGateEvaluator = new SchemaWriteGateEvaluator(schemaWriteGate, Substitute.For<ISchemaMetrics>(), _sqlConnectionBuilder, config, NullLogger<SchemaWriteGateEvaluator>.Instance);
+            var schemaInitializer = new SchemaInitializer(serviceProvider, config, schemaInformationForInit, Substitute.For<IMediator>(), schemaWriteGateEvaluator, NullLogger<SchemaInitializer>.Instance);
+            return (schemaInitializer, schemaUpgradeRunner, serviceProvider);
         }
 
         public async Task<SqlConnection> GetSqlConnectionAsync()

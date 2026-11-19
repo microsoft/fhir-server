@@ -1,5 +1,5 @@
 # --platform tells docker to always use the host platform for the build not the target platform. Runtime container will use target platform.
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0.314-azurelinux3.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0.100-azurelinux4.0 AS build
 ARG TARGETARCH
 ARG FHIR_VERSION
 ARG ASSEMBLY_VER
@@ -56,6 +56,12 @@ COPY ./src/Microsoft.Health.Fhir.CosmosDb.Initialization/Microsoft.Health.Fhir.C
 COPY ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Core/Microsoft.Health.Fhir.${FHIR_VERSION}.Core.csproj \
      ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Core/Microsoft.Health.Fhir.${FHIR_VERSION}.Core.csproj
 
+COPY ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.FirelySdk/Microsoft.Health.Fhir.${FHIR_VERSION}.FirelySdk.csproj \
+     ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.FirelySdk/Microsoft.Health.Fhir.${FHIR_VERSION}.FirelySdk.csproj
+
+COPY ./src/Microsoft.Health.Fhir.Ignixa/Microsoft.Health.Fhir.Ignixa.csproj \
+     ./src/Microsoft.Health.Fhir.Ignixa/Microsoft.Health.Fhir.Ignixa.csproj
+
 COPY ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Api/Microsoft.Health.Fhir.${FHIR_VERSION}.Api.csproj \
      ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Api/Microsoft.Health.Fhir.${FHIR_VERSION}.Api.csproj
 
@@ -80,19 +86,11 @@ RUN dotnet restore ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Hea
 
 COPY . .
 
-RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}" -p:Version="${ASSEMBLY_VER}" -f net9.0 -a $TARGETARCH
+RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}" -p:Version="${ASSEMBLY_VER}" -f net11.0 -a $TARGETARCH && \
+    ln -s "Microsoft.Health.Fhir.${FHIR_VERSION}.Web.dll" "/build/Microsoft.Health.Fhir.Web.dll"
 
 # Implicitly uses the target platform for the runtime image.
-FROM mcr.microsoft.com/dotnet/aspnet:9.0.17-azurelinux3.0 AS runtime
-
-ARG FHIR_VERSION
-
-# tdnf clean all - cleans all the repos used to obtain packages and reduces the size of our image.
-RUN tdnf clean all && tdnf repolist --refresh && tdnf update -y && tdnf clean all
-
-# See https://github.com/dotnet/SqlClient/issues/220
-RUN tdnf install icu -y && \
-  tdnf clean all
+FROM mcr.microsoft.com/dotnet/aspnet:11.0.0-azurelinux4.0-distroless-extra@sha256:8802cbda723e24afb297993a26a7197f92e327d906a03cc674ad77ffdd0ad059 AS runtime
 
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
     ASPNETCORE_URLS=http://+:8080
@@ -100,8 +98,6 @@ ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
 WORKDIR /app
 COPY --from=build /build .
 
-RUN ln -s "Microsoft.Health.Fhir.${FHIR_VERSION}.Web.dll" "Microsoft.Health.Fhir.Web.dll"
-
-USER nonroot
+USER app
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "Microsoft.Health.Fhir.Web.dll"]

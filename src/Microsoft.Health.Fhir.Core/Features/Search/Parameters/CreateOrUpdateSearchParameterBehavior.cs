@@ -10,7 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -53,85 +53,102 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
         {
-            if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
+            if (request.Resource.InstanceType == KnownResourceTypes.SearchParameter)
             {
-                // Before committing the SearchParameter resource to the data store, validate the parameter type
                 var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
 
-                QueueStatus(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated);
+                var url = request.Resource.Instance.GetStringScalar("url");
 
-                // Allow the resource to be updated with the normal handler
-                return await next(cancellationToken);
+                RejectBuiltInCanonical(url);
+
+                // Reject if an active resource already owns this URL.
+                var existingByUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync([url], cancellationToken);
+                if (existingByUrl.ContainsKey(url))
+                {
+                    throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, url));
+                }
+
+                QueueStatus(url, SearchParameterStatus.Supported, lastUpdated, null);
             }
 
-            // Allow the resource to be updated with the normal handler
-            return await next(cancellationToken);
+            return await next();
         }
 
-        public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(UpsertResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
         {
             // if the resource type being updated is a SearchParameter, then we want to query the previous version before it is changed
             // because we will need to the Url property to update the definition in the SearchParameterDefinitionManager
             // and the user could be changing the Url as part of this update
-            if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
+            if (request.Resource.InstanceType == KnownResourceTypes.SearchParameter)
             {
                 var resourceKey = new ResourceKey(request.Resource.InstanceType, request.Resource.Id, request.Resource.VersionId);
-                ResourceWrapper prevSearchParamResource = null;
 
+                ResourceWrapper prevSearchParamResource = null;
                 try
                 {
                     prevSearchParamResource = await _fhirDataStore.GetAsync(resourceKey, cancellationToken);
                 }
                 catch (ResourceNotFoundException)
                 {
-                    // Resource doesn't exist yet, which is valid for PUT operations (upsert behavior)
-                    // We'll treat this as a create operation
-                    prevSearchParamResource = null;
+                    // Resource doesn't exist yet, which is valid for PUT operations. We'll treat this as create.
                 }
 
                 var lastUpdated = await _searchParameterOperations.ValidateSearchParameterAsync(request.Resource.Instance, cancellationToken, _requestContextAccessor.RequestContext.GetSearchParameterLastUpdated());
 
-                if (prevSearchParamResource != null && prevSearchParamResource.IsDeleted == false)
-                {
-                    var previousUrl = _modelInfoProvider.ToTypedElement(prevSearchParamResource.RawResource).GetStringScalar("url");
-                    var newUrl = request.Resource.Instance.GetStringScalar("url");
+                // url can never be null for a valid search param
+                var newUrl = request.Resource.Instance.GetStringScalar("url");
 
-                    if (!string.IsNullOrWhiteSpace(previousUrl) && !previousUrl.Equals(newUrl, StringComparison.Ordinal))
-                    {
-                        QueueStatus(previousUrl, SearchParameterStatus.Deleted, lastUpdated);
-                    }
+                // A search parameter's url is its canonical identity, so it may never be moved onto a url
+                // that a built-in parameter already owns.
+                RejectBuiltInCanonical(newUrl);
 
-                    QueueStatus(newUrl, SearchParameterStatus.Supported, lastUpdated);
-                }
-                else
+                // Reject if an active resource other than this one already owns the new URL.
+                var existingByUrl = await _searchParameterOperations.GetSearchParametersByUrlsAsync([newUrl], cancellationToken);
+                if (existingByUrl.TryGetValue(newUrl, out var existingElement) && existingElement.GetStringScalar("id") != request.Resource.Id)
                 {
-                    // No previous version exists or it was deleted, so add it as a new SearchParameter
-                    QueueStatus(request.Resource.Instance.GetStringScalar("url"), SearchParameterStatus.Supported, lastUpdated);
+                    throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, newUrl));
                 }
 
-                // Now allow the resource to updated per the normal behavior
-                return await next(cancellationToken);
+                var previousUrl = prevSearchParamResource?.IsDeleted == false
+                                ? _modelInfoProvider.ToTypedElement(prevSearchParamResource.RawResource).GetStringScalar("url")
+                                : null;
+
+                QueueStatus(newUrl, SearchParameterStatus.Supported, lastUpdated, previousUrl);
             }
 
-            // Now allow the resource to updated per the normal behavior
-            return await next(cancellationToken);
+            return await next();
         }
 
-        private void QueueStatus(string url, SearchParameterStatus status, DateTimeOffset lastUpdated)
+        /// <summary>
+        /// Rejects a write that would place a search parameter on a canonical url owned by a built-in
+        /// (system-defined) search parameter. Built-ins have no persisted SearchParameter resource, so the
+        /// ownership checks that query stored resources cannot see them.
+        /// </summary>
+        /// <param name="url">The canonical url carried by the incoming search parameter resource.</param>
+        private void RejectBuiltInCanonical(string url)
         {
-            if (string.IsNullOrWhiteSpace(url))
+            // This answers one question only: is this url owned by a built-in? A missing url is not, and
+            // rejecting it here would make this a url-presence validator, which is the validator's job.
+            if (string.IsNullOrEmpty(url))
             {
                 return;
             }
 
-            var context = _requestContextAccessor.RequestContext;
-            if (context == null)
+            // Deliberately the unfiltered definition manager: a built-in that is disabled or pending delete
+            // must still be found here, otherwise the check would fail open in exactly the case it guards.
+            // This is reachable, not theoretical - SearchParameterStateUpdateHandler lets any caller with
+            // DataActions.SearchParameter move a built-in to PendingDisable via $status, and a built-in in
+            // that state is absent from the searchable/supported views.
+            if (_searchParameterDefinitionManager.TryGetSearchParameter(url, out var existing) && existing.IsSystemDefined)
             {
-                return;
+                throw new MethodNotAllowedException(string.Format(Core.Resources.SearchParameterDefinitionSystemDefined, url));
             }
+        }
 
+        private void QueueStatus(string url, SearchParameterStatus status, DateTimeOffset lastUpdated, string previousUrl)
+        {
             _searchParameterDefinitionManager.TryGetSearchParameter(url, out var existing);
 
             var update = new ResourceSearchParameterStatus
@@ -141,8 +158,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 LastUpdated = lastUpdated,
                 IsPartiallySupported = existing?.IsPartiallySupported ?? false,
                 SortStatus = existing?.SortStatus ?? SortParameterStatus.Disabled,
+                PreviousUri = previousUrl == null || previousUrl == url ? null : new Uri(previousUrl),
             };
 
+            var context = _requestContextAccessor.RequestContext ?? throw new InvalidOperationException("Request context is required for search param status updates.");
             context.Properties[SearchParameterRequestContextPropertyNames.PendingStatus] = update;
         }
     }

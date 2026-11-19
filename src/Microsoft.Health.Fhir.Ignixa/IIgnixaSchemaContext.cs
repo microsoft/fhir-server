@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// The schema provides type definitions, element metadata, and cardinality
         /// information for all FHIR resource types in the configured version.
         /// </remarks>
-        ISchema Schema { get; }
+        IFhirSchemaProvider Schema { get; }
 
         /// <summary>
         /// Gets the FHIR schema provider with rich metadata for the current FHIR version.

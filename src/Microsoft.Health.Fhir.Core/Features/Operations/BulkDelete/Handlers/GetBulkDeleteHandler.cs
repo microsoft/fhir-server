@@ -11,7 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IQueueClient _queueClient;
         private const string ResourceDeletedCountName = "ResourceDeletedCount";
+        private const string ResourceIgnoredCountName = "ResourceIgnoredCount";
 
         public GetBulkDeleteHandler(
             IAuthorizationService<DataActions> authorizationService,
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
         }
 
-        public async Task<GetBulkDeleteResponse> Handle(GetBulkDeleteRequest request, CancellationToken cancellationToken)
+        public async Task<GetBulkDeleteResponse> HandleAsync(GetBulkDeleteRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -54,6 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
             var cancelled = false;
             var succeeded = true;
             var resourcesDeleted = new Dictionary<string, long>();
+            var resourcesIgnored = new Dictionary<string, long>();
             var issues = new List<OperationOutcomeIssue>();
             var failureResultCode = HttpStatusCode.OK;
 
@@ -84,7 +86,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                             }
                             else
                             {
-                                issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: issue));
+                                if (issue.StartsWith("JobConflictException:", StringComparison.Ordinal))
+                                {
+                                    failureResultCode = HttpStatusCode.Conflict;
+                                    issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Conflict, detailsText: issue.Substring("JobConflictException:".Length).TrimStart()));
+                                }
+                                else
+                                {
+                                    issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: issue));
+                                }
                             }
                         }
                     }
@@ -94,7 +104,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                     }
 
                     // Need a way to get a failure result code. Most likely will be 503, 400, or 403
-                    failureResultCode = HttpStatusCode.InternalServerError;
+                    if (failureResultCode == HttpStatusCode.OK)
+                    {
+                        failureResultCode = HttpStatusCode.InternalServerError;
+                    }
                 }
                 else if (job.Status == JobStatus.Cancelled)
                 {
@@ -108,13 +121,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
 
                 if (job.GetJobTypeId() == (int)JobType.BulkDeleteProcessing && result != null)
                 {
-                    long jobTotal = 0;
-                    foreach (var key in result.ResourcesDeleted.Keys)
+                    void UpdateResources(IDictionary<string, long> source, Dictionary<string, long> target)
                     {
-                        jobTotal += result.ResourcesDeleted[key];
-                        if (!resourcesDeleted.TryAdd(key, result.ResourcesDeleted[key]))
+                        foreach (KeyValuePair<string, long> resource in source)
                         {
-                            resourcesDeleted[key] += result.ResourcesDeleted[key];
+                            target[resource.Key] = target.TryGetValue(resource.Key, out long existing)
+                                ? existing + resource.Value
+                                : resource.Value;
+                        }
+                    }
+
+                    UpdateResources(result.ResourcesDeleted, resourcesDeleted);
+                    UpdateResources(result.ResourcesIgnored, resourcesIgnored);
+
+                    if (job.Status == JobStatus.Completed)
+                    {
+                        foreach (string issue in result.Issues)
+                        {
+                            issues.Add(new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Information,
+                                OperationOutcomeConstants.IssueType.Informational,
+                                detailsText: issue));
                         }
                     }
                 }
@@ -122,36 +149,42 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
 
             var fhirResults = new List<Hl7.Fhir.Model.Parameters.ParameterComponent>();
 
-            if (resourcesDeleted.Count > 0)
+            void AddParameterComponent(Dictionary<string, long> resourceDict, string resourceName)
             {
-                Tuple<string, DataType>[] tuples = resourcesDeleted
-                    .Where(x => x.Value > 0)
-                    .Select(x => Tuple.Create(x.Key, (DataType)new Integer64(x.Value)))
-                    .ToArray();
-
-                if (tuples.Any())
+                if (resourceDict.Count > 0)
                 {
-                    var parameterComponent = new Hl7.Fhir.Model.Parameters.ParameterComponent
-                    {
-                        Name = ResourceDeletedCountName,
-                    };
+                    Tuple<string, DataType>[] tuples = resourceDict
+                        .Where(x => x.Value > 0)
+                        .Select(x => Tuple.Create(x.Key, (DataType)new Integer64(x.Value)))
+                        .ToArray();
 
-                    foreach (var tuple in tuples)
+                    if (tuples.Any())
                     {
-                        parameterComponent.Part.Add(new Hl7.Fhir.Model.Parameters.ParameterComponent
+                        var parameterComponent = new Hl7.Fhir.Model.Parameters.ParameterComponent
                         {
-                            Name = tuple.Item1,
-                            Value = tuple.Item2,
-                        });
-                    }
+                            Name = resourceName,
+                        };
 
-                    fhirResults.Add(parameterComponent);
+                        foreach (var tuple in tuples)
+                        {
+                            parameterComponent.Part.Add(new Hl7.Fhir.Model.Parameters.ParameterComponent
+                            {
+                                Name = tuple.Item1,
+                                Value = tuple.Item2,
+                            });
+                        }
+
+                        fhirResults.Add(parameterComponent);
+                    }
                 }
             }
 
+            AddParameterComponent(resourcesDeleted, ResourceDeletedCountName);
+            AddParameterComponent(resourcesIgnored, ResourceIgnoredCountName);
+
             if (failed && issues.Count > 0)
             {
-                return new GetBulkDeleteResponse(fhirResults, issues, failureResultCode);
+                return CreateResponse(failureResultCode);
             }
             else if (cancelled)
             {
@@ -159,16 +192,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                     OperationOutcomeConstants.IssueSeverity.Warning,
                     OperationOutcomeConstants.IssueType.Informational,
                     detailsText: "Job Canceled"));
-                return new GetBulkDeleteResponse(fhirResults, issues, HttpStatusCode.OK);
+                return CreateResponse(HttpStatusCode.OK);
             }
             else if (failed)
             {
                 issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Encountered an unhandled exception. The job will be marked as failed."));
-                return new GetBulkDeleteResponse(fhirResults, issues, failureResultCode);
+                return CreateResponse(failureResultCode);
             }
             else if (succeeded)
             {
-                return new GetBulkDeleteResponse(fhirResults, issues, HttpStatusCode.OK);
+                return CreateResponse(HttpStatusCode.OK);
             }
             else
             {
@@ -176,8 +209,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                     OperationOutcomeConstants.IssueSeverity.Information,
                     OperationOutcomeConstants.IssueType.Informational,
                     detailsText: "Job In Progress"));
-                return new GetBulkDeleteResponse(fhirResults, issues, HttpStatusCode.Accepted);
+                return CreateResponse(HttpStatusCode.Accepted);
             }
+
+            // Warnings saved when the job was submitted are added last so they don't affect the status logic above.
+            GetBulkDeleteResponse CreateResponse(HttpStatusCode statusCode)
+            {
+                issues.AddRange(GetSearchWarningIssues(jobs));
+                return new GetBulkDeleteResponse(fhirResults, issues, statusCode);
+            }
+        }
+
+        private static IEnumerable<OperationOutcomeIssue> GetSearchWarningIssues(IReadOnlyList<JobInfo> jobs)
+        {
+            JobInfo orchestratorJob = jobs.FirstOrDefault(job => job.GetJobTypeId() == (int)JobType.BulkDeleteOrchestrator);
+            IList<string> warnings = orchestratorJob?.DeserializeDefinition<BulkDeleteDefinition>().SearchWarnings;
+
+            return warnings?.Select(warning => new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, diagnostics: warning))
+                ?? Enumerable.Empty<OperationOutcomeIssue>();
         }
     }
 }

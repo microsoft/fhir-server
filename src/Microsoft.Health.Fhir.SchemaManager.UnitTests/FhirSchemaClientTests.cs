@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer.Features.Exceptions;
@@ -24,6 +25,7 @@ public class FhirSchemaClientTests
     private readonly IScriptProvider _scriptProvider = Substitute.For<IScriptProvider>();
     private readonly ISchemaDataStore _schemaDataStore = Substitute.For<ISchemaDataStore>();
     private readonly ISchemaManagerDataStore _schemaManagerDataStore = Substitute.For<ISchemaManagerDataStore>();
+    private readonly ILogger<FhirSchemaClient> _logger = Substitute.For<ILogger<FhirSchemaClient>>();
 
     [Fact]
     public async Task GivenCurrentVersionAboveOne_GetAvailableVersions_ShouldReturnCorrectVersionsAsync()
@@ -32,7 +34,7 @@ public class FhirSchemaClientTests
         int currentVersion = 5;
         _schemaManagerDataStore.GetCurrentSchemaVersionAsync(default).Returns(currentVersion);
 
-        var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
+        var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore, _logger);
 
         // Act
         List<AvailableVersion> actualVersions = await fhirSchemaClient.GetAvailabilityAsync();
@@ -52,7 +54,7 @@ public class FhirSchemaClientTests
     {
         // Arrange
         _schemaManagerDataStore.GetCurrentSchemaVersionAsync(default).Returns(SchemaVersionConstants.Max);
-        var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
+        var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore, _logger);
 
         // Act
         List<AvailableVersion> actualVersions = await fhirSchemaClient.GetAvailabilityAsync();
@@ -67,11 +69,32 @@ public class FhirSchemaClientTests
     }
 
     [Fact]
+    public async Task GivenCurrentVersionAboveMax_GetAvailability_ThenLogsErrorAndReturnsEmptyList()
+    {
+        // Arrange
+        int currentVersion = SchemaVersionConstants.Max + 1;
+        _schemaManagerDataStore.GetCurrentSchemaVersionAsync(default).Returns(currentVersion);
+        var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore, _logger);
+
+        // Act
+        List<AvailableVersion> actualVersions = await fhirSchemaClient.GetAvailabilityAsync();
+
+        // Assert
+        Assert.Empty(actualVersions);
+        _logger.Received(1).Log(
+            LogLevel.Error,
+            Arg.Any<EventId>(),
+            Arg.Is<object>(o => o.ToString().Contains(currentVersion.ToString()) && o.ToString().Contains(SchemaVersionConstants.Max.ToString())),
+            null,
+            Arg.Any<Func<object, Exception, string>>());
+    }
+
+    [Fact]
     public async Task GivenVersion1_GetAvailableVersionsShouldReturnEmptyDiffUriForVersion1()
     {
         // Arrange
         _schemaManagerDataStore.GetCurrentSchemaVersionAsync(default).Returns(1);
-        var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
+        var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore, _logger);
 
         // Act
         List<AvailableVersion> actualVersions = await fhirSchemaClient.GetAvailabilityAsync();
@@ -89,7 +112,7 @@ public class FhirSchemaClientTests
             cancellationTokenSource.Cancel();
             _schemaManagerDataStore.GetCurrentSchemaVersionAsync(cancellationTokenSource.Token)
                 .ThrowsAsync(new TaskCanceledException());
-            var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
+            var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore, _logger);
 
             // Act & Assert
             await Assert.ThrowsAsync<TaskCanceledException>(
@@ -103,7 +126,7 @@ public class FhirSchemaClientTests
         // Arrange
         var compatibleVersions = new CompatibleVersions(1, 5);
         _schemaDataStore.GetLatestCompatibleVersionsAsync(default).Returns(compatibleVersions);
-        var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
+        var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore, _logger);
 
         // Act
         CompatibleVersion result = await fhirSchemaClient.GetCompatibilityAsync();
@@ -119,7 +142,7 @@ public class FhirSchemaClientTests
         // Arrange
         _schemaDataStore.GetLatestCompatibleVersionsAsync(default)
             .ThrowsAsync(new CompatibleVersionsNotFoundException("Compatible versions not found"));
-        var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
+        var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore, _logger);
 
         // Act
         CompatibleVersion result = await fhirSchemaClient.GetCompatibilityAsync();
@@ -139,7 +162,7 @@ public class FhirSchemaClientTests
             new CurrentVersionInformation(2, (Microsoft.Health.SqlServer.Features.Schema.SchemaVersionStatus)2, new List<string> { "Server3" }),
         };
         _schemaDataStore.GetCurrentVersionAsync(default).Returns(currentVersionInfo);
-        var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
+        var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore, _logger);
 
         // Act
         List<CurrentVersion> result = await fhirSchemaClient.GetCurrentVersionInformationAsync();
@@ -158,7 +181,7 @@ public class FhirSchemaClientTests
         // Arrange
         const string expectedScript = "diff script content";
         _scriptProvider.GetMigrationScript(5, false).Returns(expectedScript);
-        var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
+        var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore, _logger);
 
         // Act
         string result = await fhirSchemaClient.GetDiffScriptAsync(5);
@@ -174,7 +197,7 @@ public class FhirSchemaClientTests
         // Arrange
         const string expectedScript = "full script content";
         _scriptProvider.GetMigrationScript(5, true).Returns(expectedScript);
-        var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore);
+        var fhirSchemaClient = new FhirSchemaClient(_scriptProvider, _schemaDataStore, _schemaManagerDataStore, _logger);
 
         // Act
         string result = await fhirSchemaClient.GetScriptAsync(5);
@@ -189,7 +212,7 @@ public class FhirSchemaClientTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            new FhirSchemaClient(null, _schemaDataStore, _schemaManagerDataStore));
+            new FhirSchemaClient(null, _schemaDataStore, _schemaManagerDataStore, _logger));
     }
 
     [Fact]
@@ -197,7 +220,7 @@ public class FhirSchemaClientTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            new FhirSchemaClient(_scriptProvider, null, _schemaManagerDataStore));
+            new FhirSchemaClient(_scriptProvider, null, _schemaManagerDataStore, _logger));
     }
 
     [Fact]
@@ -205,7 +228,7 @@ public class FhirSchemaClientTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            new FhirSchemaClient(_scriptProvider, _schemaDataStore, null));
+            new FhirSchemaClient(_scriptProvider, _schemaDataStore, null, _logger));
     }
 
     private class AvailableVersionEqualityCompare : IEqualityComparer<AvailableVersion>

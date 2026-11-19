@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,9 +10,11 @@ using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -67,7 +69,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 _contextAccessor,
                 _searchService,
                 Substitute.For<IResourceSerializer>(),
-                Substitute.For<ILogger<CreateBulkUpdateHandler>>());
+                Substitute.For<ILogger<CreateBulkUpdateHandler>>(),
+                Options.Create(new CoreFeatureConfiguration { EnableSmartBulkUpdateRestriction = true }));
         }
 
         [Theory]
@@ -82,6 +85,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
                 Assert.Equal(_testUrl, definition.Url);
                 Assert.Equal(_testUrl, definition.BaseUrl);
                 Assert.Equal(searchParams?.Count ?? 0, definition.SearchParameters.Count);
+                Assert.False(definition.AllowProfileResourceModification);
                 return new List<JobInfo>()
                 {
                     new JobInfo()
@@ -94,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Parameters parameters = GenerateParameters("replace");
             var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, searchParams, parameters, false);
 
-            var response = await _handler.Handle(request, CancellationToken.None);
+            var response = await _handler.HandleAsync(request, CancellationToken.None);
             Assert.NotNull(response);
             Assert.Equal(1, response.Id);
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
@@ -128,7 +132,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             });
             Parameters parameters = GenerateParameters("upsert");
             var request = new CreateBulkUpdateRequest(null, searchParams, parameters, false);
-            var response = await _handler.Handle(request, CancellationToken.None);
+            var response = await _handler.HandleAsync(request, CancellationToken.None);
             Assert.NotNull(response);
             Assert.Equal(1, response.Id);
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
@@ -158,7 +162,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Parameters parameters = GenerateParameters("replace");
             var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, null, parameters, false);
 
-            var response = await _handler.Handle(request, CancellationToken.None);
+            var response = await _handler.HandleAsync(request, CancellationToken.None);
             Assert.NotNull(response);
             Assert.Equal(1, response.Id);
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), false, Arg.Any<CancellationToken>());
@@ -180,7 +184,47 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Parameters parameters = GenerateParameters("replace");
             var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, searchParams, parameters, false);
 
-            await Assert.ThrowsAsync<InvalidOperationException>(async () => await _handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenSmartFineGrainedContextAndRestrictionEnabled_WhenJobCreationRequested_ThenUnauthorizedFhirActionExceptionIsThrown()
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
+            _contextAccessor.RequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
+
+            var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, new List<Tuple<string, string>>(), GenerateParameters("replace"), false);
+
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
+            await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(default, default, default, default, default);
+        }
+
+        [Fact]
+        public async Task GivenSmartFineGrainedContextAndRestrictionDisabled_WhenJobCreationRequested_ThenJobIsCreated()
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
+            _contextAccessor.RequestContext.AccessControlContext.ApplyFineGrainedAccessControl = true;
+            _contextAccessor.RequestContext.BundleIssues.Clear();
+            _queueClient.EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>()).Returns(
+                new List<JobInfo>
+                {
+                    new() { Id = 1 },
+                });
+            var handler = new CreateBulkUpdateHandler(
+                _authorizationService,
+                _queueClient,
+                _contextAccessor,
+                _searchService,
+                Substitute.For<IResourceSerializer>(),
+                Substitute.For<ILogger<CreateBulkUpdateHandler>>(),
+                Options.Create(new CoreFeatureConfiguration { EnableSmartBulkUpdateRestriction = false }));
+
+            var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, new List<Tuple<string, string>>(), GenerateParameters("replace"), false);
+
+            var response = await handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.Equal(1, response.Id);
+            await _queueClient.Received(1).EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -197,7 +241,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, searchParams, parameters, false);
 
-            var ex = await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.Handle(request, CancellationToken.None));
+            var ex = await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>());
             Assert.Equal("A bulk update job is already running.", ex.Message);
         }
@@ -215,12 +259,72 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
 
             var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, searchParams, null, false);
 
-            await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenBulkUpdateRequestWithALongUriSearchValue_WhenJobCreationRequested_ThenJobIsCreated()
+        {
+            var searchParams = new List<Tuple<string, string>>()
+            {
+                new Tuple<string, string>("_profile", "https://example.org/" + new string('b', 300)),
+            };
+
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
+            _contextAccessor.RequestContext.BundleIssues.Clear();
+            OperationOutcomeIssue warning = LongUriSearchValueIssue.Create(new[] { "_profile" }, 256);
+            _contextAccessor.RequestContext.BundleIssues.Add(warning);
+            BulkUpdateDefinition enqueued = null;
+            _queueClient.EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>()).Returns(args =>
+            {
+                enqueued = JsonConvert.DeserializeObject<BulkUpdateDefinition>(args.ArgAt<string[]>(1)[0]);
+                return new List<JobInfo>
+                {
+                    new() { Id = 1 },
+                };
+            });
+
+            var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, searchParams, GenerateParameters("replace"), false);
+
+            var response = await _handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.Equal(1, response.Id);
+            await _queueClient.Received(1).EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>());
+            Assert.Equal(new[] { warning.Diagnostics }, enqueued.SearchWarnings);
+        }
+
+        [Fact]
+        public async Task GivenBulkUpdateRequestWithALongReferenceId_WhenJobCreationRequested_ThenJobIsCreated()
+        {
+            var searchParams = new List<Tuple<string, string>>()
+            {
+                new Tuple<string, string>("general-practitioner", "Practitioner/" + new string('a', 65)),
+            };
+
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.BulkOperator);
+            _contextAccessor.RequestContext.BundleIssues.Clear();
+            OperationOutcomeIssue warning = LongReferenceIdIssue.Create("general-practitioner", 64);
+            _contextAccessor.RequestContext.BundleIssues.Add(warning);
+            BulkUpdateDefinition enqueued = null;
+            _queueClient.EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>()).Returns(args =>
+            {
+                enqueued = JsonConvert.DeserializeObject<BulkUpdateDefinition>(args.ArgAt<string[]>(1)[0]);
+                return new List<JobInfo>
+                {
+                    new() { Id = 1 },
+                };
+            });
+
+            var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, searchParams, GenerateParameters("replace"), false);
+
+            var response = await _handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.Equal(1, response.Id);
+            Assert.Equal(new[] { warning.Diagnostics }, enqueued.SearchWarnings);
         }
 
         [Theory]
         [InlineData("SearchParameter")]
-        [InlineData("StructureDefinition")]
         public async Task GivenBulkUpdateRequest_WhenResourceTypeIsExcluded_ThenBadRequestIsReturned(string resourceType)
         {
             var searchParams = new List<Tuple<string, string>>
@@ -232,8 +336,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             _contextAccessor.RequestContext.BundleIssues.Clear();
             var request = new CreateBulkUpdateRequest(resourceType, searchParams, null, false);
 
-            var ex = await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.Handle(request, CancellationToken.None));
+            var ex = await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
             Assert.Equal($"Bulk update is not supported for resource type {resourceType}.", ex.Message);
+        }
+
+        [Fact]
+        public async Task GivenBulkUpdateRequestAndEditProfileDefinitionsAccess_WhenJobCreated_ThenProfileModificationIsAllowed()
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>())
+                .Returns(DataActions.BulkOperator | DataActions.EditProfileDefinitions);
+            _contextAccessor.RequestContext.BundleIssues.Clear();
+            _queueClient.EnqueueAsync((byte)QueueType.BulkUpdate, Arg.Any<string[]>(), Arg.Any<long?>(), true, Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    var definition = JsonConvert.DeserializeObject<BulkUpdateDefinition>(callInfo.ArgAt<string[]>(1)[0]);
+                    Assert.True(definition.AllowProfileResourceModification);
+                    return new List<JobInfo> { new() { Id = 1 } };
+                });
+
+            var request = new CreateBulkUpdateRequest("StructureDefinition", new List<Tuple<string, string>>(), GenerateParameters("replace"), false);
+
+            CreateBulkUpdateResponse response = await _handler.HandleAsync(request, CancellationToken.None);
+
+            Assert.Equal(1, response.Id);
         }
 
         [Fact]
@@ -278,7 +403,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             };
 
             var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, searchParams, parameters, false);
-            await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<BadRequestException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
         }
 
         [Fact]
@@ -295,7 +420,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             Parameters parameters = GenerateParameters("upsert");
 
             var request = new CreateBulkUpdateRequest(KnownResourceTypes.Patient, searchParams, parameters, false);
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
         }
 
         [Fact]
@@ -307,7 +432,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkUpdate
             var parameters = GenerateParameters("upsert");
 
             var request = new CreateBulkUpdateRequest(null, new List<Tuple<string, string>>(), parameters, false);
-            await Assert.ThrowsAsync<JobNotExistException>(async () => await _handler.Handle(request, CancellationToken.None));
+            await Assert.ThrowsAsync<JobNotExistException>(async () => await _handler.HandleAsync(request, CancellationToken.None));
         }
 
         private static Parameters GenerateParameters(string typeValue)

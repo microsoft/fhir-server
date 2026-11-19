@@ -53,7 +53,20 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             { And(SearchParameter(TypeParameter, Or(Token(nameof(Patient)), Token(nameof(Encounter)))), SearchParameter(TypeParameter, Token(nameof(Patient)))), new[] { Patient } },
             { new SqlRootExpression(Array.Empty<SearchParamTableExpression>(), new[] { SearchParameter(TypeParameter, Token(nameof(Patient))) }), new[] { Patient } },
             { new SqlRootExpression(Array.Empty<SearchParamTableExpression>(), new[] { SearchParameter(TypeParameter, Or(Token(nameof(Patient)), Token(nameof(Encounter)))) }), new[] { Patient, Encounter } },
+            { SearchParameter(TypeParameter, In(FieldName.TokenCode, null, new[] { nameof(Patient), nameof(Encounter) })), new[] { Patient, Encounter } },
+            { SearchParameter(TypeParameter, In(FieldName.TokenCode, null, new[] { ScopeResourceType.Observation, ScopeResourceType.Patient })), new[] { Observation, Patient } },
+            { SearchParameter(TypeParameter, In(FieldName.TokenCode, null, new[] { nameof(Patient) })), new[] { Patient } },
+            { And(SearchParameter(TypeParameter, Token(nameof(Patient))), SearchParameter(TypeParameter, In(FieldName.TokenCode, null, new[] { nameof(Patient), nameof(Encounter) }))), new[] { Patient } },
+            { And(SearchParameter(TypeParameter, Token(nameof(Patient))), SearchParameter(TypeParameter, In(FieldName.TokenCode, null, new[] { nameof(Device), nameof(Encounter) }))), null },
+            { new SqlRootExpression(Array.Empty<SearchParamTableExpression>(), new[] { SearchParameter(IdParameter, Token("foo")), SearchParameter(TypeParameter, In(FieldName.TokenCode, null, new[] { ScopeResourceType.Observation, ScopeResourceType.Patient })) }), new[] { Observation, Patient } },
         };
+
+        // Mirrors SMART clinical scope type restrictions, which are built as an IN list of resource type enum values.
+        private enum ScopeResourceType
+        {
+            Observation,
+            Patient,
+        }
 
         [Theory]
         [MemberData(nameof(Data))]

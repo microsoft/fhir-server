@@ -5,13 +5,10 @@
 
 using System.Linq;
 using Hl7.Fhir.ElementModel;
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search.FhirPath;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Ignixa;
-using Microsoft.Health.Fhir.Ignixa.FhirPath;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -19,270 +16,54 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Core.UnitTests.Ignixa;
 
 /// <summary>
-/// Unit tests for <see cref="IgnixaFhirPathProvider"/> — validates FHIRPath compilation,
-/// evaluation, scalar extraction, and predicate evaluation using the Ignixa engine.
+/// Verifies that <see cref="IgnixaFhirPathProvider"/> evaluates expressions against resources parsed by
+/// <see cref="IgnixaJsonSerializer"/> and exposed through <see cref="IgnixaResourceElement"/>. Provider
+/// behaviour on Firely POCO input is covered by <c>FhirPathProviderTests</c>.
 /// </summary>
 [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
 [Trait(Traits.Category, Categories.Search)]
 public class IgnixaFhirPathProviderTests
 {
-    private readonly IFhirPathProvider _provider;
-    private readonly IIgnixaJsonSerializer _serializer;
-    private readonly global::Ignixa.Abstractions.ISchema _schema;
+    private readonly IgnixaFhirPathProvider _provider;
+    private readonly IgnixaSchemaContext _schemaContext;
+    private readonly IgnixaJsonSerializer _serializer = new();
 
     public IgnixaFhirPathProviderTests()
     {
         ModelExtensions.SetModelInfoProvider();
 
-        var schemaContext = new IgnixaSchemaContext(ModelInfoProvider.Instance);
-        _schema = schemaContext.Schema;
-        _serializer = new IgnixaJsonSerializer();
-        _provider = new IgnixaFhirPathProvider(_schema);
+        _schemaContext = new IgnixaSchemaContext(ModelInfoProvider.Instance);
+        _provider = new IgnixaFhirPathProvider(_schemaContext);
     }
 
-    // ------------------------------------------------------------------
-    // Compile
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public void GivenASimpleExpression_WhenCompiled_ThenReturnsCompiledExpression()
+    [Theory]
+    [InlineData("Patient.id")]
+    [InlineData("Patient.name")]
+    [InlineData("Patient.name.family")]
+    [InlineData("Patient.identifier")]
+    public void GivenAnIgnixaParsedPatient_WhenExpressionIsEvaluated_ThenValuesAreReturned(string expression)
     {
-        // Arrange
-        const string expression = "Patient.name";
+        ITypedElement patient = ParseSamplePatient();
 
-        // Act
-        var compiled = _provider.Compile(expression);
+        ITypedElement[] results = _provider.Compile(expression).Select(patient).ToArray();
 
-        // Assert
-        Assert.NotNull(compiled);
-        Assert.Equal(expression, compiled.Expression);
+        Assert.NotEmpty(results);
     }
 
     [Fact]
-    public void GivenTheSameExpression_WhenCompiledMultipleTimes_ThenReturnsCachedInstance()
+    public void GivenAnIgnixaParsedPatient_WhenScalarExpressionIsEvaluated_ThenStringValueIsReturned()
     {
-        // Arrange
-        const string expression = "Patient.name";
+        ITypedElement patient = ParseSamplePatient();
 
-        // Act
-        var first = _provider.Compile(expression);
-        var second = _provider.Compile(expression);
+        object id = _provider.Compile("Patient.id").Select(patient).Single().Value;
 
-        // Assert
-        Assert.Same(first, second);
+        Assert.IsType<string>(id);
+        Assert.NotEmpty((string)id);
     }
 
-    // ------------------------------------------------------------------
-    // Evaluate — using Firely ITypedElement input (compatibility path)
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public void GivenAPatientResource_WhenEvaluatingNameExpression_ThenReturnsNameElements()
+    private ITypedElement ParseSamplePatient()
     {
-        // Arrange
-        var patient = new Patient
-        {
-            Name =
-            {
-                new HumanName { Family = "Smith", Given = new[] { "John" } },
-            },
-        };
-        var element = patient.ToTypedElement();
-
-        // Act
-        var results = _provider.Evaluate(element, "Patient.name").ToList();
-
-        // Assert
-        Assert.Single(results);
-        Assert.Equal("HumanName", results[0].InstanceType);
-    }
-
-    [Fact]
-    public void GivenAPatientResource_WhenEvaluatingFamilyExpression_ThenReturnsStringValue()
-    {
-        // Arrange
-        var patient = new Patient
-        {
-            Name =
-            {
-                new HumanName { Family = "Smith" },
-            },
-        };
-        var element = patient.ToTypedElement();
-
-        // Act
-        var result = _provider.Scalar<string>(element, "Patient.name.family");
-
-        // Assert
-        Assert.Equal("Smith", result);
-    }
-
-    [Fact]
-    public void GivenAPatientResource_WhenEvaluatingActiveExpression_ThenReturnsBoolValue()
-    {
-        // Arrange
-        var patient = new Patient { Active = true };
-        var element = patient.ToTypedElement();
-
-        // Act
-        var result = _provider.Predicate(element, "Patient.active");
-
-        // Assert
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void GivenAnInactivePatient_WhenEvaluatingActiveExpression_ThenReturnsFalse()
-    {
-        // Arrange
-        var patient = new Patient { Active = false };
-        var element = patient.ToTypedElement();
-
-        // Act
-        var result = _provider.Predicate(element, "Patient.active");
-
-        // Assert
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void GivenAPatientWithNoName_WhenEvaluatingNameExists_ThenReturnsFalse()
-    {
-        // Arrange
-        var patient = new Patient();
-        var element = patient.ToTypedElement();
-
-        // Act
-        var result = _provider.Predicate(element, "Patient.name.exists()");
-
-        // Assert
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void GivenAPatientWithName_WhenEvaluatingNameExists_ThenReturnsTrue()
-    {
-        // Arrange
-        var patient = new Patient
-        {
-            Name = { new HumanName { Family = "Smith" } },
-        };
-        var element = patient.ToTypedElement();
-
-        // Act
-        var result = _provider.Predicate(element, "Patient.name.exists()");
-
-        // Assert
-        Assert.True(result);
-    }
-
-    // ------------------------------------------------------------------
-    // Evaluate — using Ignixa-parsed ITypedElement (primary path)
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public void GivenAnIgnixaParsedPatient_WhenEvaluatingNameFamily_ThenReturnsCorrectValue()
-    {
-        // Arrange
-        var patientJson = Samples.GetJson("Patient");
-        var node = _serializer.Parse(patientJson);
-        var ignixaElement = new IgnixaResourceElement(node, _schema);
-        var typedElement = ignixaElement.ToTypedElement();
-
-        // Act
-        var result = _provider.Scalar<string>(typedElement, "Patient.name.family");
-
-        // Assert
-        Assert.NotNull(result);
-    }
-
-    [Fact]
-    public void GivenAnIgnixaParsedPatient_WhenEvaluatingId_ThenReturnsCorrectValue()
-    {
-        // Arrange
-        var patientJson = Samples.GetJson("Patient");
-        var node = _serializer.Parse(patientJson);
-        var ignixaElement = new IgnixaResourceElement(node, _schema);
-        var typedElement = ignixaElement.ToTypedElement();
-
-        // Act
-        var result = _provider.Scalar<string>(typedElement, "Patient.id");
-
-        // Assert
-        Assert.NotNull(result);
-    }
-
-    [Fact]
-    public void GivenAnIgnixaParsedPatient_WhenEvaluatingMultipleExpressions_ThenAllReturnResults()
-    {
-        // Arrange
-        var patientJson = Samples.GetJson("Patient");
-        var node = _serializer.Parse(patientJson);
-        var ignixaElement = new IgnixaResourceElement(node, _schema);
-        var typedElement = ignixaElement.ToTypedElement();
-
-        string[] expressions =
-        {
-            "Patient.name",
-            "Patient.name.family",
-            "Patient.identifier",
-        };
-
-        // Act & Assert
-        foreach (var expr in expressions)
-        {
-            var compiled = _provider.Compile(expr);
-            var results = compiled.Evaluate(typedElement).ToList();
-            Assert.NotEmpty(results);
-        }
-    }
-
-    // ------------------------------------------------------------------
-    // Where clause / filter expressions
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public void GivenAPatientWithMultipleIdentifiers_WhenFilteringBySystem_ThenReturnsFilteredResults()
-    {
-        // Arrange
-        var patient = new Patient
-        {
-            Identifier =
-            {
-                new Identifier("http://example.org", "12345"),
-                new Identifier("http://other.org", "67890"),
-            },
-        };
-        var element = patient.ToTypedElement();
-
-        // Act
-        var results = _provider.Evaluate(element, "Patient.identifier.where(system='http://example.org')").ToList();
-
-        // Assert
-        Assert.Single(results);
-    }
-
-    // ------------------------------------------------------------------
-    // ICompiledFhirPath direct usage
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public void GivenACompiledExpression_WhenEvaluatedMultipleTimes_ThenProducesConsistentResults()
-    {
-        // Arrange
-        var patient = new Patient
-        {
-            Name = { new HumanName { Family = "Jones" } },
-        };
-        var element = patient.ToTypedElement();
-        var compiled = _provider.Compile("Patient.name.family");
-
-        // Act
-        var result1 = compiled.Scalar<string>(element);
-        var result2 = compiled.Scalar<string>(element);
-
-        // Assert
-        Assert.Equal("Jones", result1);
-        Assert.Equal(result1, result2);
+        var node = _serializer.Parse(Samples.GetJson("Patient"));
+        return new IgnixaResourceElement(node, _schemaContext.Schema).ToTypedElement();
     }
 }

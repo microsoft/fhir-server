@@ -102,8 +102,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
                     var differenceTicks = (long)((Clock.UtcNow.Ticks - Math.Max(startTicks, endTicks)) * ApproximateMultiplier);
 
-                    var approximateStart = dateTime.Start.AddTicks(-differenceTicks);
-                    var approximateEnd = dateTime.End.AddTicks(differenceTicks);
+                    var approximateStart = dateTime.Start.SafeAddTicks(-differenceTicks);
+                    var approximateEnd = dateTime.End.SafeAddTicks(differenceTicks);
 
                     // Spec (ap): the search range overlaps the target range. Emit overlap directly
                     // (Start <= approxEnd AND End >= approxStart) rather than the eq-shaped containment.

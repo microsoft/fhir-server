@@ -6,7 +6,7 @@
 using System;
 using System.Numerics;
 using System.Threading.Tasks;
-using MediatR;
+using Medino;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -47,12 +47,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 
         public SchemaInformation SchemaInformation => _sqlFixture.SchemaInformation;
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             await _storageFixture.InitializeAsync();
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             if (_storageFixture != null)
             {

@@ -28,6 +28,7 @@ grant_type=client_credentials
 # Create an explanation of benefit resource that references 
 # the patient with the id "patient-id".
 # This will be in the patient's compartment.
+# Use the regular bearer token (option 1); the default smartUser role is read-only, so a SMART token returns 403.
 PUT {{hostname}}/AllergyIntolerance/example-allergyIntolerance-nullClinicalStatus
 Content-Type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}

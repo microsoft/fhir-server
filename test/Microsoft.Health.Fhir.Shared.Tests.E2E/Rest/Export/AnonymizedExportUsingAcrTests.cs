@@ -9,17 +9,12 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Security.Cryptography;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage;
 using Azure.Storage.Blobs.Specialized;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Microsoft.Azure.ContainerRegistry;
-using Microsoft.Azure.ContainerRegistry.Models;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Models;
@@ -67,7 +62,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             _metricHandler = fixture.MetricHandler;
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData("")]
         [InlineData("Patient/")]
         public async Task GivenAValidConfigurationWithAcrReference_WhenExportingAnonymizedData_ResourceShouldBeAnonymized(string path)
@@ -76,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
             // Here we skip local E2E test since we need Managed Identity for container registry token.
             // We also skip the case when environmental variable is not provided (not able to upload configurations)
-            Skip.If(_isUsingInProcTestServer || registry == null);
+            Assert.SkipWhen(_isUsingInProcTestServer || registry == null, Microsoft.Health.Fhir.Tests.Common.SkipReasons.Unspecified);
             await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, RedactResourceIdAnonymizationConfiguration);
 
             _metricHandler?.ResetCount();
@@ -102,14 +97,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAValidConfigurationWithAcrReference_WhenExportingGroupAnonymizedData_ResourceShouldBeAnonymized()
         {
             var registry = GetTestContainerRegistryInfo();
 
             // Here we skip local E2E test since we need Managed Identity for container registry token.
             // We also skip the case when environmental variable is not provided (not able to upload configurations)
-            Skip.If(_isUsingInProcTestServer || registry == null);
+            Assert.SkipWhen(_isUsingInProcTestServer || registry == null, Microsoft.Health.Fhir.Tests.Common.SkipReasons.Unspecified);
             await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, RedactResourceIdAnonymizationConfiguration);
 
             _metricHandler?.ResetCount();
@@ -154,7 +149,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Equal(2, dataFromExport.Count());
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData("configimage:1234567890")]
         [InlineData("configimage@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8695")]
         [InlineData("wrongimage:default")]
@@ -164,7 +159,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
             // Here we skip local E2E test since we need Managed Identity for container registry token.
             // We also skip the case when environmental variable is not provided (not able to upload configurations)
-            Skip.If(_isUsingInProcTestServer || registry == null);
+            Assert.SkipWhen(_isUsingInProcTestServer || registry == null, Microsoft.Health.Fhir.Tests.Common.SkipReasons.Unspecified);
             await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, RedactResourceIdAnonymizationConfiguration);
 
             _metricHandler?.ResetCount();
@@ -182,14 +177,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Contains($"Image Not Found.", responseContent);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenInvalidConfigurationNotInAcr_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             var registry = GetTestContainerRegistryInfo();
 
             // Here we skip local E2E test since we need Managed Identity for container registry token.
             // We also skip the case when environmental variable is not provided (not able to upload configurations)
-            Skip.If(_isUsingInProcTestServer || registry == null);
+            Assert.SkipWhen(_isUsingInProcTestServer || registry == null, Microsoft.Health.Fhir.Tests.Common.SkipReasons.Unspecified);
             await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, "Invalid Json.");
 
             _metricHandler?.ResetCount();
@@ -204,14 +199,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Contains("Failed to parse configuration file", responseContent);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAConfigurationNotExisted_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             var registry = GetTestContainerRegistryInfo();
 
             // Here we skip local E2E test since we need Managed Identity for container registry token.
             // We also skip the case when environmental variable is not provided (not able to upload configurations)
-            Skip.If(_isUsingInProcTestServer || registry == null);
+            Assert.SkipWhen(_isUsingInProcTestServer || registry == null, Microsoft.Health.Fhir.Tests.Common.SkipReasons.Unspecified);
             await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, RedactResourceIdAnonymizationConfiguration);
 
             _metricHandler?.ResetCount();
@@ -227,14 +222,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.Contains("Anonymization configuration 'not-exist.json' not found.", responseContent);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenALargeConfiguration_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             var registry = GetTestContainerRegistryInfo();
 
             // Here we skip local E2E test since we need Managed Identity for container registry token.
             // We also skip the case when environmental variable is not provided (not able to upload configurations)
-            Skip.If(_isUsingInProcTestServer || registry == null);
+            Assert.SkipWhen(_isUsingInProcTestServer || registry == null, Microsoft.Health.Fhir.Tests.Common.SkipReasons.Unspecified);
             string largeConfig = new string('*', (1024 * 1024) + 1); // Large config > 1MB
             await PushConfigurationAsync(registry, TestRepositoryName, TestRepositoryTag, largeConfig);
 
@@ -306,111 +301,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             return result;
         }
 
-        private ContainerRegistryInfo GetTestContainerRegistryInfo()
+        private static ContainerRegistryInfo GetTestContainerRegistryInfo()
         {
-            var containerRegistry = new ContainerRegistryInfo
-            {
-                Server = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.TestContainerRegistryServer),
-                Username = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.TestContainerRegistryServer)?.Split('.')[0],
-                Password = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.TestContainerRegistryPassword),
-            };
+            string server = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.TestContainerRegistryServer);
 
-            if (string.IsNullOrEmpty(containerRegistry.Server) || string.IsNullOrEmpty(containerRegistry.Password))
+            if (string.IsNullOrEmpty(server))
             {
                 return null;
             }
 
-            return containerRegistry;
+            return new ContainerRegistryInfo { Server = server };
         }
 
-        private static string ComputeDigest(Stream s)
+        private static async Task PushConfigurationAsync(ContainerRegistryInfo registry, string repository, string tag, string configContent)
         {
-            s.Position = 0;
-            StringBuilder sb = new StringBuilder();
+            var uploader = ContainerRegistryTemplateUploader.CreateFromEnvironment(repository);
 
-            using (var hash = SHA256.Create())
-            {
-                byte[] result = hash.ComputeHash(s);
-                foreach (byte b in result)
-                {
-                    sb.Append(b.ToString("x2"));
-                }
-            }
-
-            return "sha256:" + sb.ToString();
-        }
-
-        private async Task UploadBlob(AzureContainerRegistryClient acrClient, Stream stream, string repository, string digest)
-        {
-            stream.Position = 0;
-            var uploadInfo = await acrClient.Blob.StartUploadAsync(repository);
-            var uploadedLayer = await acrClient.Blob.UploadAsync(stream, uploadInfo.Location);
-            await acrClient.Blob.EndUploadAsync(digest, uploadedLayer.Location);
-        }
-
-        private async Task PushConfigurationAsync(ContainerRegistryInfo registry, string repository, string tag, string configContent)
-        {
-            AzureContainerRegistryClient acrClient = new AzureContainerRegistryClient(registry.Server, new AcrBasicToken(registry));
-
-            int schemaV2 = 2;
-            string mediatypeV2Manifest = "application/vnd.docker.distribution.manifest.v2+json";
-            string mediatypeV1Manifest = "application/vnd.oci.image.config.v1+json";
-            string emptyConfigStr = "{}";
-
-            // Upload config blob
-            byte[] originalConfigBytes = Encoding.UTF8.GetBytes(emptyConfigStr);
-            using var originalConfigStream = new MemoryStream(originalConfigBytes);
-            string originalConfigDigest = ComputeDigest(originalConfigStream);
-            await UploadBlob(acrClient, originalConfigStream, repository, originalConfigDigest);
-
-            // Upload memory blob
             byte[] configContentBytes = Encoding.UTF8.GetBytes(configContent);
+            byte[] tarGzBytes = StreamUtility.CompressToTarGz(new Dictionary<string, byte[]>() { { TestConfigName, configContentBytes } }, false);
+            using Stream layerStream = new MemoryStream(tarGzBytes);
 
-            configContentBytes = StreamUtility.CompressToTarGz(new Dictionary<string, byte[]>() { { TestConfigName, configContentBytes } }, false);
-            using Stream byteStream = new MemoryStream(configContentBytes);
-            var blobLength = byteStream.Length;
-            string blobDigest = ComputeDigest(byteStream);
-            await UploadBlob(acrClient, byteStream, repository, blobDigest);
-
-            // Push manifest
-            List<Descriptor> layers = new List<Descriptor>
-            {
-                new Descriptor("application/vnd.oci.image.layer.v1.tar", blobLength, blobDigest),
-            };
-            var v2Manifest = new V2Manifest(schemaV2, mediatypeV2Manifest, new Descriptor(mediatypeV1Manifest, originalConfigBytes.Length, originalConfigDigest), layers);
-            await acrClient.Manifests.CreateAsync(repository, tag, v2Manifest);
-            acrClient.Dispose();
+            await uploader.UploadTemplateSetAsync(layerStream, tag);
         }
 
-        internal class ContainerRegistryInfo
+        internal sealed class ContainerRegistryInfo
         {
             public string Server { get; set; }
-
-            public string Username { get; set; }
-
-            public string Password { get; set; }
-        }
-
-        internal class AcrBasicToken : ServiceClientCredentials
-        {
-            private ContainerRegistryInfo _registry;
-
-            public AcrBasicToken(ContainerRegistryInfo registry)
-            {
-                _registry = registry;
-            }
-
-            public override void InitializeServiceClient<T>(ServiceClient<T> client)
-            {
-                base.InitializeServiceClient(client);
-            }
-
-            public override Task ProcessHttpRequestAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-            {
-                var basicToken = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_registry.Username}:{_registry.Password}"));
-                request.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicToken);
-                return base.ProcessHttpRequestAsync(request, cancellationToken);
-            }
         }
     }
 }

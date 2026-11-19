@@ -11,7 +11,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Ignixa.Serialization.SourceNodes;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Security.Authorization;
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
 
-        public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> HandleAsync(CreateResourceRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             {
                 // Update the ResourceJsonNode with the new ID and metadata
                 resourceJsonNode.Id = resource.Id;
-                resourceJsonNode.Meta.LastUpdated = resource.Meta.LastUpdated.Value;
+                resourceJsonNode.Meta.LastUpdatedOffset = resource.Meta.LastUpdated.Value;
 
                 // Create IgnixaResourceElement and pass it as ResourceInstance for direct property access
                 var ignixaElement = new IgnixaResourceElement(resourceJsonNode, _schemaContext.Schema);

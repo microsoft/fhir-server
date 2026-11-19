@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,9 +9,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
-using MediatR;
+using Medino;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Features.Resources;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -41,7 +42,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.EditProfileDefinitions);
 
             _profilesResolver = Substitute.For<IProvideProfilesForValidation>();
-            _profilesResolver.GetProfilesTypes().Returns(new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" });
+            _profilesResolver.GetProfilesTypes().Returns(
+                new HashSet<string>()
+                {
+                    KnownResourceTypes.ValueSet,
+                    KnownResourceTypes.StructureDefinition,
+                    KnownResourceTypes.CodeSystem,
+                });
 
             _profileResourcesBehaviour = new ProfileResourcesBehaviour(_authorizationService, _profilesResolver);
         }
@@ -54,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
 
             var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<UpsertResourceResponse>>();
 
-            await _profileResourcesBehaviour.Handle(
+            await _profileResourcesBehaviour.HandleAsync(
                 new CreateResourceRequest(
                     resourceElement,
                     bundleResourceContext: null),
@@ -80,7 +87,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
 
             var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<UpsertResourceResponse>>();
 
-            await _profileResourcesBehaviour.Handle(
+            await _profileResourcesBehaviour.HandleAsync(
                 new CreateResourceRequest(
                     resourceElement,
                     bundleResourceContext: bundleResourceContext),
@@ -97,7 +104,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
             await Run<UpsertResourceResponse>(
                 x =>
                 {
-                    return _profileResourcesBehaviour.Handle(
+                    return _profileResourcesBehaviour.HandleAsync(
                         new ConditionalUpsertResourceRequest(
                             new ResourceElement(new ValueSet().ToTypedElement()),
                             new List<Tuple<string, string>>()),
@@ -112,7 +119,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
             await Run<UpsertResourceResponse>(
                 x =>
                 {
-                    return _profileResourcesBehaviour.Handle(
+                    return _profileResourcesBehaviour.HandleAsync(
                         new ConditionalCreateResourceRequest(
                             new ResourceElement(new ValueSet().ToTypedElement()),
                             new List<Tuple<string, string>>()),
@@ -127,7 +134,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
             await Run<UpsertResourceResponse>(
                 x =>
                 {
-                    return _profileResourcesBehaviour.Handle(
+                    return _profileResourcesBehaviour.HandleAsync(
                         new UpsertResourceRequest(new ResourceElement(new ValueSet().ToTypedElement())),
                         x,
                         default);
@@ -140,7 +147,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
             await Run<DeleteResourceResponse>(
                 x =>
                 {
-                    return _profileResourcesBehaviour.Handle(
+                    return _profileResourcesBehaviour.HandleAsync(
                         new DeleteResourceRequest(
                             new ResourceKey(KnownResourceTypes.ValueSet, Guid.NewGuid().ToString()),
                             DeleteOperation.SoftDelete),
@@ -150,13 +157,103 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources
         }
 
         [Fact]
+        public async Task GivenCallerWithEditProfileDefinitions_WhenConditionallyDeletingAProfileResource_ThenRequestShouldBeHandledSuccessfully()
+        {
+            await Run<DeleteResourceResponse>(
+                x =>
+                {
+                    return _profileResourcesBehaviour.HandleAsync(
+                        new ConditionalDeleteResourceRequest(
+                            KnownResourceTypes.ValueSet,
+                            new List<Tuple<string, string>>(),
+                            DeleteOperation.SoftDelete,
+                            maxDeleteCount: 1),
+                        x,
+                        default);
+                });
+        }
+
+        [Theory]
+        [InlineData(KnownResourceTypes.ValueSet, DeleteOperation.SoftDelete, 1)]
+        [InlineData(KnownResourceTypes.ValueSet, DeleteOperation.HardDelete, 100)]
+        [InlineData(KnownResourceTypes.CodeSystem, DeleteOperation.SoftDelete, 100)]
+        [InlineData(KnownResourceTypes.StructureDefinition, DeleteOperation.HardDelete, 1)]
+        public async Task GivenCallerWithoutEditProfileDefinitions_WhenConditionallyDeletingAProfileResource_ThenAccessIsDeniedBeforeTheRequestIsHandled(
+            string resourceType,
+            DeleteOperation deleteOperation,
+            int maxDeleteCount)
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.None);
+
+            var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<DeleteResourceResponse>>();
+
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _profileResourcesBehaviour.HandleAsync(
+                new ConditionalDeleteResourceRequest(
+                    resourceType,
+                    new List<Tuple<string, string>>(),
+                    deleteOperation,
+                    maxDeleteCount: maxDeleteCount),
+                requestHandlerDelegate,
+                default));
+
+            // The handler - and with it the conditional search and every delete - is never reached.
+            await requestHandlerDelegate.DidNotReceive().Invoke();
+            _profilesResolver.DidNotReceive().Refresh();
+        }
+
+        [Fact]
+        public async Task GivenCallerWithoutEditProfileDefinitions_WhenConditionallyDeletingAProfileResourceInsideABundle_ThenAccessIsDenied()
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.None);
+
+            var bundleResourceContext = new BundleResourceContext(
+                bundleType: Hl7.Fhir.Model.Bundle.BundleType.Batch,
+                processingLogic: BundleProcessingLogic.Parallel,
+                httpVerb: Hl7.Fhir.Model.Bundle.HTTPVerb.DELETE,
+                persistedId: null,
+                bundleOperationId: Guid.NewGuid());
+
+            var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<DeleteResourceResponse>>();
+
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _profileResourcesBehaviour.HandleAsync(
+                new ConditionalDeleteResourceRequest(
+                    KnownResourceTypes.ValueSet,
+                    new List<Tuple<string, string>>(),
+                    DeleteOperation.SoftDelete,
+                    maxDeleteCount: 100,
+                    bundleResourceContext: bundleResourceContext),
+                requestHandlerDelegate,
+                default));
+
+            await requestHandlerDelegate.DidNotReceive().Invoke();
+        }
+
+        [Fact]
+        public async Task GivenCallerWithEditProfileDefinitions_WhenConditionallyDeletingAnOrdinaryResource_ThenRequestIsBypassed()
+        {
+            var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<DeleteResourceResponse>>();
+
+            await _profileResourcesBehaviour.HandleAsync(
+                new ConditionalDeleteResourceRequest(
+                    KnownResourceTypes.Patient,
+                    new List<Tuple<string, string>>(),
+                    DeleteOperation.SoftDelete,
+                    maxDeleteCount: 1),
+                requestHandlerDelegate,
+                default);
+
+            await requestHandlerDelegate.Received(1).Invoke();
+            _profilesResolver.DidNotReceive().Refresh();
+        }
+
+        [Fact]
         public async Task GivenRequest_WhenProfilerTypeIsUnknown_ThenRequestShouldBeBypassed()
         {
             ResourceElement resourceElement = new ResourceElement(new Patient().ToTypedElement());
 
             var requestHandlerDelegate = Substitute.For<RequestHandlerDelegate<UpsertResourceResponse>>();
 
-            await _profileResourcesBehaviour.Handle(
+            await _profileResourcesBehaviour.HandleAsync(
                 new CreateResourceRequest(
                     resourceElement,
                     bundleResourceContext: null),

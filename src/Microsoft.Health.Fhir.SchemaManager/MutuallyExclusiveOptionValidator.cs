@@ -27,7 +27,7 @@ public static class MutuallyExclusiveOptionValidator
 
         foreach (Option mutuallyExclusiveOption in mutuallyExclusiveOptions)
         {
-            if (commandResult.ContainsAnyAliasOf(mutuallyExclusiveOption))
+            if (commandResult.GetResult(mutuallyExclusiveOption) is { Implicit: false })
             {
                 count++;
             }
@@ -35,20 +35,7 @@ public static class MutuallyExclusiveOptionValidator
 
         if (count != 1)
         {
-            commandResult.ErrorMessage = validationErrorMessage;
+            commandResult.AddError(validationErrorMessage);
         }
-    }
-
-    private static bool ContainsAnyAliasOf(this CommandResult commandResult, Option option)
-    {
-        foreach (string? alias in option.Aliases)
-        {
-            if (commandResult.Children.Any(sr => sr.Symbol is IdentifierSymbol id && id.HasAlias(alias)))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

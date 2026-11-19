@@ -13,7 +13,7 @@ using Hl7.Fhir.ElementModel.Types;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -25,7 +25,6 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute.Core;
 using Xunit;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 using static Antlr4.Runtime.Atn.SemanticContext;
 using Task = System.Threading.Tasks.Task;
@@ -238,14 +237,14 @@ END CATCH
             await Task.Delay(1000);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenASqlQuery_IfAStoredProcExistsWithMatchingHash_ThenStoredProcUsed()
         {
             await ClearProcedureCache();
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             _output.WriteLine($"database={conn.Database}");
 
-            Skip.If(ModelInfoProvider.Instance.Version != FhirSpecification.R4, "This test is only valid for R4");
+            Assert.SkipWhen(ModelInfoProvider.Instance.Version != FhirSpecification.R4, "This test is only valid for R4");
 
             // set the wait time to 1 second
             CustomQueries.WaitTime = 1;
@@ -293,7 +292,9 @@ END CATCH
             CustomQueries.WaitTime = 60;
 
             // drop stored procedure and clear cache, so no other tests use this stored procedure.
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
             _fixture.SqlHelper.ExecuteSqlCmd($"DROP PROCEDURE dbo.[{spName}]").Wait();
+#pragma warning restore xUnit1031
             CustomQueries.QueryStore.Clear();
         }
 

@@ -6,12 +6,8 @@
 using System;
 using EnsureThat;
 using Hl7.Fhir.Serialization;
-using Ignixa.Abstractions;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Search.FhirPath;
-using Microsoft.Health.Fhir.Ignixa.FhirPath;
 
 namespace Microsoft.Health.Fhir.Ignixa;
 
@@ -92,42 +88,6 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<TextInputFormatter>(sp => sp.GetRequiredService<IgnixaFhirJsonInputFormatter>());
         services.AddSingleton<TextOutputFormatter>(sp => sp.GetRequiredService<IgnixaFhirJsonOutputFormatter>());
-
-        return services;
-    }
-
-    /// <summary>
-    /// Adds Ignixa FHIRPath provider to the service collection.
-    /// </summary>
-    /// <param name="services">The service collection.</param>
-    /// <param name="schemaResolver">A function that resolves the ISchema from the service provider.</param>
-    /// <returns>The service collection for chaining.</returns>
-    /// <remarks>
-    /// <para>
-    /// This method registers <see cref="IgnixaFhirPathProvider"/> as the <see cref="IFhirPathProvider"/>,
-    /// replacing the default Firely-based provider. The Ignixa provider offers:
-    /// </para>
-    /// <list type="bullet">
-    /// <item><description>Delegate compilation for ~80% of common search patterns</description></item>
-    /// <item><description>Native IElement evaluation without conversion overhead</description></item>
-    /// <item><description>Full FHIRPath 2.0 specification support</description></item>
-    /// <item><description>Expression caching for performance</description></item>
-    /// </list>
-    /// </remarks>
-    public static IServiceCollection AddIgnixaFhirPath(
-        this IServiceCollection services,
-        Func<IServiceProvider, ISchema> schemaResolver)
-    {
-        EnsureArg.IsNotNull(services, nameof(services));
-        EnsureArg.IsNotNull(schemaResolver, nameof(schemaResolver));
-
-        // Register the Ignixa FHIRPath provider, replacing any existing registration
-        services.RemoveAll<IFhirPathProvider>();
-        services.AddSingleton<IFhirPathProvider>(provider =>
-        {
-            var schema = schemaResolver(provider);
-            return new IgnixaFhirPathProvider(schema);
-        });
 
         return services;
     }

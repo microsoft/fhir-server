@@ -1,3 +1,8 @@
+Bulk-delete creation requires `Delete` and either `Read` or `Search` permission.
+Hard delete, purge history, and soft-deleted resource cleanup also require `HardDelete`.
+Authorization is checked before validating search criteria or queuing a job.
+Job polling still requires `Read`, and cancellation requires `Delete`.
+
 ```mermaid
 sequenceDiagram
     Client->>FhirServer: GET Create Bulk Delete Request
@@ -5,7 +10,7 @@ sequenceDiagram
     Middleware->>BulkDeleteController: GET Create Bulk Delete Request
     BulkDeleteController->>Mediatr: Create Bulk Delete Job
     Mediatr->>CreateBulkDeleteHandler: CreateBulkDeleteRequest
-    CreateBulkDeleteHandler->>AuthorizationService: Check Access
+    CreateBulkDeleteHandler->>AuthorizationService: Check Delete and (Read or Search), plus HardDelete when applicable
     AuthorizationService-->>CreateBulkDeleteHandler: Access
     CreateBulkDeleteHandler->>QueueClient: Enqueue Bulk Delete Job
     QueueClient->>Database: Enqueue Bulk Delete Job

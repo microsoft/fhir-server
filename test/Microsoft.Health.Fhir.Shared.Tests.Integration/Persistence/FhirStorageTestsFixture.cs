@@ -8,10 +8,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MediatR;
+using Medino;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -25,7 +26,6 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -48,6 +48,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
@@ -183,6 +184,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
+        internal IFhirOperationDataStore TestSqlServerOperationDataStore
+        {
+            get
+            {
+                if (_fixture is SqlServerFhirStorageTestsFixture sqlFixture)
+                {
+                    return sqlFixture.TestSqlServerOperationDataStore;
+                }
+
+                return null;
+            }
+        }
+
         public IQueueClient QueueClient => _fixture.GetRequiredService<IQueueClient>();
 
         public IServiceProvider Service => _fixture;
@@ -192,7 +206,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             (_fixture as IDisposable)?.Dispose();
         }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             if (_fixture is IAsyncLifetime asyncLifetime)
             {
@@ -316,6 +330,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var auditLogger = Substitute.For<IAuditLogger>();
             var logger = Substitute.For<ILogger<DeletionService>>();
 
+            var profilesProvider = Substitute.For<IProvideProfilesForValidation>();
+            profilesProvider.GetProfilesTypes().Returns(
+                new HashSet<string>()
+                {
+                    KnownResourceTypes.ValueSet,
+                    KnownResourceTypes.StructureDefinition,
+                    KnownResourceTypes.CodeSystem,
+                });
+
             var searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
 
@@ -332,10 +355,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ModelInfoProvider.Instance,
                 searchParameterSupportResolver,
                 dataStoreSearchParameterValidator,
-                () => OperationDataStore.CreateMockScope(),
-                () => SearchService.CreateMockScope(),
+                SearchService.CreateMockScopeProvider(),
                 DataStore.CreateMockScopeProvider(),
-                resourceWrapperFactory,
                 NullLogger<SearchParameterOperations>.Instance);
 
             var deleter = new DeletionService(
@@ -344,12 +365,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 deletionServiceDataStoreFactory,
                 SearchService.CreateMockScopeProvider(),
                 _resourceIdProvider,
-                new FhirRequestContextAccessor(),
+                FhirRequestContextAccessor,
                 auditLogger,
                 new OptionsWrapper<CoreFeatureConfiguration>(coreFeatureConfiguration),
                 _fhirRuntimeConfiguration,
                 _searchParameterOperations,
                 Deserializer,
+                profilesProvider,
+                DisabledFhirAuthorizationService.Instance,
                 logger);
 
             var collection = new ServiceCollection();
@@ -392,7 +415,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Mediator = new Mediator(services);
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             if (_fixture is IAsyncLifetime asyncLifetime)
             {

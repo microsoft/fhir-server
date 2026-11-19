@@ -17,12 +17,12 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
     {
         private readonly IQueueClient _queueClient;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private readonly Func<IScoped<ISearchService>> _searchService;
+        private readonly IScopeProvider<ISearchService> _searchService;
         private readonly ILogger<BulkUpdateOrchestratorJob> _logger;
         private const int CoordinatorMaxDegreeOfParallelization = 4;
         private const int NumberOfParallelRecordRanges = 100;
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
         public BulkUpdateOrchestratorJob(
             IQueueClient queueClient,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            Func<IScoped<ISearchService>> searchService,
+            IScopeProvider<ISearchService> searchService,
             ILogger<BulkUpdateOrchestratorJob> logger)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
@@ -91,7 +91,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     // Collect allowed parameter names (case-insensitive)
                     var allowedParams = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                     {
-                        KnownQueryParameterNames.LastUpdated,
                         KnownQueryParameterNames.MaxCount,
                     };
 
@@ -106,7 +105,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     var resourceTypes = string.IsNullOrEmpty(definition.Type)
                           ? (await searchService.Value.GetUsedResourceTypes(cancellationToken))
                           : definition.Type.Split(',');
-                    resourceTypes = resourceTypes.Where(x => !OperationsConstants.ExcludedResourceTypesForBulkUpdate.Contains(x)).ToList();
+                    resourceTypes = resourceTypes
+                        .Where(resourceType => !OperationsConstants.ExcludedResourceTypesForBulkUpdate.Any(
+                            excludedType => string.Equals(resourceType, excludedType, StringComparison.OrdinalIgnoreCase)))
+                        .ToList();
+
                     var globalStartId = new PartialDateTime(DateTime.MinValue).ToDateTimeOffset().ToId();
                     var globalEndId = new PartialDateTime(jobInfo.CreateDate).ToDateTimeOffset().ToId() - 1;
                     _logger.LogJobInformation(jobInfo, "Creating bulk update processing jobs by resourceType-surrogateId ranges with Global start surrogate ID: {GlobalStartId}, Global end surrogate ID: {GlobalEndId}", globalStartId, globalEndId);
@@ -175,9 +178,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
 
                     var searchParams = definition.SearchParameters?.ToList() ?? new List<Tuple<string, string>>();
 
-                    var createDate = new PartialDateTime(new DateTimeOffset(jobInfo.CreateDate, TimeSpan.Zero));
-                    searchParams.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"lt{createDate}"));
-
                     searchParams.Add(Tuple.Create(KnownQueryParameterNames.Count, definition.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)));
                     if (!string.IsNullOrEmpty(lastEnqueuedMaxContinuationToken))
                     {
@@ -240,6 +240,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                 }
 
                 return OperationCompleted;
+            }
+            catch (Exception ex) when (ex.IsCustomerCaused())
+            {
+                _logger.LogJobWarning(ex, jobInfo, "Bulk update orchestration failed due to a customer-caused error.");
+                var result = new BulkUpdateResult();
+                result.Issues.Add(ex.Message);
+                throw new JobExecutionException(ex.Message, result, ex, isCustomerCaused: true);
             }
             finally
             {
@@ -306,7 +313,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkUpdate
                     globalStartSurrogateId,
                     globalEndSurrogateId,
                     baseDefinition.MaximumNumberOfResourcesPerQuery,
-                    baseDefinition.MetaHistory);
+                    baseDefinition.MetaHistory,
+                    baseDefinition.AllowProfileResourceModification);
         }
     }
 }

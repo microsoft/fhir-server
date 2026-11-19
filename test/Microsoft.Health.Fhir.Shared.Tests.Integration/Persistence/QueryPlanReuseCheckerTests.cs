@@ -21,7 +21,6 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using Microsoft.SqlServer.Management.Smo;
 using Xunit;
-using Xunit.Abstractions;
 using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
 using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 using Task = System.Threading.Tasks.Task;
@@ -64,7 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var checker = new QueryPlanReuseChecker(_sqlFixture.SqlRetryService, _fhirSqlConfig, NullLogger<QueryPlanReuseChecker>.Instance);
 
             // Simulate storage ready notification
-            await checker.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+            await checker.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             try
             {
@@ -95,7 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var checker = new QueryPlanReuseChecker(_sqlFixture.SqlRetryService, _fhirSqlConfig, NullLogger<QueryPlanReuseChecker>.Instance);
 
             // Simulate storage ready notification
-            await checker.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+            await checker.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             try
             {
@@ -147,7 +146,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 var checker = new QueryPlanReuseChecker(_sqlFixture.SqlRetryService, NullLogger<QueryPlanReuseChecker>.Instance);
 
                 // Simulate storage ready notification
-                await checker.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+                await checker.HandleAsync(new SearchParametersInitializedNotification(), CancellationToken.None);
 
                 // Wait for initialization to complete
                 await WaitForInitializationAsync(checker);
