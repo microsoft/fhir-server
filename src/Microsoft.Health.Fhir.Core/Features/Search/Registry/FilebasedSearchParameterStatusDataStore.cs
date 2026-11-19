@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             // Do nothing. This is only required for SQL.
         }
 
-        public Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken)
+        public Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken, string updateProcess = null)
         {
             throw new NotSupportedException("Cache sync is not supported for file-based storage.");
         }

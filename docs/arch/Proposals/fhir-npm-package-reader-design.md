@@ -11,8 +11,9 @@ The service will install `SearchParameter` resources from a versioned [FHIR NPM 
 | Story | Responsibility |
 |---|---|
 | **AB#206131 (this design)** | Read a package tarball safely; validate the complete SearchParameter set; report installed and ignored content |
-| AB#206132 | Durable install job, applied-package record (SQL schema), empty-store bootstrap (parameters created `Enabled`), ownership rules |
-| AB#206133 | Desired-state reconciler, deployment-owned source allow-list, npm registry acquisition (dist-tag resolution, authentication) |
+| AB#213137 | Atomic SQL writer and empty-store bootstrap (parameters created `Enabled`) |
+| AB#211144 | Durable install job, deployment-owned source allow-list, exact-version acquisition, and cache convergence |
+| Future slice | Desired-state reconciliation and provisioning readiness |
 | AB#206134 | Applied-package and job status, `CapabilityStatement.implementationGuide` |
 
 Design constraints from the feature:
@@ -36,16 +37,18 @@ Design constraints from the feature:
 
 ```mermaid
 flowchart LR
-    R[206133 reconciler + acquisition] -->|StrictPackageExtractionResult + descriptor| J[206132 durable install job]
-    J --> I[PackageInstaller]
-    I --> PR[FhirPackageReader]
-    PR --> H[Handler registry]
+    E[Internal enqueuer] --> J[Durable install job]
+    J --> A[Trusted package acquisition]
+    A --> PR[Shared package interpretation]
+    J --> V[Verify persisted SearchParameters]
+    V -->|missing entries| I[PackageInstaller]
+    I --> H[Handler registry]
     H --> SP[SearchParameterPackageHandler]
-    SP -->|validated plan| W[ISearchParameterPackageWriter, implemented in 206132]
-    I -->|PackageInstallResult / OperationOutcome| J
+    SP -->|validated plan| W[Atomic SQL package writer]
+    J --> C[Wait for cache convergence]
 ```
 
-This story covers everything from "a tarball and its expected integrity are available" through "a validated, all-or-nothing SearchParameter set, plus a result naming what was installed and what was ignored". It has no network calls, job, schema, ownership records or CapabilityStatement changes.
+The original reader story covers everything from "a tarball and its expected integrity are available" through a validated SearchParameter set and a result naming installed and ignored content. The durable job now supplies acquisition and recovery; it does not create package records, track ownership, or change the CapabilityStatement.
 
 ## Decision
 
@@ -57,11 +60,11 @@ The server is migrating to the Ignixa SDK (ADR-2607). `Ignixa.PackageManagement`
 - Configurable compressed, expanded, per-entry, entry-count and JSON-depth limits, counted on the bytes actually streamed.
 - Exactly one `package/package.json`; relative POSIX paths under `package/` only. Traversal, absolute paths, backslashes, links, special entries, case-insensitive collisions, malformed gzip/tar, trailing data and duplicate JSON properties are rejected.
 - Errors carry no package content: `PackageExtractionException.Diagnostic` has a code, the physical entry index and the configured limit.
-- The acquirer (used by AB#206133) checks a source allow-list, requires SHA-512 SRI integrity over the compressed bytes before extraction, confirms name/version identity, and provides an authentication callback and bounded retry. It does not resolve dist-tags.
+- The durable job's acquirer checks a source allow-list, requires SHA-512 SRI integrity over the compressed bytes before extraction, confirms name/version identity, and provides an authentication callback and bounded retry. It does not resolve dist-tags.
 
 `Firely.Fhir.Packages` was considered and rejected: it extracts to disk, does no SRI verification, has no size, entry-count or path limits, and goes against the migration direction.
 
-**Placement.** Interfaces and models (`IFhirPackageReader`, `FhirPackage`, `FhirPackageReaderOptions`, handler contracts) go in `Microsoft.Health.Fhir.Core/Features/FhirPackages/`. The Ignixa-backed reader goes in `Microsoft.Health.Fhir.Ignixa/Features/FhirPackages/`. When it is registered for DI, which lands with the writer in AB#206132, it will be registered unconditionally, not behind `CoreFeatures.FhirSdkProvider`: package reading has no Firely equivalent, so it is a new capability rather than a migrated seam. ADR-2607 now has a section saying so ("New capabilities built on Ignixa"). The SearchParameter handler stays on Firely POCOs, because search indexing and `SearchParameterInfo` are still Firely-based (ADR-2607 Phase 3).
+**Placement.** Interfaces and models (`IFhirPackageReader`, `FhirPackage`, `FhirPackageReaderOptions`, handler contracts) go in `Microsoft.Health.Fhir.Core/Features/FhirPackages/`. The Ignixa-backed reader goes in `Microsoft.Health.Fhir.Ignixa/Features/FhirPackages/`. SQL hosts register it independently of `CoreFeatures.FhirSdkProvider`: package reading has no Firely equivalent, so it is a new capability rather than a migrated seam. ADR-2607 now has a section saying so ("New capabilities built on Ignixa"). The SearchParameter handler stays on Firely POCOs, because search indexing and `SearchParameterInfo` are still Firely-based (ADR-2607 Phase 3).
 
 ### Reader: `FhirPackageReader`
 
@@ -70,16 +73,16 @@ The Core-facing seam is SDK-neutral: `IFhirPackageReader.ReadAsync(Stream tarbal
 The Ignixa-backed implementation in `Microsoft.Health.Fhir.Ignixa` has two inputs that share one interpretation path:
 
 - **Stream** (the Core seam): buffers up to the compressed cap, verifies SHA-512 (`NpmPackageIntegrity`, `SHA512.HashData`, fixed-time compare), checks the manifest name and version against the descriptor, then calls `ExtractStrictAsync` with limits built from `FhirPackageReaderOptions`. This is the tarball-to-validated-package seam the story requires, not just a test hook.
-- **Acquired package** (internal to the Ignixa integration; **implemented in AB#206133**): accepts Ignixa's `AcquiredNpmPackage`, not a bare `StrictPackageExtractionResult`. `AcquiredNpmPackage` has an internal constructor, so it can only be produced, and therefore tested, by a real acquisition against a registry fixture. That makes the adapter and its parity tests part of the acquisition story. This story provides the internal `Interpret(StrictPackageExtractionResult, FhirPackageDescriptor)` step both inputs must call, so the post-extraction checks can't diverge. The guarantees the adapter relies on, and who establishes each:
+- **Acquired package** (internal to the Ignixa integration): the adapter constructs the trusted policy and calls `NpmPackageAcquirer` itself. It passes the resulting `AcquiredNpmPackage` through the same internal `Interpret(StrictPackageExtractionResult, FhirPackageDescriptor)` step, so post-extraction checks can't diverge. The guarantees the adapter relies on, and who establishes each:
 
 | Guarantee | Established by |
 |---|---|
-| Source is on the allow-list | `NpmPackageAcquirer`, from the deployment-owned `NpmPackageSourcePolicy` (AB#206133) |
-| SHA-512 integrity of the compressed bytes | `NpmPackageAcquirer`; `AcquiredNpmPackage` has an internal constructor, so it can only come from the acquirer. The adapter also checks `AcquiredNpmPackage.Integrity` equals the descriptor's integrity when one is supplied. |
+| Source is on the allow-list | `NpmPackageAcquirer`, from the deployment-owned `NpmPackageSourcePolicy` |
+| SHA-512 integrity of the compressed bytes | `NpmPackageAcquirer`; the descriptor uses the verified `AcquiredNpmPackage.Integrity`. |
 | Name and version identity | `NpmPackageAcquirer` (metadata and manifest identity); the adapter re-checks the manifest against the descriptor |
-| Configured limits | The policy's `ExtractionLimits` are built from the same `FhirPackageReaderOptions`. The adapter re-asserts the compressed, expanded, entry-count and ratio limits from `Statistics`. Statistics can't prove the per-entry and JSON-depth limits, so the adapter also checks that the policy's `MaxEntryBytes` and `MaxJsonDepth` are no larger than the configured values, and rejects the package if they are. |
+| Configured limits | The adapter constructs the policy's `ExtractionLimits` from the same `FhirPackageReaderOptions`; `NpmPackageAcquirer` enforces them and `Interpret` checks the expansion ratio. |
 
-Strict extraction alone is never treated as proof of integrity, identity or the configured limits. Parity tests (AB#206133) run the same archives through both inputs and require identical `FhirPackage` results or identical rejections.
+Strict extraction alone is never treated as proof of integrity, identity or the configured limits.
 
 Checks run in this order. Each failure produces an actionable `OperationOutcome` before any handler runs:
 
@@ -95,7 +98,7 @@ Checks run in this order. Each failure produces an actionable `OperationOutcome`
    - Resources in sub-folders (`example/`, `other/`, …) are ignored and reported.
    - Metadata JSON such as `.index.json` is expected package content and isn't reported. Non-JSON files are dropped by Ignixa and aren't reported either, because its statistics don't separate them from directories.
 
-`FhirPackageReaderOptions` defaults (configurable; the section name will be agreed with AB#206133):
+`FhirPackageReaderOptions` defaults (configurable under `FhirPackageReader`):
 
 | Limit | Default |
 |---|---|
@@ -183,13 +186,13 @@ Messages go in `Resources.resx`.
 | 5 | Composite components | **Decided by the owner (2026-10-12):** a component may resolve to a parameter in the same package, or to any existing definition (core or custom) whose status is `Enabled` or `Supported`. Definitions in any other state are rejected, and the error names the state. The work item's AC6 and ADR-2608 are updated to match. Tradeoff accepted: the same package can validate differently on different services, and in this release the package doesn't record a dependency on a definition it doesn't own, so retiring that definition isn't blocked. On an empty store the only existing definitions are system-defined, so bootstrap installs behave as core-or-same-package. Dependency tracking belongs with the existing-service design. |
 | 6 | SearchParameter `status` | Not an install filter. `draft`, `active`, `retired` and `unknown` all install. |
 | 7 | Limits | Configurable `FhirPackageReaderOptions` with the defaults above. |
-| 8 | SDK | Ignixa.PackageManagement strict extraction. The reader will be registered unconditionally, not behind `FhirSdkProvider`, once DI registration lands (decision 10). Firely.Fhir.Packages rejected. |
+| 8 | SDK | Ignixa.PackageManagement strict extraction. SQL hosts register the reader independently of `FhirSdkProvider` (decision 10). Firely.Fhir.Packages rejected. |
 | 9 | Empty packages | A package with no installable resources at its root is rejected as `invalid`; it almost certainly means a packaging mistake. |
-| 10 | DI registration | Deferred to the PR that provides `ISearchParameterPackageWriter` (AB#206132). Registering the handler earlier would leave a service whose dependency can't be resolved. |
+| 10 | DI registration | The durable-job slice registers the reader, handler, installer, SQL writer and acquisition adapter for SQL hosts. |
 
 ## Tests
 
-xUnit and NSubstitute, Arrange-Act-Assert. Test tarballs are built in memory with `TarWriter` and `GZipStream`. One small checked-in package produced by a real `npm pack` proves that partner-pipeline output passes strict extraction. Ignixa's internal checks are not re-tested; the tests cover our integration and observable outcomes. "Nothing was written" is asserted per layer:
+xUnit and NSubstitute, Arrange-Act-Assert. Test tarballs are built in memory with `TarWriter` and `GZipStream`. One small checked-in package produced by a real `npm pack` proves that partner-pipeline output passes strict extraction. Ignixa's internal checks are not re-tested; the tests cover our integration and observable outcomes. Failed validation and writes rejected before commit make no changes, but matching resources may already exist from an earlier attempt. A connection failure during commit can leave its outcome unknown; recovery checks the persisted resources:
 
 - **Reader failures** (integrity, limits, unsafe paths, manifest): neither the installer's handlers nor the writer are called.
 - **Handler validation failures:** the handler necessarily runs, but the writer is never called.
@@ -207,10 +210,10 @@ xUnit and NSubstitute, Arrange-Act-Assert. Test tarballs are built in memory wit
 ## Delivery
 
 0. **Dependency bump:** `IgnixaPackageVersion` 0.6.74 → 0.6.82 (the release that includes brendankowitz/ignixa-fhir#464). Polly 8.5.2 → 8.6.6. Add `Semver` 3.0.0, a new transitive dependency. `Ignixa.Extensions.FirelySdk5` 0.6.82 still pins Hl7.Fhir 5.11.4, which matches this repo. Re-run the `$import` parity tests, because the shared version property also moves the `$import` packages.
-1. Reader on Ignixa (stream input, the shared `Interpret` step, ratio, manifest and core-dependency checks, classification, error mapping), `FhirPackageReaderOptions`, tests including `npm pack` fixtures and an end-to-end tarball-to-writer test, and the ADR-2607 note. The acquired-package adapter follows in AB#206133.
+1. Reader on Ignixa (stream input, the shared `Interpret` step, ratio, manifest and core-dependency checks, classification, error mapping), `FhirPackageReaderOptions`, tests including `npm pack` fixtures and an end-to-end tarball-to-writer test, and the ADR-2607 note.
 2. Handler contracts, SearchParameter set validator, `SearchParameterValidator` refactor, installer and result, tests.
 
-Nothing is wired to an entry point, so none of it runs until AB#206132 and AB#206133 land.
+The SQL durable-job slice adds the internal enqueuer and acquisition adapter. Desired-state reconciliation and provisioning readiness remain separate work.
 
 ### Implementation status
 
@@ -223,8 +226,21 @@ Nothing is wired to an entry point, so none of it runs until AB#206132 and AB#20
 | `SearchParameterPackageHandler` | Done, with unit tests on STU3, R4, R4B and R5 |
 | `IgnixaFhirPackageReader`, `FhirPackageDescriptor`, `FhirPackageReaderOptions` | Done. Tests cover integrity, every limit, ratio boundaries, unsafe paths and links, manifest and core-dependency rules, classification, `npm pack` fixtures for all four FHIR versions, and an end-to-end path from tarball to writer |
 | ADR-2607 note on new Ignixa capabilities | Done |
-| Acquired-package adapter and parity tests | Moved to AB#206133 (needs a real acquisition) |
-| Verification against the published Ignixa 0.6.82 | Pending; the internal proxy is holding the release |
+| Acquired-package adapter | Used by the durable install job |
+
+### Durable job configuration and recovery
+
+The queue is disabled by default. Enable `FhirServer:Operations:FhirPackageInstall:Enabled` on every active SQL host so each publishes cache proofs, enable `TaskHosting:Enabled` on the hosts that run jobs, and configure one or more deployment-trusted sources under `FhirPackageAcquisition:Sources`. Each source has an HTTPS `Registry` directory, one or more `AllowedArtifactPrefixes` HTTPS directories, an optional Azure `TokenScope`, and an optional `MaxRedirects` (default zero). The registry must provide standard npm exact-version metadata with a tarball URL and SHA-512 integrity; direct-download-only registry APIs are not supported. The Azure credential is sent only to URLs under the registry directory, not to other artifact hosts. The internal enqueuer takes the source identifier, exact npm package name and exact version; it does not resolve dist-tags.
+
+Acquisition timeouts and HTTP 408, 429, 500, 502, 503 and 504 are reported as retryable. Ignixa exposes the same sanitized `TransportFailure` for transient network failures and permanent TLS trust failures; the job reports that category as potentially retryable and advises checking both connectivity and certificate trust. Ignixa itself does not retry TLS failures. Other acquisition failures are reported as non-retryable.
+
+SQL failures retain the last positively verified job state and are marked retryable only when the existing SQL retry classifications identify a transient failure. A connection failure during commit can still leave the write outcome unknown; the next attempt checks the persisted resources.
+
+The same definition returns the same queued job across replicas. Because the queue also deduplicates failed and cancelled jobs, a new attempt supplies the previous job ID as `RetryOfJobId`. Recovery re-fetches the package and compares its SearchParameters and enabled statuses with persisted resources; matching parameters are reused and only missing parameters are validated and written. No package table, provenance tags or package-removal detection are used, so recovery requires the source to remain available.
+
+After all requested parameters are verified locally, the job waits for two matching cache proofs per active host at or beyond the installed status watermark. Each proof includes a fingerprint of that host's actual definitions, statuses and resource-type hashes; the job rechecks the persisted package and requires the shared fingerprint to match its own cache. Hosts that have not enabled the feature, or are running older code without proofs, prevent convergence. A bounded timeout fails the job with `IsRetryable = true` and records `Committed` in the failure result; this state is not persisted as intermediate queue progress. The cache refresh interval and the package queue's `CacheUpdateMaxWaitMultiplier` and `ActiveHostsEventsMultiplier` control the wait.
+
+Active hosts are identified by recent SQL `EventLog` activity grouped by SQL `HOST_NAME()`, not by deployment membership. This assumes distinct host names and regular SQL activity; silent instances or multiple instances sharing a host name cannot be distinguished. Provisioning must keep ordinary resource writes blocked and coordinate host membership until convergence; that readiness gate is a separate slice.
 
 ## Consequences
 

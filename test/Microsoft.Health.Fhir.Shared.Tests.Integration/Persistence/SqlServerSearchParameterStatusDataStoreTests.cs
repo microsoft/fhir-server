@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -40,6 +41,62 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             _fixture = fixture;
             _testHelper = fixture.TestHelper;
+        }
+
+        [Fact]
+        public async Task GivenPackageCacheProofs_WhenCheckingActiveHosts_ThenAllHostsMustHaveTwoMatchingProofs()
+        {
+            // Arrange
+            DateTime since = DateTime.UtcNow.AddMinutes(5);
+            string hostA = "package-a-" + Guid.NewGuid().ToString("N");
+            string hostB = "package-b-" + Guid.NewGuid().ToString("N");
+            const string proofA = "2026-01-02 03:04:05.0000000|AAAA";
+            const string proofB = "2026-01-02 03:04:05.0000000|BBBB";
+            await using SqlConnection connection = await _fixture.SqlHelper.GetSqlConnectionAsync();
+            await connection.OpenAsync();
+
+            try
+            {
+                // Act and assert: an empty host set is not convergence.
+                CacheConsistencyResult empty = await CheckPackageCacheAsync(since);
+                Assert.False(empty.IsConsistent);
+                Assert.Equal(0, empty.ActiveHosts);
+
+                await InsertCacheEventAsync(connection, since.AddSeconds(1), hostA, SearchParameterCacheFingerprint.UpdateProcessName, proofA);
+                await InsertCacheEventAsync(connection, since.AddSeconds(2), hostA, SearchParameterCacheFingerprint.UpdateProcessName, proofA);
+                await InsertCacheEventAsync(connection, since.AddSeconds(3), hostB, "OtherActivity", null);
+                CacheConsistencyResult noProof = await CheckPackageCacheAsync(since);
+                Assert.False(noProof.IsConsistent);
+                Assert.Equal(2, noProof.ActiveHosts);
+                Assert.Equal(1, noProof.ConvergedHosts);
+
+                await InsertCacheEventAsync(connection, since.AddSeconds(4), hostB, SearchParameterCacheFingerprint.UpdateProcessName, proofA);
+                CacheConsistencyResult oneProof = await CheckPackageCacheAsync(since);
+                Assert.False(oneProof.IsConsistent);
+                Assert.Equal(1, oneProof.ConvergedHosts);
+
+                await InsertCacheEventAsync(connection, since.AddSeconds(5), hostB, SearchParameterCacheFingerprint.UpdateProcessName, proofB);
+                await InsertCacheEventAsync(connection, since.AddSeconds(6), hostB, SearchParameterCacheFingerprint.UpdateProcessName, proofB);
+                CacheConsistencyResult differentFingerprint = await CheckPackageCacheAsync(since);
+                Assert.False(differentFingerprint.IsConsistent);
+                Assert.Equal(1, differentFingerprint.ConvergedHosts);
+
+                await InsertCacheEventAsync(connection, since.AddSeconds(7), hostB, SearchParameterCacheFingerprint.UpdateProcessName, proofA);
+                await InsertCacheEventAsync(connection, since.AddSeconds(8), hostB, SearchParameterCacheFingerprint.UpdateProcessName, proofA);
+                CacheConsistencyResult converged = await CheckPackageCacheAsync(since);
+                Assert.True(converged.IsConsistent);
+                Assert.Equal(2, converged.ActiveHosts);
+                Assert.Equal(2, converged.ConvergedHosts);
+                Assert.Equal(proofA, converged.SearchParameterVersion);
+            }
+            finally
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText = "DELETE FROM dbo.EventLog WHERE HostName IN (@hostA, @hostB)";
+                command.Parameters.AddWithValue("@hostA", hostA);
+                command.Parameters.AddWithValue("@hostB", hostB);
+                await command.ExecuteNonQueryAsync();
+            }
         }
 
         [Fact]
@@ -716,6 +773,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 await _testHelper.DeleteSearchParameterStatusAsync(testUri);
             }
+        }
+
+        private Task<CacheConsistencyResult> CheckPackageCacheAsync(DateTime since) =>
+            _fixture.SearchParameterStatusDataStore.CheckCacheConsistencyAsync(
+                since,
+                since,
+                CancellationToken.None,
+                SearchParameterCacheFingerprint.UpdateProcessName);
+
+        private static async Task InsertCacheEventAsync(SqlConnection connection, DateTime date, string host, string process, string text)
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = "INSERT INTO dbo.EventLog (EventDate, Process, Status, EventText, SPID, HostName) VALUES (@date, @process, 'Warn', @text, @@SPID, @host)";
+            command.Parameters.AddWithValue("@date", date);
+            command.Parameters.AddWithValue("@process", process);
+            command.Parameters.AddWithValue("@text", (object)text ?? DBNull.Value);
+            command.Parameters.AddWithValue("@host", host);
+            await command.ExecuteNonQueryAsync();
         }
     }
 }

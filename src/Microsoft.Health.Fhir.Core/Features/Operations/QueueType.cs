@@ -14,6 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         BulkDelete = 4,
         BulkUpdate = 5,
         Reindex = 6,
+        FhirPackageInstall = 7,
     }
 }
 #pragma warning restore CA1028 // Enum Storage should be Int32

@@ -2241,25 +2241,34 @@ namespace Microsoft.Health.Fhir.Core {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to The FHIR package &apos;{0}&apos; is already installed at version &apos;{1}&apos; with integrity &apos;{2}&apos;....
-        /// </summary>
-        internal static string FhirPackageInstalledWithDifferentContent {
-            get {
-                return ResourceManager.GetString("FhirPackageInstalledWithDifferentContent", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The FHIR package &apos;{0}&apos; version &apos;{1}&apos; was not installed because a SearchParameter resource it would create already exists....
+        ///   Looks up a localized string similar to The FHIR package &apos;{0}&apos; version &apos;{1}&apos; could not be fully installed because a conflicting SearchParameter resource or status already exists....
         /// </summary>
         internal static string FhirPackageSearchParameterResourceConflict {
             get {
                 return ResourceManager.GetString("FhirPackageSearchParameterResourceConflict", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string describing an existing SearchParameter conflict.
+        /// </summary>
+        internal static string FhirPackageExistingSearchParameterConflict {
+            get {
+                return ResourceManager.GetString("FhirPackageExistingSearchParameterConflict", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string describing a SearchParameter cache that is not ready.
+        /// </summary>
+        internal static string FhirPackageSearchParameterCacheNotReady {
+            get {
+                return ResourceManager.GetString("FhirPackageSearchParameterCacheNotReady", resourceCulture);
+            }
+        }
         
         /// <summary>
-        ///   Looks up a localized string similar to The FHIR package &apos;{0}&apos; version &apos;{1}&apos; was not installed because the data store already contains resources....
+        ///   Looks up a localized string similar to The FHIR package &apos;{0}&apos; version &apos;{1}&apos; cannot add missing SearchParameters because the data store already contains resources....
         /// </summary>
         internal static string FhirPackageStoreNotEmpty {
             get {
@@ -2268,7 +2277,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The FHIR package &apos;{0}&apos; version &apos;{1}&apos; was not installed because a concurrent SearchParameter change or a running reindex job conflicted with it....
+        ///   Looks up a localized string similar to The FHIR package &apos;{0}&apos; version &apos;{1}&apos; could not be fully installed because of a concurrent SearchParameter change, a running reindex job, or a transient SQL error....
         /// </summary>
         internal static string FhirPackageWriteConflictRetryable {
             get {
@@ -2277,7 +2286,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The FHIR package was rejected. Nothing from the package was installed..
+        ///   Looks up a localized string similar to The FHIR package was rejected..
         /// </summary>
         internal static string FhirPackageRejected {
             get {

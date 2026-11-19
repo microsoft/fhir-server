@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
@@ -14,25 +13,35 @@ using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.FhirPackages;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Scoping;
+using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.SqlServer.Features.FhirPackages;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -40,8 +49,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     /// <summary>
-    /// Runs <see cref="SqlServerSearchParameterPackageWriter"/> against a fresh SQL database per test, so each test starts
-    /// from an empty store. The applied-package record store is in memory until its SQL tables exist.
+    /// Runs <see cref="SqlServerSearchParameterPackageWriter"/> against a fresh SQL database per test.
     /// </summary>
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
@@ -52,7 +60,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private readonly SqlServerFhirStorageTestsFixture _sqlFixture;
         private readonly FhirStorageTestsFixture _fixture;
-        private readonly InMemoryRecordStore _recordStore = new InMemoryRecordStore();
 
         public SqlServerSearchParameterPackageWriterTests()
         {
@@ -86,7 +93,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.True(_fixture.SearchParameterDefinitionManager.TryGetSearchParameter(url, out SearchParameterInfo info));
             Assert.Equal(SearchParameterStatus.Enabled, info.SearchParameterStatus);
             Assert.Equal(1, await CountSearchParameterResourcesAsync(url));
-            Assert.Single(_recordStore.Records);
             Assert.Equal(0, await CountReindexJobsAsync());
 
             // The fixture has no real search indexer, so supply the index entry the indexer would extract for the new
@@ -129,21 +135,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await Assert.ThrowsAsync<FhirPackageStoreNotEmptyException>(() => WriteAsync(Package("partner.a"), CurrentToken(), (url, NewCode())));
 
             // Assert
-            await AssertNothingWrittenAsync(url, "partner.a");
-        }
-
-        [Fact]
-        public async Task GivenTheRecordWriteFails_WhenAPackageIsWritten_ThenNothingIsWritten()
-        {
-            // Arrange
-            string url = NewUrl();
-            _recordStore.FailNextAdd = true;
-
-            // Act
-            await Assert.ThrowsAsync<InvalidOperationException>(() => WriteAsync(Package("partner.a"), CurrentToken(), (url, NewCode())));
-
-            // Assert
-            await AssertNothingWrittenAsync(url, "partner.a");
+            await AssertNothingWrittenAsync(url);
         }
 
         [Fact]
@@ -160,7 +152,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Assert
             Assert.Equal(SearchParameterStatus.Enabled, await GetStatusAsync(firstUrl));
             Assert.Equal(SearchParameterStatus.Enabled, await GetStatusAsync(secondUrl));
-            Assert.Equal(2, _recordStore.Records.Count);
+            Assert.Equal(1, await CountSearchParameterResourcesAsync(firstUrl));
+            Assert.Equal(1, await CountSearchParameterResourcesAsync(secondUrl));
         }
 
         [Fact]
@@ -178,7 +171,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 // Assert
                 Assert.True(ex.IsRetryable);
-                await AssertNothingWrittenAsync(url, "partner.a");
+                await AssertNothingWrittenAsync(url);
             }
             finally
             {
@@ -205,7 +198,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 FhirPackageWriteConflictException ex = await Assert.ThrowsAsync<FhirPackageWriteConflictException>(
                     () => WriteAsync(Package("partner.b"), CurrentToken(), (laterUrl, NewCode())));
                 Assert.True(ex.IsRetryable);
-                await AssertNothingWrittenAsync(laterUrl, "partner.b");
+                await AssertNothingWrittenAsync(laterUrl);
             }
             finally
             {
@@ -227,7 +220,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             // Assert
             Assert.True(ex.IsRetryable);
-            await AssertNothingWrittenAsync(url, "partner.b");
+            await AssertNothingWrittenAsync(url);
         }
 
         [Fact]
@@ -249,11 +242,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Contains(url, ex.Message, StringComparison.Ordinal);
             Assert.Equal(SearchParameterStatus.Supported, await GetStatusAsync(url));
             Assert.Equal(0, await CountSearchParameterResourcesAsync(url));
-            Assert.Empty(_recordStore.Records);
         }
 
         [Fact]
-        public async Task GivenTheSamePackageIsWrittenTwice_WhenTheSecondWriteRuns_ThenItIsANoOp()
+        public async Task GivenAParameterAlreadyExists_WhenWrittenAgain_ThenTheWriterDoesNotCreateADuplicate()
         {
             // Arrange
             string url = NewUrl();
@@ -262,51 +254,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await WriteAsync(package, CurrentToken(), (url, code));
 
             // Act
-            await WriteAsync(package, CurrentToken(), (url, code));
+            FhirPackageWriteConflictException ex = await Assert.ThrowsAsync<FhirPackageWriteConflictException>(
+                () => WriteAsync(package, CurrentToken(), (url, code)));
 
             // Assert
-            Assert.Single(_recordStore.Records);
+            Assert.False(ex.IsRetryable);
             Assert.Equal(1, await CountSearchParameterResourcesAsync(url));
             Assert.Equal(SearchParameterStatus.Enabled, await GetStatusAsync(url));
-        }
-
-        [Fact]
-        public async Task GivenAnotherWriterInstalledTheSamePackageAfterThisOneValidated_WhenThisOneWrites_ThenItIsANoOp()
-        {
-            // Arrange: both writers validated against the same token; this one read the record before the other committed.
-            string url = NewUrl();
-            string code = NewCode();
-            FhirPackage package = Package("partner.a");
-            DateTimeOffset sharedToken = CurrentToken();
-            await WriteAsync(package, sharedToken, (url, code));
-            _recordStore.HideRecordsForNextReads(1);
-
-            // Act
-            await WriteAsync(package, sharedToken, (url, code));
-
-            // Assert
-            Assert.Single(_recordStore.Records);
-            Assert.Equal(1, await CountSearchParameterResourcesAsync(url));
-            Assert.Equal(SearchParameterStatus.Enabled, await GetStatusAsync(url));
-        }
-
-        [Fact]
-        public async Task GivenAnotherWriterInstalledTheSamePackageBeforeDataArrived_WhenThisOneWrites_ThenItIsANoOp()
-        {
-            // Arrange: this writer read the record before the other committed, and data arrived before its empty-store check.
-            string url = NewUrl();
-            string code = NewCode();
-            FhirPackage package = Package("partner.a");
-            await WriteAsync(package, CurrentToken(), (url, code));
-            await _fixture.Mediator.UpsertResourceAsync(new Patient().ToResourceElement());
-            _recordStore.HideRecordsForNextReads(1);
-
-            // Act
-            await WriteAsync(package, CurrentToken(), (url, code));
-
-            // Assert
-            Assert.Single(_recordStore.Records);
-            Assert.Equal(1, await CountSearchParameterResourcesAsync(url));
         }
 
         [Fact]
@@ -330,6 +284,165 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             finally
             {
                 _fixture.FhirRequestContextAccessor.RequestContext = originalContext;
+            }
+        }
+
+        [Fact]
+        public async Task GivenACommittedPackageWithNoCacheProofs_WhenTheFailedJobIsRetried_ThenItConvergesWithoutDuplicateResources()
+        {
+            // Arrange
+            string url = NewUrl();
+            ResourceElement resource = SearchParameterResource(url, NewCode());
+            var package = new FhirPackage(
+                new FhirPackageDescriptor("partner.a", "1.0.0", "sha512-test"),
+                new[] { new FhirPackageEntry("package/SearchParameter.json", KnownResourceTypes.SearchParameter, new FhirJsonSerializer().SerializeToString(resource.ToPoco<SearchParameter>())) });
+            var acquirer = Substitute.For<IFhirPackageAcquirer>();
+            acquirer.AcquireAsync("partner.a", "1.0.0", "trusted", Arg.Any<CancellationToken>()).Returns(package);
+            var supportResolver = Substitute.For<ISearchParameterSupportResolver>();
+            supportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
+            var dataStoreValidator = Substitute.For<IDataStoreSearchParameterValidator>();
+            dataStoreValidator.ValidateSearchParameter(Arg.Any<SearchParameterInfo>(), out Arg.Any<string>()).Returns(true);
+            var configuration = new OperationsConfiguration
+            {
+                FhirPackageInstall = new FhirPackageInstallJobConfiguration
+                {
+                    Enabled = true,
+                    CacheUpdateMaxWaitMultiplier = 6,
+                    ActiveHostsEventsMultiplier = 30,
+                },
+            };
+            using var operations = new SearchParameterOperations(
+                _fixture.SearchParameterStatusManager,
+                _fixture.SearchParameterDefinitionManager,
+                ModelInfoProvider.Instance,
+                supportResolver,
+                dataStoreValidator,
+                _fixture.SearchService.CreateMockScopeProvider(),
+                _fixture.DataStore.CreateMockScopeProvider(),
+                Options.Create(configuration),
+                NullLogger<SearchParameterOperations>.Instance);
+            var handler = new SearchParameterPackageHandler(
+                _fixture.SearchParameterDefinitionManager,
+                operations,
+                ModelInfoProvider.Instance,
+                new SearchParameterComparer(NullLogger<ISearchParameterComparer<SearchParameterInfo>>.Instance),
+                supportResolver,
+                dataStoreValidator,
+                new ModelAttributeValidator(),
+                CreateWriter(operations),
+                NullLogger<SearchParameterPackageHandler>.Instance);
+            var installer = new FhirPackageInstaller(new[] { handler }, NullLogger<FhirPackageInstaller>.Instance);
+            var verifier = new SearchParameterPackageInstallVerifier(
+                _fixture.SearchService.CreateMockScopeProvider(),
+                operations,
+                _fixture.SearchParameterStatusManager,
+                _fixture.SearchParameterDefinitionManager,
+                ModelInfoProvider.Instance);
+            using var services = new ServiceCollection()
+                .AddSingleton(acquirer)
+                .AddSingleton<IFhirPackageInstaller>(installer)
+                .AddSingleton<IFhirPackageInstallVerifier>(verifier)
+                .AddSingleton<ISearchParameterDefinitionManager>(_fixture.SearchParameterDefinitionManager)
+                .BuildServiceProvider();
+            var job = new FhirPackageInstallJob(
+                services,
+                _fixture.SearchParameterStatusManager,
+                Options.Create(configuration),
+                Options.Create(new CoreFeatureConfiguration { SearchParameterCacheRefreshIntervalSeconds = 1 }),
+                NullLogger<FhirPackageInstallJob>.Instance);
+            var enqueuer = new FhirPackageInstallJobEnqueuer(_fixture.QueueClient);
+            var definition = new FhirPackageInstallJobDefinition { PackageId = "partner.a", Version = "1.0.0", Source = "trusted" };
+            JobInfo queued = await enqueuer.EnqueueAsync(definition, CancellationToken.None);
+            Assert.Equal(queued.Id, (await enqueuer.EnqueueAsync(definition, CancellationToken.None)).Id);
+            var jobFactory = Substitute.For<IJobFactory>();
+            jobFactory.Create(Arg.Any<JobInfo>()).Returns(_ =>
+            {
+                var scope = Substitute.For<IScoped<IJob>>();
+                scope.Value.Returns(job);
+                return scope;
+            });
+            var hosting = new JobHosting(_fixture.QueueClient, jobFactory, Substitute.For<IJobMetricFactory>(), NullLogger<JobHosting>.Instance)
+            {
+                PollingFrequencyInSeconds = 1,
+                JobHeartbeatIntervalInSeconds = 1,
+            };
+            IFhirRequestContext originalContext = _fixture.FhirRequestContextAccessor.RequestContext;
+            _fixture.FhirRequestContextAccessor.RequestContext = null;
+            using var stop = new CancellationTokenSource();
+            Task host = hosting.ExecuteAsync((byte)QueueType.FhirPackageInstall, 1, "package-integration", stop);
+            Task publisher = Task.CompletedTask;
+
+            try
+            {
+                // Act: let the first job commit and time out, then publish proofs for a distinct retry.
+                JobInfo failedJob = await WaitForFinishedJobAsync(queued.Id);
+                Assert.Equal(JobStatus.Failed, failedJob.Status);
+                FhirPackageInstallJobResult first = JsonConvert.DeserializeObject<FhirPackageInstallJobResult>(failedJob.Result);
+                Assert.Equal(queued.Id, (await enqueuer.EnqueueAsync(definition, CancellationToken.None)).Id);
+                configuration.FhirPackageInstall.CacheUpdateMaxWaitMultiplier = 15;
+                publisher = PublishProofsAsync();
+                var retry = new FhirPackageInstallJobDefinition
+                {
+                    PackageId = definition.PackageId,
+                    Version = definition.Version,
+                    Source = definition.Source,
+                    RetryOfJobId = queued.Id,
+                };
+                JobInfo retryJob = await enqueuer.EnqueueAsync(retry, CancellationToken.None);
+                Assert.NotEqual(queued.Id, retryJob.Id);
+                JobInfo completedJob = await WaitForFinishedJobAsync(retryJob.Id);
+                Assert.Equal(JobStatus.Completed, completedJob.Status);
+                FhirPackageInstallJobResult recovered = JsonConvert.DeserializeObject<FhirPackageInstallJobResult>(completedJob.Result);
+
+                // Assert
+                Assert.Equal(FhirPackageInstallJobState.Committed, first.State);
+                Assert.True(first.IsRetryable);
+                Assert.Equal(FhirPackageInstallJobState.Converged, recovered.State);
+                Assert.Equal(new[] { url }, recovered.SearchParameterUrls);
+                Assert.Equal(1, await CountSearchParameterResourcesAsync(url));
+                Assert.Equal(SearchParameterStatus.Enabled, await GetStatusAsync(url));
+                Assert.Null(_fixture.FhirRequestContextAccessor.RequestContext);
+            }
+            finally
+            {
+                try
+                {
+                    await stop.CancelAsync();
+                    await Task.WhenAll(host, publisher);
+                }
+                catch (OperationCanceledException) when (stop.IsCancellationRequested)
+                {
+                }
+                finally
+                {
+                    _fixture.FhirRequestContextAccessor.RequestContext = originalContext;
+                }
+            }
+
+            async Task PublishProofsAsync()
+            {
+                while (!stop.IsCancellationRequested)
+                {
+                    await operations.GetAndApplySearchParameterUpdates(stop.Token, zeroWaitForSemaphore: true);
+                    await Task.Delay(TimeSpan.FromMilliseconds(250), stop.Token);
+                }
+            }
+
+            async Task<JobInfo> WaitForFinishedJobAsync(long id)
+            {
+                DateTime deadline = DateTime.UtcNow.AddSeconds(40);
+                while (DateTime.UtcNow < deadline)
+                {
+                    JobInfo current = await _fixture.QueueClient.GetJobByIdAsync((byte)QueueType.FhirPackageInstall, id, true, CancellationToken.None);
+                    if (current.Status is JobStatus.Completed or JobStatus.Failed or JobStatus.Cancelled)
+                    {
+                        return current;
+                    }
+
+                    await Task.Delay(TimeSpan.FromMilliseconds(100));
+                }
+
+                throw new TimeoutException($"Package install job {id} did not finish.");
             }
         }
 
@@ -363,7 +476,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private DateTimeOffset CurrentToken() => _fixture.SearchParameterOperations.SearchParamLastUpdated;
 
-        private SqlServerSearchParameterPackageWriter CreateWriter()
+        private SqlServerSearchParameterPackageWriter CreateWriter(ISearchParameterOperations operations = null)
         {
             // Mirrors the fixture's fallback indexer: the SearchParameter cache refresh finds new parameters by url.
             SearchParameterInfo urlParameter = _fixture.SearchParameterDefinitionManager.AllSearchParameters
@@ -390,10 +503,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fixture.TransactionHandler,
                 _sqlFixture.SqlConnectionWrapperFactory,
                 _sqlFixture.SqlServerFhirModel,
-                _recordStore,
                 resourceWrapperFactory,
                 ModelInfoProvider.Instance,
-                _fixture.SearchParameterOperations,
+                operations ?? _fixture.SearchParameterOperations,
                 _fixture.FhirRequestContextAccessor,
                 NullLogger<SqlServerSearchParameterPackageWriter>.Instance);
         }
@@ -410,11 +522,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return statuses.FirstOrDefault(x => x.Uri.OriginalString == url)?.Status;
         }
 
-        private async Task AssertNothingWrittenAsync(string url, string packageId)
+        private async Task AssertNothingWrittenAsync(string url)
         {
             Assert.Null(await GetStatusAsync(url));
             Assert.Equal(0, await CountSearchParameterResourcesAsync(url));
-            Assert.DoesNotContain(_recordStore.Records, x => x.PackageId == packageId);
         }
 
         private async Task UpsertPatientAsync(SearchParameterInfo identifierParameter, string value)
@@ -483,47 +594,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 jobInfo.Status = JobStatus.Cancelled;
                 await _fixture.QueueClient.CompleteJobAsync(jobInfo, false, CancellationToken.None);
-            }
-        }
-
-        /// <summary>
-        /// Stands in for the applied-package record store until its SQL tables exist. Not transactional.
-        /// </summary>
-        private sealed class InMemoryRecordStore : IFhirSpecificationPackageRecordStore
-        {
-            private readonly ConcurrentDictionary<string, FhirSpecificationPackageRecord> _records = new ConcurrentDictionary<string, FhirSpecificationPackageRecord>(StringComparer.Ordinal);
-            private int _hiddenReads;
-
-            public IReadOnlyCollection<FhirSpecificationPackageRecord> Records => _records.Values.ToList();
-
-            public bool FailNextAdd { get; set; }
-
-            public void HideRecordsForNextReads(int count) => _hiddenReads = count;
-
-            public Task<FhirSpecificationPackageRecord> GetAsync(string packageId, CancellationToken cancellationToken)
-            {
-                if (Interlocked.Decrement(ref _hiddenReads) >= 0)
-                {
-                    return Task.FromResult<FhirSpecificationPackageRecord>(null);
-                }
-
-                return Task.FromResult(_records.TryGetValue(packageId, out FhirSpecificationPackageRecord record) ? record : null);
-            }
-
-            public Task AddAsync(FhirSpecificationPackageRecord record, CancellationToken cancellationToken)
-            {
-                if (FailNextAdd)
-                {
-                    FailNextAdd = false;
-                    throw new InvalidOperationException("Simulated record write failure.");
-                }
-
-                if (!_records.TryAdd(record.PackageId, record))
-                {
-                    throw new InvalidOperationException($"Package {record.PackageId} already has a record.");
-                }
-
-                return Task.CompletedTask;
             }
         }
     }
