@@ -613,10 +613,5 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 #pragma warning restore CS0618
 
         private sealed record StoredVersion(int Version, bool IsHistory, bool IsDeleted, long SurrogateId, string RawJson);
-
-        [CollectionDefinition(nameof(SqlImporterClockCollection), DisableParallelization = true)]
-        public class SqlImporterClockCollection
-        {
-        }
     }
 }
