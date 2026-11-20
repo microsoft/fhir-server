@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -51,15 +51,37 @@ namespace Microsoft.Health.Fhir.Ignixa
 
             context.Resource ??= GetResource(input);
             context.RootResource ??= GetRootResource(input);
-            var ignixaInput = input.ToIgnixaElement();
 
+            return Create(input.ToIgnixaElement(), context.Resource?.ToIgnixaElement(), context.RootResource?.ToIgnixaElement(), context);
+        }
+
+        /// <summary>
+        /// Creates an Ignixa context for a native resource root accepted by <see cref="TryGetNativeRoot"/>, populating the caller
+        /// context as <see cref="Create(ScopedNode, FirelyEvaluationContext)"/> does.
+        /// </summary>
+        /// <param name="originalInput">The element passed to the compiled expression.</param>
+        /// <param name="root">The native resource root wrapped by <paramref name="originalInput"/>.</param>
+        /// <param name="context">The caller-supplied Firely context.</param>
+        /// <returns>The translated context.</returns>
+        internal EvaluationContext CreateNative(ITypedElement originalInput, IElement root, FirelyEvaluationContext context)
+        {
+            context ??= new FirelyEvaluationContext();
+
+            context.Resource ??= originalInput;
+            context.RootResource ??= originalInput;
+
+            return Create(root, root, root, context);
+        }
+
+        private IgnixaFhirEvaluationContext Create(IElement contextNode, IElement resource, IElement rootResource, FirelyEvaluationContext context)
+        {
             IgnixaFhirEvaluationContext result = new()
             {
                 Schema = _schemaContext.Schema,
                 InstanceCreator = _instanceCreator,
-                ContextNode = ignixaInput,
-                Resource = context.Resource?.ToIgnixaElement(),
-                RootResource = context.RootResource?.ToIgnixaElement(),
+                ContextNode = contextNode,
+                Resource = resource,
+                RootResource = rootResource,
                 ElementResolver = context is FirelyFhirEvaluationContext fhirContext && fhirContext.ElementResolver is not null
                     ? reference => fhirContext.ElementResolver(reference)?.ToIgnixaElement()
                     : null,
@@ -77,6 +99,27 @@ namespace Microsoft.Health.Fhir.Ignixa
 
             return result;
         }
+
+        /// <summary>
+        /// Determines whether <paramref name="input"/> wraps a native Ignixa resource root that can be evaluated without a
+        /// <see cref="ScopedNode"/>, and whether the caller context, if populated, refers to that same root.
+        /// </summary>
+        /// <param name="input">The element passed to the compiled expression.</param>
+        /// <param name="context">The caller-supplied Firely context.</param>
+        /// <param name="root">The native root when this method returns <see langword="true"/>.</param>
+        /// <returns><see langword="true"/> if the native root can be evaluated directly.</returns>
+        internal bool TryGetNativeRoot(ITypedElement input, FirelyEvaluationContext context, out IElement root)
+        {
+            root = input is TypedElementAdapter ? input.ToIgnixaElement() : null;
+            return root is not (null or IgnixaElementAdapter)
+                && string.Equals(root.Location, root.InstanceType, StringComparison.Ordinal)
+                && _schemaContext.IsResourceType(root.InstanceType)
+                && IsAbsentOrSameRoot(context?.Resource, root)
+                && IsAbsentOrSameRoot(context?.RootResource, root);
+        }
+
+        private static bool IsAbsentOrSameRoot(ITypedElement contextElement, IElement root)
+            => contextElement is null || ReferenceEquals(contextElement.ToIgnixaElement(), root);
 
         private static ScopedNode GetResource(ScopedNode input)
             => input.AtResource ? input : input.ParentResource;

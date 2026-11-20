@@ -9,18 +9,24 @@ using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.FhirPath;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath;
 using Microsoft.Health.Fhir.Ignixa;
+using Microsoft.Health.Fhir.Ignixa.Features.Operations.Import;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -39,6 +45,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private static readonly string ResourceStaus = "http://hl7.org/fhir/SearchParameter/Resource-status";
         private static readonly string ResourceUse = "http://hl7.org/fhir/SearchParameter/Resource-use";
         private static readonly string ResourceName = "http://hl7.org/fhir/SearchParameter/name";
+
+#pragma warning disable CS0618 // Type or member is obsolete
+        private static readonly FhirJsonParser ProductionFirelyJsonParser = new(new ParserSettings { PermissiveParsing = true, TruncateDateTimeToDate = true });
+#pragma warning restore CS0618 // Type or member is obsolete
+
+        private static readonly Dictionary<string, string[]> NativeCarrierSyntheticCodes = new()
+        {
+            ["Observation"] = ["synthetic-ext", "synthetic-contained-performer", "synthetic-external-performer", "synthetic-value", "code-value-quantity", "component-code-value-quantity"],
+            ["Patient"] = ["synthetic-ext", "synthetic-contained-organization", "general-practitioner", "name"],
+            ["Condition"] = ["synthetic-ext", "synthetic-onset", "subject"],
+        };
 
         private const string CoverageStausExpression = "Coverage.status";
         private const string ObservationStausExpression = "Observation.status";
@@ -76,6 +93,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             };
             supportedSearchParameterDefinitionManager.GetSearchParameters(Arg.Any<string>()).Returns(searchParameterInfos);
         }
+
+        public static TheoryData<string> NativeCarrierIndexCorpus => new()
+        {
+            """{"resourceType":"Observation","id":"obs-1","meta":{"versionId":"3","lastUpdated":"2020-01-01T00:00:00.123+00:00"},"contained":[{"resourceType":"Organization","id":"org-1","name":"Contained Org"}],"extension":[{"url":"http://example.org/ext","valueString":"observation-ext"}],"status":"final","code":{"coding":[{"system":"http://loinc.org","code":"85354-9"}]},"subject":{"reference":"Patient/patient-1"},"performer":[{"reference":"#org-1"},{"reference":"Practitioner/practitioner-1"}],"effectiveDateTime":"2020-01-01T10:00:00Z","valueQuantity":{"value":1.50,"unit":"mmHg","system":"http://unitsofmeasure.org","code":"mm[Hg]"},"component":[{"code":{"coding":[{"system":"http://loinc.org","code":"8480-6"}]},"valueQuantity":{"value":120,"system":"http://unitsofmeasure.org","code":"mm[Hg]"}},{"code":{"coding":[{"system":"http://loinc.org","code":"8462-4"}]},"valueQuantity":{"value":80,"system":"http://unitsofmeasure.org","code":"mm[Hg]"}}]}""",
+            """{"resourceType":"Patient","id":"patient-1","meta":{"versionId":"2","lastUpdated":"2021-02-03T04:05:06.789+00:00"},"contained":[{"resourceType":"Organization","id":"org-1","name":"Contained Org"}],"extension":[{"url":"http://example.org/ext","valueString":"patient-ext"}],"identifier":[{"system":"http://example.org/mrn","value":"MRN-1"}],"active":true,"name":[{"family":"Chalmers","given":["Peter","James"]}],"telecom":[{"system":"phone","value":"555-0100","use":"home"}],"gender":"male","birthDate":"1974-12-25","address":[{"line":["534 Erewhon St"],"city":"PleasantVille","postalCode":"3999"}],"generalPractitioner":[{"reference":"Practitioner/practitioner-1"}],"managingOrganization":{"reference":"#org-1"}}""",
+            """{"resourceType":"Condition","id":"condition-1","meta":{"versionId":"1","lastUpdated":"2022-03-04T05:06:07.000+00:00"},"extension":[{"url":"http://example.org/ext","valueString":"condition-ext"}],"code":{"coding":[{"system":"http://snomed.info/sct","code":"39065001"}]},"subject":{"reference":"Patient/patient-1"},"onsetDateTime":"2019-05-06"}""",
+        };
 
         protected async Task<ITypedElementToSearchValueConverterManager> GetTypeConverterAsync()
         {
@@ -424,6 +448,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(string.Format(Core.Resources.SearchParameterEvaluationFailed, url), exception.Message);
             Assert.NotNull(exception.InnerException);
             Assert.DoesNotContain("synthetic-", exception.Message);
+        }
+
+        [Theory]
+        [MemberData(nameof(NativeCarrierIndexCorpus))]
+        public async System.Threading.Tasks.Task GivenNativeCarrier_WhenExtractingWithIgnixaFhirPath_ThenIndexEntriesEqualPocoAndStorageReadCarriers(string json)
+        {
+            var schemaContext = new IgnixaSchemaContext(ModelInfoProvider.Instance);
+            ISearchIndexer indexer = await CreateNativeCarrierParityIndexer(schemaContext);
+            ResourceElement nativeCarrier = ParseWithIgnixaImportParser(json, schemaContext);
+            ResourceElement pocoCarrier = ProductionFirelyJsonParser.Parse<Resource>(json).ToResourceElement();
+            RawResource stored = new RawResourceFactory(new FhirJsonSerializer()).Create(nativeCarrier, keepMeta: true, keepVersion: true);
+            ResourceElement storageReadCarrier = Deserializers.ResourceDeserializer.DeserializeRaw(stored, nativeCarrier.VersionId, nativeCarrier.LastUpdated.Value);
+            Assert.True(new IgnixaEvaluationContextBridge(schemaContext).TryGetNativeRoot(nativeCarrier.Instance, null, out _));
+
+            string[] nativeEntries = NormalizeEntries(indexer.Extract(nativeCarrier));
+            string[] pocoEntries = NormalizeEntries(indexer.Extract(pocoCarrier));
+            string[] storageReadEntries = NormalizeEntries(indexer.Extract(storageReadCarrier));
+
+            Assert.Equal(pocoEntries, nativeEntries);
+            Assert.Equal(storageReadEntries, nativeEntries);
+            foreach (string code in NativeCarrierSyntheticCodes[nativeCarrier.InstanceType])
+            {
+                Assert.True(
+                    pocoEntries.Any(entry => entry.Contains($"|{code}|", StringComparison.Ordinal)),
+                    $"No '{code}' entry in [{string.Join(", ", pocoEntries)}].");
+            }
         }
 
         [Fact]
@@ -778,5 +828,76 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 new FirelyFhirPathProvider(),
                 Substitute.For<ILogger<TypedElementSearchIndexer>>());
         }
+
+        private static async System.Threading.Tasks.Task<ISearchIndexer> CreateNativeCarrierParityIndexer(IgnixaSchemaContext schemaContext)
+        {
+            var generated = new SupportedSearchParameterDefinitionManager(await new SearchParameterFixtureData().GetSearchDefinitionManagerAsync());
+            var definitions = Substitute.For<ISupportedSearchParameterDefinitionManager>();
+            definitions.GetSearchParameters(Arg.Any<string>()).Returns(call =>
+            {
+                string resourceType = call.ArgAt<string>(0);
+                return generated.GetSearchParameters(resourceType).Concat(CreateNativeCarrierSyntheticSearchParameters(resourceType)).ToList();
+            });
+
+            return new TypedElementSearchIndexer(
+                definitions,
+                await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync(),
+                new LightweightReferenceToElementResolver(
+                    Mock.TypeWithArguments<ReferenceSearchValueParser>(new FhirRequestContextAccessor(), ResourceIdPolicy.Standard),
+                    ModelInfoProvider.Instance),
+                ModelInfoProvider.Instance,
+                new IgnixaFhirPathProvider(schemaContext),
+                Substitute.For<ILogger<TypedElementSearchIndexer>>());
+        }
+
+        private static IEnumerable<SearchParameterInfo> CreateNativeCarrierSyntheticSearchParameters(string resourceType)
+        {
+            (string Code, ValueSets.SearchParamType Type, string Expression)[] parameters = resourceType switch
+            {
+                "Observation" =>
+                [
+                    ("synthetic-ext", ValueSets.SearchParamType.String, "Observation.extension.where(url = 'http://example.org/ext').value.ofType(string)"),
+                    ("synthetic-contained-performer", ValueSets.SearchParamType.String, "Observation.performer.resolve().ofType(Organization).name"),
+                    ("synthetic-external-performer", ValueSets.SearchParamType.Reference, "Observation.performer.where(resolve() is Practitioner)"),
+                    ("synthetic-value", ValueSets.SearchParamType.Quantity, "Observation.value.ofType(Quantity)"),
+                ],
+                "Patient" =>
+                [
+                    ("synthetic-ext", ValueSets.SearchParamType.String, "Patient.extension.where(url = 'http://example.org/ext').value.ofType(string)"),
+                    ("synthetic-contained-organization", ValueSets.SearchParamType.String, "Patient.managingOrganization.resolve().name"),
+                ],
+                "Condition" =>
+                [
+                    ("synthetic-ext", ValueSets.SearchParamType.String, "Condition.extension.where(url = 'http://example.org/ext').value.ofType(string)"),
+                    ("synthetic-onset", ValueSets.SearchParamType.Date, "Condition.onset.ofType(dateTime)"),
+                ],
+                _ => [],
+            };
+
+            return parameters.Select(p => new SearchParameterInfo(
+                p.Code,
+                p.Code,
+                p.Type,
+                new Uri($"http://example.org/SearchParameter/{resourceType}-{p.Code}"),
+                expression: p.Expression,
+                baseResourceTypes: [resourceType]));
+        }
+
+        private static ResourceElement ParseWithIgnixaImportParser(string json, IgnixaSchemaContext schemaContext)
+        {
+            ResourceElement carrier = null;
+            var capturingFactory = Substitute.For<IResourceWrapperFactory>();
+            capturingFactory
+                .Create(Arg.Do<ResourceElement>(element => carrier = element), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<bool>())
+                .Returns((ResourceWrapper)null);
+
+            new IgnixaImportResourceParser(capturingFactory, schemaContext, ResourceIdPolicy.Standard)
+                .Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad);
+
+            return carrier;
+        }
+
+        private static string[] NormalizeEntries(IEnumerable<SearchIndexEntry> entries)
+            => entries.Select(FhirPathProviderTests.Normalize).OrderBy(x => x, StringComparer.Ordinal).ToArray();
     }
 }

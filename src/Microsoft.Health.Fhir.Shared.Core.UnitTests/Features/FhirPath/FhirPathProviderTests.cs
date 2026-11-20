@@ -10,6 +10,9 @@ using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Ignixa.Extensions.FirelySdk;
+using Ignixa.Serialization;
+using Ignixa.Serialization.SourceNodes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -38,6 +41,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
     [Collection(FhirPathProviderTestCollection.Name)]
     public class FhirPathProviderTests : IDisposable
     {
+        private const string NativePatientJson = """{"resourceType":"Patient","id":"patient-1","contained":[{"resourceType":"Organization","id":"org-contained","name":"Contained"}],"name":[{"family":"Root"}],"generalPractitioner":[{"reference":"Practitioner/practitioner-1"}],"managingOrganization":{"reference":"#org-contained"}}""";
+
         private readonly IFhirPathProvider _originalAmbientProvider = FhirPathProvider.Instance;
         private readonly IModelInfoProvider _originalModelInfoProvider = ModelInfoProvider.Instance;
 
@@ -744,8 +749,129 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             Assert.Equal("Demo", Assert.IsType<StringSearchValue>(Assert.Single(value.Components[1])).String);
         }
 
+        [Theory]
+        [InlineData("%resource.id")]
+        [InlineData("%rootResource.id")]
+        [InlineData("%context.name.family")]
+        [InlineData("generalPractitioner.resolve().id")]
+        [InlineData("managingOrganization.resolve().name")]
+        public void GivenNativeRoot_ThenResourceAndRootResourceMatchScopedPath(string expression)
+        {
+            ICompiledFhirPath compiled = CreateIgnixaProvider().Compile(expression);
+            ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
+
+            string[] nativeValues = Normalize(compiled.Select(nativeRoot, CreateNativeRootContext()));
+            string[] pocoValues = Normalize(compiled.Select(ParsePocoResource(NativePatientJson), CreateNativeRootContext()));
+
+            Assert.NotEmpty(pocoValues);
+            Assert.Equal(pocoValues, nativeValues);
+        }
+
+        [Fact]
+        public void GivenNativeRoot_ThenCallerContextIsPopulatedLikeScopedPath()
+        {
+            ICompiledFhirPath compiled = CreateIgnixaProvider().Compile("id");
+            ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
+            EvaluationContext nativeContext = ModelInfoProvider.Instance.GetEvaluationContext();
+            EvaluationContext pocoContext = ModelInfoProvider.Instance.GetEvaluationContext();
+
+            _ = compiled.Select(nativeRoot, nativeContext).ToArray();
+            _ = compiled.Select(ParsePocoResource(NativePatientJson), pocoContext).ToArray();
+
+            Assert.Same(nativeRoot, nativeContext.Resource);
+            Assert.Same(nativeRoot, nativeContext.RootResource);
+            Assert.Equal(pocoContext.Resource.InstanceType, nativeContext.Resource.InstanceType);
+            Assert.Equal(pocoContext.Resource.Children("id").Single().Value, nativeContext.Resource.Children("id").Single().Value);
+            Assert.Equal(pocoContext.RootResource.InstanceType, nativeContext.RootResource.InstanceType);
+            Assert.Equal(pocoContext.RootResource.Children("id").Single().Value, nativeContext.RootResource.Children("id").Single().Value);
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("resource")]
+        [InlineData("rootResource")]
+        public void GivenNativeRoot_ThenNativePathIsUsed(string sameInstanceContextMember)
+        {
+            ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
+            EvaluationContext context = ModelInfoProvider.Instance.GetEvaluationContext();
+            context.Resource = sameInstanceContextMember == "resource" ? nativeRoot : null;
+            context.RootResource = sameInstanceContextMember == "rootResource" ? nativeRoot : null;
+
+            Assert.True(CreateIgnixaBridge().TryGetNativeRoot(nativeRoot, context, out _));
+        }
+
+        [Theory]
+        [InlineData("child")]
+        [InlineData("contained")]
+        [InlineData("childOfContained")]
+        public void GivenNativeChildOrContainedInput_ThenScopedPathIsUsed(string inputKind)
+        {
+            ITypedElement input = SelectNativeInput(ParseNativeResource(NativePatientJson), inputKind);
+
+            Assert.False(CreateIgnixaBridge().TryGetNativeRoot(input, null, out _));
+        }
+
+        [Theory]
+        [InlineData("resource")]
+        [InlineData("rootResource")]
+        public void GivenNativeRootWithAnotherContextResource_ThenScopedPathIsUsed(string foreignContextMember)
+        {
+            ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
+            ITypedElement otherRoot = ParseNativeResource(NativePatientJson);
+            EvaluationContext context = ModelInfoProvider.Instance.GetEvaluationContext();
+            context.Resource = foreignContextMember == "resource" ? otherRoot : null;
+            context.RootResource = foreignContextMember == "rootResource" ? otherRoot : null;
+
+            Assert.False(CreateIgnixaBridge().TryGetNativeRoot(nativeRoot, context, out _));
+        }
+
+        [Fact]
+        public void GivenStandaloneNativePrimitive_ThenScopedPathIsUsedAndResultsMatch()
+        {
+            IFhirPathProvider ignixa = CreateIgnixaProvider();
+            ITypedElement primitive = Assert.Single(ignixa.Compile("string { value: 'synthetic' }").Select(new Patient().ToTypedElement()));
+            ITypedElement firelyPrimitive = new FhirString("synthetic").ToTypedElement();
+            EvaluationContext nativeContext = ModelInfoProvider.Instance.GetEvaluationContext();
+            EvaluationContext firelyContext = ModelInfoProvider.Instance.GetEvaluationContext();
+
+            string[] nativeValues = Normalize(ignixa.Compile("$this.length()").Select(primitive, nativeContext));
+            string[] firelyValues = Normalize(ignixa.Compile("$this.length()").Select(firelyPrimitive, firelyContext));
+
+            Assert.Equal("string", primitive.InstanceType);
+            Assert.False(CreateIgnixaBridge().TryGetNativeRoot(primitive, null, out _));
+            Assert.Equal(["System.Int32|9"], firelyValues);
+            Assert.Equal(firelyValues, nativeValues);
+            Assert.Null(firelyContext.Resource);
+            Assert.Null(nativeContext.Resource);
+            Assert.Null(nativeContext.RootResource);
+        }
+
         private static IFhirPathProvider CreateIgnixaProvider()
             => new IgnixaFhirPathProvider(new IgnixaSchemaContext(ModelInfoProvider.Instance));
+
+        private static IgnixaEvaluationContextBridge CreateIgnixaBridge()
+            => new(new IgnixaSchemaContext(ModelInfoProvider.Instance));
+
+        private static ITypedElement ParseNativeResource(string json)
+            => JsonSourceNodeFactory.Parse<ResourceJsonNode>(json)
+                .ToElement(new IgnixaSchemaContext(ModelInfoProvider.Instance).Schema)
+                .ToTypedElement();
+
+        private static ITypedElement ParsePocoResource(string json)
+            => new FhirJsonParser().Parse<Resource>(json).ToTypedElement();
+
+        private static EvaluationContext CreateNativeRootContext()
+            => ModelInfoProvider.Instance.GetEvaluationContext(
+                reference => reference == "Practitioner/practitioner-1" ? new Practitioner { Id = "practitioner-1" }.ToTypedElement() : null);
+
+        private static ITypedElement SelectNativeInput(ITypedElement patient, string inputKind)
+            => inputKind switch
+            {
+                "child" => patient.Children("name").Single(),
+                "contained" => patient.Children("contained").Single(),
+                "childOfContained" => patient.Children("contained").Single().Children("name").Single(),
+                _ => throw new ArgumentOutOfRangeException(nameof(inputKind), inputKind, null),
+            };
 
         private static ScopedNode CreatePatientWithContainedOrganization()
             => new Patient
@@ -788,7 +914,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                 .OrderBy(value => value, StringComparer.Ordinal)
                 .ToArray();
 
-        private static string Normalize(SearchIndexEntry entry)
+        internal static string Normalize(SearchIndexEntry entry)
             => $"{entry.SearchParameter.Url}|{entry.SearchParameter.Code}|{JsonConvert.SerializeObject(entry.Value)}";
 
         public void Dispose()

@@ -49,9 +49,20 @@ namespace Microsoft.Health.Fhir.Ignixa
         {
             ArgumentNullException.ThrowIfNull(input);
 
-            ScopedNode scopedInput = input.ToScopedNode();
-            IElement ignixaInput = scopedInput.ToIgnixaElement();
-            IgnixaEvaluationContext ignixaContext = _contextBridge.Create(scopedInput, context);
+            IElement ignixaInput;
+            IgnixaEvaluationContext ignixaContext;
+            if (_contextBridge.TryGetNativeRoot(input, context, out IElement nativeRoot))
+            {
+                ignixaInput = nativeRoot;
+                ignixaContext = _contextBridge.CreateNative(input, nativeRoot, context);
+            }
+            else
+            {
+                ScopedNode scopedInput = input.ToScopedNode();
+                ignixaInput = scopedInput.ToIgnixaElement();
+                ignixaContext = _contextBridge.Create(scopedInput, context);
+            }
+
             IEnumerable<IElement> result = _compiledDelegate is null
                 ? _evaluator.Evaluate(ignixaInput, _expression, ignixaContext)
                 : _compiledDelegate(ignixaInput, ignixaContext);

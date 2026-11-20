@@ -16,6 +16,8 @@ namespace Microsoft.Health.Fhir.Ignixa
     /// </summary>
     public sealed class IgnixaSchemaContext
     {
+        private readonly IModelInfoProvider _modelInfoProvider;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="IgnixaSchemaContext"/> class.
         /// </summary>
@@ -24,6 +26,7 @@ namespace Microsoft.Health.Fhir.Ignixa
         {
             ArgumentNullException.ThrowIfNull(modelInfoProvider);
 
+            _modelInfoProvider = modelInfoProvider;
             Schema = GetSchemaProvider(modelInfoProvider.Version);
         }
 
@@ -31,6 +34,14 @@ namespace Microsoft.Health.Fhir.Ignixa
         /// Gets the generated Ignixa schema for the current FHIR version, including reference metadata.
         /// </summary>
         public IFhirSchemaProvider Schema { get; }
+
+        /// <summary>
+        /// Determines whether <paramref name="typeName"/> is, with exact casing, a resource type of the current FHIR version.
+        /// </summary>
+        /// <param name="typeName">The FHIR type name.</param>
+        /// <returns><see langword="true"/> if the type is a known resource type; otherwise <see langword="false"/>.</returns>
+        public bool IsResourceType(string typeName)
+            => _modelInfoProvider.IsKnownResource(typeName) && _modelInfoProvider.IsKnownResource(typeName, ignoreCase: false);
 
         private static IFhirSchemaProvider GetSchemaProvider(FhirSpecification version)
         {
