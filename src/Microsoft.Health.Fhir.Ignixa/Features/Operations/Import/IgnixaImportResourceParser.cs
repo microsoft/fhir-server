@@ -28,9 +28,14 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
     /// Ignixa based implementation of <see cref="IImportResourceParser"/> that parses raw NDJSON
     /// resource content into <see cref="ImportResource"/> instances for the $import operation.
     /// </summary>
-    public sealed partial class IgnixaImportResourceParser : IImportResourceParser
+    public sealed class IgnixaImportResourceParser : IImportResourceParser
     {
         private const int MaxSoftDeleteExtensionRemovals = 1000;
+
+        // The SDL analyzer build does not run the regex source generator.
+        private static readonly Regex FirelyDateTimeWithFullDateRegex = new(
+            @"\A[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}(?::[0-9]{2}(?::[0-9]{2}(?:\.[0-9]+)?)?)?(?:Z|[+-][0-9]{2}:[0-9]{2})?\z",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         private readonly IResourceWrapperFactory _resourceFactory;
         private readonly IgnixaSchemaContext _schemaContext;
@@ -63,6 +68,11 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
             var lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdatedOffset == null;
             var lastUpdated = lastUpdatedIsNull ? Clock.UtcNow : resource.Meta.LastUpdatedOffset.Value;
             resource.Meta.LastUpdatedOffset = new DateTimeOffset(lastUpdated.DateTime.TruncateToMillisecond(), lastUpdated.Offset);
+            if (resource.ToSourceNavigator().Meta<JsonNode>()?["meta"] is JsonObject meta)
+            {
+                meta.Remove("_lastUpdated");
+            }
+
             if (!lastUpdatedIsNull && resource.Meta.LastUpdatedOffset.Value > Clock.UtcNow.AddSeconds(10)) // 10 sec is the max for the computers in the domain
             {
                 throw new NotSupportedException("LastUpdated in the resource cannot be in the future.");
@@ -234,7 +244,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
 
             // Firely trims JSON strings before parsing. Do not change the stored text unless it is truncated.
             ReadOnlySpan<char> trimmed = literal.AsSpan().Trim();
-            if (!FirelyDateTimeWithFullDateRegex().IsMatch(trimmed))
+            if (!FirelyDateTimeWithFullDateRegex.IsMatch(trimmed))
             {
                 return false;
             }
@@ -242,11 +252,6 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
             value.ReplaceWith(JsonValue.Create(trimmed[..10].ToString()));
             return true;
         }
-
-        // Firely's date coercion accepts hour and minute precision. FHIRPath literals such as @dateTime
-        // and time-only values are not input to that coercion.
-        [GeneratedRegex(@"\A[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}(?::[0-9]{2}(?::[0-9]{2}(?:\.[0-9]+)?)?)?(?:Z|[+-][0-9]{2}:[0-9]{2})?\z")]
-        private static partial Regex FirelyDateTimeWithFullDateRegex();
 
         /// <summary>
         /// Evaluates the same soft-delete predicate the Firely parser uses via <c>ResourceElement.IsSoftDeleted()</c>

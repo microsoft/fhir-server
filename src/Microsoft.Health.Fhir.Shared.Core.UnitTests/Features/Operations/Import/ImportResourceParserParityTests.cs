@@ -44,6 +44,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.Import)]
+    [Collection(ImportClockTestCollection.Name)]
     public class ImportResourceParserParityTests
     {
         private static readonly DateTimeOffset PinnedNow = new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
@@ -68,6 +69,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
         {
             {
                 """{"resourceType":"Patient","id":"patient-1","meta":{"versionId":"7","lastUpdated":"2026-01-02T03:04:05.123Z"},"active":true}""",
+                ImportMode.IncrementalLoad
+            },
+            {
+                """{"resourceType":"Patient","id":"patient-1","meta":{"versionId":"7","lastUpdated":"2020-01-01T00:00:00Z","_lastUpdated":{"id":"original"}}}""",
                 ImportMode.IncrementalLoad
             },
             {
@@ -461,7 +466,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
         [Fact]
         public void GivenChoiceTypeReferenceWithConditionalReference_WhenParsedOnInitialLoad_ThenBothProvidersReject()
         {
-            string json = ModelInfoProvider.Version == FhirSpecification.R5
+            string json = new VersionSpecificModelInfoProvider().Version == FhirSpecification.R5
                 ? """
                   {
                     "resourceType":"Observation",
@@ -910,7 +915,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                 new SupportedSearchParameterDefinitionManager(await new SearchParameterFixtureData().GetSearchDefinitionManagerAsync()),
                 await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync(),
                 Substitute.For<IReferenceToElementResolver>(),
-                ModelInfoProvider.Instance,
+                new VersionSpecificModelInfoProvider(),
                 new FirelyFhirPathProvider(),
                 NullLogger<TypedElementSearchIndexer>.Instance);
             ResourceWrapperFactory wrapperFactory = CreateWrapperFactory(searchIndexer);

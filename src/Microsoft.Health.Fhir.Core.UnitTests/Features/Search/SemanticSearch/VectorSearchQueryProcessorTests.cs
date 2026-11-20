@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -25,9 +26,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     [Collection(nameof(ModelInfoProviderSerialCollection))]
-    public sealed class VectorSearchQueryProcessorTests
+    public sealed class VectorSearchQueryProcessorTests : IDisposable
     {
         private static readonly Uri VectorCanonical = new Uri("https://example.org/fhir/SearchParameter/semantic-text");
+        private static readonly FieldInfo ProviderField = typeof(ModelInfoProvider).GetField("_modelInfoProvider", BindingFlags.NonPublic | BindingFlags.Static);
+        private readonly IModelInfoProvider _originalModelInfoProvider = (IModelInfoProvider)ProviderField.GetValue(null);
         private readonly IEmbeddingClient _embeddingClient = Substitute.For<IEmbeddingClient>();
         private readonly IEmbeddingModelRegistry _embeddingModelRegistry = Substitute.For<IEmbeddingModelRegistry>();
         private readonly ITextChunker _textChunker = Substitute.For<ITextChunker>();
@@ -234,6 +237,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SemanticSearch
             // Assert
             Assert.Equal(embeddingModelId, result.EmbeddingModelId);
             await _embeddingClient.Received(1).GenerateEmbeddingsAsync(Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>());
+        }
+
+        public void Dispose()
+        {
+            if (_originalModelInfoProvider is null)
+            {
+                ProviderField.SetValue(null, null);
+            }
+            else
+            {
+                ModelInfoProvider.SetProvider(_originalModelInfoProvider);
+            }
         }
 
         private VectorSearchQueryProcessor CreateProcessor()
