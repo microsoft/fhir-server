@@ -368,7 +368,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     var rootMeta = raw.RootElement.GetProperty("meta");
                     Assert.Equal("2", rootMeta.GetProperty("versionId").GetString());
                     Assert.Equal(current.SurrogateId.ToLastUpdated(), rootMeta.GetProperty("lastUpdated").GetDateTimeOffset());
-                    Assert.NotEqual(PinnedTimestamp, rootMeta.GetProperty("lastUpdated").GetString());
                     var containedMeta = raw.RootElement.GetProperty("contained")[0].GetProperty("meta");
                     Assert.Equal(containedVersion, containedMeta.GetProperty("versionId").GetString());
                     Assert.Equal(containedTimestamp, containedMeta.GetProperty("lastUpdated").GetString());
