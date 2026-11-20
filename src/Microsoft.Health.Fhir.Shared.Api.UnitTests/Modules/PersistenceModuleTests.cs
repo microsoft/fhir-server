@@ -92,6 +92,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
                 })
                 .Build();
 
+            Assert.Same(activationFailure, Assert.Throws<InvalidOperationException>(() => host.Services.GetServices<IHostedService>()));
+
             var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => host.StartAsync(TestContext.Current.CancellationToken));
 
             Assert.Same(activationFailure, failure);

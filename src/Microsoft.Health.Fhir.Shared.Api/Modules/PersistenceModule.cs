@@ -79,13 +79,15 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddScoped<IBulkUpdateService, BulkUpdateService>();
         }
 
-        private sealed class PersistenceWriterActivator(IServiceProvider services) : IHostedService
+        /// <summary>Activates the persistence writer at startup so configuration failures surface before the first write.</summary>
+        private sealed class PersistenceWriterActivator : IHostedService
         {
-            public Task StartAsync(CancellationToken cancellationToken)
+            public PersistenceWriterActivator(IRawResourceFactory rawResourceFactory)
             {
-                services.GetRequiredService<IRawResourceFactory>();
-                return Task.CompletedTask;
+                EnsureArg.IsNotNull(rawResourceFactory, nameof(rawResourceFactory));
             }
+
+            public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
             public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
         }
