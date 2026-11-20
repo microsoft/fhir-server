@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Health.Fhir.Api.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.IdentityModel.Tokens;
@@ -20,6 +21,7 @@ using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace Microsoft.Health.Fhir.Api.OpenIddict.Controllers
 {
+    [PartitionIndependent]
     public class OpenIddictAuthorizationController : Controller
     {
         private readonly AuthorizationConfiguration _authorizationConfiguration;

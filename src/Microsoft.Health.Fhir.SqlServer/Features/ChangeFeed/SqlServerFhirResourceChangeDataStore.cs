@@ -13,9 +13,13 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Data;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -35,6 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
         // So, January 1st, 1970 at 00:00:00 UTC is chosen as the initial partition anchor DateTime in the resource change data partition function.
         private static readonly DateTime PartitionAnchorDateTime = DateTime.SpecifyKind(new DateTime(1970, 1, 1), DateTimeKind.Utc);
         private readonly SchemaInformation _schemaInformation;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
 
         /// <summary>
         /// Creates a new instance of the <see cref="SqlServerFhirResourceChangeDataStore"/> class.
@@ -42,15 +47,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
         /// <param name="sqlConnectionWrapperFactory">The SQL Connection wrapper factory.</param>
         /// <param name="logger">The logger.</param>
         /// <param name="schemaInformation">The database schema information.</param>
-        public SqlServerFhirResourceChangeDataStore(SqlConnectionWrapperFactory sqlConnectionWrapperFactory, ILogger<SqlServerFhirResourceChangeDataStore> logger, SchemaInformation schemaInformation)
+        /// <param name="fhirRequestContextAccessor">The current request's FHIR request context accessor.</param>
+        public SqlServerFhirResourceChangeDataStore(SqlConnectionWrapperFactory sqlConnectionWrapperFactory, ILogger<SqlServerFhirResourceChangeDataStore> logger, SchemaInformation schemaInformation, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
 
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
             _schemaInformation = schemaInformation;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
         }
 
         /// <summary>
@@ -171,6 +179,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             {
                 sqlCommandWrapper.CommandText = "dbo.FetchResourceChanges";
             }
+
+#pragma warning disable CA2100 // The procedure name and configured database are parsed and quoted as identifiers.
+            sqlCommandWrapper.CommandText = _fhirRequestContextAccessor.RequestContext.GetDatabaseNameFormatter().GetStoredProcedureName(sqlCommandWrapper.CommandText);
+#pragma warning restore CA2100
         }
 
         private static void UpdateResourceTypeMapAsync(SqlCommandWrapper sqlCommandWrapper)

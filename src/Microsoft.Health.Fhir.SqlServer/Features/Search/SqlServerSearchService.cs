@@ -35,6 +35,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -535,6 +536,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             SearchResult searchResult = null;
+            string databaseName = _requestContextAccessor.RequestContext.GetDatabaseName();
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
                 {
@@ -568,7 +570,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 reuseQueryPlans && _queryPlanReuseChecker.CanReuseQueryPlan(clonedSearchOptions),
                                 sqlSearchOptions.IsAsyncOperation,
                                 sqlException,
-                                enableChainSourceDeduplication: _fhirSqlServerConfiguration.EnableChainSourceDeduplication);
+                                enableChainSourceDeduplication: _fhirSqlServerConfiguration.EnableChainSourceDeduplication,
+                                databaseName: databaseName);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
                             isSortValueNeeded = queryGenerator.IsSortValueNeeded(clonedSearchOptions);
@@ -595,6 +598,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             _logger.LogInformation($"Query.SearchParamIds={string.Join(",", queryGenerator.SearchParamIds)}");
                         }
 
+                        _requestContextAccessor.RequestContext.GetDatabaseNameFormatter().PrepareCommand(sqlCommand);
                         LogSqlCommand(sqlCommand);
 
                         var st = DateTime.UtcNow;
@@ -2060,6 +2064,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             await CreateStats(expression, cancellationToken);
 
             SearchResult searchResult = null;
+            string databaseName = _requestContextAccessor.RequestContext.GetDatabaseName();
 
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
@@ -2089,7 +2094,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 _fhirSqlServerConfiguration.ReuseQueryPlans && _queryPlanReuseChecker.CanReuseQueryPlan(clonedSearchOptions),
                                 sqlSearchOptions.IsAsyncOperation,
                                 sqlException,
-                                enableChainSourceDeduplication: _fhirSqlServerConfiguration.EnableChainSourceDeduplication);
+                                enableChainSourceDeduplication: _fhirSqlServerConfiguration.EnableChainSourceDeduplication,
+                                databaseName: databaseName);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 
@@ -2113,6 +2119,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 #pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
                         }
 
+                        _requestContextAccessor.RequestContext.GetDatabaseNameFormatter().PrepareCommand(sqlCommand);
                         LogSqlCommand(sqlCommand);
 
                         var executionStopwatch = Stopwatch.StartNew();

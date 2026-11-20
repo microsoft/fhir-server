@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     AppendColumnName(context, VLatest.TokenSearchParam.SystemId, expression)
                         .Append(" = (SELECT ")
                         .Append(VLatest.System.SystemId, null)
-                        .Append(" FROM ").Append(VLatest.System)
+                        .Append(" FROM ").Append(context.GetTableName(VLatest.System))
                         .Append(" WHERE ")
                         .Append(VLatest.System.Value, null)
                         .Append(" = ")

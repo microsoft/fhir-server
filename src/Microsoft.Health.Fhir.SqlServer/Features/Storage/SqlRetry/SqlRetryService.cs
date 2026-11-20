@@ -14,7 +14,10 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -45,6 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private static object _initLocker = new object();
         private static EventLogHandler _eventLogHandler;
         private CoreFeatureConfiguration _coreFeatureConfiguration;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
 
         /// <summary>
         /// Constructor that initializes this implementation of the ISqlRetryService interface. This class
@@ -56,20 +60,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="sqlRetryServiceOptions">Initializes various retry parameters. <see cref="SqlRetryServiceOptions"/></param>
         /// <param name="sqlRetryServiceDelegateOptions">Initializes custom delegate that is used to examine if the thrown exception represent a retriable error. <see cref="SqlRetryServiceDelegateOptions"/></param>
         /// <param name="coreFeatureConfiguration">Checks if SQL replicas are enabled</param>
+        /// <param name="fhirRequestContextAccessor">Accesses the current FHIR request context.</param>
         public SqlRetryService(
             ISqlConnectionBuilder sqlConnectionBuilder,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
             IOptions<SqlRetryServiceOptions> sqlRetryServiceOptions,
             SqlRetryServiceDelegateOptions sqlRetryServiceDelegateOptions,
-            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration)
+            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
             EnsureArg.IsNotNull(sqlRetryServiceOptions?.Value, nameof(sqlRetryServiceOptions));
             EnsureArg.IsNotNull(sqlRetryServiceDelegateOptions, nameof(sqlRetryServiceDelegateOptions));
             EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             _commandTimeout = (int)EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration)).CommandTimeout.TotalSeconds;
 
             _sqlConnectionBuilder = sqlConnectionBuilder;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _coreFeatureConfiguration = coreFeatureConfiguration.Value;
             _transientErrors = new HashSet<int>(SqlExceptionExtensions.TransientErrors);
 
@@ -93,9 +101,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             InitEventLogHandler();
         }
 
-        private SqlRetryService(ISqlConnectionBuilder sqlConnectionBuilder)
+        private SqlRetryService(ISqlConnectionBuilder sqlConnectionBuilder, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
         {
             _sqlConnectionBuilder = sqlConnectionBuilder;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _coreFeatureConfiguration = new CoreFeatureConfiguration();
             InitReplicaHandler(_coreFeatureConfiguration);
             InitEventLogHandler();
@@ -114,13 +123,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// Simplified class generator.
         /// </summary>
         /// <param name="sqlConnectionBuilder">Internal FHIR server interface used to create SqlConnection.</param>
+        /// <param name="fhirRequestContextAccessor">Accesses the current FHIR request context.</param>
         /// <param name="commandTimeout">command timeout.</param>
         /// <param name="maxRetries">max retries.</param>
         /// <param name="retryMillisecondsDelay">retry milliseconds delay.</param>
-        public static SqlRetryService GetInstance(ISqlConnectionBuilder sqlConnectionBuilder, int commandTimeout = 300, int maxRetries = 5, int retryMillisecondsDelay = 5000)
+        public static SqlRetryService GetInstance(ISqlConnectionBuilder sqlConnectionBuilder, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, int commandTimeout = 300, int maxRetries = 5, int retryMillisecondsDelay = 5000)
         {
             EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
-            var service = new SqlRetryService(sqlConnectionBuilder);
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            var service = new SqlRetryService(sqlConnectionBuilder, fhirRequestContextAccessor);
             service._commandTimeout = commandTimeout;
             service._maxRetries = maxRetries;
             service._retryMillisecondsDelay = retryMillisecondsDelay;
@@ -246,6 +257,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
             EnsureArg.IsNotNull(action, nameof(action));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            var databaseTarget = _fhirRequestContextAccessor.RequestContext?.GetDatabaseNameFormatter() ?? SqlObjectNameFormatter.ApplicationDatabase;
+            databaseTarget.PrepareCommand(sqlCommand);
             if (logMessage == null)
             {
                 logMessage = $"{sqlCommand.CommandText} failed.";
@@ -266,7 +279,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     await action(sqlCommand, cancellationToken);
                     if (retry > 0)
                     {
-                        await TryLogEvent($"SuccessOnRetry:{sqlCommand.CommandText}", "Warn", $"retries={retry} error={lastException}", start, cancellationToken);
+                        await TryLogEvent($"SuccessOnRetry:{sqlCommand.CommandText}", "Warn", $"retries={retry} error={lastException}", start, databaseTarget, cancellationToken);
                     }
 
                     return;
@@ -282,7 +295,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (++retry >= _maxRetries)
                     {
                         logger.LogError(ex, $"Final attempt ({retry}): {logMessage}");
-                        await TryLogEvent($"Retry:{sqlCommand.CommandText}", "Error", $"retries={retry} error={lastException}", start, cancellationToken);
+                        await TryLogEvent($"Retry:{sqlCommand.CommandText}", "Error", $"retries={retry} error={lastException}", start, databaseTarget, cancellationToken);
                         throw;
                     }
 
@@ -391,11 +404,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="text">Message text.</param>
         /// <param name="startDate">Optional start date of the process.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        public Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken) =>
+            TryLogEvent(process, status, text, startDate, databaseTarget: null, cancellationToken);
+
+        private async Task TryLogEvent(string process, string status, string text, DateTime? startDate, SqlObjectNameFormatter databaseTarget, CancellationToken cancellationToken)
         {
             try
             {
-                await using var cmd = new SqlCommand { CommandType = CommandType.StoredProcedure, CommandText = "dbo.LogEvent" };
+                var connStr = _eventLogHandler.GetEventLogConnectionString(_sqlConnectionBuilder);
+                await using var cmd = CreateEventLogCommand(connStr, databaseTarget);
+
                 cmd.Parameters.AddWithValue("@Process", process);
                 cmd.Parameters.AddWithValue("@Status", status);
                 cmd.Parameters.AddWithValue("@Text", text);
@@ -404,7 +422,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     cmd.Parameters.AddWithValue("@Start", startDate.Value);
                 }
 
-                var connStr = _eventLogHandler.GetEventLogConnectionString(_sqlConnectionBuilder);
                 if (connStr == null)
                 {
                     using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -426,6 +443,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 // do nothing;
             }
+        }
+
+        internal SqlCommand CreateEventLogCommand(string eventLogConnectionString, SqlObjectNameFormatter databaseTarget)
+        {
+            string procedureName = eventLogConnectionString == null
+                ? (databaseTarget ?? _fhirRequestContextAccessor?.RequestContext?.GetDatabaseNameFormatter() ?? SqlObjectNameFormatter.ApplicationDatabase).GetStoredProcedureName("dbo.LogEvent")
+                : "dbo.LogEvent";
+#pragma warning disable CA2100 // The resolver emits only parsed, safely quoted SQL identifiers.
+            return new SqlCommand { CommandType = CommandType.StoredProcedure, CommandText = procedureName };
+#pragma warning restore CA2100
         }
 
         private static void InitReplicaHandler(CoreFeatureConfiguration coreFeatureConfiguration)

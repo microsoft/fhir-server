@@ -34,6 +34,7 @@ using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Headers;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 #if !STU3
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 #endif
@@ -724,9 +725,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             httpContext.Request.Scheme = requestUri.Scheme;
             httpContext.Request.Host = new HostString(requestUri.Host, requestUri.Port);
             httpContext.Request.PathBase = _originalRequestBase;
-            httpContext.Request.Path = path.Length is 0 || path[0] is not '/' ? new PathString('/' + path) : new PathString(path);
             httpContext.Request.QueryString = new QueryString(requestUri.Query);
             httpContext.Request.Method = requestMethod.ToString();
+
+            var contextPath = path.Length is 0 || path[0] is not '/' ? new PathString('/' + path) : new PathString(path);
+            httpContext.Request.Path = PartitionRouteMetadata.GetPrefix(_outerHttpContext.Request).Add(contextPath);
 
             AddHeaderIfNeeded(HeaderNames.IfMatch, entry.Request.IfMatch, httpContext);
             AddHeaderIfNeeded(HeaderNames.IfModifiedSince, entry.Request.IfModifiedSince?.ToString(), httpContext);
@@ -1078,6 +1081,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 Principal = requestContext.Principal,
                 ResourceType = resourceType?.ToString(),
+                Partition = requestContext.Partition,
                 AuditEventType = auditEventTypeMapping.GetAuditEventType(controllerName?.ToString(), actionName?.ToString()),
                 ExecutingBatchOrTransaction = true,
                 AccessControlContext = requestContext.AccessControlContext.Clone() as AccessControlContext,

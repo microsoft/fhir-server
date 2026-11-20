@@ -395,6 +395,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     pathBase += "/";
                 }
 
+                if (_fhirRequestContextAccessor.RequestContext.Partition != null)
+                {
+                    routeValues = new RouteValueDictionary(routeValues)
+                    {
+                        [PartitionRouteMetadata.PartitionId] = _fhirRequestContextAccessor.RequestContext.Partition.Id,
+                    };
+                    routeName = PartitionRouteMetadata.NamePrefix + routeName;
+                    if (address != null)
+                    {
+                        address = new RouteValuesAddress { RouteName = routeName, ExplicitValues = routeValues, AmbientValues = address.AmbientValues };
+                    }
+                }
+
                 uriString = address == null ?
                     _linkGenerator.GetUriByRouteValues(
                         httpContext,

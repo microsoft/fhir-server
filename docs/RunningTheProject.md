@@ -25,3 +25,43 @@ When running from Visual Studio additional logging is enabled by default. To ena
         "Default": "Information"
     }
 }
+
+### Configuring partitions
+
+Partitions can be configured at startup in `appsettings.json`:
+
+```json
+{
+  "FhirSqlSettings": {
+    "PartitionConfiguration": {
+      "Partitions": [
+        { "Id": "partition-a", "DatabaseName": "database-a" },
+        { "Id": "partition-b", "DatabaseName": "database-b" }
+      ]
+    }
+  }
+}
+```
+
+Partition IDs are case-sensitive, unique URL segments containing only ASCII letters,
+digits, `-`, `_`, `.`, or `~`; `.` and `..` are not valid IDs. Each partition must
+have a nonblank database name. Invalid settings prevent startup. The partition
+manager retains a read-only startup snapshot; changing partitions requires a restart.
+Cosmos DB rejects configured partitions.
+
+Requests identify a partition with `/partition/<id>`, for example
+`/partition/partition-a/Patient`.
+
+When there is exactly one partition, FHIR requests without a partition prefix use that partition.
+When there are multiple partitions, requests without a recognized prefix return 404,
+except for the unprefixed `/health/check` and service-wide authentication endpoints.
+An explicit `/partition` prefix with a missing or unknown ID returns 404, even
+when exactly one partition is configured.
+
+With no configured partitions, existing single-service behavior is unchanged.
+Authentication, SMART discovery, and token introspection endpoints remain
+service-wide and do not have partition-prefixed route variants.
+
+The service continues to use one connection string. All partition databases must
+be in the same elastic pool, with SQL support and permissions for cross-database
+three-part names.

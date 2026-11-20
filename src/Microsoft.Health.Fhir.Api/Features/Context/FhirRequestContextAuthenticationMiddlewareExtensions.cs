@@ -5,6 +5,7 @@
 
 using EnsureThat;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Smart;
 
 namespace Microsoft.Health.Fhir.Api.Features.Context
@@ -21,6 +22,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             builder.UseMiddleware<FhirAuthenticationExceptionHandlerMiddleware>();
 
             builder.UseAuthentication();
+
+            builder.UseMiddleware<SearchPostReroutingMiddleware>();
+
+            builder.UseRouting();
 
             builder.UseMiddleware<FhirRequestContextAfterAuthenticationMiddleware>();
 

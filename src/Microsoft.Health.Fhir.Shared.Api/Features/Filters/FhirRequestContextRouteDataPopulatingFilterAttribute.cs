@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
@@ -15,6 +16,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -47,7 +49,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         {
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
-            fhirRequestContext.RouteName = context.ActionDescriptor?.AttributeRouteInfo?.Name;
+            fhirRequestContext.RouteName = context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<PartitionRouteMetadata>()?.RouteName
+                ?? context.ActionDescriptor?.AttributeRouteInfo?.Name;
 
             // Set the resource type based on the route data
             RouteData routeData = context.RouteData;

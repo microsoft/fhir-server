@@ -15,12 +15,14 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Health;
 using Microsoft.Health.Encryption.Customer.Health;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor;
 using Microsoft.Health.Fhir.Core.Features.Operations.JobMonitor.Messages;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
@@ -30,6 +32,7 @@ using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Health;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
+using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -55,6 +58,16 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             IServiceCollection services = fhirServerBuilder.Services;
 
+            services.AddSingleton(provider =>
+                {
+                    var config = new PartitionConfiguration();
+                    provider.GetRequiredService<IConfiguration>().GetSection("FhirSqlSettings:PartitionConfiguration").Bind(config);
+                    return Options.Options.Create(config);
+                });
+            services.Add<PartitionManager>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
             services.AddSqlServerConnection(configureSqlAction);
             services.AddSqlServerManagement<SchemaVersion>();
             services.AddSqlServerApi();
@@ -144,6 +157,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsImplementedInterfaces();
 
             services.AddFactory<IScoped<SqlConnectionWrapperFactory>>();
+            services.AddSqlPartitionDatabaseSelection();
 
             services.Add<SqlServerFhirModel>()
                 .Singleton()
@@ -263,6 +277,11 @@ namespace Microsoft.Extensions.DependencyInjection
                     }
                 }
             }
+        }
+
+        internal static void AddSqlPartitionDatabaseSelection(this IServiceCollection services)
+        {
+            services.AddHttpContextAccessor();
         }
     }
 }

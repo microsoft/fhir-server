@@ -7,12 +7,15 @@ using EnsureThat;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema;
+using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
     internal readonly struct SearchParameterQueryGeneratorContext
     {
-        internal SearchParameterQueryGeneratorContext(IndentedStringBuilder stringBuilder, HashingSqlQueryParameterManager parameters, ISqlServerFhirModel model, SchemaInformation schemaInformation, bool isAsyncOperation, string tableAlias = null)
+        private readonly SqlObjectNameFormatter _tableNames;
+
+        internal SearchParameterQueryGeneratorContext(IndentedStringBuilder stringBuilder, HashingSqlQueryParameterManager parameters, ISqlServerFhirModel model, SchemaInformation schemaInformation, bool isAsyncOperation, string tableAlias = null, SqlObjectNameFormatter tableNames = null)
         {
             EnsureArg.IsNotNull(stringBuilder, nameof(stringBuilder));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
@@ -25,6 +28,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             SchemaInformation = schemaInformation;
             TableAlias = tableAlias;
             IsAsyncOperation = isAsyncOperation;
+            _tableNames = tableNames ?? new SqlObjectNameFormatter(null);
         }
 
         public IndentedStringBuilder StringBuilder { get; }
@@ -41,5 +45,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         public bool IsAsyncOperation { get; }
 
         public string TableAlias { get; }
+
+        /// <summary>
+        /// Gets the physical table identifier for the current query's database.
+        /// </summary>
+        public string GetTableName(Table table) => _tableNames.GetTableName(table);
     }
 }

@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Azure.Identity;
 using Medino;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -34,6 +35,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -65,6 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly IOptions<CoreFeatureConfiguration> _options;
         private readonly int _maximumSupportedSchemaVersion;
         private readonly string _databaseName;
+        private readonly PartitionConfiguration _partitionConfiguration;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
         private IMediator _mediator;
@@ -88,11 +91,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
         }
 
-        internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, IOptions<CoreFeatureConfiguration> coreFeatures = null)
+        internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, IOptions<CoreFeatureConfiguration> coreFeatures = null, PartitionConfiguration partitionConfiguration = null)
         {
             _initialConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
             _maximumSupportedSchemaVersion = maximumSupportedSchemaVersion;
             _databaseName = databaseName;
+            _partitionConfiguration = partitionConfiguration ?? new PartitionConfiguration();
             TestConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = _databaseName, Encrypt = true }.ToString();
 
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
@@ -140,6 +144,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal ISqlQueryHashCalculator SqlQueryHashCalculator { get; private set; }
 
+        internal RequestContextAccessor<IFhirRequestContext> FhirRequestContextAccessor => _fhirRequestContextAccessor;
+
+        internal PartitionInfo GetPartition(string id) => _partitionConfiguration.Partitions.Single(partition => partition.Id == id);
+
         internal static string GetDatabaseName(string test = null)
         {
             return $"{ModelInfoProvider.Version}{(test == null ? string.Empty : $"_{test}")}_{DateTimeOffset.UtcNow.ToString("s").Replace("-", string.Empty).Replace(":", string.Empty)}_{Guid.NewGuid().ToString().Replace("-", string.Empty)}";
@@ -181,7 +189,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SqlTransactionHandler = new SqlTransactionHandler();
             SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, SqlConnectionBuilder, sqlRetryLogicBaseProvider, SqlServerDataStoreConfiguration);
-            SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()));
+            _fhirRequestContextAccessor.RequestContext.Partition.Returns(new PartitionInfo { Id = "application", DatabaseName = _databaseName });
+            SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()), _fhirRequestContextAccessor);
 
             var sqlServerFhirModel = new SqlServerFhirModel(
                 SchemaInformation,
@@ -344,6 +353,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async ValueTask DisposeAsync()
         {
             await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
+        }
+
+        internal async Task<T> RunInRequestScopeAsync<T>(IFhirRequestContext context, Func<Task<T>> operation)
+        {
+            var previousRequest = _fhirRequestContextAccessor.RequestContext;
+            try
+            {
+                _fhirRequestContextAccessor.RequestContext = context;
+                return await operation();
+            }
+            finally
+            {
+                _fhirRequestContextAccessor.RequestContext = previousRequest;
+            }
         }
 
         protected SqlConnection GetSqlConnection(string connectionString)
