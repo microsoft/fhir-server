@@ -466,7 +466,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
         [Fact]
         public void GivenChoiceTypeReferenceWithConditionalReference_WhenParsedOnInitialLoad_ThenBothProvidersReject()
         {
-            string json = ModelInfoProvider.Version == FhirSpecification.R5
+            string json = new VersionSpecificModelInfoProvider().Version == FhirSpecification.R5
                 ? """
                   {
                     "resourceType":"Observation",

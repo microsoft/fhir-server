@@ -748,10 +748,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             Assert.Equal(83, names.Count);
 #elif R4B
             Assert.Equal(168, names.Count);
-            foreach (string fixture in new[] { "binary-example", "MedicinalProductDefinition", "examplescenario-example" })
+            foreach (var (fixture, version) in new (string, FhirSpecification)[]
+            {
+                ("binary-example", FhirSpecification.R4B),
+                ("MedicinalProductDefinition", FhirSpecification.R4B),
+                ("examplescenario-example", FhirSpecification.R4),
+            })
             {
                 string selected = (string)Assert.Single(corpus, row => (string)row[0] == fixture + ".json")[1];
-                Assert.Equal(EmbeddedResourceManager.GetStringContent("TestFiles", fixture, "json"), selected);
+                var assembly = typeof(EmbeddedResourceManager).Assembly;
+                string path = $"{typeof(EmbeddedResourceManager).Namespace}.TestFiles.{version}.{fixture}.json";
+                using var reader = new StreamReader(assembly.GetManifestResourceStream(path));
+                Assert.Equal(reader.ReadToEnd(), selected);
             }
 #elif R4
             Assert.Equal(167, names.Count);
