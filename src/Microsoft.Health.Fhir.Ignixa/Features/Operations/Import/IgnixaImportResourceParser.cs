@@ -75,6 +75,12 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
             }
 
             var element = resource.ToElement(_schemaContext.Schema);
+            if (TruncateDateTimesInDateElements(element))
+            {
+                resource.InvalidateCaches();
+                element = resource.ToElement(_schemaContext.Schema);
+            }
+
             var isDeleted = IsSoftDeleted(element);
 
             if (isDeleted)
@@ -101,11 +107,8 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 element = resource.ToElement(_schemaContext.Schema);
             }
 
-            // The one-argument ResourceElement constructor leaves ResourceInstance unset, so RawResourceFactory
-            // cannot use the native ResourceJsonNode and falls back to a Firely POCO rebuild and serialization.
-            // A future native persistence-codec seam must carry the node through the two-argument constructor
-            // and consume it in IRawResourceFactory in the same change.
-            var resourceElement = new ResourceElement(element.ToTypedElement());
+            // IgnixaRawResourceFactory consumes the native carrier; Firely persistence rebuilds a POCO from the typed element.
+            var resourceElement = new ResourceElement(element.ToTypedElement(), resource);
             var resourceWrapper = _resourceFactory.Create(resourceElement, isDeleted, true, keepVersion);
 
             return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, isDeleted, resourceWrapper);
@@ -198,6 +201,40 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
             {
                 throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
             }
+        }
+
+        /// <summary>
+        /// Rewrites every schema-typed <c>date</c> element whose JSON value is a time-bearing dateTime to its
+        /// literal date part, matching Firely's <c>TruncateDateTimeToDate</c> parser setting used in production.
+        /// Valid dates, partial dates, and dateTime or instant elements are left unchanged.
+        /// </summary>
+        /// <returns><see langword="true"/> when the underlying JSON changed and cached elements are stale.</returns>
+        private static bool TruncateDateTimesInDateElements(IElement element)
+        {
+            var truncated = false;
+            foreach (IElement child in element.Children())
+            {
+                truncated |= TruncateDateTimeInDateElement(child);
+                truncated |= TruncateDateTimesInDateElements(child);
+            }
+
+            return truncated;
+        }
+
+        private static bool TruncateDateTimeInDateElement(IElement element)
+        {
+            if (!string.Equals(element.InstanceType, "date", StringComparison.Ordinal)
+                || !element.HasPrimitiveValue
+                || element.Meta<JsonPrimitiveValueNode>()?.Value is not JsonValue value
+                || !value.TryGetValue(out string literal)
+                || !FhirTemporal.TryParse(literal, FhirPrimitive.DateTime, out FhirTemporal dateTime)
+                || dateTime.Precision <= FhirTemporalPrecision.Day)
+            {
+                return false;
+            }
+
+            value.ReplaceWith(JsonValue.Create(literal[..literal.IndexOf('T', StringComparison.Ordinal)]));
+            return true;
         }
 
         /// <summary>
