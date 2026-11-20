@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         [InlineData("\"2020-01-01T00:00:00\"")]
         [InlineData("\"2020-01-01T00:00:00+00:60\"")]
         [InlineData("123")]
-        [InlineData("{}")]
+        [InlineData("{\"value\":\"2020-01-01\"}")]
         [InlineData("null")]
         public void GivenInvalidLastUpdated_ThenRejectsWithPath(string token)
         {
@@ -142,7 +142,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         [InlineData("active", "[true]")]
         [InlineData("maritalStatus", "\"single\"")]
         [InlineData("_active", "\"bad\"")]
-        [InlineData("name", "[{\"given\":[{}]}]")]
+        [InlineData("name", "[{\"given\":[{\"value\":\"bad\"}]}]")]
+        [InlineData("name", "[{\"given\":[{\"extension\":[{\"unknown\":null}]}]}]")]
         [InlineData("contained", "[{\"resourceType\":\"HumanName\",\"family\":\"Smith\"}]")]
         [InlineData("text", "{\"status\":\"generated\",\"div\":123}")]
         public void GivenInvalidPrimitiveToken_ThenRejectsWithPath(string name, string token)
@@ -391,17 +392,133 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         }
 
         [Theory]
-        [InlineData("\"birthDate\":{\"id\":\"bad\"}", "\"_birthDate\":{\"id\":\"bad\"}", "birthDate")]
-        [InlineData("\"gender\":\"\"", null, "gender")]
-        public void GivenMalformedPrimitiveFirelySilentlyRepairs_ThenNativeRejects(string input, string firelyOutput, string name)
+        [InlineData(""" "birthDate":{"id":"inline","extension":[{"url":"inline"}]} """, """ "_birthDate":{"id":"inline","extension":[{"url":"inline"}]} """)]
+        [InlineData(""" "birthDate":{"id":"inline"},"_birthDate":{"id":"shadow","extension":[{"url":"shadow"}]} """, """ "_birthDate":{"id":"inline"} """, true)]
+        [InlineData(""" "_birthDate":{"id":"shadow","extension":[{"url":"shadow"}]},"birthDate":{"extension":[{"url":"first"},{"url":"second"}]} """, """ "_birthDate":{"extension":[{"url":"first"},{"url":"second"}]} """, true)]
+        [InlineData(""" "birthDate":{},"_birthDate":{"id":"shadow"} """, "", false, """ "_birthDate":{"id":"shadow"} """)]
+        [InlineData(""" "name":[{"given":[{"id":"inline","extension":[{"url":"inline"}]},"b",null,{"id":"last"}],"_given":[{"id":"shadow","extension":[{"url":"shadow"}]},{"id":"middle"},{"id":"nullSlot"},null,{"id":"extra"}]}] """, """ "name":[{"given":[null,"b",null,null,null],"_given":[{"id":"inline","extension":[{"url":"inline"}]},{"id":"middle"},{"id":"nullSlot"},{"id":"last"},{"id":"extra"}]}] """, true)]
+        [InlineData(""" "name":[{"given":[null,{"id":"inline"},null]}] """, """ "name":[{"_given":[{"id":"inline"}]}] """)]
+        [InlineData(""" "name":[{"given":[null,{"id":"inline"},"b",null]}] """, """ "name":[{"given":[null,"b"],"_given":[{"id":"inline"},null]}] """)]
+        [InlineData(""" "name":[{"given":["a",null,"b",null],"_given":[null,null,{"id":"shadow"}]}] """, """ "name":[{"given":["a","b"],"_given":[null,{"id":"shadow"}]}] """)]
+        [InlineData(""" "name":[{"_given":[null,{"id":"shadow"}],"given":["a",{"id":"inline"}]}] """, """ "name":[{"given":["a",null],"_given":[null,{"id":"inline"}]}] """, true)]
+        [InlineData(""" "name":[{"given":{"id":"inline"},"_given":[null,{"id":"extra"}]}] """, """ "name":[{"_given":[{"id":"inline"},{"id":"extra"}]}] """)]
+        [InlineData(""" "name":[{"given":[{}]}] """, "")]
+        [InlineData(""" "contained":[{"resourceType":"Patient","id":"c","meta":{"lastUpdated":{"id":"inline"}}}] """, """ "contained":[{"resourceType":"Patient","id":"c","meta":{"_lastUpdated":{"id":"inline"}}}] """)]
+        [InlineData(""" "text":{"status":"generated","div":"<div xmlns=\"http://www.w3.org/1999/xhtml\">ok</div>","_div":{"id":"shadow","extension":[{"url":"shadow"}]}} """, """ "text":{"status":"generated","div":"<div xmlns=\"http://www.w3.org/1999/xhtml\">ok</div>","_div":{"id":"shadow","extension":[{"url":"shadow"}]}} """)]
+        [InlineData(""" "text":{"status":"generated","div":{"id":"inline"},"_div":{"id":"shadow"}} """, """ "text":{"status":"generated","_div":{"id":"inline"}} """, true)]
+        [InlineData(""" "text":{"status":"generated","_div":{"id":"shadow"}} """, """ "text":{"status":"generated","_div":{"id":"shadow"}} """)]
+        public void GivenPrimitiveMetadata_ThenNativeMatchesIgnixaParserWithFirelyWriter(string input, string persisted, bool firelyConflict = false, string firelyPersisted = null)
         {
             string json = $$$"""{"resourceType":"Patient","id":"p",{{{input}}}}""";
+            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
+            {
+                string metadata = """ "meta":{"versionId":"1","lastUpdated":"2026-06-01T00:00:00+00:00"} """;
+                string Expected(string fields) => $$$"""{"resourceType":"Patient","id":"p",{{{metadata}}}{{{(fields.Length == 0 ? string.Empty : "," + fields)}}}}""";
+                string expected = Expected(persisted);
+                string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true).Data;
+                AssertExactly(expected, mixed);
+                if (firelyConflict)
+                {
+                    Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: false));
+                }
+                else
+                {
+                    AssertExactly(Expected(firelyPersisted ?? persisted), ImportWrite(json, ImportMode.IncrementalLoad, native: false).Data);
+                }
 
-            var error = Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true));
-            Assert.Contains($"Patient.{name}", error.Message);
-            Assert.Equal(
-                firelyOutput is null ? NoMeta : $$$"""{"resourceType":"Patient","id":"p",{{{firelyOutput}}}}""",
-                FirelyWrite(json, false).Data);
+                AssertExactly(expected, ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data);
+            }
+        }
+
+        [Fact]
+        public void GivenInlineAndExplicitPrimitiveMetadata_WhenWritten_ThenCarrierIsUnchanged()
+        {
+            const string json = """{"resourceType":"Patient","name":[{"given":["a",{"id":"inline"}],"_given":[null,{"id":"shadow"}]}]}""";
+            ResourceElement element = Native(json);
+            var carrier = (ResourceJsonNode)element.ResourceInstance;
+            JsonNode node = carrier.ToSourceNavigator().Meta<JsonNode>();
+            string before = node.ToJsonString();
+
+            string first = Factory.Create(element, false).Data;
+            string second = Factory.Create(element, false).Data;
+
+            Assert.Equal("""{"resourceType":"Patient","name":[{"given":["a",null],"_given":[null,{"id":"inline"}]}]}""", first);
+            Assert.Equal(first, second);
+            Assert.Equal(before, node.ToJsonString());
+        }
+
+        [Fact]
+        public void GivenUnrelatedPrimitiveObject_ThenNativeRejectsInsteadOfDroppingIt()
+        {
+            const string json = """{"resourceType":"Patient","id":"p","birthDate":{"resourceType":"Patient"}}""";
+            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
+            {
+                Assert.DoesNotContain("birthDate", ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true).Data);
+                Assert.Contains("Patient.birthDate", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
+            }
+        }
+
+        [Theory]
+        [InlineData("  ")]
+        [InlineData("\u00a0")]
+        [InlineData("")]
+        public void GivenBlankString_ThenNativeKeepsLiteralAndFirelyPathsDiffer(string literal)
+        {
+            string token = JsonSerializer.Serialize(literal);
+            string json = $$$"""{"resourceType":"Patient","id":"p","name":[{"family":{{{token}}}}]}""";
+            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
+            {
+                string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true).Data;
+                Assert.Equal(string.Empty, JsonNode.Parse(mixed)["name"][0]["family"].GetValue<string>());
+                Assert.DoesNotContain("\"family\"", ImportWrite(json, ImportMode.IncrementalLoad, native: false).Data);
+
+                string native = ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data;
+                Assert.Contains($"\"family\":\"{literal}\"", native);
+            }
+        }
+
+        [Theory]
+        [InlineData("  ")]
+        [InlineData("\u00a0")]
+        public void GivenNonemptyBlankGender_ThenNativeKeepsLiteralThoughIgnixaToFirelyRejects(string literal)
+        {
+            string token = JsonSerializer.Serialize(literal);
+            string json = $$$"""{"resourceType":"Patient","id":"p","gender":{{{token}}}}""";
+            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
+            {
+                Assert.Contains("AdministrativeGender", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true)).Message);
+                Assert.DoesNotContain("\"gender\"", ImportWrite(json, ImportMode.IncrementalLoad, native: false).Data);
+
+                Assert.Contains($"\"gender\":\"{literal}\"", ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data);
+            }
+        }
+
+        [Fact]
+        public void GivenEmptyGender_ThenBothIgnixaImportPathsReject()
+        {
+            const string json = """{"resourceType":"Patient","id":"p","gender":""}""";
+            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
+            {
+                Assert.Contains("AdministrativeGender", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true)).Message);
+                Assert.DoesNotContain("\"gender\"", ImportWrite(json, ImportMode.IncrementalLoad, native: false).Data);
+
+                Assert.Contains("Patient.gender", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
+            }
+        }
+
+        [Theory]
+        [InlineData(""" "birthDate":"" """)]
+        [InlineData(""" "text":{"status":"generated","div":""} """)]
+        [InlineData(""" "maritalStatus":{"coding":[{"code":""}]} """)]
+        public void GivenEmptyNonEnumPrimitiveAcceptedByIgnixaToFirely_ThenNativeWritesIt(string property)
+        {
+            string json = $$$"""{"resourceType":"Patient","id":"p",{{{property}}}}""";
+            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
+            {
+                string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true).Data;
+                Assert.Contains(property.Trim(), mixed);
+                AssertExactly(mixed, ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data);
+            }
         }
 
         private static string Version(string data)
@@ -428,15 +545,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         }
 
         private RawResource ImportWrite(string json, ImportMode mode, bool native)
+            => ImportWrite(json, mode, native ? Factory : _firely, useIgnixaParser: native);
+
+        private RawResource ImportWrite(string json, ImportMode mode, IRawResourceFactory factory, bool useIgnixaParser)
         {
             ResourceElement element = null;
             var wrapper = Substitute.For<IResourceWrapperFactory>();
             wrapper.Create(Arg.Do<ResourceElement>(value => element = value), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<bool>());
-            IImportResourceParser parser = native
+            IImportResourceParser parser = useIgnixaParser
                 ? new IgnixaImportResourceParser(wrapper, _schemaContext, ResourceIdPolicy.Standard)
                 : new FirelyImportResourceParser(FirelyParser, wrapper, ResourceIdPolicy.Standard);
             ImportResource result = parser.Parse(0, 0, json.Length, json, mode);
-            IRawResourceFactory factory = native ? Factory : _firely;
             return factory.Create(element, true, result.KeepVersion);
         }
     }
