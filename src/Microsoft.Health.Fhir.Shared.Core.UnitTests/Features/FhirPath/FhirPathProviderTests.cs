@@ -1015,10 +1015,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             (ITypedElement pocoInput, EvaluationContext pocoContext) = CreateInputAndContext(ParsePocoResource(json), contextShape, inputKind);
             (ITypedElement nativeInput, EvaluationContext nativeContext) = CreateInputAndContext(ParseNativeResource(json), contextShape, inputKind);
 
+            Assert.Equal(inputKind == "root", CreateIgnixaBridge().IsIndexedResourceRoot(nativeInput, nativeContext));
+
             string[] firelyValues = Normalize(new FirelyFhirPathProvider().Compile(expression).Select(pocoInput, pocoContext));
             string[] ignixaValues = Normalize(CreateIgnixaProvider().Compile(expression).Select(nativeInput, nativeContext));
 
-            Assert.NotEmpty(firelyValues);
+            Assert.Equal(["System.Boolean|True"], firelyValues);
             Assert.Equal(firelyValues, ignixaValues);
         }
 
