@@ -529,10 +529,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             errorStore.UploadErrorsAsync(Arg.Do<string[]>(uploadedErrors.AddRange), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
             var (channel, loadTask) = loader.LoadResources(blob.AbsoluteUri, 0, data.Length, null, ImportMode.IncrementalLoad, CancellationToken.None);
 
-            var progress = await CreateSqlImporter().Import(channel, errorStore, ImportMode.IncrementalLoad, allowNegativeVersions: false, eventualConsistency: false, CancellationToken.None);
-            await loadTask;
-
-            return (progress, uploadedErrors);
+            try
+            {
+                var progress = await CreateSqlImporter().Import(channel, errorStore, ImportMode.IncrementalLoad, allowNegativeVersions: false, eventualConsistency: false, CancellationToken.None);
+                return (progress, uploadedErrors);
+            }
+            finally
+            {
+                await loadTask;
+            }
         }
 
         private async Task<List<StoredVersion>> ReadHistoryAsync(string resourceType, string id)
