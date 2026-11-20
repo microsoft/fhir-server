@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
+using FirelyDateTime = Hl7.Fhir.ElementModel.Types.DateTime;
 
 namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
 {
@@ -244,7 +245,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
 
             // Firely trims JSON strings before parsing. Do not change the stored text unless it is truncated.
             ReadOnlySpan<char> trimmed = literal.AsSpan().Trim();
-            if (!FirelyDateTimeWithFullDateRegex.IsMatch(trimmed))
+            if (!FirelyDateTimeWithFullDateRegex.IsMatch(trimmed) || !FirelyDateTime.TryParse(trimmed.ToString(), out _))
             {
                 return false;
             }

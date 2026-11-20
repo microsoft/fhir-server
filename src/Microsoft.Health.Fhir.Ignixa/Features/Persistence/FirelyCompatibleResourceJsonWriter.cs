@@ -13,10 +13,12 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Utility;
 using Ignixa.Abstractions;
 using Ignixa.Serialization.SourceNodes;
 using Microsoft.Health.Fhir.Core.Extensions;
+using FirelyTypes = Hl7.Fhir.ElementModel.Types;
 
 namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
 {
@@ -99,23 +101,30 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
 
                 bool replaceVersion = editVersion && versionIdOverride is not null;
                 bool removeVersion = editVersion && omitVersionId;
-                bool versionWritten = false;
+                if (editVersion)
+                {
+                    if (replaceVersion)
+                    {
+                        WriteVersion(start);
+                    }
+                    else if (!removeVersion)
+                    {
+                        WriteRootMetaScalar(node, start, "versionId", "id", path);
+                    }
 
+                    WriteRootMetaScalar(node, start, "lastUpdated", "instant", path);
+                }
+
+                HashSet<string> writtenChoices = null;
                 foreach ((string name, JsonNode value) in node)
                 {
                     if ((root && name is "resourceType" or "id" or "_id" or "meta")
-                        || ((removeVersion || replaceVersion) && name == "_versionId")
-                        || (removeVersion && name == "versionId"))
+                        || ((removeVersion || replaceVersion) && name is "versionId" or "_versionId"))
                     {
                         continue;
                     }
 
-                    if (replaceVersion && name == "versionId")
-                    {
-                        WriteVersion(start);
-                        versionWritten = true;
-                    }
-                    else if (resource && name == "resourceType")
+                    if (resource && name == "resourceType")
                     {
                         WritePropertyName(name, start);
                         WriteString(resourceType);
@@ -126,16 +135,35 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                     }
                     else
                     {
-                        WriteProperty(node, type, start, name, value, $"{path}.{name}", rootMeta: editVersion);
+                        int before = Output.Length;
+                        var definition = WriteProperty(node, type, start, name, value, $"{path}.{name}", rootMeta: editVersion);
+                        if (Output.Length != before && definition.Info.IsChoiceElement && !definition.IsCollection
+                            && !(writtenChoices ??= new(StringComparer.Ordinal)).Add(definition.Info.Name))
+                        {
+                            throw Invalid($"{path}.{definition.Info.Name}", "Multiple values for a singleton choice");
+                        }
                     }
                 }
 
-                if (replaceVersion && !versionWritten)
+                Output.Append('}');
+            }
+
+            private void WriteRootMetaScalar(JsonObject meta, int start, string name, string type, string path)
+            {
+                string companionName = "_" + name;
+                bool normalizeInstant = name == "lastUpdated";
+                bool hasValue = meta.TryGetPropertyValue(name, out JsonNode value);
+                string valuePath = $"{path}.{(hasValue ? name : companionName)}";
+                if (normalizeInstant && hasValue && value is null)
                 {
-                    WriteVersion(start);
+                    throw Invalid(valuePath, "Expected a FHIR instant or a full date");
                 }
 
-                Output.Append('}');
+                if (PrimitiveValue(value, meta[companionName]) is { } scalar)
+                {
+                    WritePropertyName(name, start);
+                    WritePrimitiveValue(scalar, type, valuePath, null, normalizeInstant);
+                }
             }
 
             private void WriteMeta(int objectStart, JsonNode value, string path, bool editVersion)
@@ -175,7 +203,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                 WriteString(versionIdOverride);
             }
 
-            private void WriteProperty(JsonObject node, IType parent, int objectStart, string name, JsonNode value, string path, bool rootMeta = false)
+            private ITypeExtended WriteProperty(JsonObject node, IType parent, int objectStart, string name, JsonNode value, string path, bool rootMeta = false)
             {
                 bool companion = name.StartsWith("_", StringComparison.Ordinal);
                 string elementName = companion ? name[1..] : name;
@@ -190,24 +218,20 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                     if (!companion || !node.ContainsKey(elementName))
                     {
                         bool normalizeInstant = parent.Info.Name == "Meta" && elementName == "lastUpdated";
-                        if (rootMeta && normalizeInstant && !companion && value is null)
-                        {
-                            throw Invalid(path, "Expected a FHIR instant or a full date");
-                        }
-
                         Type codeEnum = type.Info.Name == "code"
                             && CodeEnums.GetOrAdd((inspector, parent.Info.Name), static key => FindCodeEnums(key.Inspector, key.Parent)).TryGetValue(elementName, out Type enumType)
                             ? enumType
                             : null;
-                        WritePrimitiveProperty(objectStart, elementName, companion ? null : value, companion ? value : node["_" + name], definition.IsCollection, type.Info.Name, path, codeEnum, normalizeInstant);
+                        bool metadataOnly = rootMeta && elementName is "versionId" or "lastUpdated";
+                        WritePrimitiveProperty(objectStart, elementName, companion ? null : value, companion ? value : node["_" + name], definition.IsCollection, type.Info.Name, path, codeEnum, normalizeInstant, metadataOnly);
                     }
 
-                    return;
+                    return definition;
                 }
 
                 if (value is null)
                 {
-                    return;
+                    return definition;
                 }
 
                 int start = Output.Length;
@@ -243,9 +267,11 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                 {
                     Output.Length = start;
                 }
+
+                return definition;
             }
 
-            private void WritePrimitiveProperty(int objectStart, string name, JsonNode value, JsonNode companion, bool collection, string type, string path, Type codeEnum, bool normalizeInstant)
+            private void WritePrimitiveProperty(int objectStart, string name, JsonNode value, JsonNode companion, bool collection, string type, string path, Type codeEnum, bool normalizeInstant, bool metadataOnly)
             {
                 string companionName = "_" + name;
                 string companionPath = path[..(path.LastIndexOf('.', StringComparison.Ordinal) + 1)] + companionName;
@@ -256,8 +282,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                 }
 
                 JsonObject metadata = PrimitiveMetadata(value, companion, path, companionPath);
-                JsonNode scalar = PrimitiveValue(value, companion);
-                if (scalar is not null)
+                if (!metadataOnly && PrimitiveValue(value, companion) is { } scalar)
                 {
                     WritePropertyName(name, objectStart);
                     WritePrimitiveValue(scalar, type, path, codeEnum, normalizeInstant);
@@ -465,6 +490,14 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                     case "decimal" when decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal amount):
                         Output.Append(DecimalPattern.IsMatch(text) ? text : amount.ToString(CultureInfo.InvariantCulture));
                         return;
+                    case "date" or "dateTime" or "instant" or "time":
+                        if (IsReadableTemporal(type, text))
+                        {
+                            WriteString(text);
+                            return;
+                        }
+
+                        break;
                     case "boolean":
                     case "integer64":
                     case "decimal":
@@ -477,6 +510,41 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                 }
 
                 throw Invalid(path, $"Invalid {type} primitive");
+            }
+
+            private static bool IsReadableTemporal(string type, string text)
+            {
+                if (text.Length == 0)
+                {
+                    return true;
+                }
+
+                return type switch
+                {
+                    "date" => FirelyTypes.Date.TryParse(text, out _) || FirelyTypes.DateTime.TryParse(text, out _),
+                    "dateTime" => FirelyTypes.DateTime.TryParse(text, out _),
+                    "instant" => IsReadableInstant(text),
+                    "time" => FirelyTypes.Time.TryParse(text, out _),
+                    _ => throw new ArgumentOutOfRangeException(nameof(type)),
+                };
+            }
+
+            private static bool IsReadableInstant(string text)
+            {
+                if (!FirelyTypes.DateTime.TryParse(text, out var instant))
+                {
+                    return false;
+                }
+
+                try
+                {
+                    _ = PrimitiveTypeConverter.ConvertTo<DateTimeOffset>(instant.ToString());
+                    return true;
+                }
+                catch (FormatException)
+                {
+                    return false;
+                }
             }
 
             private void WriteBase64(string text, string path)
