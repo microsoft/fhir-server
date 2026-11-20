@@ -383,7 +383,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             string ndjson = $$$"""{"resourceType":"Patient","id":"{{{ignixaId}}}","meta":{"versionId":"2","lastUpdated":"2020-01-03T03:04:05.123+00:00","extension":[{"url":"{{{KnownFhirPaths.AzureSoftDeletedExtensionUrl}}}","valueString":"soft-deleted"}]}}""";
             var ignixa = CreateImportParser(native: true);
             var firely = CreateImportParser(native: false);
-            await AssertSuccessfulImportAsync(ignixa, PatientLine(ignixaId));
+            string original = PatientLine(ignixaId);
+            string expectedOriginal = Parse(ignixa, original).ResourceWrapper.RawResource.Data;
+            string expectedDeleted = Parse(ignixa, ndjson).ResourceWrapper.RawResource.Data;
+            await AssertSuccessfulImportAsync(ignixa, original);
             await AssertSuccessfulImportAsync(firely, PatientLine(firelyId));
 
             await AssertSuccessfulImportAsync(ignixa, ndjson);
@@ -393,6 +396,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var firelyHistory = await ReadHistoryAsync("Patient", firelyId);
             Assert.Equal(new[] { (1, true, false), (2, false, true) }, ignixaHistory.Select(row => (row.Version, row.IsHistory, row.IsDeleted)));
             Assert.Equal(new[] { (1, true, false), (2, false, true) }, firelyHistory.Select(row => (row.Version, row.IsHistory, row.IsDeleted)));
+            Assert.Equal(expectedOriginal, ignixaHistory[0].RawJson);
+            Assert.Equal(expectedDeleted, ignixaHistory[1].RawJson);
             for (int i = 0; i < ignixaHistory.Count; i++)
             {
                 Assert.DoesNotContain(KnownFhirPaths.AzureSoftDeletedExtensionUrl, ignixaHistory[i].RawJson, StringComparison.Ordinal);
@@ -409,12 +414,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             string ignixaId = Guid.NewGuid().ToString("N");
             string firelyId = Guid.NewGuid().ToString("N");
+            string ignixaLine = ndjson.Replace("patient-1", ignixaId, StringComparison.Ordinal);
+            var ignixaParser = CreateImportParser(native: true);
+            string expectedNative = Parse(ignixaParser, ignixaLine).ResourceWrapper.RawResource.Data;
 
-            await AssertSuccessfulImportAsync(CreateImportParser(native: true), ndjson.Replace("patient-1", ignixaId, StringComparison.Ordinal));
+            await AssertSuccessfulImportAsync(ignixaParser, ignixaLine);
             await AssertSuccessfulImportAsync(CreateImportParser(native: false), ndjson.Replace("patient-1", firelyId, StringComparison.Ordinal));
 
             var ignixa = Assert.Single(await ReadHistoryAsync("Patient", ignixaId));
             var firely = Assert.Single(await ReadHistoryAsync("Patient", firelyId));
+            Assert.Equal(expectedNative, ignixa.RawJson);
             AssertExactlyExceptId(ignixa.RawJson, firely.RawJson);
         }
 
