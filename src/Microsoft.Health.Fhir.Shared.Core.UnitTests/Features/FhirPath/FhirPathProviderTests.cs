@@ -787,15 +787,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         }
 
         [Theory]
-        [InlineData(null)]
+        [InlineData("nullContext")]
+        [InlineData("emptyContext")]
         [InlineData("resource")]
         [InlineData("rootResource")]
-        public void GivenNativeRoot_ThenNativePathIsUsed(string sameInstanceContextMember)
+        [InlineData("resourceAndRootResource")]
+        public void GivenNativeRoot_ThenNativePathIsUsed(string contextShape)
         {
             ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
-            EvaluationContext context = ModelInfoProvider.Instance.GetEvaluationContext();
-            context.Resource = sameInstanceContextMember == "resource" ? nativeRoot : null;
-            context.RootResource = sameInstanceContextMember == "rootResource" ? nativeRoot : null;
+            EvaluationContext context = null;
+            if (contextShape != "nullContext")
+            {
+                context = ModelInfoProvider.Instance.GetEvaluationContext();
+                context.Resource = contextShape is "resource" or "resourceAndRootResource" ? nativeRoot : null;
+                context.RootResource = contextShape is "rootResource" or "resourceAndRootResource" ? nativeRoot : null;
+            }
 
             Assert.True(CreateIgnixaBridge().TryGetNativeRoot(nativeRoot, context, out _));
         }
