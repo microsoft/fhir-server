@@ -374,6 +374,37 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 });
         }
 
+#if R4
+        [Fact]
+        public async Task GivenNestedMetaInsideRootMeta_WhenStoreAssignsTimestamp_ThenOnlyRootMetaChanges()
+        {
+            string id = Guid.NewGuid().ToString("N");
+            string ndjson = $$$"""{"resourceType":"Patient","id":"{{{id}}}","meta":{"_source":{"extension":[{"url":"http://example.test/source-meta","valueMeta":{"versionId":"8","lastUpdated":"2019-01-01T00:00:00+00:00"}}]},"extension":[{"url":"http://example.test/root-meta","valueMeta":{"versionId":"9","lastUpdated":"2019-02-01T00:00:00+00:00"}}],"versionId":"1"},"active":false}""";
+            var ignixa = CreateImportParser(native: true);
+            await AssertSuccessfulImportAsync(ignixa, PatientLine(id));
+            var original = Assert.Single(await ReadHistoryAsync("Patient", id));
+
+            using var clock = Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(DateTimeOffset.Parse(PinnedTimestamp, CultureInfo.InvariantCulture)));
+            await AssertSuccessfulImportAsync(ignixa, ndjson);
+
+            Assert.Collection(
+                await ReadHistoryAsync("Patient", id),
+                first => Assert.Equal(original with { IsHistory = true }, first),
+                current =>
+                {
+                    Assert.Equal(2, current.Version);
+                    Assert.False(current.IsHistory);
+                    Assert.False(current.IsDeleted);
+                    using var raw = JsonDocument.Parse(current.RawJson);
+                    var rootMeta = raw.RootElement.GetProperty("meta");
+                    Assert.Equal("2", rootMeta.GetProperty("versionId").GetString());
+                    Assert.Equal(current.SurrogateId.ToLastUpdated(), rootMeta.GetProperty("lastUpdated").GetDateTimeOffset());
+                    Assert.Equal("""{"versionId":"8","lastUpdated":"2019-01-01T00:00:00+00:00"}""", rootMeta.GetProperty("_source").GetProperty("extension")[0].GetProperty("valueMeta").GetRawText());
+                    Assert.Equal("""{"versionId":"9","lastUpdated":"2019-02-01T00:00:00+00:00"}""", rootMeta.GetProperty("extension")[0].GetProperty("valueMeta").GetRawText());
+                });
+        }
+#endif
+
         [Fact]
         public async Task GivenIgnixaNativeWrites_WhenImportingSoftDeleted_ThenHistoryAndDeleteStateMatchFirely()
         {

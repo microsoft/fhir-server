@@ -59,6 +59,183 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
 
         private IgnixaRawResourceFactory Factory => new(_inner, _schemaContext, new VersionSpecificModelInfoProvider());
 
+        [Fact]
+        public void GivenSchemaPrimitiveTypes_ThenMalformedTokensDoNotProduceUnreadableNativeOutput()
+        {
+            IFhirSchemaProvider schema = _schemaContext.Schema;
+            var extensionChoice = schema.GetTypeDefinition("Extension").Children.OfType<ITypeExtended>().Single(e => e.Info.IsChoiceElement);
+            var representatives = new Dictionary<string, (string Path, Func<string, string> Make)>(StringComparer.Ordinal);
+            foreach (ITypeReference arm in extensionChoice.Types.Where(t => schema.GetTypeDefinition(t.Code)?.Info.IsPrimitive == true))
+            {
+                string name = extensionChoice.Info.Name + char.ToUpperInvariant(arm.Code[0]) + arm.Code[1..];
+                string MakeExtension(string token) => $$$"""{"resourceType":"Patient","id":"p","extension":[{"url":"urn:test","{{{name}}}":{{{token}}}}]}""";
+                representatives.Add(arm.Code, ($"Patient.extension[0].{name}", MakeExtension));
+            }
+
+            var narrative = schema.GetTypeDefinition("Narrative").Children.OfType<ITypeExtended>().Single(e => e.DefaultTypeName == "xhtml");
+            string MakeNarrative(string token) => $$$"""{"resourceType":"Patient","id":"p","text":{"status":"generated","{{{narrative.Info.Name}}}":{{{token}}}}}""";
+            representatives.Add(narrative.DefaultTypeName, ($"Patient.text.{narrative.Info.Name}", MakeNarrative));
+            var schemaTypes = SchemaTypes(schema);
+            string[] primitiveTypes = schemaTypes.Values.Where(t => t.Info.IsPrimitive || t.Info.Name == "xhtml")
+                .Select(t => t.Info.Name).Order(StringComparer.Ordinal).ToArray();
+#if Stu3
+            Assert.Contains("uuid", primitiveTypes);
+            Assert.DoesNotContain(schemaTypes.Values.Where(t => !t.Info.IsPrimitive).SelectMany(t => t.Children).OfType<ITypeExtended>(), e => e.Types.Any(t => t.Code == "uuid"));
+            primitiveTypes = primitiveTypes.Where(type => type != "uuid").ToArray();
+#endif
+            Assert.Equal(primitiveTypes, representatives.Keys.Order(StringComparer.Ordinal));
+
+            var outcomes = new List<string>();
+            var failures = new List<string>();
+            int matchedReads = 0;
+            int matchedRejections = 0;
+            int unreadableMixedWrites = 0;
+            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
+            {
+                foreach (string type in primitiveTypes)
+                {
+                    var (path, make) = representatives[type];
+                    foreach (string token in new[] { MalformedLiteral(type), """{"unexpected":true}""" })
+                    {
+                        string json = make(token);
+                        RawResource mixed = null;
+                        RawResource native = null;
+                        Exception mixedError = Record.Exception(() => mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, true));
+                        Exception nativeError = Record.Exception(() => native = ImportWrite(json, ImportMode.IncrementalLoad, native: true));
+                        Exception mixedReadError = mixed is null ? null : Record.Exception(() => ReadBack(mixed));
+                        Exception nativeReadError = native is null ? null : Record.Exception(() => ReadBack(native));
+                        bool unreadableTemporal = type is "date" or "dateTime" or "time" && token == MalformedLiteral(type);
+                        bool mixedReadable = mixed is not null && mixedReadError is null;
+                        bool nativeReadable = native is not null && nativeReadError is null;
+                        string row = $"{type} {path} {token}: IF={Describe(mixed, mixedError)} read={mixedReadError?.Message}; II={Describe(native, nativeError)} read={nativeReadError?.Message}";
+                        outcomes.Add(row);
+                        if ((nativeError is not null && (nativeError is not FormatException || !nativeError.Message.Contains(path, StringComparison.Ordinal)))
+                            || nativeReadError is not null
+                            || mixedReadable != nativeReadable
+                            || unreadableTemporal != (mixedReadError is not null)
+                            || (unreadableTemporal && mixedReadError is not StructuralTypeException)
+                            || (mixedReadable && !JsonNode.DeepEquals(JsonNode.Parse(mixed.Data), JsonNode.Parse(native.Data))))
+                        {
+                            failures.Add(row);
+                        }
+                        else if (mixedReadable)
+                        {
+                            matchedReads++;
+                        }
+                        else if (unreadableTemporal)
+                        {
+                            unreadableMixedWrites++;
+                        }
+                        else
+                        {
+                            matchedRejections++;
+                        }
+                    }
+                }
+            }
+
+            TestContext.Current.TestOutputHelper.WriteLine($"{outcomes.Count} rows: {matchedReads} matched reads, {matchedRejections} matched rejections, {unreadableMixedWrites} IF writes rejected by the read path.\n{string.Join('\n', outcomes)}");
+            Assert.True(failures.Count == 0, string.Join('\n', failures));
+            Assert.Equal(3, unreadableMixedWrites);
+        }
+
+        private static string MalformedLiteral(string type) => type switch
+        {
+            "base64Binary" => "\"!!!!\"",
+            "boolean" or "decimal" or "integer" or "integer64" or "positiveInt" or "unsignedInt" => "\"not-a-number\"",
+            "date" => "\"2024-02-30\"",
+            "dateTime" or "instant" => "\"2024-02-30T12:00:00Z\"",
+            "time" => "\"25:00:00\"",
+            "xhtml" => "\"<div\"",
+            _ => "17",
+        };
+
+        [Theory]
+        [InlineData(""" "valueString":"one","valueBoolean":true """)]
+        [InlineData(""" "_valueString":{"id":"one"},"valueBoolean":true """)]
+        public void GivenTwoSingletonChoiceArms_ThenNativeRejectsAtTheChoice(string fields)
+        {
+            string json = $$$"""{"resourceType":"Patient","id":"p","extension":[{"url":"urn:test",{{{fields}}}}]}""";
+            Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: false));
+            Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, _firely, true));
+            Assert.Contains("Patient.extension[0].value", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
+        }
+
+        [Fact]
+        public void GivenChoiceValueAndCompanion_ThenBothReadBackAsOneArm()
+        {
+            const string json = """{"resourceType":"Patient","id":"p","extension":[{"url":"urn:test","_valueString":{"id":"annotation"},"valueString":"one"}]}""";
+            RawResource raw = ImportWrite(json, ImportMode.IncrementalLoad, native: true);
+
+            var value = Assert.IsType<FhirString>(Assert.Single(ReadBack(raw).ToPoco<Patient>().Extension).Value);
+            Assert.Equal("one", value.Value);
+            Assert.Equal("annotation", value.ElementId);
+        }
+
+        [Theory]
+        [InlineData("Observation", """ "issued":"garbage" """, "Observation.issued")]
+        [InlineData("Observation", """ "issued":"2024-02-30T12:00:00Z" """, "Observation.issued")]
+        [InlineData("Patient", """ "extension":[{"url":"urn:test","valueInstant":"bad"}] """, "Patient.extension[0].valueInstant")]
+        public void GivenInvalidNonMetaInstant_ThenMixedAndNativeReject(string resourceType, string fields, string path)
+        {
+            string json = $$$"""{"resourceType":"{{{resourceType}}}","id":"p",{{{fields}}}}""";
+            Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, _firely, true));
+            Assert.Contains(path, Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
+        }
+
+        [Theory]
+        [InlineData("birthDate", """ "birthDate":"2024-02-30" """)]
+        [InlineData("_birthDate", """ "_birthDate":123 """)]
+        [InlineData("extension[0].valueDateTime", """ "extension":[{"url":"urn:test","valueDateTime":"2024-02-30T12:00:00Z"}] """)]
+        [InlineData("extension[0].valueTime", """ "extension":[{"url":"urn:test","valueTime":"25:00:00"}] """)]
+        public void GivenMalformedTemporalText_ThenNativeRejectsAtTheElement(string path, string fields)
+        {
+            string json = $$$"""{"resourceType":"Patient","id":"p",{{{fields}}}}""";
+            Assert.Contains($"Patient.{path}", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
+        }
+
+        [Fact]
+        public void GivenAnInstantWithAnInvalidHour_WhenUsedAsABirthDate_ThenImportDoesNotHideTheInvalidHour()
+        {
+            const string json = """{"resourceType":"Patient","id":"p","birthDate":"2024-02-29T99:00:00Z"}""";
+            RawResource mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, true);
+
+            Assert.Equal("2024-02-29T99:00:00Z", JsonNode.Parse(mixed.Data)["birthDate"].GetValue<string>());
+            Assert.Throws<StructuralTypeException>(() => ReadBack(mixed));
+            Assert.Contains("Patient.birthDate", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
+        }
+
+        [Theory]
+        [InlineData("valueDate", "2024-02")]
+        [InlineData("valueDateTime", "2024-02-29T12:34:56.1200+05:30")]
+        [InlineData("valueInstant", "2024-02-29T12:34:56.1200Z")]
+        [InlineData("valueTime", "12:34:56.1200")]
+        public void GivenReadableTemporalText_ThenNativePreservesItsSpelling(string name, string literal)
+        {
+            string json = $$$"""{"resourceType":"Patient","id":"p","extension":[{"url":"urn:test","{{{name}}}":"{{{literal}}}"}]}""";
+            RawResource raw = ImportWrite(json, ImportMode.IncrementalLoad, native: true);
+
+            Assert.Equal(literal, JsonNode.Parse(raw.Data)["extension"][0][name].GetValue<string>());
+            Assert.Single(ReadBack(raw).ToPoco<Patient>().Extension);
+        }
+
+        [Theory]
+        [InlineData(true, true, """["versionId","lastUpdated","extension","_lastUpdated","_versionId"]""")]
+        [InlineData(true, false, """["versionId","lastUpdated","extension","_lastUpdated"]""")]
+        [InlineData(false, true, """["lastUpdated","extension","_lastUpdated"]""")]
+        public void GivenRootMetaWithLeadingExtension_ThenPriorityScalarsComeBeforeOtherChildren(bool keepMeta, bool keepVersion, string order)
+        {
+            const string json = """{"resourceType":"Patient","id":"p","meta":{"extension":[{"url":"urn:test","valueString":"metadata"}],"_lastUpdated":{"id":"t"},"lastUpdated":"2020-01-01T00:00:00Z","_versionId":{"id":"v"},"versionId":"7"},"contained":[{"resourceType":"Patient","id":"c","meta":{"lastUpdated":"2019-01-01T00:00:00Z","versionId":"8"}}]}""";
+            RawResource raw = Factory.Create(Native(json), keepMeta, keepVersion);
+            JsonNode persisted = JsonNode.Parse(raw.Data);
+            JsonNode meta = persisted["meta"];
+
+            Assert.Equal(JsonSerializer.Deserialize<string[]>(order), meta.AsObject().Select(pair => pair.Key));
+            Assert.Equal(keepMeta ? (keepVersion ? "7" : "1") : null, meta["versionId"]?.GetValue<string>());
+            Assert.Equal(new[] { "lastUpdated", "versionId" }, persisted["contained"][0]["meta"].AsObject().Select(pair => pair.Key));
+            Assert.Equal("8", Assert.Single(ReadBack(raw).ToPoco<Patient>().Contained).VersionId);
+        }
+
         [Theory]
         [InlineData(false, false)]
         [InlineData(true, false)]
@@ -486,7 +663,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         [InlineData(""" "maritalStatus":{"coding":[{"code":"  "}]} """, """ {"maritalStatus":{"coding":[{"code":""}]}} """)]
         [InlineData(""" "birthDate":{"id":"inline"},"_birthDate":{"foo":"ignored"} """, """ {"_birthDate":{"id":"inline"}} """)]
         [InlineData(""" "_birthDate":"2001-02-03" """, """ {"birthDate":"2001-02-03"} """)]
-        [InlineData(""" "_birthDate":123 """, """ {"birthDate":"123"} """)]
         [InlineData(""" "name":[{"given":[{"id":"inline"},"b"],"_given":[{"foo":"ignored"},null]}] """, """ {"name":[{"given":[null,"b"],"_given":[{"id":"inline"},null]}]} """)]
         [InlineData(""" "name":[{"given":[{"extension":[{"valueString":{},"_valueString":{"id":"x"}}]},"b",{"id":"c"}]}] """, """ {"name":[{"given":["b",null],"_given":[null,{"id":"c"}]}]} """)]
         [InlineData(""" "contained":[{"resourceType":"Patient","id":"c","meta":{"lastUpdated":null,"_lastUpdated":{"id":"companion"}}}] """, """ {"contained":[{"resourceType":"Patient","id":"c","meta":{"_lastUpdated":{"id":"companion"}}}]} """)]
@@ -621,21 +797,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             Assert.Contains("Observation.valueQuantity.value", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
         }
 
-        [Theory]
-        [InlineData("Observation", """ "valueCode":"bogus" """, """ "valueCode":"bogus" """)]
-        [InlineData("Patient", """ "active":[true] """, """ "active":true """)]
-        public void GivenMalformedShapeAcceptedByFirely_ThenNativeRejects(string resourceType, string input, string firelyOutput)
+        [Fact]
+        public void GivenSingletonBooleanArray_ThenMixedCoercesAndNativeRejects()
         {
-            string json = $$$"""{"resourceType":"{{{resourceType}}}","id":"p",{{{input}}}}""";
-            Assert.Contains(firelyOutput.Trim(), ImportWrite(json, ImportMode.IncrementalLoad, _firely, true).Data);
-            Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true));
+            const string json = """{"resourceType":"Patient","id":"p","active":[true]}""";
+            RawResource mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, true);
+
+            Assert.True(JsonNode.Parse(mixed.Data)["active"].GetValue<bool>());
+            Assert.True(ReadBack(mixed).ToPoco<Patient>().Active);
+            Assert.Contains("Patient.active", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
+        }
+
+        [Fact]
+        public void GivenUnsupportedObservationChoice_ThenMixedWritesUnreadableOutputAndNativeRejects()
+        {
+            const string json = """{"resourceType":"Observation","id":"p","valueCode":"bogus"}""";
+            RawResource mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, true);
+
+            Assert.Equal("bogus", JsonNode.Parse(mixed.Data)["valueCode"].GetValue<string>());
+            Assert.Throws<StructuralTypeException>(() => ReadBack(mixed));
+            Assert.Contains("Observation.valueCode", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
         }
 
         [Fact]
         public void GivenGeneratedSchema_ThenFirelyMappingsCoverEveryCodeEnum()
         {
             IFhirSchemaProvider schema = _schemaContext.Schema;
-            var types = (IReadOnlyDictionary<string, IType>)schema.GetType().GetField("_types", BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic).GetValue(schema);
+            var types = SchemaTypes(schema);
             ModelInspector inspector = ModelInspector.ForAssembly(new VersionSpecificModelInfoProvider().GetTypeForFhirType("Patient").Assembly);
             Assert.Equal(
                 schema.Version switch
@@ -682,6 +870,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             Assert.True(enumCount > 0);
             Assert.Throws<InvalidOperationException>(() => FirelyCompatibleResourceJsonWriter.FindCodeEnums(inspector, "Patient.notARealBackbone"));
         }
+
+        private static IReadOnlyDictionary<string, IType> SchemaTypes(IFhirSchemaProvider schema)
+            => (IReadOnlyDictionary<string, IType>)schema.GetType().GetField("_types", BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic).GetValue(schema);
 
         private static string[] FormatRejects() =>
         [
@@ -841,6 +1032,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 }
 
                 Assert.True(mixedError is null && nativeError is null, $"{name}: IF={Describe(mixed, mixedError)}; II={Describe(native, nativeError)}");
+                Assert.Null(Record.Exception(() => ReadBack(native)));
+                Assert.Null(Record.Exception(() => ReadBack(mixed)));
                 var expected = JsonNode.Parse(mixed.Data);
                 var actual = JsonNode.Parse(native.Data);
                 NormalizeDifferentialLiterals(expected, actual, mapping: null, root: true, path: name);
@@ -856,6 +1049,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
 
         private static string Describe(RawResource result, Exception error)
             => error is null ? result.Data : $"{error.GetType().Name}: {error.Message}";
+
+        private static ResourceElement ReadBack(RawResource raw)
+            => new ResourceDeserializer((FhirResourceFormat.Json, (data, version, modified) =>
+            {
+                var resource = FirelyParser.Parse<Resource>(data);
+                resource.VersionId = version;
+                resource.Meta.LastUpdated = modified;
+                return resource.ToResourceElement();
+            })).DeserializeRaw(raw, "readback", PinnedNow);
 
 #if R4 || R4B
         private static void AssertExampleScenarioDiscriminatorDifference(JsonNode input, JsonNode expected, JsonNode actual)
