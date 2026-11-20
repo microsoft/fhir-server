@@ -480,17 +480,57 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         [Theory]
         [InlineData("  ")]
         [InlineData("\u00a0")]
-        public void GivenNonemptyBlankGender_ThenNativeKeepsLiteralThoughIgnixaToFirelyRejects(string literal)
+        [InlineData("bogus")]
+        public void GivenInvalidGender_ThenBothIgnixaImportPathsReject(string literal)
         {
             string token = JsonSerializer.Serialize(literal);
             string json = $$$"""{"resourceType":"Patient","id":"p","gender":{{{token}}}}""";
             using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
             {
                 Assert.Contains("AdministrativeGender", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true)).Message);
-                Assert.DoesNotContain("\"gender\"", ImportWrite(json, ImportMode.IncrementalLoad, native: false).Data);
-
-                Assert.Contains($"\"gender\":\"{literal}\"", ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data);
+                Assert.Contains("Patient.gender", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
             }
+        }
+
+        [Theory]
+        [InlineData(""" "gender":" male " """, """ {"gender":"male"} """)]
+        [InlineData(""" "photo":[{"contentType":""}] """, """ {"photo":[{"contentType":""}]} """)]
+        [InlineData(""" "maritalStatus":{"coding":[{"code":"  "}]} """, """ {"maritalStatus":{"coding":[{"code":""}]}} """)]
+        [InlineData(""" "birthDate":{"id":"inline"},"_birthDate":{"foo":"ignored"} """, """ {"_birthDate":{"id":"inline"}} """)]
+        [InlineData(""" "_birthDate":"2001-02-03" """, """ {"birthDate":"2001-02-03"} """)]
+        [InlineData(""" "_birthDate":123 """, """ {"birthDate":"123"} """)]
+        [InlineData(""" "name":[{"given":[{"id":"inline"},"b"],"_given":[{"foo":"ignored"},null]}] """, """ {"name":[{"given":[null,"b"],"_given":[{"id":"inline"},null]}]} """)]
+        [InlineData(""" "name":[{"given":[{"extension":[{"valueString":{},"_valueString":{"id":"x"}}]},"b",{"id":"c"}]}] """, """ {"name":[{"given":["b",null],"_given":[null,{"id":"c"}]}]} """)]
+        [InlineData(""" "contained":[{"resourceType":"Patient","id":"c","meta":{"lastUpdated":null,"_lastUpdated":{"id":"companion"}}}] """, """ {"contained":[{"resourceType":"Patient","id":"c","meta":{"_lastUpdated":{"id":"companion"}}}]} """)]
+        public void GivenPrimitiveBoundaryInput_ThenBothIgnixaWritersMatchExpectedFields(string input, string fields)
+        {
+            string json = $$$"""{"resourceType":"Patient","id":"p",{{{input}}}}""";
+            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
+            {
+                string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true).Data;
+                string native = ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data;
+                var expected = JsonNode.Parse(fields).AsObject();
+                var mixedFields = JsonNode.Parse(mixed).AsObject();
+                var nativeFields = JsonNode.Parse(native).AsObject();
+                foreach (string common in new[] { "resourceType", "id", "meta" })
+                {
+                    mixedFields.Remove(common);
+                    nativeFields.Remove(common);
+                }
+
+                Assert.True(JsonNode.DeepEquals(expected, mixedFields), mixed);
+                Assert.True(JsonNode.DeepEquals(expected, nativeFields), native);
+            }
+        }
+
+        [Theory]
+        [InlineData(""" "telecom":[{"system":"  "}] """, "ContactPointSystem", "Patient.telecom[0].system")]
+        [InlineData(""" "contact":[{"gender":"bogus"}] """, "AdministrativeGender", "Patient.contact[0].gender")]
+        public void GivenInvalidNestedCode_ThenBothIgnixaImportPathsReject(string input, string enumName, string path)
+        {
+            string json = $$$"""{"resourceType":"Patient","id":"p",{{{input}}}}""";
+            Assert.Contains(enumName, Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true)).Message);
+            Assert.Contains(path, Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
         }
 
         [Fact]
