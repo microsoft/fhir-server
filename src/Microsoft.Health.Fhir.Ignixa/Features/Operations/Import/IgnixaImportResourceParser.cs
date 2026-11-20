@@ -6,6 +6,7 @@
 using System;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using EnsureThat;
 using Ignixa.Abstractions;
 using Ignixa.Extensions.FirelySdk;
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
     /// Ignixa based implementation of <see cref="IImportResourceParser"/> that parses raw NDJSON
     /// resource content into <see cref="ImportResource"/> instances for the $import operation.
     /// </summary>
-    public sealed class IgnixaImportResourceParser : IImportResourceParser
+    public sealed partial class IgnixaImportResourceParser : IImportResourceParser
     {
         private const int MaxSoftDeleteExtensionRemovals = 1000;
 
@@ -226,16 +227,26 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
             if (!string.Equals(element.InstanceType, "date", StringComparison.Ordinal)
                 || !element.HasPrimitiveValue
                 || element.Meta<JsonPrimitiveValueNode>()?.Value is not JsonValue value
-                || !value.TryGetValue(out string literal)
-                || !FhirTemporal.TryParse(literal, FhirPrimitive.DateTime, out FhirTemporal dateTime)
-                || dateTime.Precision <= FhirTemporalPrecision.Day)
+                || !value.TryGetValue(out string literal))
             {
                 return false;
             }
 
-            value.ReplaceWith(JsonValue.Create(literal[..literal.IndexOf('T', StringComparison.Ordinal)]));
+            // Firely trims JSON strings before parsing. Do not change the stored text unless it is truncated.
+            ReadOnlySpan<char> trimmed = literal.AsSpan().Trim();
+            if (!FirelyDateTimeWithFullDateRegex().IsMatch(trimmed))
+            {
+                return false;
+            }
+
+            value.ReplaceWith(JsonValue.Create(trimmed[..10].ToString()));
             return true;
         }
+
+        // Firely's date coercion accepts hour and minute precision. FHIRPath literals such as @dateTime
+        // and time-only values are not input to that coercion.
+        [GeneratedRegex(@"\A[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}(?::[0-9]{2}(?::[0-9]{2}(?:\.[0-9]+)?)?)?(?:Z|[+-][0-9]{2}:[0-9]{2})?\z")]
+        private static partial Regex FirelyDateTimeWithFullDateRegex();
 
         /// <summary>
         /// Evaluates the same soft-delete predicate the Firely parser uses via <c>ResourceElement.IsSoftDeleted()</c>

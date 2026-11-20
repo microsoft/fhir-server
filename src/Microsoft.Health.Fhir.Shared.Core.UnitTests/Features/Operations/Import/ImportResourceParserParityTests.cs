@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
@@ -881,10 +882,30 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             }
         }
 
-        [Fact]
-        public async Task GivenDateTypedElementWithDateTime_WhenIgnixaParses_ThenTruncatedToDateLikeFirely()
+        [Theory]
+        [InlineData("2001-02-03T04:05:06Z", "2001-02-03")]
+        [InlineData("T04:05", null)]
+        [InlineData("T04:05:06Z", null)]
+        [InlineData("2001-02-03T04Z", "2001-02-03")]
+        [InlineData("2001-02-03T04:05Z", "2001-02-03")]
+        [InlineData("@2001-02-03T04:05:06Z", null)]
+        [InlineData("2001-02T04:05:06Z", null)]
+        [InlineData(" 2001-02-03T04:05:06Z", "2001-02-03")]
+        public async Task GivenBirthDateWithTime_WhenParsed_ThenMatchesFirelyTruncationOrPreservesRejectedLiteral(string literal, string expectedDate)
         {
-            const string json = """{"resourceType":"Patient","id":"patient-1","birthDate":"2001-02-03T04:05:06Z"}""";
+            string json = $$"""{"resourceType":"Patient","id":"patient-1","birthDate":"{{literal}}"}""";
+            if (expectedDate == null)
+            {
+                var captureOnlyFactory = Substitute.For<IResourceWrapperFactory>();
+                Assert.ThrowsAny<FormatException>(() =>
+                    CreateProductionFirelyParser(captureOnlyFactory).Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad));
+
+                // Inspect the native node before Firely conversion can change or reject the literal.
+                ResourceElement element = ParseCapturingElement(CreateIgnixaParser, captureOnlyFactory, json, ImportMode.IncrementalLoad).Element;
+                Assert.Equal(literal, GetNativeBirthDate(element));
+                return;
+            }
+
             var searchIndexer = new TypedElementSearchIndexer(
                 new SupportedSearchParameterDefinitionManager(await new SearchParameterFixtureData().GetSearchDefinitionManagerAsync()),
                 await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync(),
@@ -897,11 +918,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             (ImportResource firely, _) = ParseCapturingElement(CreateProductionFirelyParser, wrapperFactory, json, ImportMode.IncrementalLoad);
             (ImportResource ignixa, ResourceElement ignixaElement) = ParseCapturingElement(CreateIgnixaParser, wrapperFactory, json, ImportMode.IncrementalLoad);
 
-            ResourceJsonNode carrier = Assert.IsAssignableFrom<ResourceJsonNode>(ignixaElement.ResourceInstance);
-            JsonObject carriedJson = Assert.IsType<JsonObject>(carrier.ToSourceNavigator().Meta<JsonNode>());
-            Assert.Equal("2001-02-03", carriedJson["birthDate"].GetValue<string>());
-            Assert.Equal("2001-02-03", GetBirthDateIndexValue(ignixa));
-            Assert.Equal(GetBirthDateIndexValue(firely), GetBirthDateIndexValue(ignixa));
+            Assert.Equal(expectedDate, GetNativeBirthDate(ignixaElement));
+            Assert.Equal(expectedDate, JsonNode.Parse(firely.ResourceWrapper.RawResource.Data)["birthDate"].GetValue<string>());
+            Assert.Equal(expectedDate, JsonNode.Parse(ignixa.ResourceWrapper.RawResource.Data)["birthDate"].GetValue<string>());
+
+            DateTimeSearchValue firelyIndex = GetBirthDateIndexValue(firely);
+            DateTimeSearchValue ignixaIndex = GetBirthDateIndexValue(ignixa);
+            Assert.Equal(expectedDate, ignixaIndex.ToString());
+            Assert.Equal(firelyIndex.Start, ignixaIndex.Start);
+            Assert.Equal(firelyIndex.End, ignixaIndex.End);
         }
 
         private static ResourceWrapperFactory CreateWrapperFactory(ISearchIndexer searchIndexer)
@@ -943,8 +968,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             return (resource, element);
         }
 
-        private static string GetBirthDateIndexValue(ImportResource resource)
-            => Assert.Single(resource.ResourceWrapper.SearchIndices, entry => entry.SearchParameter.Code == "birthdate").Value.ToString();
+        private static string GetNativeBirthDate(ResourceElement element)
+        {
+            ResourceJsonNode carrier = Assert.IsAssignableFrom<ResourceJsonNode>(element.ResourceInstance);
+            JsonObject carriedJson = Assert.IsType<JsonObject>(carrier.ToSourceNavigator().Meta<JsonNode>());
+            return carriedJson["birthDate"].GetValue<string>();
+        }
+
+        private static DateTimeSearchValue GetBirthDateIndexValue(ImportResource resource)
+            => Assert.IsType<DateTimeSearchValue>(Assert.Single(resource.ResourceWrapper.SearchIndices, entry => entry.SearchParameter.Code == "birthdate").Value);
 
         private IImportResourceParser CreateIgnixaParser(IResourceWrapperFactory wrapperFactory)
             => new IgnixaImportResourceParser(wrapperFactory, _schemaContext, ResourceIdPolicy.Standard);
