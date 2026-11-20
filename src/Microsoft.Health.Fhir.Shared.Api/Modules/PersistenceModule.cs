@@ -4,9 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
@@ -65,6 +68,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     throw new InvalidOperationException($"Unsupported FHIR SDK provider for PersistenceWrite: {_fhirSdkProvider}.");
             }
 
+            services.AddHostedService<PersistenceWriterActivator>();
             services.AddScoped<IResourceWrapperFactory, ResourceWrapperFactory>();
 
             services.AddScoped<TransactionBundleValidator>();
@@ -73,6 +77,17 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddScoped<IDeletionService, DeletionService>();
 
             services.AddScoped<IBulkUpdateService, BulkUpdateService>();
+        }
+
+        private sealed class PersistenceWriterActivator(IServiceProvider services) : IHostedService
+        {
+            public Task StartAsync(CancellationToken cancellationToken)
+            {
+                services.GetRequiredService<IRawResourceFactory>();
+                return Task.CompletedTask;
+            }
+
+            public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
         }
     }
 }

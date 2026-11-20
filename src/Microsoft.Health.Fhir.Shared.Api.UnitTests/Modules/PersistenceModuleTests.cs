@@ -9,7 +9,6 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Modules;
 using Microsoft.Health.Fhir.Core;
@@ -64,6 +63,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
             CreatePersistenceModule(configuration).Load(services);
             using ServiceProvider provider = services.BuildServiceProvider();
             IRawResourceFactory writer = provider.GetRequiredService<IRawResourceFactory>();
+            Assert.IsType<IgnixaRawResourceFactory>(writer);
             var firely = new RawResourceFactory(new FhirJsonSerializer());
             var patient = new Patient { Id = "123", Meta = new Meta { VersionId = "7" } };
             patient.Name.Add(HumanName.ForFamily("García"));
@@ -86,10 +86,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
             using IHost host = new HostBuilder()
                 .ConfigureServices(services =>
                 {
-                    services.AddSingleton(Options.Create(configuration.CoreFeatures));
                     services.AddSingleton<IModelInfoProvider, VersionSpecificModelInfoProvider>();
                     services.AddSingleton<FhirJsonSerializer>(_ => throw activationFailure);
-                    new OperationsModule(configuration).Load(services);
                     CreatePersistenceModule(configuration).Load(services);
                 })
                 .Build();
