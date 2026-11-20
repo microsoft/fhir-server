@@ -49,6 +49,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
 
         private const string IndexedPatientJson = """{"resourceType":"Patient","id":"patient-2","identifier":[{"system":"http://example.org/mrn","value":"mrn-1"}],"name":[{"family":"Root","given":["Ada","Byron"]}],"address":[{"line":["1 Main St","Apt 2"],"city":"Seattle","postalCode":"98101"}]}""";
 
+        private const string CollectionBundleJson = """{"resourceType":"Bundle","id":"bundle-1","type":"collection","entry":[{"fullUrl":"urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-000000000001","resource":{"resourceType":"Organization","id":"org-1","name":"Bundled Org"}},{"fullUrl":"urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-000000000002","resource":{"resourceType":"Patient","id":"pat-1","managingOrganization":{"reference":"urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-000000000001"}}}]}""";
+
         private readonly IFhirPathProvider _originalAmbientProvider = FhirPathProvider.Instance;
         private readonly IModelInfoProvider _originalModelInfoProvider = ModelInfoProvider.Instance;
 
@@ -1055,13 +1057,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         [InlineData("resourceAndRootResource", "child", "patient", "%rootResource.extension.intersect($this).exists()")]
         [InlineData("resource", "child", "documentReference", "attachment.size = %resource.content.attachment.size")]
         [InlineData("resourceAndRootResource", "child", "documentReference", "%rootResource.content.attachment.size > 9")]
+        [InlineData("resource", "root", "bundle", "entry.resource.ofType(Patient).managingOrganization.resolve().name = 'Bundled Org'")]
+        [InlineData("resource", "root", "bundle", "%resource.type = 'collection'")]
+        [InlineData("resource", "root", "bundle", "entry.resource.ofType(Patient).where(%resource.entry.resource.ofType(Organization).id = 'org-1').exists()")]
+        [InlineData("resource", "root", "bundle", "entry.resource.ofType(Patient).managingOrganization.resolve().is(Organization)")]
+        [InlineData("resource", "root", "bundle", "entry.resource.ofType(Patient).select(%resource.type) = 'collection'")]
+        [InlineData("resourceAndRootResource", "root", "bundle", "entry.resource.ofType(Patient).managingOrganization.resolve().name = 'Bundled Org'")]
+        [InlineData("resourceAndRootResource", "root", "bundle", "%resource.type = 'collection'")]
+        [InlineData("resourceAndRootResource", "root", "bundle", "entry.resource.ofType(Patient).where(%resource.entry.resource.ofType(Organization).id = 'org-1').exists()")]
+        [InlineData("resourceAndRootResource", "root", "bundle", "entry.resource.ofType(Patient).managingOrganization.resolve().is(Organization)")]
+        [InlineData("resourceAndRootResource", "root", "bundle", "entry.resource.ofType(Patient).select(%resource.type) = 'collection'")]
         public void GivenNativeResourceInContext_WhenEvaluatedByIgnixa_ThenResultMatchesFirelyOverPoco(
             string contextShape,
             string inputKind,
             string resourceKind,
             string expression)
         {
-            string json = resourceKind == "patient" ? NativePatientWithExtensionJson : CreateDocumentReferenceJson();
+            string json = resourceKind switch
+            {
+                "patient" => NativePatientWithExtensionJson,
+                "documentReference" => CreateDocumentReferenceJson(),
+                "bundle" => CollectionBundleJson,
+                _ => throw new ArgumentOutOfRangeException(nameof(resourceKind), resourceKind, null),
+            };
             (ITypedElement pocoInput, EvaluationContext pocoContext) = CreateInputAndContext(ParsePocoResource(json), contextShape, inputKind);
             (ITypedElement nativeInput, EvaluationContext nativeContext) = CreateInputAndContext(ParseNativeResource(json), contextShape, inputKind);
 
