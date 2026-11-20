@@ -54,10 +54,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     break;
 
                 case FhirSdkProvider.Ignixa:
-                    services.AddSingleton<RawResourceFactory>();
                     services.TryAddSingleton<IgnixaSchemaContext>();
                     services.AddSingleton<IRawResourceFactory>(sp => new IgnixaRawResourceFactory(
-                        sp.GetRequiredService<RawResourceFactory>(),
+                        ActivatorUtilities.CreateInstance<RawResourceFactory>(sp),
                         sp.GetRequiredService<IgnixaSchemaContext>(),
                         sp.GetRequiredService<IModelInfoProvider>()));
                     break;

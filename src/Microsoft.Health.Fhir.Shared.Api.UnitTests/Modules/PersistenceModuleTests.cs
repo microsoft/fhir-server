@@ -4,12 +4,17 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Text;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Modules;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Ignixa;
@@ -17,6 +22,7 @@ using Microsoft.Health.Fhir.Ignixa.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
 {
@@ -46,6 +52,51 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Modules
             Assert.Single(services, descriptor => descriptor.ServiceType == typeof(IRawResourceFactory));
             Assert.IsType(expectedWriterType, writer);
             Assert.Same(writer, provider.GetRequiredService<IRawResourceFactory>());
+            Assert.Null(provider.GetService<RawResourceFactory>());
+        }
+
+        [Fact]
+        public void GivenFirelyPoco_WhenWrittenThroughIgnixa_ThenBytesMatchFirely()
+        {
+            var configuration = new FhirServerConfiguration();
+            configuration.CoreFeatures.FhirSdkProvider.PersistenceWrite = FhirSdkProvider.Ignixa;
+            ServiceCollection services = CreateServices();
+            CreatePersistenceModule(configuration).Load(services);
+            using ServiceProvider provider = services.BuildServiceProvider();
+            IRawResourceFactory writer = provider.GetRequiredService<IRawResourceFactory>();
+            var firely = new RawResourceFactory(new FhirJsonSerializer());
+            var patient = new Patient { Id = "123", Meta = new Meta { VersionId = "7" } };
+            patient.Name.Add(HumanName.ForFamily("García"));
+            ResourceElement carrier = patient.ToResourceElement();
+            byte[] expected = Encoding.UTF8.GetBytes(firely.Create(carrier, keepMeta: true, keepVersion: true).Data);
+
+            byte[] actual = Encoding.UTF8.GetBytes(writer.Create(carrier, keepMeta: true, keepVersion: true).Data);
+
+            Assert.Equal(expected, actual);
+        }
+
+        [Theory]
+        [InlineData(FhirSdkProvider.Firely)]
+        [InlineData(FhirSdkProvider.Ignixa)]
+        public async Task GivenWriterActivationFails_WhenHostStarts_ThenFailurePropagates(FhirSdkProvider persistenceWrite)
+        {
+            var configuration = new FhirServerConfiguration();
+            configuration.CoreFeatures.FhirSdkProvider.PersistenceWrite = persistenceWrite;
+            var activationFailure = new InvalidOperationException("Writer serializer activation failed.");
+            using IHost host = new HostBuilder()
+                .ConfigureServices(services =>
+                {
+                    services.AddSingleton(Options.Create(configuration.CoreFeatures));
+                    services.AddSingleton<IModelInfoProvider, VersionSpecificModelInfoProvider>();
+                    services.AddSingleton<FhirJsonSerializer>(_ => throw activationFailure);
+                    new OperationsModule(configuration).Load(services);
+                    CreatePersistenceModule(configuration).Load(services);
+                })
+                .Build();
+
+            var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => host.StartAsync(TestContext.Current.CancellationToken));
+
+            Assert.Same(activationFailure, failure);
         }
 
         [Theory]

@@ -9,6 +9,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -25,10 +26,13 @@ namespace Microsoft.Health.Fhir.Api.Modules
         /// </summary>
         /// <param name="configuration">The Core feature configuration.</param>
         /// <param name="logger">The startup logger.</param>
+        /// <param name="rawResourceFactory">The persistence writer to activate before starting hosted services.</param>
         public FhirSdkProviderStartupLogger(
             IOptions<CoreFeatureConfiguration> configuration,
-            ILogger<FhirSdkProviderStartupLogger> logger)
+            ILogger<FhirSdkProviderStartupLogger> logger,
+            IRawResourceFactory rawResourceFactory)
         {
+            _ = rawResourceFactory;
             _configuration = configuration.Value.FhirSdkProvider;
             _logger = logger;
         }
