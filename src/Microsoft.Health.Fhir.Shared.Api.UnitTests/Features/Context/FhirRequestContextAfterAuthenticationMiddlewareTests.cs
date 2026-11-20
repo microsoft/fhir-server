@@ -39,7 +39,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         private static IPartitionManager CreatePartitionManager()
         {
             var manager = Substitute.For<IPartitionManager>();
-            manager.Partitions.Returns(new HashSet<IPartitionInfo>());
             return manager;
         }
 

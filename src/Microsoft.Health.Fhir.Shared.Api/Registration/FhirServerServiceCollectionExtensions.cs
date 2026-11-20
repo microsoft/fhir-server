@@ -83,7 +83,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddOptions<MvcOptions>().Configure<IPartitionManager>((options, partitions) =>
             {
-                if (partitions.Partitions.Count > 0)
+                if (partitions.GetPartitionCount() > 0)
                 {
                     options.Conventions.Add(new PartitionRouteConvention());
                 }

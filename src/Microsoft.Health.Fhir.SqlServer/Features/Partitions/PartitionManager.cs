@@ -24,11 +24,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Partitions
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             configuration.Value.Validate();
             _databases = configuration.Value.Partitions.ToFrozenDictionary(partition => partition.Id, partition => partition, StringComparer.Ordinal);
-            Partitions = (IReadOnlySet<IPartitionInfo>)configuration.Value.Partitions.AsReadOnly();
         }
 
         /// <inheritdoc />
-        public IReadOnlySet<IPartitionInfo> Partitions { get; }
+        public bool TryGetPartition(string partitionId, out IPartitionInfo partitionInfo) => _databases.TryGetValue(partitionId, out var partition) ? (partitionInfo = partition) != null : (partitionInfo = null) != null;
+
+        public int GetPartitionCount() => _databases.Count;
 
         /// <summary>Finds the database for a configured partition.</summary>
         public bool TryGetDatabaseName(string partitionId, out string databaseName) => _databases.TryGetValue(partitionId, out var partition) ? (databaseName = partition.DatabaseName) != null : (databaseName = null) != null;

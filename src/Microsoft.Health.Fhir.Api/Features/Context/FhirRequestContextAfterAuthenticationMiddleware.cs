@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             // without revealing whether a partition exists.
 
             var endpoint = context.GetEndpoint();
-            if (_partitionManager.Partitions.Count > 0
+            if (_partitionManager.GetPartitionCount() > 0
                 && (!_securityConfiguration.Enabled || context.User?.Identity?.IsAuthenticated == true || endpoint?.Metadata.GetMetadata<AllowAnonymousAttribute>() != null)
                 && endpoint?.Metadata.GetMetadata<PartitionIndependentAttribute>() == null)
             {
@@ -72,12 +72,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 bool partitionRequired;
                 if (partitionId != null)
                 {
-                    partitionInfo = _partitionManager.Partitions.FirstOrDefault(partition => partition.Id == partitionId);
+                    partitionInfo = _partitionManager.TryGetPartition(partitionId, out var partition) ? partition : null;
                     partitionRequired = partitionInfo == null;
                 }
-                else if (_partitionManager.Partitions.Count == 1)
+                else if (_partitionManager.GetPartitionCount() == 1)
                 {
-                    partitionInfo = _partitionManager.Partitions.Single();
+                    partitionInfo = null;
                     partitionRequired = false;
                 }
                 else

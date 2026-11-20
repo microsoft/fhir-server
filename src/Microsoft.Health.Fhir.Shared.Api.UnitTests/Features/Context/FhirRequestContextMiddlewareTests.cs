@@ -246,12 +246,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         private static IPartitionManager CreatePartitionManager(params string[] ids)
         {
             var manager = Substitute.For<IPartitionManager>();
-            manager.Partitions.Returns(new HashSet<IPartitionInfo>(ids.Select(id =>
+            manager.TryGetPartition(Arg.Any<string>(), out Arg.Any<IPartitionInfo>()).Returns(callInfo =>
+            {
+                var partitionId = callInfo.Arg<string>();
+                if (ids.Contains(partitionId))
                 {
                     var partition = Substitute.For<IPartitionInfo>();
-                    partition.Id.Returns(id);
-                    return partition;
-                })));
+                    partition.Id.Returns(partitionId);
+                    callInfo[1] = partition;
+                    return true;
+                }
+
+                callInfo[1] = null;
+                return false;
+            });
             return manager;
         }
 

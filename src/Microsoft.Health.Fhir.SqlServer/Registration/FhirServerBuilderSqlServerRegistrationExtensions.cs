@@ -15,6 +15,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Health;
 using Microsoft.Health.Encryption.Customer.Health;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Health;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -57,12 +58,13 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             IServiceCollection services = fhirServerBuilder.Services;
 
-            services.Add(provider =>
+            services.AddSingleton(provider =>
                 {
-                    var configuration = new PartitionConfiguration();
-                    provider.GetRequiredService<IConfiguration>().GetSection("FhirSqlSettings:PartitionConfiguration").Bind(configuration);
-                    return new PartitionManager(Options.Options.Create(configuration));
-                })
+                    var config = new PartitionConfiguration();
+                    provider.GetRequiredService<IConfiguration>().GetSection("FhirSqlSettings:PartitionConfiguration").Bind(config);
+                    return Options.Options.Create(config);
+                });
+            services.Add<PartitionManager>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();

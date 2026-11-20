@@ -487,7 +487,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             }
 
             var manager = Substitute.For<IPartitionManager>();
-            manager.Partitions.Returns(ids);
+            manager.TryGetPartition(Arg.Any<string>(), out Arg.Any<IPartitionInfo>()).Returns(callInfo =>
+            {
+                var partitionId = callInfo.Arg<string>();
+                if (ids.Any(id => id.Id == partitionId))
+                {
+                    var partition = ids.First(id => id.Id == partitionId);
+                    callInfo[1] = partition;
+                    return true;
+                }
+
+                callInfo[1] = null;
+                return false;
+            });
+
             IConfiguration configuration = new ConfigurationBuilder().Build();
             return new HostBuilder().ConfigureWebHost(builder => builder.UseTestServer()
                 .ConfigureServices(services =>

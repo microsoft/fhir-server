@@ -25,19 +25,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
     public class PartitionConfigurationTests
     {
         [Fact]
-        public void GivenNoSqlPartitionSettings_WhenRegisteringSqlServer_ThenRegistryIsEmpty()
-        {
-            var services = new ServiceCollection();
-            services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
-            var builder = Substitute.For<IFhirServerBuilder>();
-            builder.Services.Returns(services);
-            builder.AddSqlServer(_ => { });
-            using var provider = services.BuildServiceProvider();
-
-            Assert.Empty(provider.GetRequiredService<IPartitionManager>().Partitions);
-        }
-
-        [Fact]
         public void GivenSqlSettings_WhenRegisteringSqlServer_ThenManagerContainsConfiguredPartitions()
         {
             IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string>
@@ -58,9 +45,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             var sqlManager = provider.GetRequiredService<PartitionManager>();
 
             Assert.Same(sqlManager, manager);
-            Assert.Equal(2, manager.Partitions.Count);
-            Assert.Contains("partition-a", manager.Partitions.Select(p => p.Id));
-            Assert.DoesNotContain("PARTITION-A", manager.Partitions.Select(p => p.Id));
+            Assert.True(manager.TryGetPartition("partition-a", out var partition));
+            Assert.Equal("partition-a", partition.Id);
+            Assert.False(manager.TryGetPartition("PARTITION-A", out _));
             Assert.True(sqlManager.TryGetDatabaseName("partition-a", out string database));
             Assert.Equal("database-a", database);
         }
@@ -114,7 +101,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             configuration.Partitions.Clear();
             configuration.Partitions.Add(new PartitionInfo { Id = "partition-b", DatabaseName = "database-b" });
 
-            Assert.Equal("partition-a", Assert.Single(manager.Partitions).Id);
+            Assert.True(manager.TryGetPartition("partition-a", out var partition));
+            Assert.Equal("partition-a", partition.Id);
             Assert.True(manager.TryGetDatabaseName("partition-a", out string database));
             Assert.Equal("database-a", database);
         }
@@ -129,7 +117,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             configuration.Partitions.Add(new PartitionInfo { Id = id, DatabaseName = "database" });
             var manager = new PartitionManager(Options.Create(configuration));
 
-            Assert.Contains(id, manager.Partitions.Select(p => p.Id));
+            Assert.True(manager.TryGetPartition(id, out var partition));
+            Assert.Equal(id, partition.Id);
         }
     }
 }

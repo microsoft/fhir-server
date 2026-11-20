@@ -257,7 +257,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
             EnsureArg.IsNotNull(action, nameof(action));
             EnsureArg.IsNotNull(logger, nameof(logger));
-            var databaseTarget = _fhirRequestContextAccessor?.RequestContext?.GetDatabaseNameFormatter() ?? SqlObjectNameFormatter.ApplicationDatabase;
+            var databaseTarget = _fhirRequestContextAccessor.RequestContext?.GetDatabaseNameFormatter() ?? SqlObjectNameFormatter.ApplicationDatabase;
             databaseTarget.PrepareCommand(sqlCommand);
             if (logMessage == null)
             {

@@ -13,8 +13,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Partitions
     public interface IPartitionManager
     {
         /// <summary>
-        /// Gets the supported case-sensitive partition identifiers.
+        /// Gets the partition by its identifier.
         /// </summary>
-        IReadOnlySet<IPartitionInfo> Partitions { get; }
+        bool TryGetPartition(string partitionId, out IPartitionInfo partitionInfo);
+
+        int GetPartitionCount();
     }
 }
