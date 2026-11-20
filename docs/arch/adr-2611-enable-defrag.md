@@ -54,18 +54,18 @@ aborted and must be started again.
 
 Both strategies will remain available through the existing setting. In-place reorganization remains the default; rebuilding is an explicit option when its 
 potential compaction benefits justify its higher resource and temporary-space cost. Resumable rebuilds are separately opt-in through 
-`Defrag.IndexRebuild.IsResumable`. On a subsequent watchdog run, `DefragWatchdog` will detect resumable rebuilds left paused after command cancellation 
+`Defrag.IndexRebuild.IsResumable`. When defrag is enabled, a subsequent watchdog run will detect resumable rebuilds left paused after command cancellation 
 and issue `ALTER INDEX ... RESUME` before starting duplicate work. The same blocking detection and stop behavior must apply to either strategy.
 
-If case defrag run is not completed or cancelled, and watchdog is later disabled, not completed resumable indexes might remain in the database. In this case
-disabled defrag watchdog should still abort the resumable rebuilds.
+When `Defrag.IsEnabled` is false, the watchdog must still run cleanup for paused resumable rebuilds left by an earlier run. In this cleanup-only mode, it will abort 
+those operations rather than resume them, then exit without starting new defrag work.
 
 Default value for threshold is 1 second. It should be verified during implementation and testing and changed if necessary.
 
 Default fragmentation value triggering defrag is 10%. It should be verified during implementation and testing and changed if necessary.
 
 Integration tests should verify watchdog-initiated cancellation of defrag for a blocked read and write request, pause and later 
-resume of a resumable rebuild, and completion of the queued statistics operation.
+resume of a resumable rebuild when enabled, abort of paused resumable rebuilds when disabled, and completion of the queued statistics operation.
 
 ## Consequences
 
