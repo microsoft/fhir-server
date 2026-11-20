@@ -4,9 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Ignixa.Extensions.FirelySdk;
@@ -532,6 +537,221 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             Assert.Contains(enumName, Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true)).Message);
             Assert.Contains(path, Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
         }
+
+#if R4 || Stu3
+        public static IEnumerable<object[]> DifferentialCorpus()
+        {
+#if R4
+            const string version = "R4";
+#else
+            const string version = "Stu3";
+#endif
+            var assembly = typeof(EmbeddedResourceManager).Assembly;
+            string prefix = $"{typeof(EmbeddedResourceManager).Namespace}.TestFiles.{version}.";
+            foreach (string name in assembly.GetManifestResourceNames().Order(StringComparer.Ordinal))
+            {
+                if (!name.StartsWith(prefix, StringComparison.Ordinal) || !name.EndsWith(".json", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                using var reader = new StreamReader(assembly.GetManifestResourceStream(name));
+                string json = reader.ReadToEnd();
+                if (IsSingleResource(json))
+                {
+                    yield return new object[] { name[prefix.Length..], json, ImportMode.IncrementalLoad };
+                }
+            }
+
+            int row = 0;
+            foreach (var item in ImportResourceParserParityTests.AcceptedParityCorpus)
+            {
+                yield return new object[] { $"handwritten-{++row}", item.Data.Item1, item.Data.Item2 };
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(DifferentialCorpus), DisableDiscoveryEnumeration = true)]
+        public void GivenDifferentialCorpus_ThenNativeMatchesIgnixaParserWithFirelyWriter(string name, string json, ImportMode mode)
+            => AssertIgnixaWriteParity(name, json, mode);
+
+        private static bool IsSingleResource(string json)
+        {
+            try
+            {
+                return JsonNode.Parse(json) is JsonObject node
+                    && node["resourceType"] is JsonValue type
+                    && type.TryGetValue<string>(out string name)
+                    && name.Length > 0;
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
+        }
+
+        private void AssertIgnixaWriteParity(string name, string json, ImportMode mode)
+        {
+            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
+            {
+                RawResource mixed = null;
+                RawResource native = null;
+                Exception mixedError = Record.Exception(() => mixed = ImportWrite(json, mode, _firely, useIgnixaParser: true));
+                Exception nativeError = Record.Exception(() => native = ImportWrite(json, mode, native: true));
+                Assert.True((mixedError is null) == (nativeError is null), $"{name}: IF={Describe(mixed, mixedError)}; II={Describe(native, nativeError)}");
+                if (mixedError is null)
+                {
+                    var expected = JsonNode.Parse(mixed.Data);
+                    var actual = JsonNode.Parse(native.Data);
+                    NormalizeDifferentialLiterals(expected, actual, mapping: null, root: true);
+#if R4
+                    if (name == "examplescenario-example.json")
+                    {
+                        AssertExampleScenarioDiscriminatorDifference(JsonNode.Parse(json), expected, actual);
+                    }
+#endif
+                    Assert.True(JsonNode.DeepEquals(expected, actual), $"{name}: {FirstDifference(expected, actual, "$")}");
+                }
+            }
+        }
+
+        private static string Describe(RawResource result, Exception error)
+            => error is null ? result.Data : $"{error.GetType().Name}: {error.Message}";
+
+#if R4
+        private static void AssertExampleScenarioDiscriminatorDifference(JsonNode input, JsonNode expected, JsonNode actual)
+        {
+            JsonArray instances = input["instance"].AsArray();
+            Assert.Equal(instances.Count, expected["instance"].AsArray().Count);
+            Assert.Equal(instances.Count, actual["instance"].AsArray().Count);
+            for (int i = 0; i < instances.Count; i++)
+            {
+                var ifInstance = expected["instance"][i].AsObject();
+                var iiInstance = actual["instance"][i].AsObject();
+                Assert.False(ifInstance.ContainsKey("resourceType"), $"IF unexpectedly kept instance[{i}].resourceType");
+                Assert.Equal(instances[i]["resourceType"].GetValue<string>(), iiInstance["resourceType"].GetValue<string>());
+                iiInstance.Remove("resourceType");
+            }
+        }
+#endif
+
+        private static void NormalizeDifferentialLiterals(JsonNode expected, JsonNode actual, ClassMapping mapping, bool root = false, bool rootMeta = false)
+        {
+            if (expected is JsonObject left && actual is JsonObject right)
+            {
+                if ((root || mapping?.NativeType == typeof(Resource) || mapping?.NativeType == typeof(DomainResource))
+                    && TryGetText(left["resourceType"], out string resourceType))
+                {
+                    mapping = ModelInfo.ModelInspector.FindClassMapping(resourceType);
+                }
+
+                foreach ((string key, JsonNode value) in left)
+                {
+                    ClassMapping child = FindCorpusChild(mapping, key);
+                    if (TryGetText(value, out string leftText) && TryGetText(right[key], out string rightText)
+                        && EquivalentLiteral(leftText, rightText, child?.NativeType, rootMeta && key == "lastUpdated"))
+                    {
+                        right[key] = leftText;
+                    }
+                    else
+                    {
+                        NormalizeDifferentialLiterals(value, right[key], child, rootMeta: root && key == "meta");
+                    }
+                }
+            }
+            else if (expected is JsonArray leftItems && actual is JsonArray rightItems && leftItems.Count == rightItems.Count)
+            {
+                for (int i = 0; i < leftItems.Count; i++)
+                {
+                    if (TryGetText(leftItems[i], out string leftText) && TryGetText(rightItems[i], out string rightText)
+                        && EquivalentLiteral(leftText, rightText, mapping?.NativeType, rootLastUpdated: false))
+                    {
+                        rightItems[i] = leftText;
+                    }
+                    else
+                    {
+                        NormalizeDifferentialLiterals(leftItems[i], rightItems[i], mapping);
+                    }
+                }
+            }
+        }
+
+        private static ClassMapping FindCorpusChild(ClassMapping parent, string key)
+        {
+            if (parent is null)
+            {
+                return null;
+            }
+
+            var property = parent.FindMappedElementByName(key.TrimStart('_'));
+            if (property is not null)
+            {
+                return property.PropertyTypeMapping;
+            }
+
+            if (!key.StartsWith('_') && parent.PropertyMappings.FirstOrDefault(p => p.Choice == ChoiceType.DatatypeChoice
+                && key.Length > p.Name.Length && key.StartsWith(p.Name, StringComparison.Ordinal)) is { } choice)
+            {
+                string suffix = key[choice.Name.Length..];
+                return ModelInfo.ModelInspector.FindClassMapping(suffix)
+                    ?? ModelInfo.ModelInspector.FindClassMapping(char.ToLowerInvariant(suffix[0]) + suffix[1..]);
+            }
+
+            return null;
+        }
+
+        private static bool EquivalentLiteral(string expected, string actual, Type kind, bool rootLastUpdated)
+        {
+            if (expected == actual)
+            {
+                return false;
+            }
+
+            if (kind == typeof(Instant))
+            {
+                return !rootLastUpdated
+                    && DateTimeOffset.TryParse(expected, CultureInfo.InvariantCulture, DateTimeStyles.None, out var left)
+                    && DateTimeOffset.TryParse(actual, CultureInfo.InvariantCulture, DateTimeStyles.None, out var right)
+                    && left.EqualsExact(right);
+            }
+
+            return kind == typeof(Base64Binary)
+                ? expected == new string(actual.Where(c => c is not (' ' or '\t' or '\r' or '\n')).ToArray())
+                : (kind == typeof(FhirString) || kind == typeof(Markdown) || kind == typeof(XHtml)) && expected == actual.Trim();
+        }
+
+        private static bool TryGetText(JsonNode node, out string text)
+        {
+            text = null;
+            return node is JsonValue value && value.TryGetValue(out text);
+        }
+
+        private static string FirstDifference(JsonNode expected, JsonNode actual, string path)
+        {
+            if (expected is JsonObject left && actual is JsonObject right)
+            {
+                foreach (string key in left.Select(pair => pair.Key).Union(right.Select(pair => pair.Key)))
+                {
+                    if (left.ContainsKey(key) != right.ContainsKey(key) || !JsonNode.DeepEquals(left[key], right[key]))
+                    {
+                        return FirstDifference(left[key], right[key], $"{path}.{key}");
+                    }
+                }
+            }
+            else if (expected is JsonArray leftItems && actual is JsonArray rightItems && leftItems.Count == rightItems.Count)
+            {
+                for (int i = 0; i < leftItems.Count; i++)
+                {
+                    if (!JsonNode.DeepEquals(leftItems[i], rightItems[i]))
+                    {
+                        return FirstDifference(leftItems[i], rightItems[i], $"{path}[{i}]");
+                    }
+                }
+            }
+
+            return $"{path}: IF={expected?.ToJsonString() ?? "(absent or null)"}; II={actual?.ToJsonString() ?? "(absent or null)"}";
+        }
+#endif
 
         [Fact]
         public void GivenEmptyGender_ThenBothIgnixaImportPathsReject()
