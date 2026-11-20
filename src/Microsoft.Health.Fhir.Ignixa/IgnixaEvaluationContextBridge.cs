@@ -51,17 +51,61 @@ namespace Microsoft.Health.Fhir.Ignixa
 
             context.Resource ??= GetResource(input);
             context.RootResource ??= GetRootResource(input);
-            var ignixaInput = input.ToIgnixaElement();
 
+            return Create(input.ToIgnixaElement(), ToFirelySemanticElement(context.Resource), ToFirelySemanticElement(context.RootResource), context);
+        }
+
+        /// <summary>
+        /// Determines whether <paramref name="input"/> is a native Ignixa resource root that can be evaluated without a
+        /// <see cref="ScopedNode"/>. This is taken automatically when the context Resource wraps that root, as
+        /// the search indexer and <c>ResourceElement</c> provide, and RootResource is absent, the same root, or a
+        /// <see cref="ScopedNode"/> over it. Descendants selected from the unscoped focus carry no
+        /// <see cref="ScopedNode"/> ancestry, so callers must pass that context when they re-evaluate them.
+        /// </summary>
+        /// <param name="input">The element passed to the compiled expression.</param>
+        /// <param name="context">The caller-supplied Firely context, or <see langword="null"/>.</param>
+        /// <returns><see langword="true"/> if <paramref name="input"/> can be evaluated without a <see cref="ScopedNode"/>.</returns>
+        internal bool IsIndexedResourceRoot(ITypedElement input, FirelyEvaluationContext context)
+        {
+            IElement root = input is TypedElementAdapter ? input.ToIgnixaElement() : null;
+            return root is not (null or IgnixaElementAdapter)
+                && string.Equals(root.Location, root.InstanceType, StringComparison.Ordinal)
+                && _schemaContext.IsResourceType(root.InstanceType)
+                && ReferenceEquals(context?.Resource?.ToIgnixaElement(), root)
+                && (context.RootResource is null
+                    || ReferenceEquals(context.RootResource.ToIgnixaElement(), root)
+                    || (context.RootResource is ScopedNode scopedRoot && ReferenceEquals(scopedRoot.Current.ToIgnixaElement(), root)));
+        }
+
+        /// <summary>
+        /// Creates an Ignixa context for an input accepted by <see cref="IsIndexedResourceRoot"/>.
+        /// Sets <paramref name="context"/> RootResource to a <see cref="ScopedNode"/> over <paramref name="originalInput"/>
+        /// when it is null, as the scoped path does. Resource, and RootResource when it is the same root, are bound to
+        /// <paramref name="contextNode"/>.
+        /// </summary>
+        /// <param name="originalInput">The element passed to the compiled expression.</param>
+        /// <param name="contextNode">The Ignixa element the expression is evaluated on.</param>
+        /// <param name="context">The caller-supplied Firely context.</param>
+        /// <returns>The translated context.</returns>
+        internal EvaluationContext CreateForIndexedResourceRoot(ITypedElement originalInput, IElement contextNode, FirelyEvaluationContext context)
+        {
+            context.RootResource ??= originalInput.ToScopedNode();
+            IElement rootResource = context.RootResource is ScopedNode ? ToFirelySemanticElement(context.RootResource) : contextNode;
+
+            return Create(contextNode, contextNode, rootResource, context);
+        }
+
+        private IgnixaFhirEvaluationContext Create(IElement contextNode, IElement resource, IElement rootResource, FirelyEvaluationContext context)
+        {
             IgnixaFhirEvaluationContext result = new()
             {
                 Schema = _schemaContext.Schema,
                 InstanceCreator = _instanceCreator,
-                ContextNode = ignixaInput,
-                Resource = context.Resource?.ToIgnixaElement(),
-                RootResource = context.RootResource?.ToIgnixaElement(),
+                ContextNode = contextNode,
+                Resource = resource,
+                RootResource = rootResource,
                 ElementResolver = context is FirelyFhirEvaluationContext fhirContext && fhirContext.ElementResolver is not null
-                    ? reference => fhirContext.ElementResolver(reference)?.ToIgnixaElement()
+                    ? reference => ToFirelySemanticElement(fhirContext.ElementResolver(reference))
                     : null,
             };
 
@@ -71,12 +115,20 @@ namespace Microsoft.Health.Fhir.Ignixa
                 {
                     Environment = result.Environment.SetItem(
                         variable.Key,
-                        variable.Value.Select(element => element.ToIgnixaElement()).ToImmutableList()),
+                        variable.Value.Select(ToFirelySemanticElement).ToImmutableList()),
                 };
             }
 
             return result;
         }
+
+        private static IElement ToFirelySemanticElement(ITypedElement element)
+            => element switch
+            {
+                null => null,
+                TypedElementAdapter => new IgnixaElementAdapter(element),
+                _ => element.ToIgnixaElement(),
+            };
 
         private static ScopedNode GetResource(ScopedNode input)
             => input.AtResource ? input : input.ParentResource;

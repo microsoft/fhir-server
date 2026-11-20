@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Frozen;
 using Ignixa.Abstractions;
 using Ignixa.Specification.Generated;
 using Microsoft.Health.Fhir.Core.Models;
@@ -16,6 +17,8 @@ namespace Microsoft.Health.Fhir.Ignixa
     /// </summary>
     public sealed class IgnixaSchemaContext
     {
+        private readonly FrozenSet<string> _resourceTypeNames;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="IgnixaSchemaContext"/> class.
         /// </summary>
@@ -25,12 +28,21 @@ namespace Microsoft.Health.Fhir.Ignixa
             ArgumentNullException.ThrowIfNull(modelInfoProvider);
 
             Schema = GetSchemaProvider(modelInfoProvider.Version);
+            _resourceTypeNames = modelInfoProvider.GetResourceTypeNames().ToFrozenSet(StringComparer.Ordinal);
         }
 
         /// <summary>
         /// Gets the generated Ignixa schema for the current FHIR version, including reference metadata.
         /// </summary>
         public IFhirSchemaProvider Schema { get; }
+
+        /// <summary>
+        /// Determines whether <paramref name="typeName"/> is, with exact casing, a resource type the server supports for the current FHIR version.
+        /// </summary>
+        /// <param name="typeName">The FHIR type name.</param>
+        /// <returns><see langword="true"/> if the type is a known resource type; otherwise <see langword="false"/>.</returns>
+        internal bool IsResourceType(string typeName)
+            => _resourceTypeNames.Contains(typeName);
 
         private static IFhirSchemaProvider GetSchemaProvider(FhirSpecification version)
         {

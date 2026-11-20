@@ -10,6 +10,9 @@ using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Ignixa.Extensions.FirelySdk;
+using Ignixa.Serialization;
+using Ignixa.Serialization.SourceNodes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -38,16 +41,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
     [Collection(FhirPathProviderTestCollection.Name)]
     public class FhirPathProviderTests : IDisposable
     {
+        private const string NativePatientJson = """{"resourceType":"Patient","id":"patient-1","contained":[{"resourceType":"Organization","id":"org-contained","name":"Contained"}],"name":[{"family":"Root"}],"generalPractitioner":[{"reference":"Practitioner/practitioner-1"}],"managingOrganization":{"reference":"#org-contained"}}""";
+
+        private const string NativePatientWithExtensionJson = """{"resourceType":"Patient","id":"patient-1","extension":[{"url":"http://example.org/ext","valueString":"x"}]}""";
+
+        private const string IndexedObservationJson = """{"resourceType":"Observation","id":"obs-1","identifier":[{"system":"http://example.org/obs","value":"obs-id-1"}],"status":"final","code":{"coding":[{"system":"http://loinc.org","code":"8867-4","display":"Heart rate"}],"text":"Heart rate"},"effectivePeriod":{"start":"2020-01-01T00:00:00Z","end":"2020-01-02T00:00:00Z"},"performer":[{"reference":"Practitioner/practitioner-1"}],"valueQuantity":{"value":72.5,"unit":"beats/minute","system":"http://unitsofmeasure.org","code":"/min"}}""";
+
+        private const string IndexedPatientJson = """{"resourceType":"Patient","id":"patient-2","identifier":[{"system":"http://example.org/mrn","value":"mrn-1"}],"name":[{"family":"Root","given":["Ada","Byron"]}],"address":[{"line":["1 Main St","Apt 2"],"city":"Seattle","postalCode":"98101"}]}""";
+
+        private const string CollectionBundleJson = """{"resourceType":"Bundle","id":"bundle-1","type":"collection","entry":[{"fullUrl":"urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-000000000001","resource":{"resourceType":"Organization","id":"org-1","name":"Bundled Org"}},{"fullUrl":"urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-000000000002","resource":{"resourceType":"Patient","id":"pat-1","managingOrganization":{"reference":"urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-000000000001"}}}]}""";
+
+        private const string UnknownReferenceBundleJson = """{"resourceType":"Bundle","id":"bundle-2","type":"collection","entry":[{"fullUrl":"urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-000000000001","resource":{"resourceType":"Organization","id":"org-1","name":"Bundled Org"}},{"fullUrl":"urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-000000000003","resource":{"resourceType":"Patient","id":"pat-2","managingOrganization":{"reference":"urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-0000000000ff"}}}]}""";
+
+        private const string ComponentObservationJson = """{"resourceType":"Observation","id":"obs-2","status":"final","code":{"coding":[{"system":"http://loinc.org","code":"85354-9"}]},"component":[{"code":{"coding":[{"system":"http://loinc.org","code":"8480-6"}]},"valueQuantity":{"value":120,"unit":"mm[Hg]","system":"http://unitsofmeasure.org","code":"mm[Hg]"}}]}""";
+
+#if Stu3
+        private const string VariantSequenceJson = """{"resourceType":"Sequence","id":"ms-1","type":"dna","coordinateSystem":0,"referenceSeq":{"chromosome":{"coding":[{"system":"http://terminology.hl7.org/CodeSystem/chromosome-human","code":"1"}]},"genomeBuild":"GRCh38","referenceSeqId":{"coding":[{"system":"http://www.ncbi.nlm.nih.gov/nuccore","code":"NC_000001.11"}]}},"variant":[{"start":100,"end":101}]}""";
+#elif R4 || R4B
+        private const string VariantSequenceJson = """{"resourceType":"MolecularSequence","id":"ms-1","type":"dna","coordinateSystem":0,"referenceSeq":{"chromosome":{"coding":[{"system":"http://terminology.hl7.org/CodeSystem/chromosome-human","code":"1"}]},"genomeBuild":"GRCh38","referenceSeqId":{"coding":[{"system":"http://www.ncbi.nlm.nih.gov/nuccore","code":"NC_000001.11"}]}},"variant":[{"start":100,"end":101}]}""";
+#endif
+
         private readonly IFhirPathProvider _originalAmbientProvider = FhirPathProvider.Instance;
         private readonly IModelInfoProvider _originalModelInfoProvider = ModelInfoProvider.Instance;
 
         public FhirPathProviderTests()
         {
-            // Other classes in this assembly (e.g. VectorSearchExpressionParserTests) install a mock process-wide
-            // ModelInfoProvider and never restore it. Production code exercised here reads that global internally
-            // (ReferenceSearchValue, ReferenceSearchValueParser, MoneyToQuantitySearchValueConverter), so a local
-            // provider is not enough: install the real one for each test and restore the previous one in Dispose.
-            // This collection disables parallelization, so no other test observes the swap.
+            // Production code exercised here reads the process-wide ModelInfoProvider internally (ReferenceSearchValue,
+            // ReferenceSearchValueParser, MoneyToQuantitySearchValueConverter), and other classes may leave a mock
+            // installed, so install the real one for each test and restore the previous one in Dispose. This collection
+            // disables parallelization, as does VectorSearchExpressionParserTests' ModelInfoProviderSerialCollection,
+            // so no other test observes the swap.
             ModelExtensions.SetModelInfoProvider();
         }
 
@@ -744,8 +767,476 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             Assert.Equal("Demo", Assert.IsType<StringSearchValue>(Assert.Single(value.Components[1])).String);
         }
 
+        [Theory]
+        [InlineData("%resource.id")]
+        [InlineData("%rootResource.id")]
+        [InlineData("%context.name.family")]
+        [InlineData("generalPractitioner.resolve().id")]
+        [InlineData("managingOrganization.resolve().name")]
+        public void GivenNativeRoot_ThenResourceAndRootResourceMatchScopedPath(string expression)
+        {
+            ICompiledFhirPath compiled = CreateIgnixaProvider().Compile(expression);
+            ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
+            ITypedElement pocoRoot = ParsePocoResource(NativePatientJson);
+            EvaluationContext nativeContext = CreateNativeRootContext(nativeRoot);
+            bool isIndexedResourceRoot = CreateIgnixaBridge().IsIndexedResourceRoot(nativeRoot, nativeContext);
+
+            string[] nativeValues = Normalize(compiled.Select(nativeRoot, nativeContext));
+            string[] pocoValues = Normalize(compiled.Select(pocoRoot, CreateNativeRootContext(pocoRoot)));
+
+            Assert.True(isIndexedResourceRoot);
+            Assert.NotEmpty(pocoValues);
+            Assert.Equal(pocoValues, nativeValues);
+        }
+
+        [Fact]
+        public void GivenNativeRootWithIndexerContextShape_WhenSelecting_ThenRootResourceIsScopedNodeAndFastPathIsKept()
+        {
+            ICompiledFhirPath compiled = CreateIgnixaProvider().Compile("id");
+            ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
+            EvaluationContext context = CreateNativeRootContext(nativeRoot);
+            IgnixaEvaluationContextBridge bridge = CreateIgnixaBridge();
+
+            _ = compiled.Select(nativeRoot, context).ToArray();
+            bool isIndexedResourceRootAfterFirstSelect = bridge.IsIndexedResourceRoot(nativeRoot, context);
+            _ = compiled.Select(nativeRoot, context).ToArray();
+
+            Assert.Same(nativeRoot, context.Resource);
+            ScopedNode rootResource = Assert.IsType<ScopedNode>(context.RootResource);
+            Assert.Same(nativeRoot, rootResource.Current);
+            Assert.True(isIndexedResourceRootAfterFirstSelect);
+            Assert.True(bridge.IsIndexedResourceRoot(nativeRoot, context));
+            Assert.Same(rootResource, context.RootResource);
+        }
+
+        [Theory]
+        [InlineData("nullContext", false)]
+        [InlineData("emptyContext", false)]
+        [InlineData("resource", true)]
+        [InlineData("rootResource", false)]
+        [InlineData("resourceAndRootResource", true)]
+        [InlineData("resourceAndScopedRootResource", true)]
+        [InlineData("resourceAndScopedForeignRootResource", false)]
+        public void GivenNativeRootAndContextShape_ThenNativePathIsUsedOnlyWhenContextResourceIsTheRoot(string contextShape, bool expected)
+        {
+            ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
+            EvaluationContext context = null;
+            if (contextShape != "nullContext")
+            {
+                context = ModelInfoProvider.Instance.GetEvaluationContext();
+                context.Resource = contextShape is "emptyContext" or "rootResource" ? null : nativeRoot;
+                context.RootResource = contextShape switch
+                {
+                    "rootResource" or "resourceAndRootResource" => nativeRoot,
+                    "resourceAndScopedRootResource" => nativeRoot.ToScopedNode(),
+                    "resourceAndScopedForeignRootResource" => ParseNativeResource(NativePatientJson).ToScopedNode(),
+                    _ => null,
+                };
+            }
+
+            Assert.Equal(expected, CreateIgnixaBridge().IsIndexedResourceRoot(nativeRoot, context));
+        }
+
+        [Theory]
+        [InlineData("child")]
+        [InlineData("contained")]
+        [InlineData("childOfContained")]
+        public void GivenNativeChildOrContainedInput_ThenScopedPathIsUsed(string inputKind)
+        {
+            ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
+            ITypedElement input = SelectNativeInput(nativeRoot, inputKind);
+
+            Assert.False(CreateIgnixaBridge().IsIndexedResourceRoot(input, CreateNativeRootContext(nativeRoot)));
+        }
+
+        [Fact]
+        public void GivenTypedElementAdapterOverFirelyElement_ThenScopedPathIsUsed()
+        {
+            ITypedElement input = new TypedElementAdapter(new Patient { Id = "patient-1" }.ToTypedElement().ToIgnixaElement());
+            bool hasNativeRoot = CreateIgnixaBridge().IsIndexedResourceRoot(input, CreateNativeRootContext(input));
+
+            Assert.Equal("Patient", input.Location);
+            Assert.Equal("Patient", input.InstanceType);
+            Assert.False(hasNativeRoot);
+        }
+
+        [Theory]
+        [InlineData("resource")]
+        [InlineData("rootResource")]
+        public void GivenNativeRootWithAnotherContextResource_ThenScopedPathIsUsed(string foreignContextMember)
+        {
+            ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
+            ITypedElement otherRoot = ParseNativeResource(NativePatientJson);
+            EvaluationContext context = ModelInfoProvider.Instance.GetEvaluationContext();
+            context.Resource = foreignContextMember == "resource" ? otherRoot : nativeRoot;
+            context.RootResource = foreignContextMember == "rootResource" ? otherRoot : null;
+
+            Assert.False(CreateIgnixaBridge().IsIndexedResourceRoot(nativeRoot, context));
+        }
+
+        [Fact]
+        public void GivenStandaloneNativePrimitive_ThenScopedPathIsUsedAndResultsMatch()
+        {
+            IFhirPathProvider ignixa = CreateIgnixaProvider();
+            ITypedElement primitive = Assert.Single(ignixa.Compile("string { value: 'synthetic' }").Select(new Patient().ToTypedElement()));
+            ITypedElement firelyPrimitive = new FhirString("synthetic").ToTypedElement();
+            EvaluationContext nativeContext = ModelInfoProvider.Instance.GetEvaluationContext();
+            EvaluationContext firelyContext = ModelInfoProvider.Instance.GetEvaluationContext();
+
+            string[] nativeValues = Normalize(ignixa.Compile("$this.length()").Select(primitive, nativeContext));
+            string[] firelyValues = Normalize(ignixa.Compile("$this.length()").Select(firelyPrimitive, firelyContext));
+
+            Assert.Equal("string", primitive.InstanceType);
+            Assert.False(CreateIgnixaBridge().IsIndexedResourceRoot(primitive, CreateNativeRootContext(primitive)));
+            Assert.Equal(["System.Int32|9"], firelyValues);
+            Assert.Equal(firelyValues, nativeValues);
+            Assert.Null(firelyContext.Resource);
+            Assert.Null(nativeContext.Resource);
+            Assert.Null(nativeContext.RootResource);
+        }
+
+        [Fact]
+        public void GivenSchemaContext_WhenFilteringSchemaTypeNames_ThenAcceptedNamesEqualModelInfoResourceTypes()
+        {
+            var schemaContext = new IgnixaSchemaContext(ModelInfoProvider.Instance);
+            string[] schemaTypeNames = schemaContext.Schema.ResourceTypeNames.ToArray();
+            string[] modelInfoTypeNames = ModelInfoProvider.Instance.GetResourceTypeNames()
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(static name => name, StringComparer.Ordinal)
+                .ToArray();
+
+            string[] resourceTypeNames = schemaTypeNames
+                .Where(schemaContext.IsResourceType)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(static name => name, StringComparer.Ordinal)
+                .ToArray();
+
+            Assert.Equal(modelInfoTypeNames, resourceTypeNames);
+        }
+
+        [Theory]
+        [InlineData("string")]
+        [InlineData("HumanName")]
+        [InlineData("Reference")]
+        [InlineData("patient")]
+        [InlineData("PATIENT")]
+        [InlineData("")]
+        public void GivenNonResourceOrMiscasedTypeName_WhenChecked_ThenIsResourceTypeIsFalse(string typeName)
+        {
+            var schemaContext = new IgnixaSchemaContext(ModelInfoProvider.Instance);
+
+            bool isResourceType = schemaContext.IsResourceType(typeName);
+
+            Assert.False(isResourceType);
+        }
+
+        [Fact]
+        public void GivenResourceTypeName_WhenChecked_ThenIsResourceTypeIsTrue()
+        {
+            var schemaContext = new IgnixaSchemaContext(ModelInfoProvider.Instance);
+
+            bool isResourceType = schemaContext.IsResourceType("Patient");
+
+            Assert.True(isResourceType);
+        }
+
+        [Theory]
+        [InlineData("nullContext")]
+        [InlineData("emptyContext")]
+        public void GivenNativeRootSelectedWithoutResourceContext_WhenResultIsEvaluatedWithoutContext_ThenResourceAndResolveMatchScopedAndPocoInputs(string contextShape)
+        {
+            ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
+            ITypedElement scopedRoot = ParseNativeResource(NativePatientJson).ToScopedNode();
+            ITypedElement pocoRoot = ParsePocoResource(NativePatientJson);
+
+            string[] nativeValues = SelectManagingOrganizationAndEvaluateWithoutContext(nativeRoot, contextShape);
+            string[] scopedValues = SelectManagingOrganizationAndEvaluateWithoutContext(scopedRoot, contextShape);
+            string[] pocoValues = SelectManagingOrganizationAndEvaluateWithoutContext(pocoRoot, contextShape);
+
+            Assert.Equal(["System.String|patient-1", "System.String|Contained"], scopedValues);
+            Assert.Equal(scopedValues, nativeValues);
+            Assert.Equal(pocoValues, nativeValues);
+        }
+
+        [Theory]
+        [InlineData("extension.intersect(%expected).exists()")]
+        [InlineData("%rootResource.extension.intersect(%expected).exists()")]
+        public void GivenIndexedNativeRootAndFirelyEnvironmentVariable_WhenIntersecting_ThenResultMatchesScopedPath(string expression)
+        {
+            ICompiledFhirPath compiled = CreateIgnixaProvider().Compile(expression);
+            ITypedElement nativeRoot = ParseNativeResource(NativePatientWithExtensionJson);
+            ITypedElement scopedRoot = ParseNativeResource(NativePatientWithExtensionJson).ToScopedNode();
+            ITypedElement[] expected = ParsePocoResource(NativePatientWithExtensionJson).Children("extension").ToArray();
+            EvaluationContext nativeContext = CreateNativeRootContext(nativeRoot);
+            EvaluationContext scopedContext = CreateNativeRootContext(scopedRoot);
+            nativeContext.Environment["expected"] = expected;
+            scopedContext.Environment["expected"] = expected;
+            bool isIndexedResourceRoot = CreateIgnixaBridge().IsIndexedResourceRoot(nativeRoot, nativeContext);
+
+            string[] nativeValues = Normalize(compiled.Select(nativeRoot, nativeContext));
+            string[] scopedValues = Normalize(compiled.Select(scopedRoot, scopedContext));
+
+            Assert.True(isIndexedResourceRoot);
+            Assert.Equal(["System.Boolean|True"], scopedValues);
+            Assert.Equal(scopedValues, nativeValues);
+        }
+
+        [Fact]
+        public void GivenIndexedNativeDocumentReference_WhenComparingAttachmentSize_ThenResultsMatchScopedPath()
+        {
+            IFhirPathProvider provider = CreateIgnixaProvider();
+            ICompiledFhirPath urlBySize = provider.Compile("content.where(attachment.size = 10).attachment.url");
+            ICompiledFhirPath sizeGreaterThan = provider.Compile("content.attachment.size > 9");
+            string json = CreateDocumentReferenceJson();
+            ITypedElement nativeRoot = ParseNativeResource(json);
+            ITypedElement scopedRoot = ParseNativeResource(json).ToScopedNode();
+            bool isIndexedResourceRoot = CreateIgnixaBridge().IsIndexedResourceRoot(nativeRoot, CreateNativeRootContext(nativeRoot));
+
+            string[] nativeUrls = Normalize(urlBySize.Select(nativeRoot, CreateNativeRootContext(nativeRoot)));
+            string[] scopedUrls = Normalize(urlBySize.Select(scopedRoot, CreateNativeRootContext(scopedRoot)));
+            string[] nativeComparison = Normalize(sizeGreaterThan.Select(nativeRoot, CreateNativeRootContext(nativeRoot)));
+            string[] scopedComparison = Normalize(sizeGreaterThan.Select(scopedRoot, CreateNativeRootContext(scopedRoot)));
+
+            Assert.True(isIndexedResourceRoot);
+            Assert.Equal(["System.String|http://example.org/a"], scopedUrls);
+            Assert.Equal(scopedUrls, nativeUrls);
+            Assert.Equal(["System.Boolean|True"], scopedComparison);
+            Assert.Equal(scopedComparison, nativeComparison);
+        }
+
+        [Theory]
+        [InlineData("observation", "Observation.performer", "reference")]
+        [InlineData("observation", "Observation.code", "coding.system")]
+        [InlineData("observation", "Observation.code", "coding.code")]
+        [InlineData("observation", "Observation.code", "coding.display")]
+        [InlineData("observation", "Observation.code", "text")]
+        [InlineData("observation", "Observation.value.ofType(Quantity)", "value")]
+        [InlineData("observation", "Observation.value.ofType(Quantity)", "unit")]
+        [InlineData("observation", "Observation.value.ofType(Quantity)", "system")]
+        [InlineData("observation", "Observation.value.ofType(Quantity)", "code")]
+        [InlineData("observation", "Observation.effective.ofType(Period)", "start")]
+        [InlineData("observation", "Observation.effective.ofType(Period)", "end")]
+        [InlineData("observation", "Observation.identifier", "system")]
+        [InlineData("observation", "Observation.identifier", "value")]
+        [InlineData("patient", "Patient.name", "family")]
+        [InlineData("patient", "Patient.name", "given")]
+        [InlineData("patient", "Patient.address", "city")]
+        [InlineData("patient", "Patient.address", "line")]
+        [InlineData("patient", "Patient.address", "postalCode")]
+        [InlineData("patient", "Patient.identifier", "system")]
+        [InlineData("patient", "Patient.identifier", "value")]
+        public void GivenFastPathDescendant_WhenReEvaluatedWithoutContext_ThenResultMatchesScopedPathDescendant(
+            string resourceKind,
+            string firstStage,
+            string secondStage)
+        {
+            IFhirPathProvider provider = CreateIgnixaProvider();
+            ICompiledFhirPath first = provider.Compile(firstStage);
+            ICompiledFhirPath second = provider.Compile(secondStage);
+            string json = resourceKind == "observation" ? IndexedObservationJson : IndexedPatientJson;
+            ITypedElement nativeRoot = ParseNativeResource(json);
+            ITypedElement scopedRoot = ParseNativeResource(json).ToScopedNode();
+            EvaluationContext nativeContext = CreateNativeRootContext(nativeRoot);
+            bool isIndexedResourceRoot = CreateIgnixaBridge().IsIndexedResourceRoot(nativeRoot, nativeContext);
+
+            ITypedElement[] nativeDescendants = first.Select(nativeRoot, nativeContext).ToArray();
+            ITypedElement[] scopedDescendants = first.Select(scopedRoot, CreateNativeRootContext(scopedRoot)).ToArray();
+            string[] nativeValues = Normalize(nativeDescendants.SelectMany(descendant => second.Select(descendant, null)));
+            string[] scopedValues = Normalize(scopedDescendants.SelectMany(descendant => second.Select(descendant, null)));
+
+            Assert.True(isIndexedResourceRoot);
+            Assert.Equal(scopedDescendants.Length, nativeDescendants.Length);
+            Assert.NotEmpty(scopedValues);
+            Assert.Equal(scopedValues, nativeValues);
+        }
+
+        public static IEnumerable<object[]> GetSharedContextCompositeRows()
+        {
+#if Stu3
+            yield return [VariantSequenceJson, "Sequence.variant", "%resource.referenceSeq.chromosome", "CodeableConcept,http://terminology.hl7.org/CodeSystem/chromosome-human,code|1"];
+            yield return [VariantSequenceJson, "Sequence.variant", "%resource.referenceSeq.chromosome.coding.code"];
+            yield return [VariantSequenceJson, "Sequence.variant", "%resource.referenceSeq.referenceSeqId", "CodeableConcept,http://www.ncbi.nlm.nih.gov/nuccore,NC_000001.11"];
+            yield return [VariantSequenceJson, "Sequence.variant", "%resource.referenceSeq.referenceSeqId.coding.code"];
+            yield return [VariantSequenceJson, "Sequence.variant", "start"];
+            yield return [VariantSequenceJson, "Sequence.variant", "end"];
+#elif R4 || R4B
+            yield return [VariantSequenceJson, "MolecularSequence.variant", "%resource.referenceSeq.chromosome", "CodeableConcept,http://terminology.hl7.org/CodeSystem/chromosome-human,code|1"];
+            yield return [VariantSequenceJson, "MolecularSequence.variant", "%resource.referenceSeq.chromosome.coding.code"];
+            yield return [VariantSequenceJson, "MolecularSequence.variant", "%resource.referenceSeq.referenceSeqId", "CodeableConcept,http://www.ncbi.nlm.nih.gov/nuccore,NC_000001.11"];
+            yield return [VariantSequenceJson, "MolecularSequence.variant", "%resource.referenceSeq.referenceSeqId.coding.code"];
+            yield return [VariantSequenceJson, "MolecularSequence.variant", "start"];
+            yield return [VariantSequenceJson, "MolecularSequence.variant", "end"];
+#endif
+            yield return [ComponentObservationJson, "Observation.component", "value.as(Quantity).value"];
+            yield return [ComponentObservationJson, "Observation.component", "code.coding.code"];
+        }
+
+        [Theory]
+        [MemberData(nameof(GetSharedContextCompositeRows))]
+        public void GivenFastPathDescendant_WhenReEvaluatedWithSharedContext_ThenNativeEqualsScopedEqualsFirely(
+            string json,
+            string firstStage,
+            string secondStage,
+            string expectedFragments = null)
+        {
+            IFhirPathProvider ignixa = CreateIgnixaProvider();
+            IFhirPathProvider firely = new FirelyFhirPathProvider();
+            ITypedElement nativeRoot = ParseNativeResource(json);
+            ITypedElement scopedRoot = ParseNativeResource(json).ToScopedNode();
+            ITypedElement pocoRoot = ParsePocoResource(json);
+            EvaluationContext nativeContext = CreateNativeRootContext(nativeRoot);
+
+            string[] nativeValues = SelectThenSelectWithSameContext(ignixa, nativeRoot, nativeContext, firstStage, secondStage);
+            string[] scopedValues = SelectThenSelectWithSameContext(ignixa, scopedRoot, CreateNativeRootContext(scopedRoot), firstStage, secondStage);
+            string[] firelyValues = SelectThenSelectWithSameContext(firely, pocoRoot, CreateNativeRootContext(pocoRoot), firstStage, secondStage);
+
+            Assert.True(CreateIgnixaBridge().IsIndexedResourceRoot(nativeRoot, nativeContext));
+            Assert.NotEmpty(firelyValues);
+            Assert.Equal(firelyValues, scopedValues);
+            Assert.Equal(firelyValues, nativeValues);
+
+            foreach (string fragment in expectedFragments?.Split(',') ?? [])
+            {
+                Assert.All(firelyValues, value => Assert.Contains(fragment, value));
+                Assert.All(scopedValues, value => Assert.Contains(fragment, value));
+                Assert.All(nativeValues, value => Assert.Contains(fragment, value));
+            }
+        }
+
+        private static string[] SelectThenSelectWithSameContext(
+            IFhirPathProvider provider,
+            ITypedElement root,
+            EvaluationContext context,
+            string firstStage,
+            string secondStage)
+        {
+            ICompiledFhirPath second = provider.Compile(secondStage);
+            ITypedElement[] descendants = provider.Compile(firstStage).Select(root, context).ToArray();
+            return descendants
+                .SelectMany(descendant => second.Select(descendant, context))
+                .Select(NormalizeStructure)
+                .OrderBy(value => value, StringComparer.Ordinal)
+                .ToArray();
+        }
+
+        private static string NormalizeStructure(ITypedElement element)
+            => $"{element.InstanceType}|{element.Value}{{{string.Join(';', element.Children().Select(child => $"{child.Name}:{NormalizeStructure(child)}"))}}}";
+
+        [Theory]
+        [InlineData("resource", "root", "patient", "extension.intersect(%resource.extension).exists()")]
+        [InlineData("resource", "root", "patient", "%resource.extension.intersect(extension).exists()")]
+        [InlineData("resource", "root", "patient", "extension.intersect(%rootResource.extension).exists()")]
+        [InlineData("resource", "root", "documentReference", "content.attachment.size = %resource.content.attachment.size")]
+        [InlineData("resource", "root", "documentReference", "%resource.content.attachment.size > 9")]
+        [InlineData("resource", "root", "documentReference", "%rootResource.content.attachment.size > 9")]
+        [InlineData("resourceAndRootResource", "root", "patient", "extension.intersect(%resource.extension).exists()")]
+        [InlineData("resourceAndRootResource", "root", "patient", "%resource.extension.intersect(extension).exists()")]
+        [InlineData("resourceAndRootResource", "root", "patient", "extension.intersect(%rootResource.extension).exists()")]
+        [InlineData("resourceAndRootResource", "root", "documentReference", "content.attachment.size = %resource.content.attachment.size")]
+        [InlineData("resourceAndRootResource", "root", "documentReference", "%resource.content.attachment.size > 9")]
+        [InlineData("resourceAndRootResource", "root", "documentReference", "%rootResource.content.attachment.size > 9")]
+        [InlineData("resource", "child", "patient", "%resource.extension.intersect($this).exists()")]
+        [InlineData("resourceAndRootResource", "child", "patient", "%rootResource.extension.intersect($this).exists()")]
+        [InlineData("resource", "child", "documentReference", "attachment.size = %resource.content.attachment.size")]
+        [InlineData("resourceAndRootResource", "child", "documentReference", "%rootResource.content.attachment.size > 9")]
+        [InlineData("resource", "root", "bundle", "entry.resource.ofType(Patient).managingOrganization.resolve().name = 'Bundled Org'")]
+        [InlineData("resource", "root", "bundle", "%resource.type = 'collection'")]
+        [InlineData("resource", "root", "bundle", "entry.resource.ofType(Patient).where(%resource.entry.resource.ofType(Organization).id = 'org-1').exists()")]
+        [InlineData("resource", "root", "bundle", "entry.resource.ofType(Patient).managingOrganization.resolve().is(Organization)")]
+        [InlineData("resource", "root", "bundle", "entry.resource.ofType(Patient).select(%resource.type) = 'collection'")]
+        [InlineData("resourceAndRootResource", "root", "bundle", "entry.resource.ofType(Patient).managingOrganization.resolve().name = 'Bundled Org'")]
+        [InlineData("resourceAndRootResource", "root", "bundle", "%resource.type = 'collection'")]
+        [InlineData("resourceAndRootResource", "root", "bundle", "entry.resource.ofType(Patient).where(%resource.entry.resource.ofType(Organization).id = 'org-1').exists()")]
+        [InlineData("resourceAndRootResource", "root", "bundle", "entry.resource.ofType(Patient).managingOrganization.resolve().is(Organization)")]
+        [InlineData("resourceAndRootResource", "root", "bundle", "entry.resource.ofType(Patient).select(%resource.type) = 'collection'")]
+        [InlineData("resource", "root", "unknownReferenceBundle", "entry.resource.ofType(Patient).where(id = 'pat-2').managingOrganization.reference = 'urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-0000000000ff' and entry.resource.ofType(Patient).where(id = 'pat-2').managingOrganization.resolve().empty()")]
+        [InlineData("resourceAndRootResource", "root", "unknownReferenceBundle", "entry.resource.ofType(Patient).where(id = 'pat-2').managingOrganization.reference = 'urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-0000000000ff' and entry.resource.ofType(Patient).where(id = 'pat-2').managingOrganization.resolve().empty()")]
+        public void GivenNativeResourceInContext_WhenEvaluatedByIgnixa_ThenResultMatchesFirelyOverPoco(
+            string contextShape,
+            string inputKind,
+            string resourceKind,
+            string expression)
+        {
+            string json = resourceKind switch
+            {
+                "patient" => NativePatientWithExtensionJson,
+                "documentReference" => CreateDocumentReferenceJson(),
+                "bundle" => CollectionBundleJson,
+                "unknownReferenceBundle" => UnknownReferenceBundleJson,
+                _ => throw new ArgumentOutOfRangeException(nameof(resourceKind), resourceKind, null),
+            };
+            (ITypedElement pocoInput, EvaluationContext pocoContext) = CreateInputAndContext(ParsePocoResource(json), contextShape, inputKind);
+            (ITypedElement nativeInput, EvaluationContext nativeContext) = CreateInputAndContext(ParseNativeResource(json), contextShape, inputKind);
+
+            Assert.Equal(inputKind == "root", CreateIgnixaBridge().IsIndexedResourceRoot(nativeInput, nativeContext));
+
+            string[] firelyValues = Normalize(new FirelyFhirPathProvider().Compile(expression).Select(pocoInput, pocoContext));
+            string[] ignixaValues = Normalize(CreateIgnixaProvider().Compile(expression).Select(nativeInput, nativeContext));
+
+            Assert.Equal(["System.Boolean|True"], firelyValues);
+            Assert.Equal(firelyValues, ignixaValues);
+        }
+
+        private static (ITypedElement Input, EvaluationContext Context) CreateInputAndContext(ITypedElement root, string contextShape, string inputKind)
+        {
+            EvaluationContext context = CreateNativeRootContext(root);
+            context.RootResource = contextShape == "resourceAndRootResource" ? root : null;
+            ITypedElement input = inputKind == "root"
+                ? root
+                : root.Children(root.InstanceType == "Patient" ? "extension" : "content").First();
+
+            return (input, context);
+        }
+
         private static IFhirPathProvider CreateIgnixaProvider()
             => new IgnixaFhirPathProvider(new IgnixaSchemaContext(ModelInfoProvider.Instance));
+
+        private static IgnixaEvaluationContextBridge CreateIgnixaBridge()
+            => new(new IgnixaSchemaContext(ModelInfoProvider.Instance));
+
+        private static ITypedElement ParseNativeResource(string json)
+            => JsonSourceNodeFactory.Parse<ResourceJsonNode>(json)
+                .ToElement(new IgnixaSchemaContext(ModelInfoProvider.Instance).Schema)
+                .ToTypedElement();
+
+        private static ITypedElement ParsePocoResource(string json)
+            => new FhirJsonParser().Parse<Resource>(json).ToTypedElement();
+
+        private static EvaluationContext CreateNativeRootContext(ITypedElement resource)
+        {
+            EvaluationContext context = ModelInfoProvider.Instance.GetEvaluationContext(
+                reference => reference == "Practitioner/practitioner-1" ? new Practitioner { Id = "practitioner-1" }.ToTypedElement() : null);
+            context.Resource = resource;
+            return context;
+        }
+
+        private static string[] SelectManagingOrganizationAndEvaluateWithoutContext(ITypedElement root, string contextShape)
+        {
+            IFhirPathProvider provider = CreateIgnixaProvider();
+            EvaluationContext context = contextShape == "emptyContext" ? ModelInfoProvider.Instance.GetEvaluationContext() : null;
+            ITypedElement managingOrganization = Assert.Single(provider.Compile("managingOrganization").Select(root, context));
+
+            return
+            [
+                .. Normalize(provider.Compile("%resource.id").Select(managingOrganization)),
+                .. Normalize(provider.Compile("resolve().name").Select(managingOrganization)),
+            ];
+        }
+
+        private static string CreateDocumentReferenceJson()
+        {
+            string size = ModelInfoProvider.Instance.Version == FhirSpecification.R5 ? "\"10\"" : "10";
+            return """{"resourceType":"DocumentReference","id":"doc-1","status":"current","content":[{"attachment":{"url":"http://example.org/a","size":""" + size + "}}]}";
+        }
+
+        private static ITypedElement SelectNativeInput(ITypedElement patient, string inputKind)
+            => inputKind switch
+            {
+                "child" => patient.Children("name").Single(),
+                "contained" => patient.Children("contained").Single(),
+                "childOfContained" => patient.Children("contained").Single().Children("name").Single(),
+                _ => throw new ArgumentOutOfRangeException(nameof(inputKind), inputKind, null),
+            };
 
         private static ScopedNode CreatePatientWithContainedOrganization()
             => new Patient
@@ -788,7 +1279,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                 .OrderBy(value => value, StringComparer.Ordinal)
                 .ToArray();
 
-        private static string Normalize(SearchIndexEntry entry)
+        internal static string Normalize(SearchIndexEntry entry)
             => $"{entry.SearchParameter.Url}|{entry.SearchParameter.Code}|{JsonConvert.SerializeObject(entry.Value)}";
 
         public void Dispose()
