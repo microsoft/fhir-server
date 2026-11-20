@@ -538,6 +538,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             Assert.Contains(path, Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
         }
 
+        [Theory]
+        [InlineData("aGVsbG8=")]
+        [InlineData(" a G\tV\r\ns bG8=\t")]
+        public void GivenBase64Binary_ThenBothIgnixaWritersEmitUnbrokenBase64(string literal)
+        {
+            string json = $$$"""{"resourceType":"Patient","id":"p","photo":[{"data":{{{JsonSerializer.Serialize(literal)}}},"title":"a  b"}]}""";
+            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
+            {
+                string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true).Data;
+                string native = ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data;
+
+                Assert.Contains("\"data\":\"aGVsbG8=\"", mixed);
+                Assert.Contains("\"title\":\"a  b\"", mixed);
+                AssertExactly(mixed, native);
+            }
+        }
+
 #if R4 || Stu3
         public static IEnumerable<object[]> DifferentialCorpus()
         {
@@ -715,9 +732,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                     && left.EqualsExact(right);
             }
 
-            return kind == typeof(Base64Binary)
-                ? expected == new string(actual.Where(c => c is not (' ' or '\t' or '\r' or '\n')).ToArray())
-                : (kind == typeof(FhirString) || kind == typeof(Markdown) || kind == typeof(XHtml)) && expected == actual.Trim();
+            return (kind == typeof(FhirString) || kind == typeof(Markdown) || kind == typeof(XHtml)) && expected == actual.Trim();
         }
 
         private static bool TryGetText(JsonNode node, out string text)

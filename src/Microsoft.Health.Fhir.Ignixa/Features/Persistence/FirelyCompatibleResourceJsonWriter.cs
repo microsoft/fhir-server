@@ -412,6 +412,12 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                         }
 
                         break;
+                    case "base64Binary" when isString && text.AsSpan().IndexOfAny(" \t\r\n") >= 0:
+                        WriteString(text.Replace(" ", string.Empty, StringComparison.Ordinal)
+                            .Replace("\t", string.Empty, StringComparison.Ordinal)
+                            .Replace("\r", string.Empty, StringComparison.Ordinal)
+                            .Replace("\n", string.Empty, StringComparison.Ordinal));
+                        return;
                     case "boolean" when text is "true" or "false":
                         Output.Append(text);
                         return;
