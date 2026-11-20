@@ -395,11 +395,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     pathBase += "/";
                 }
 
-                if (_fhirRequestContextAccessor.RequestContext.PartitionId != null)
+                if (_fhirRequestContextAccessor.RequestContext.Partition != null)
                 {
                     routeValues = new RouteValueDictionary(routeValues)
                     {
-                        [PartitionRouteMetadata.PartitionId] = _fhirRequestContextAccessor.RequestContext.PartitionId,
+                        [PartitionRouteMetadata.PartitionId] = _fhirRequestContextAccessor.RequestContext.Partition.Id,
                     };
                     routeName = PartitionRouteMetadata.NamePrefix + routeName;
                     if (address != null)

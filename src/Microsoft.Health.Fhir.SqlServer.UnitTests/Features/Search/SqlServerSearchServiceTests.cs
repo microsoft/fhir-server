@@ -429,7 +429,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
             _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-b", DatabaseName = "database-b" });
             var context = Substitute.For<IFhirRequestContext>();
-            context.PartitionId.Returns(partitionId);
+            context.Partition.Returns(new PartitionInfo { Id = partitionId });
             _requestContextAccessor.RequestContext.Returns(context);
             _schemaInformation.Current = SchemaVersionConstants.Max;
             var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
@@ -471,7 +471,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             // Arrange
             using var scope = BeginRequestScope();
             var context = Substitute.For<IFhirRequestContext>();
-            context.PartitionId.Returns(partitionId);
+            context.Partition.Returns(new PartitionInfo { Id = partitionId });
             _requestContextAccessor.RequestContext.Returns(context);
             _schemaInformation.Current = SchemaVersionConstants.Max;
             var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
@@ -506,7 +506,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             using var scope = BeginRequestScope();
             _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
             var context = Substitute.For<IFhirRequestContext>();
-            context.PartitionId.Returns("unknown-partition");
+            context.Partition.Returns(new PartitionInfo { Id = "unknown-partition" });
             _requestContextAccessor.RequestContext.Returns(context);
             _schemaInformation.Current = SchemaVersionConstants.Max;
             var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
@@ -553,7 +553,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 var context = partitionId == null ? null : Substitute.For<IFhirRequestContext>();
                 if (context != null)
                 {
-                    context.PartitionId.Returns(partitionId);
+                    context.Partition.Returns(new PartitionInfo { Id = partitionId });
                 }
 
                 _requestContextAccessor.RequestContext.Returns(context);
@@ -575,7 +575,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             using var scope = BeginRequestScope();
             _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
             var context = Substitute.For<IFhirRequestContext>();
-            context.PartitionId.Returns("unknown-partition");
+            context.Partition.Returns(new PartitionInfo { Id = "unknown-partition" });
             _requestContextAccessor.RequestContext.Returns(context);
             _schemaInformation.Current = SchemaVersionConstants.Max;
             var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));

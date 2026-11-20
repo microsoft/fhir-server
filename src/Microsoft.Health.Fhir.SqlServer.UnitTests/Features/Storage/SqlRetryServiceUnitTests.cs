@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             {
                 configuration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = databaseName });
                 var context = Substitute.For<IFhirRequestContext>();
-                context.PartitionId.Returns("partition-a");
+                context.Partition.Returns(new PartitionInfo { Id = "partition-a" });
                 accessor.RequestContext.Returns(context);
             }
 

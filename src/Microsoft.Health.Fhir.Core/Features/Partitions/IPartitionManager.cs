@@ -15,6 +15,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Partitions
         /// <summary>
         /// Gets the supported case-sensitive partition identifiers.
         /// </summary>
-        IReadOnlySet<string> Partitions { get; }
+        IReadOnlySet<IPartitionInfo> Partitions { get; }
     }
 }

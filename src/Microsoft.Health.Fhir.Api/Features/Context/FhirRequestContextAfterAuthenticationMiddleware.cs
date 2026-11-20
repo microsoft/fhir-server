@@ -64,59 +64,59 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 
             var endpoint = context.GetEndpoint();
             if (_partitionManager.Partitions.Count > 0
-                && (!_securityConfiguration.Enabled || context.User?.Identity?.IsAuthenticated == true || endpoint?.Metadata.GetMetadata<AllowAnonymousAttribute>() != null))
+                && (!_securityConfiguration.Enabled || context.User?.Identity?.IsAuthenticated == true || endpoint?.Metadata.GetMetadata<AllowAnonymousAttribute>() != null)
+                && endpoint?.Metadata.GetMetadata<PartitionIndependentAttribute>() == null)
             {
-                if (endpoint?.Metadata.GetMetadata<PartitionIndependentAttribute>() == null)
+                string partitionId = context.Request.RouteValues[PartitionRouteMetadata.PartitionId]?.ToString();
+                IPartitionInfo partitionInfo = null;
+                bool partitionRequired;
+                if (partitionId != null)
                 {
-                    string partitionId = context.Request.RouteValues[PartitionRouteMetadata.PartitionId]?.ToString();
-                    bool partitionRequired;
-                    if (partitionId != null)
-                    {
-                        partitionRequired = !_partitionManager.Partitions.Contains(partitionId);
-                    }
-                    else if (_partitionManager.Partitions.Count == 1)
-                    {
-                        partitionId = _partitionManager.Partitions.Single();
-                        partitionRequired = false;
-                    }
-                    else
-                    {
-                        partitionRequired = endpoint?.Metadata.GetMetadata<PartitionRouteMetadata>() != null;
-                    }
+                    partitionInfo = _partitionManager.Partitions.FirstOrDefault(partition => partition.Id == partitionId);
+                    partitionRequired = partitionInfo == null;
+                }
+                else if (_partitionManager.Partitions.Count == 1)
+                {
+                    partitionInfo = _partitionManager.Partitions.Single();
+                    partitionRequired = false;
+                }
+                else
+                {
+                    partitionRequired = endpoint?.Metadata.GetMetadata<PartitionRouteMetadata>() != null;
+                }
 
-                    if (partitionRequired)
-                    {
-                        _logger.LogWarning("Request rejected: a configured partition ID is required after /partition.");
-                        context.Response.StatusCode = StatusCodes.Status404NotFound;
-                        await context.Response.WriteAsJsonAsync(
-                            new
+                if (partitionRequired)
+                {
+                    _logger.LogWarning("Request rejected: a configured partition ID is required after /partition.");
+                    context.Response.StatusCode = StatusCodes.Status404NotFound;
+                    await context.Response.WriteAsJsonAsync(
+                        new
+                        {
+                            resourceType = nameof(OperationOutcome),
+                            issue = new[]
                             {
-                                resourceType = nameof(OperationOutcome),
-                                issue = new[]
-                                {
                                     new
                                     {
                                         severity = OperationOutcome.IssueSeverity.Error.GetLiteral(),
                                         code = OperationOutcome.IssueType.NotFound.GetLiteral(),
                                         diagnostics = "A configured partition ID is required after /partition.",
                                     },
-                                },
                             },
-                            options: null,
-                            contentType: KnownContentTypes.JsonContentType,
-                            cancellationToken: context.RequestAborted);
-                        return;
-                    }
+                        },
+                        options: null,
+                        contentType: KnownContentTypes.JsonContentType,
+                        cancellationToken: context.RequestAborted);
+                    return;
+                }
 
-                    fhirRequestContextAccessor.RequestContext.PartitionId = partitionId;
-                    if (endpoint?.Metadata.GetMetadata<PartitionRouteMetadata>()?.HasPrefix == true)
-                    {
-                        fhirRequestContextAccessor.RequestContext.BaseUri = new Uri(UriHelper.BuildAbsolute(
-                            context.Request.Scheme,
-                            context.Request.Host,
-                            context.Request.PathBase.Add(PartitionRouteMetadata.GetPrefix(context.Request)),
-                            "/"));
-                    }
+                fhirRequestContextAccessor.RequestContext.Partition = partitionInfo;
+                if (endpoint?.Metadata.GetMetadata<PartitionRouteMetadata>()?.HasPrefix == true)
+                {
+                    fhirRequestContextAccessor.RequestContext.BaseUri = new Uri(UriHelper.BuildAbsolute(
+                        context.Request.Scheme,
+                        context.Request.Host,
+                        context.Request.PathBase.Add(PartitionRouteMetadata.GetPrefix(context.Request)),
+                        "/"));
                 }
             }
 

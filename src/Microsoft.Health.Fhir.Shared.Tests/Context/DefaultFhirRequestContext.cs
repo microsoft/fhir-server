@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
 
         public string ResourceType { get; set; }
 
-        public string PartitionId { get; set; }
+        public IPartitionInfo Partition { get; set; }
 
         public bool IncludePartiallyIndexedSearchParams { get; set; }
 
@@ -67,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
             clone.AuditEventType = AuditEventType;
             clone.Principal = Principal?.Clone() ?? new ClaimsPrincipal();
             clone.ResourceType = ResourceType;
-            clone.PartitionId = PartitionId;
+            clone.Partition = Partition;
             clone.IncludePartiallyIndexedSearchParams = IncludePartiallyIndexedSearchParams;
             clone.ExecutingBatchOrTransaction = ExecutingBatchOrTransaction;
             clone.IsBackgroundTask = IsBackgroundTask;

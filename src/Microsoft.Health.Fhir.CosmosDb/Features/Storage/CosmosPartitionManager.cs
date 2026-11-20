@@ -13,6 +13,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     public sealed class CosmosPartitionManager : IPartitionManager
     {
         /// <inheritdoc />
-        public IReadOnlySet<string> Partitions { get; } = FrozenSet<string>.Empty;
+        public IReadOnlySet<IPartitionInfo> Partitions { get; } = FrozenSet<IPartitionInfo>.Empty;
     }
 }

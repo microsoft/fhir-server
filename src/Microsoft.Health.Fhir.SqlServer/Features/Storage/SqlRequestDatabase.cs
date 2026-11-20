@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             // Service-wide SQL can run before authentication assigns a partition. Do not pin it.
-            string partitionId = requestContextAccessor.RequestContext?.PartitionId;
+            string partitionId = requestContextAccessor.RequestContext?.Partition?.Id;
             if (partitionId == null || partitionManager.Partitions.Count == 0)
             {
                 return SqlObjectNameFormatter.ApplicationDatabase;

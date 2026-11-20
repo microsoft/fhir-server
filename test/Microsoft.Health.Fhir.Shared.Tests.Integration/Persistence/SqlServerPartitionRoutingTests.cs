@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -26,6 +27,7 @@ using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -181,9 +183,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new Dictionary<string, StringValues>(),
                 new Dictionary<string, StringValues>())
             {
-                PartitionId = partition,
+                Partition = Substitute.For<IPartitionInfo>(),
                 Principal = new ClaimsPrincipal(new ClaimsIdentity()),
             };
+            context.Partition.Id.Returns(partition);
             return _application.RunInRequestScopeAsync(context, operation);
         }
     }

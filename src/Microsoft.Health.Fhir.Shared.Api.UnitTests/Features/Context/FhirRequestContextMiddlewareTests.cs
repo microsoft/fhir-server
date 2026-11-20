@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Castle.Core.Logging;
@@ -175,7 +176,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             }
 
             Assert.NotNull(capturedContext);
-            Assert.Equal("partition-a", capturedContext.PartitionId);
+            Assert.Equal("partition-a", capturedContext.Partition.Id);
             Assert.Equal(new Uri("https://api.example.com/stu3/partition/partition-a/Patient?code=123"), capturedContext.Uri);
             Assert.Equal(new Uri("https://api.example.com/stu3/partition/partition-a/"), capturedContext.BaseUri);
             Assert.Equal(new Uri("https://api.example.com/stu3/"), instanceConfiguration.BaseUri);
@@ -196,7 +197,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                 context =>
                 {
                     nextCalled = true;
-                    Assert.Null(accessor.RequestContext.PartitionId);
+                    Assert.Null(accessor.RequestContext.Partition);
                     Assert.Equal(path, context.Request.Path.Value);
                     Assert.Equal("/stu3", context.Request.PathBase.Value);
                     return Task.CompletedTask;
@@ -215,13 +216,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         {
             var context = new FhirRequestContext("GET", "https://localhost/partition/partition-a/Patient", "https://localhost/partition/partition-a/", "request-id", new HeaderDictionary(), new HeaderDictionary())
             {
-                PartitionId = "partition-a",
+                Partition = Substitute.For<IPartitionInfo>(),
                 Principal = new ClaimsPrincipal(),
             };
 
+            context.Partition.Id.Returns("partition-a");
+
             var clone = Assert.IsType<FhirRequestContext>(context.Clone());
 
-            Assert.Equal("partition-a", clone.PartitionId);
+            Assert.Equal("partition-a", clone.Partition.Id);
             Assert.NotSame(context, clone);
         }
 
@@ -243,7 +246,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         private static IPartitionManager CreatePartitionManager(params string[] ids)
         {
             var manager = Substitute.For<IPartitionManager>();
-            manager.Partitions.Returns(new HashSet<string>(ids, StringComparer.Ordinal));
+            manager.Partitions.Returns(new HashSet<IPartitionInfo>(ids.Select(id =>
+                {
+                    var partition = Substitute.For<IPartitionInfo>();
+                    partition.Id.Returns(id);
+                    return partition;
+                })));
             return manager;
         }
 

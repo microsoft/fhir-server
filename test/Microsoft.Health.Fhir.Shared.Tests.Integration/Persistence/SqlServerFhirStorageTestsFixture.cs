@@ -189,7 +189,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SqlTransactionHandler = new SqlTransactionHandler();
             SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, SqlConnectionBuilder, sqlRetryLogicBaseProvider, SqlServerDataStoreConfiguration);
-            _fhirRequestContextAccessor.RequestContext.PartitionId.Returns(_ => null);
+            _fhirRequestContextAccessor.RequestContext.Partition.Returns(_ => null);
             _httpContextAccessor.HttpContext = null;
             var services = new ServiceCollection();
             services.AddSingleton(_fhirRequestContextAccessor);

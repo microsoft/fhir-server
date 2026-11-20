@@ -300,7 +300,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         {
             _http.HttpContext ??= new DefaultHttpContext { RequestServices = _scope.ServiceProvider };
             var context = Substitute.For<IFhirRequestContext>();
-            context.PartitionId.Returns(id);
+            context.Partition.Returns(new PartitionInfo { Id = id });
             _accessor.RequestContext = context;
         }
 

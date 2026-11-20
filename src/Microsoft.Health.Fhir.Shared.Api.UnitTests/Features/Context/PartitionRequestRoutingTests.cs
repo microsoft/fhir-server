@@ -478,10 +478,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
         private static IHost CreateHost(int partitionCount, string firstPartitionId = "partition-a", string pathBase = null, bool securityEnabled = false, bool productionControllers = false)
         {
-            var ids = new HashSet<string>(StringComparer.Ordinal);
+            var ids = new HashSet<IPartitionInfo>();
             for (int i = 0; i < partitionCount; i++)
             {
-                ids.Add(i == 0 ? firstPartitionId : "partition-b");
+                var partition = Substitute.For<IPartitionInfo>();
+                partition.Id.Returns(i == 0 ? firstPartitionId : "partition-b");
+                ids.Add(partition);
             }
 
             var manager = Substitute.For<IPartitionManager>();
@@ -538,9 +540,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                         endpoints.MapGet("/health/check", context =>
                         {
                             var accessor = context.RequestServices.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
-                            if (accessor.RequestContext.PartitionId != null)
+                            if (accessor.RequestContext.Partition != null)
                             {
-                                context.Response.Headers["X-Test-Partition"] = accessor.RequestContext.PartitionId;
+                                context.Response.Headers["X-Test-Partition"] = accessor.RequestContext.Partition.Id;
                             }
 
                             return context.Response.WriteAsync("healthy");
@@ -558,9 +560,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                             endpoints.MapMethods(route, new[] { "GET", "POST" }, context =>
                             {
                                 var accessor = context.RequestServices.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
-                                if (accessor.RequestContext.PartitionId != null)
+                                if (accessor.RequestContext.Partition != null)
                                 {
-                                    context.Response.Headers["X-Test-Partition"] = accessor.RequestContext.PartitionId;
+                                    context.Response.Headers["X-Test-Partition"] = accessor.RequestContext.Partition.Id;
                                 }
 
                                 context.Response.Headers["X-Test-Uri"] = accessor.RequestContext.Uri.AbsoluteUri;
@@ -596,9 +598,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             {
                 var context = HttpContext.RequestServices.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>().RequestContext;
                 Response.Headers["X-Test-Uri"] = context.Uri.AbsoluteUri;
-                if (context.PartitionId != null)
+                if (context.Partition != null)
                 {
-                    Response.Headers["X-Test-Partition"] = context.PartitionId;
+                    Response.Headers["X-Test-Partition"] = context.Partition.Id;
                 }
 
                 return Response.WriteAsync(context.BaseUri.AbsoluteUri);
@@ -637,9 +639,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                 Response.Headers["X-Test-PathBase"] = Request.PathBase.Value;
                 Response.Headers["X-Test-Route-Partition"] = Request.RouteValues["partitionId"]?.ToString();
                 var accessor = HttpContext.RequestServices.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
-                if (accessor.RequestContext.PartitionId != null)
+                if (accessor.RequestContext.Partition != null)
                 {
-                    Response.Headers["X-Test-Partition"] = accessor.RequestContext.PartitionId;
+                    Response.Headers["X-Test-Partition"] = accessor.RequestContext.Partition.Id;
                 }
 
                 var resolver = HttpContext.RequestServices.GetRequiredService<IUrlResolver>();

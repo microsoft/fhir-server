@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
@@ -22,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         /// <summary>
         /// Gets or sets the configured partition identifier, or null for a partition-independent request.
         /// </summary>
-        string PartitionId { get; set; }
+        IPartitionInfo Partition { get; set; }
 
         /// <summary>
         /// A list of issues that will be returned inside a resulting search bundle

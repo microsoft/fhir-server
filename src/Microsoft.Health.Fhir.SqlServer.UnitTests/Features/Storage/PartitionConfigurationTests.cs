@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -58,8 +59,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             Assert.Same(sqlManager, manager);
             Assert.Equal(2, manager.Partitions.Count);
-            Assert.Contains("partition-a", manager.Partitions);
-            Assert.DoesNotContain("PARTITION-A", manager.Partitions);
+            Assert.Contains("partition-a", manager.Partitions.Select(p => p.Id));
+            Assert.DoesNotContain("PARTITION-A", manager.Partitions.Select(p => p.Id));
             Assert.True(sqlManager.TryGetDatabaseName("partition-a", out string database));
             Assert.Equal("database-a", database);
         }
@@ -113,7 +114,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             configuration.Partitions.Clear();
             configuration.Partitions.Add(new PartitionInfo { Id = "partition-b", DatabaseName = "database-b" });
 
-            Assert.Equal("partition-a", Assert.Single(manager.Partitions));
+            Assert.Equal("partition-a", Assert.Single(manager.Partitions).Id);
             Assert.True(manager.TryGetDatabaseName("partition-a", out string database));
             Assert.Equal("database-a", database);
         }
@@ -128,7 +129,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             configuration.Partitions.Add(new PartitionInfo { Id = id, DatabaseName = "database" });
             var manager = new PartitionManager(Options.Create(configuration));
 
-            Assert.Contains(id, manager.Partitions);
+            Assert.Contains(id, manager.Partitions.Select(p => p.Id));
         }
     }
 }

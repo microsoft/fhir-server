@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         internal SqlPartitionTestRequest(string partitionId, string databaseName)
         {
             var context = Substitute.For<IFhirRequestContext>();
-            context.PartitionId.Returns(partitionId);
+            context.Partition.Returns(new PartitionInfo { Id = partitionId });
             var accessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             accessor.RequestContext.Returns(context);
             var configuration = new PartitionConfiguration();
