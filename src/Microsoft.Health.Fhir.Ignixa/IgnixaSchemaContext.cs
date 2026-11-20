@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Ignixa
         /// </summary>
         /// <param name="typeName">The FHIR type name.</param>
         /// <returns><see langword="true"/> if the type is a known resource type; otherwise <see langword="false"/>.</returns>
-        public bool IsResourceType(string typeName)
+        internal bool IsResourceType(string typeName)
             => _modelInfoProvider.IsKnownResource(typeName) && _modelInfoProvider.IsKnownResource(typeName, ignoreCase: false);
 
         private static IFhirSchemaProvider GetSchemaProvider(FhirSpecification version)
