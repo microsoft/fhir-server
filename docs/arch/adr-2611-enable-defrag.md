@@ -8,8 +8,8 @@
 
 SQL Server index defragmentation is implemented by `DefragWatchdog` and remains opt-in. Defragmentation can reclaim substantial database space and reduce 
 fragmentation. This includes heavy imports that create fragmentation even when resources have a single version and have not been updated or deleted. 
-In one MedTech deployment, **in-place reorganization** reduced a database that had grown close to 4 TB to less than 200 GB. Separately, **re-indexing** 
-after heavy import reduced fragmentation by up to 30%, even when resources had a single version and no updates or deletes. These are observed outcomes, 
+In one MedTech deployment, **in-place reorganization** reduced used database space from close to 4 TB to less than 200 GB. Separately, **re-indexing** 
+after heavy import reduced used database space by up to 30%, even when resources had a single version and no updates or deletes. These are observed outcomes, 
 not guaranteed results for every database.
 
 Enabling the capability safely also requires avoiding unacceptable impact to application queries. The `DefragBlocking` integration test demonstrates 
@@ -71,7 +71,7 @@ resume of a resumable rebuild when enabled, abort of paused resumable rebuilds w
 
 - Defragmentation can provide substantial database space savings and reduce fragmentation; the actual benefit depends on database contents and workload.
 - In-place reorganization and index rebuild have different tradeoffs in compaction, resource consumption, temporary disk requirements, and operational impact; operators must choose based on workload and available capacity.
-- Defrag preserves the existing `AUTO_UPDATE_STATISTICS` and `AUTO_CREATE_STATISTICS` settings (on by default), allowing SQL Server to keep statistics current.
+- Defrag should preserve the existing `AUTO_UPDATE_STATISTICS` and `AUTO_CREATE_STATISTICS` settings (on by default), allowing SQL Server to keep statistics current.
 - The watchdog must inspect SQL Server request and lock state and correlate blockers accurately, increasing monitoring complexity and requiring appropriate database visibility. It must also reconcile SQL Server paused-resumable-operation state with defrag queue jobs to resume work without duplicating it.
 - Defrag work may be interrupted to protect query availability. A resumable rebuild retains its resumable state when its client command is canceled and can be resumed by a later watchdog run. In-place reorganization is incremental and typically retains completed work when canceled, so a later run generally needs to continue with remaining fragmentation rather than repeat the entire operation. A non-resumable rebuild may need to be retried from the beginning.
 - Customers might see short waits on read or write requests while the watchdog detects and resolves blocking. The production blocking threshold and default enablement policy require validation against representative workloads.
