@@ -6,6 +6,7 @@
 using System;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using EnsureThat;
 using Ignixa.Abstractions;
 using Ignixa.Extensions.FirelySdk;
@@ -20,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
+using FirelyDateTime = Hl7.Fhir.ElementModel.Types.DateTime;
 
 namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
 {
@@ -30,6 +32,11 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
     public sealed class IgnixaImportResourceParser : IImportResourceParser
     {
         private const int MaxSoftDeleteExtensionRemovals = 1000;
+
+        // The SDL analyzer build does not run the regex source generator.
+        private static readonly Regex FirelyDateTimeWithFullDateRegex = new(
+            @"\A[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}(?::[0-9]{2}(?::[0-9]{2}(?:\.[0-9]+)?)?)?(?:Z|[+-][0-9]{2}:[0-9]{2})?\z",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         private readonly IResourceWrapperFactory _resourceFactory;
         private readonly IgnixaSchemaContext _schemaContext;
@@ -62,6 +69,11 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
             var lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdatedOffset == null;
             var lastUpdated = lastUpdatedIsNull ? Clock.UtcNow : resource.Meta.LastUpdatedOffset.Value;
             resource.Meta.LastUpdatedOffset = new DateTimeOffset(lastUpdated.DateTime.TruncateToMillisecond(), lastUpdated.Offset);
+            if (resource.ToSourceNavigator().Meta<JsonNode>()?["meta"] is JsonObject meta)
+            {
+                meta.Remove("_lastUpdated");
+            }
+
             if (!lastUpdatedIsNull && resource.Meta.LastUpdatedOffset.Value > Clock.UtcNow.AddSeconds(10)) // 10 sec is the max for the computers in the domain
             {
                 throw new NotSupportedException("LastUpdated in the resource cannot be in the future.");
@@ -75,6 +87,12 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
             }
 
             var element = resource.ToElement(_schemaContext.Schema);
+            if (TruncateDateTimesInDateElements(element))
+            {
+                resource.InvalidateCaches();
+                element = resource.ToElement(_schemaContext.Schema);
+            }
+
             var isDeleted = IsSoftDeleted(element);
 
             if (isDeleted)
@@ -101,11 +119,8 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
                 element = resource.ToElement(_schemaContext.Schema);
             }
 
-            // The one-argument ResourceElement constructor leaves ResourceInstance unset, so RawResourceFactory
-            // cannot use the native ResourceJsonNode and falls back to a Firely POCO rebuild and serialization.
-            // A future native persistence-codec seam must carry the node through the two-argument constructor
-            // and consume it in IRawResourceFactory in the same change.
-            var resourceElement = new ResourceElement(element.ToTypedElement());
+            // IgnixaRawResourceFactory consumes the native carrier; Firely persistence rebuilds a POCO from the typed element.
+            var resourceElement = new ResourceElement(element.ToTypedElement(), resource);
             var resourceWrapper = _resourceFactory.Create(resourceElement, isDeleted, true, keepVersion);
 
             return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, isDeleted, resourceWrapper);
@@ -198,6 +213,45 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
             {
                 throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
             }
+        }
+
+        /// <summary>
+        /// Rewrites every schema-typed <c>date</c> element whose JSON value is a time-bearing dateTime to its
+        /// literal date part, matching Firely's <c>TruncateDateTimeToDate</c> parser setting used in production.
+        /// Valid dates, partial dates, and dateTime or instant elements are left unchanged.
+        /// </summary>
+        /// <returns><see langword="true"/> when the underlying JSON changed and cached elements are stale.</returns>
+        private static bool TruncateDateTimesInDateElements(IElement element)
+        {
+            var truncated = false;
+            foreach (IElement child in element.Children())
+            {
+                truncated |= TruncateDateTimeInDateElement(child);
+                truncated |= TruncateDateTimesInDateElements(child);
+            }
+
+            return truncated;
+        }
+
+        private static bool TruncateDateTimeInDateElement(IElement element)
+        {
+            if (!string.Equals(element.InstanceType, "date", StringComparison.Ordinal)
+                || !element.HasPrimitiveValue
+                || element.Meta<JsonPrimitiveValueNode>()?.Value is not JsonValue value
+                || !value.TryGetValue(out string literal))
+            {
+                return false;
+            }
+
+            // Firely trims JSON strings before parsing. Do not change the stored text unless it is truncated.
+            ReadOnlySpan<char> trimmed = literal.AsSpan().Trim();
+            if (!FirelyDateTimeWithFullDateRegex.IsMatch(trimmed) || !FirelyDateTime.TryParse(trimmed.ToString(), out _))
+            {
+                return false;
+            }
+
+            value.ReplaceWith(JsonValue.Create(trimmed[..10].ToString()));
+            return true;
         }
 
         /// <summary>

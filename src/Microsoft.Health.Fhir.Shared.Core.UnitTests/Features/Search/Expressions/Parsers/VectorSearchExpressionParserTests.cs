@@ -24,10 +24,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
     [Collection(nameof(ModelInfoProviderSerialCollection))]
-    public class VectorSearchExpressionParserTests
+    public class VectorSearchExpressionParserTests : IDisposable
     {
         private const string SearchParameterCode = "semantic-text";
         private static readonly Uri SearchParameterCanonical = new Uri("http://example.org/fhir/SearchParameter/semantic-text");
+        private readonly IModelInfoProvider _originalModelInfoProvider = ModelInfoProvider.Instance;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
         private readonly IReferenceSearchValueParser _referenceSearchValueParser = Substitute.For<IReferenceSearchValueParser>();
         private readonly IVectorSearchParameterResolver _vectorSearchParameterResolver = Substitute.For<IVectorSearchParameterResolver>();
@@ -211,6 +212,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 .Returns(_ => throw new SearchParameterNotSupportedException(searchParameter.Url));
 
             Assert.Throws<SearchParameterNotSupportedException>(() => _parser.Parse(searchParameter, null, "breathing difficulty"));
+        }
+
+        public void Dispose()
+        {
+            ModelInfoProvider.SetProvider(_originalModelInfoProvider);
         }
 
         private SearchParameterInfo CreateEnabledVectorSearchParameter()
