@@ -41,11 +41,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
 {
     [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.Import)]
+    [Collection(ImportClockTestCollection.Name)]
     public class IgnixaRawResourceFactoryTests
     {
         private const string NoMeta = """{"resourceType":"Patient","id":"p"}""";
         private const string WithVersion = """{"resourceType":"Patient","id":"p","meta":{"versionId":"7","_versionId":{"id":"version"}}}""";
-        private static readonly string SoftDeleted = $$$"""{"resourceType":"Patient","id":"p","meta":{"extension":[{"url":"{{{KnownFhirPaths.AzureSoftDeletedExtensionUrl}}}","valueString":"soft-deleted"}]}}""";
+        private static readonly string SoftDeleted = $$$"""{"resourceType":"Patient","id":"p","meta":{"lastUpdated":"2026-06-01T00:00:00+00:00","extension":[{"url":"{{{KnownFhirPaths.AzureSoftDeletedExtensionUrl}}}","valueString":"soft-deleted"}]}}""";
 
         private static readonly DateTimeOffset PinnedNow = new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
 #pragma warning disable CS0618 // Match the production import parser.
@@ -257,14 +258,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         [Fact]
         public void GivenEmptiedMetaExtension_ThenNoEmptyArray()
         {
-            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
-            {
-                string data = ImportWrite(SoftDeleted, ImportMode.IncrementalLoad, native: true).Data;
+            string data = ImportWrite(SoftDeleted, ImportMode.IncrementalLoad, native: true).Data;
 
-                Assert.DoesNotContain("\"extension\":[]", data);
-                Assert.DoesNotContain(KnownFhirPaths.AzureSoftDeletedExtensionUrl, data);
-                AssertExactly(ImportWrite(SoftDeleted, ImportMode.IncrementalLoad, native: false).Data, data);
-            }
+            Assert.DoesNotContain("\"extension\":[]", data);
+            Assert.DoesNotContain(KnownFhirPaths.AzureSoftDeletedExtensionUrl, data);
+            AssertExactly(ImportWrite(SoftDeleted, ImportMode.IncrementalLoad, native: false).Data, data);
         }
 
         [Fact]
@@ -342,28 +340,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         public void GivenLastUpdatedCompanion_WhenImportWrites_ThenReplacementDropsOnlyRootCompanion(ImportMode mode)
         {
             const string json = """{"resourceType":"Patient","id":"p","meta":{"lastUpdated":"2020-01-01T00:00:00Z","_lastUpdated":{"id":"original"}},"contained":[{"resourceType":"Patient","id":"c","meta":{"lastUpdated":"2019-01-01T00:00:00Z","_lastUpdated":{"id":"contained"}}}]}""";
-            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
-            {
-                string expected = ImportWrite(json, mode, native: false).Data;
-                var meta = JsonNode.Parse(expected)["meta"].AsObject();
-                Assert.False(meta.ContainsKey("_lastUpdated"));
-                Assert.Contains("\"_lastUpdated\":{\"id\":\"contained\"}", expected);
+            using var clock = mode == ImportMode.InitialLoad ? Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)) : null;
+            string expected = ImportWrite(json, mode, native: false).Data;
+            var meta = JsonNode.Parse(expected)["meta"].AsObject();
+            Assert.False(meta.ContainsKey("_lastUpdated"));
+            Assert.Contains("\"_lastUpdated\":{\"id\":\"contained\"}", expected);
 
-                AssertExactly(expected, ImportWrite(json, mode, native: true).Data);
-            }
+            AssertExactly(expected, ImportWrite(json, mode, native: true).Data);
         }
 
         [Fact]
         public void GivenDateTypedElementWithDateTime_ThenStoredAsDate()
         {
-            const string json = """{"resourceType":"Patient","id":"p","birthDate":"2001-02-03T04:05:06Z"}""";
-            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
-            {
-                string data = ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data;
+            const string json = """{"resourceType":"Patient","id":"p","meta":{"lastUpdated":"2026-06-01T00:00:00+00:00"},"birthDate":"2001-02-03T04:05:06Z"}""";
+            string data = ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data;
 
-                Assert.Contains("\"birthDate\":\"2001-02-03\"", data);
-                AssertExactly(ImportWrite(json, ImportMode.IncrementalLoad, native: false).Data, data);
-            }
+            Assert.Contains("\"birthDate\":\"2001-02-03\"", data);
+            AssertExactly(ImportWrite(json, ImportMode.IncrementalLoad, native: false).Data, data);
         }
 
         [Theory]
@@ -416,25 +409,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         [InlineData(""" "text":{"status":"generated","_div":{"id":"shadow"}} """, """ "text":{"status":"generated","_div":{"id":"shadow"}} """)]
         public void GivenPrimitiveMetadata_ThenNativeMatchesIgnixaParserWithFirelyWriter(string input, string persisted, bool firelyConflict = false, string firelyPersisted = null)
         {
-            string json = $$$"""{"resourceType":"Patient","id":"p",{{{input}}}}""";
-            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
+            string json = $$$"""{"resourceType":"Patient","id":"p","meta":{"lastUpdated":"2026-06-01T00:00:00+00:00"},{{{input}}}}""";
+            string metadata = """ "meta":{"versionId":"1","lastUpdated":"2026-06-01T00:00:00+00:00"} """;
+            string Expected(string fields) => $$$"""{"resourceType":"Patient","id":"p",{{{metadata}}}{{{(fields.Length == 0 ? string.Empty : "," + fields)}}}}""";
+            string expected = Expected(persisted);
+            string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true).Data;
+            AssertExactly(expected, mixed);
+            if (firelyConflict)
             {
-                string metadata = """ "meta":{"versionId":"1","lastUpdated":"2026-06-01T00:00:00+00:00"} """;
-                string Expected(string fields) => $$$"""{"resourceType":"Patient","id":"p",{{{metadata}}}{{{(fields.Length == 0 ? string.Empty : "," + fields)}}}}""";
-                string expected = Expected(persisted);
-                string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true).Data;
-                AssertExactly(expected, mixed);
-                if (firelyConflict)
-                {
-                    Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: false));
-                }
-                else
-                {
-                    AssertExactly(Expected(firelyPersisted ?? persisted), ImportWrite(json, ImportMode.IncrementalLoad, native: false).Data);
-                }
-
-                AssertExactly(expected, ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data);
+                Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: false));
             }
+            else
+            {
+                AssertExactly(Expected(firelyPersisted ?? persisted), ImportWrite(json, ImportMode.IncrementalLoad, native: false).Data);
+            }
+
+            AssertExactly(expected, ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data);
         }
 
         [Fact]
@@ -458,11 +448,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         public void GivenUnrelatedPrimitiveObject_ThenNativeRejectsInsteadOfDroppingIt()
         {
             const string json = """{"resourceType":"Patient","id":"p","birthDate":{"resourceType":"Patient"}}""";
-            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
-            {
-                Assert.DoesNotContain("birthDate", ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true).Data);
-                Assert.Contains("Patient.birthDate", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
-            }
+            Assert.DoesNotContain("birthDate", ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true).Data);
+            Assert.Contains("Patient.birthDate", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
         }
 
         [Theory]
@@ -473,15 +460,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         {
             string token = JsonSerializer.Serialize(literal);
             string json = $$$"""{"resourceType":"Patient","id":"p","name":[{"family":{{{token}}}}]}""";
-            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
-            {
-                string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true).Data;
-                Assert.Equal(string.Empty, JsonNode.Parse(mixed)["name"][0]["family"].GetValue<string>());
-                Assert.DoesNotContain("\"family\"", ImportWrite(json, ImportMode.IncrementalLoad, native: false).Data);
+            string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true).Data;
+            Assert.Equal(string.Empty, JsonNode.Parse(mixed)["name"][0]["family"].GetValue<string>());
+            Assert.DoesNotContain("\"family\"", ImportWrite(json, ImportMode.IncrementalLoad, native: false).Data);
 
-                string native = ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data;
-                Assert.Contains($"\"family\":\"{literal}\"", native);
-            }
+            string native = ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data;
+            Assert.Contains($"\"family\":\"{literal}\"", native);
         }
 
         [Theory]
@@ -492,11 +476,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         {
             string token = JsonSerializer.Serialize(literal);
             string json = $$$"""{"resourceType":"Patient","id":"p","gender":{{{token}}}}""";
-            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
-            {
-                Assert.Contains("AdministrativeGender", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true)).Message);
-                Assert.Contains("Patient.gender", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
-            }
+            Assert.Contains("AdministrativeGender", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true)).Message);
+            Assert.Contains("Patient.gender", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
         }
 
         [Theory]
@@ -512,22 +493,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         public void GivenPrimitiveBoundaryInput_ThenBothIgnixaWritersMatchExpectedFields(string input, string fields)
         {
             string json = $$$"""{"resourceType":"Patient","id":"p",{{{input}}}}""";
-            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
+            string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true).Data;
+            string native = ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data;
+            var expected = JsonNode.Parse(fields).AsObject();
+            var mixedFields = JsonNode.Parse(mixed).AsObject();
+            var nativeFields = JsonNode.Parse(native).AsObject();
+            foreach (string common in new[] { "resourceType", "id", "meta" })
             {
-                string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true).Data;
-                string native = ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data;
-                var expected = JsonNode.Parse(fields).AsObject();
-                var mixedFields = JsonNode.Parse(mixed).AsObject();
-                var nativeFields = JsonNode.Parse(native).AsObject();
-                foreach (string common in new[] { "resourceType", "id", "meta" })
-                {
-                    mixedFields.Remove(common);
-                    nativeFields.Remove(common);
-                }
-
-                Assert.True(JsonNode.DeepEquals(expected, mixedFields), mixed);
-                Assert.True(JsonNode.DeepEquals(expected, nativeFields), native);
+                mixedFields.Remove(common);
+                nativeFields.Remove(common);
             }
+
+            Assert.True(JsonNode.DeepEquals(expected, mixedFields), mixed);
+            Assert.True(JsonNode.DeepEquals(expected, nativeFields), native);
         }
 
         [Theory]
@@ -545,16 +523,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         [InlineData(" a G\tV\r\ns bG8=\t")]
         public void GivenBase64Binary_ThenBothIgnixaWritersEmitUnbrokenBase64(string literal)
         {
-            string json = $$$"""{"resourceType":"Patient","id":"p","photo":[{"data":{{{JsonSerializer.Serialize(literal)}}},"title":"a  b"}]}""";
-            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
-            {
-                string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true).Data;
-                string native = ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data;
+            string json = $$$"""{"resourceType":"Patient","id":"p","meta":{"lastUpdated":"2026-06-01T00:00:00+00:00"},"photo":[{"data":{{{JsonSerializer.Serialize(literal)}}},"title":"a  b"}]}""";
+            string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true).Data;
+            string native = ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data;
 
-                Assert.Contains("\"data\":\"aGVsbG8=\"", mixed);
-                Assert.Contains("\"title\":\"a  b\"", mixed);
-                AssertExactly(mixed, native);
-            }
+            Assert.Contains("\"data\":\"aGVsbG8=\"", mixed);
+            Assert.Contains("\"title\":\"a  b\"", mixed);
+            AssertExactly(mixed, native);
         }
 
         [Theory]
@@ -601,14 +576,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         [InlineData(""" "contained":[{"resourceType":"Patient","id":"c","meta":{"lastUpdated":null,"_lastUpdated":{"id":"i"}}}] """, """ "contained":[{"resourceType":"Patient","id":"c","meta":{"_lastUpdated":{"id":"i"}}}] """)]
         public void GivenPermissiveCompanion_ThenNativeMatchesFirely(string input, string expected)
         {
-            string json = $$$"""{"resourceType":"Patient","id":"p",{{{input}}}}""";
-            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
-            {
-                string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, true).Data;
-                string native = ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data;
-                Assert.True(mixed.Contains(expected.Trim(), StringComparison.Ordinal), $"IF={mixed}; II={native}");
-                Assert.True(JsonNode.DeepEquals(JsonNode.Parse(mixed), JsonNode.Parse(native)), $"IF={mixed}; II={native}");
-            }
+            string json = $$$"""{"resourceType":"Patient","id":"p","meta":{"lastUpdated":"2026-06-01T00:00:00+00:00"},{{{input}}}}""";
+            string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, true).Data;
+            string native = ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data;
+            Assert.True(mixed.Contains(expected.Trim(), StringComparison.Ordinal), $"IF={mixed}; II={native}");
+            Assert.True(JsonNode.DeepEquals(JsonNode.Parse(mixed), JsonNode.Parse(native)), $"IF={mixed}; II={native}");
         }
 
         [Fact]
@@ -1029,13 +1001,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         public void GivenEmptyGender_ThenBothIgnixaImportPathsReject()
         {
             const string json = """{"resourceType":"Patient","id":"p","gender":""}""";
-            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
-            {
-                Assert.Contains("AdministrativeGender", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true)).Message);
-                Assert.DoesNotContain("\"gender\"", ImportWrite(json, ImportMode.IncrementalLoad, native: false).Data);
+            Assert.Contains("AdministrativeGender", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true)).Message);
+            Assert.DoesNotContain("\"gender\"", ImportWrite(json, ImportMode.IncrementalLoad, native: false).Data);
 
-                Assert.Contains("Patient.gender", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
-            }
+            Assert.Contains("Patient.gender", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
         }
 
         [Theory]
@@ -1044,13 +1013,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         [InlineData(""" "maritalStatus":{"coding":[{"code":""}]} """)]
         public void GivenEmptyNonEnumPrimitiveAcceptedByIgnixaToFirely_ThenNativeWritesIt(string property)
         {
-            string json = $$$"""{"resourceType":"Patient","id":"p",{{{property}}}}""";
-            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
-            {
-                string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true).Data;
-                Assert.Contains(property.Trim(), mixed);
-                AssertExactly(mixed, ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data);
-            }
+            string json = $$$"""{"resourceType":"Patient","id":"p","meta":{"lastUpdated":"2026-06-01T00:00:00+00:00"},{{{property}}}}""";
+            string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, useIgnixaParser: true).Data;
+            Assert.Contains(property.Trim(), mixed);
+            AssertExactly(mixed, ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data);
         }
 
         private static string Version(string data)

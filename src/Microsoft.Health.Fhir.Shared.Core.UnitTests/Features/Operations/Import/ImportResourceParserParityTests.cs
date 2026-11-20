@@ -44,6 +44,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.Import)]
+    [Collection(ImportClockTestCollection.Name)]
     public class ImportResourceParserParityTests
     {
         private static readonly DateTimeOffset PinnedNow = new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
