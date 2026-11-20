@@ -43,6 +43,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
     {
         private const string NativePatientJson = """{"resourceType":"Patient","id":"patient-1","contained":[{"resourceType":"Organization","id":"org-contained","name":"Contained"}],"name":[{"family":"Root"}],"generalPractitioner":[{"reference":"Practitioner/practitioner-1"}],"managingOrganization":{"reference":"#org-contained"}}""";
 
+        private const string NativePatientWithExtensionJson = """{"resourceType":"Patient","id":"patient-1","extension":[{"url":"http://example.org/ext","valueString":"x"}]}""";
+
         private readonly IFhirPathProvider _originalAmbientProvider = FhirPathProvider.Instance;
         private readonly IModelInfoProvider _originalModelInfoProvider = ModelInfoProvider.Instance;
 
@@ -759,10 +761,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         {
             ICompiledFhirPath compiled = CreateIgnixaProvider().Compile(expression);
             ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
+            ITypedElement pocoRoot = ParsePocoResource(NativePatientJson);
+            EvaluationContext nativeContext = CreateNativeRootContext(nativeRoot);
+            bool isIndexedResourceRoot = CreateIgnixaBridge().IsIndexedResourceRoot(nativeRoot, nativeContext);
 
-            string[] nativeValues = Normalize(compiled.Select(nativeRoot, CreateNativeRootContext()));
-            string[] pocoValues = Normalize(compiled.Select(ParsePocoResource(NativePatientJson), CreateNativeRootContext()));
+            string[] nativeValues = Normalize(compiled.Select(nativeRoot, nativeContext));
+            string[] pocoValues = Normalize(compiled.Select(pocoRoot, CreateNativeRootContext(pocoRoot)));
 
+            Assert.True(isIndexedResourceRoot);
             Assert.NotEmpty(pocoValues);
             Assert.Equal(pocoValues, nativeValues);
         }
@@ -772,27 +778,26 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         {
             ICompiledFhirPath compiled = CreateIgnixaProvider().Compile("id");
             ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
-            EvaluationContext nativeContext = ModelInfoProvider.Instance.GetEvaluationContext();
-            EvaluationContext pocoContext = ModelInfoProvider.Instance.GetEvaluationContext();
+            ITypedElement scopedRoot = ParseNativeResource(NativePatientJson).ToScopedNode();
+            EvaluationContext nativeContext = CreateNativeRootContext(nativeRoot);
+            EvaluationContext scopedContext = CreateNativeRootContext(scopedRoot);
 
             _ = compiled.Select(nativeRoot, nativeContext).ToArray();
-            _ = compiled.Select(ParsePocoResource(NativePatientJson), pocoContext).ToArray();
+            _ = compiled.Select(scopedRoot, scopedContext).ToArray();
 
             Assert.Same(nativeRoot, nativeContext.Resource);
             Assert.Same(nativeRoot, nativeContext.RootResource);
-            Assert.Equal(pocoContext.Resource.InstanceType, nativeContext.Resource.InstanceType);
-            Assert.Equal(pocoContext.Resource.Children("id").Single().Value, nativeContext.Resource.Children("id").Single().Value);
-            Assert.Equal(pocoContext.RootResource.InstanceType, nativeContext.RootResource.InstanceType);
-            Assert.Equal(pocoContext.RootResource.Children("id").Single().Value, nativeContext.RootResource.Children("id").Single().Value);
+            Assert.Same(scopedRoot, scopedContext.Resource);
+            Assert.Same(scopedRoot, scopedContext.RootResource);
         }
 
         [Theory]
-        [InlineData("nullContext")]
-        [InlineData("emptyContext")]
-        [InlineData("resource")]
-        [InlineData("rootResource")]
-        [InlineData("resourceAndRootResource")]
-        public void GivenNativeRoot_ThenNativePathIsUsed(string contextShape)
+        [InlineData("nullContext", false)]
+        [InlineData("emptyContext", false)]
+        [InlineData("resource", true)]
+        [InlineData("rootResource", false)]
+        [InlineData("resourceAndRootResource", true)]
+        public void GivenNativeRootAndContextShape_ThenNativePathIsUsedOnlyWhenContextResourceIsTheRoot(string contextShape, bool expected)
         {
             ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
             EvaluationContext context = null;
@@ -803,7 +808,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                 context.RootResource = contextShape is "rootResource" or "resourceAndRootResource" ? nativeRoot : null;
             }
 
-            Assert.True(CreateIgnixaBridge().TryGetNativeRoot(nativeRoot, context, out _));
+            Assert.Equal(expected, CreateIgnixaBridge().IsIndexedResourceRoot(nativeRoot, context));
         }
 
         [Theory]
@@ -812,16 +817,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         [InlineData("childOfContained")]
         public void GivenNativeChildOrContainedInput_ThenScopedPathIsUsed(string inputKind)
         {
-            ITypedElement input = SelectNativeInput(ParseNativeResource(NativePatientJson), inputKind);
+            ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
+            ITypedElement input = SelectNativeInput(nativeRoot, inputKind);
 
-            Assert.False(CreateIgnixaBridge().TryGetNativeRoot(input, null, out _));
+            Assert.False(CreateIgnixaBridge().IsIndexedResourceRoot(input, CreateNativeRootContext(nativeRoot)));
         }
 
         [Fact]
         public void GivenTypedElementAdapterOverFirelyElement_ThenScopedPathIsUsed()
         {
             ITypedElement input = new TypedElementAdapter(new Patient { Id = "patient-1" }.ToTypedElement().ToIgnixaElement());
-            bool hasNativeRoot = CreateIgnixaBridge().TryGetNativeRoot(input, null, out _);
+            bool hasNativeRoot = CreateIgnixaBridge().IsIndexedResourceRoot(input, CreateNativeRootContext(input));
 
             Assert.Equal("Patient", input.Location);
             Assert.Equal("Patient", input.InstanceType);
@@ -836,10 +842,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
             ITypedElement otherRoot = ParseNativeResource(NativePatientJson);
             EvaluationContext context = ModelInfoProvider.Instance.GetEvaluationContext();
-            context.Resource = foreignContextMember == "resource" ? otherRoot : null;
+            context.Resource = foreignContextMember == "resource" ? otherRoot : nativeRoot;
             context.RootResource = foreignContextMember == "rootResource" ? otherRoot : null;
 
-            Assert.False(CreateIgnixaBridge().TryGetNativeRoot(nativeRoot, context, out _));
+            Assert.False(CreateIgnixaBridge().IsIndexedResourceRoot(nativeRoot, context));
         }
 
         [Fact]
@@ -855,7 +861,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             string[] firelyValues = Normalize(ignixa.Compile("$this.length()").Select(firelyPrimitive, firelyContext));
 
             Assert.Equal("string", primitive.InstanceType);
-            Assert.False(CreateIgnixaBridge().TryGetNativeRoot(primitive, null, out _));
+            Assert.False(CreateIgnixaBridge().IsIndexedResourceRoot(primitive, CreateNativeRootContext(primitive)));
             Assert.Equal(["System.Int32|9"], firelyValues);
             Assert.Equal(firelyValues, nativeValues);
             Assert.Null(firelyContext.Resource);
@@ -908,6 +914,68 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             Assert.True(isResourceType);
         }
 
+        [Theory]
+        [InlineData("nullContext")]
+        [InlineData("emptyContext")]
+        public void GivenNativeRootSelectedWithoutResourceContext_WhenResultIsEvaluatedWithoutContext_ThenResourceAndResolveMatchScopedAndPocoInputs(string contextShape)
+        {
+            ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
+            ITypedElement scopedRoot = ParseNativeResource(NativePatientJson).ToScopedNode();
+            ITypedElement pocoRoot = ParsePocoResource(NativePatientJson);
+
+            string[] nativeValues = SelectManagingOrganizationAndEvaluateWithoutContext(nativeRoot, contextShape);
+            string[] scopedValues = SelectManagingOrganizationAndEvaluateWithoutContext(scopedRoot, contextShape);
+            string[] pocoValues = SelectManagingOrganizationAndEvaluateWithoutContext(pocoRoot, contextShape);
+
+            Assert.Equal(["System.String|patient-1", "System.String|Contained"], scopedValues);
+            Assert.Equal(scopedValues, nativeValues);
+            Assert.Equal(pocoValues, nativeValues);
+        }
+
+        [Fact]
+        public void GivenIndexedNativeRootAndFirelyEnvironmentVariable_WhenIntersecting_ThenResultMatchesScopedPath()
+        {
+            ICompiledFhirPath compiled = CreateIgnixaProvider().Compile("extension.intersect(%expected).exists()");
+            ITypedElement nativeRoot = ParseNativeResource(NativePatientWithExtensionJson);
+            ITypedElement scopedRoot = ParseNativeResource(NativePatientWithExtensionJson).ToScopedNode();
+            ITypedElement[] expected = ParsePocoResource(NativePatientWithExtensionJson).Children("extension").ToArray();
+            EvaluationContext nativeContext = CreateNativeRootContext(nativeRoot);
+            EvaluationContext scopedContext = CreateNativeRootContext(scopedRoot);
+            nativeContext.Environment["expected"] = expected;
+            scopedContext.Environment["expected"] = expected;
+            bool isIndexedResourceRoot = CreateIgnixaBridge().IsIndexedResourceRoot(nativeRoot, nativeContext);
+
+            string[] nativeValues = Normalize(compiled.Select(nativeRoot, nativeContext));
+            string[] scopedValues = Normalize(compiled.Select(scopedRoot, scopedContext));
+
+            Assert.True(isIndexedResourceRoot);
+            Assert.Equal(["System.Boolean|True"], scopedValues);
+            Assert.Equal(scopedValues, nativeValues);
+        }
+
+        [Fact]
+        public void GivenIndexedNativeDocumentReference_WhenComparingAttachmentSize_ThenResultsMatchScopedPath()
+        {
+            IFhirPathProvider provider = CreateIgnixaProvider();
+            ICompiledFhirPath urlBySize = provider.Compile("content.where(attachment.size = 10).attachment.url");
+            ICompiledFhirPath sizeGreaterThan = provider.Compile("content.attachment.size > 9");
+            string json = CreateDocumentReferenceJson();
+            ITypedElement nativeRoot = ParseNativeResource(json);
+            ITypedElement scopedRoot = ParseNativeResource(json).ToScopedNode();
+            bool isIndexedResourceRoot = CreateIgnixaBridge().IsIndexedResourceRoot(nativeRoot, CreateNativeRootContext(nativeRoot));
+
+            string[] nativeUrls = Normalize(urlBySize.Select(nativeRoot, CreateNativeRootContext(nativeRoot)));
+            string[] scopedUrls = Normalize(urlBySize.Select(scopedRoot, CreateNativeRootContext(scopedRoot)));
+            string[] nativeComparison = Normalize(sizeGreaterThan.Select(nativeRoot, CreateNativeRootContext(nativeRoot)));
+            string[] scopedComparison = Normalize(sizeGreaterThan.Select(scopedRoot, CreateNativeRootContext(scopedRoot)));
+
+            Assert.True(isIndexedResourceRoot);
+            Assert.Equal(["System.String|http://example.org/a"], scopedUrls);
+            Assert.Equal(scopedUrls, nativeUrls);
+            Assert.Equal(["System.Boolean|True"], scopedComparison);
+            Assert.Equal(scopedComparison, nativeComparison);
+        }
+
         private static IFhirPathProvider CreateIgnixaProvider()
             => new IgnixaFhirPathProvider(new IgnixaSchemaContext(ModelInfoProvider.Instance));
 
@@ -922,9 +990,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         private static ITypedElement ParsePocoResource(string json)
             => new FhirJsonParser().Parse<Resource>(json).ToTypedElement();
 
-        private static EvaluationContext CreateNativeRootContext()
-            => ModelInfoProvider.Instance.GetEvaluationContext(
+        private static EvaluationContext CreateNativeRootContext(ITypedElement resource)
+        {
+            EvaluationContext context = ModelInfoProvider.Instance.GetEvaluationContext(
                 reference => reference == "Practitioner/practitioner-1" ? new Practitioner { Id = "practitioner-1" }.ToTypedElement() : null);
+            context.Resource = resource;
+            return context;
+        }
+
+        private static string[] SelectManagingOrganizationAndEvaluateWithoutContext(ITypedElement root, string contextShape)
+        {
+            IFhirPathProvider provider = CreateIgnixaProvider();
+            EvaluationContext context = contextShape == "emptyContext" ? ModelInfoProvider.Instance.GetEvaluationContext() : null;
+            ITypedElement managingOrganization = Assert.Single(provider.Compile("managingOrganization").Select(root, context));
+
+            return
+            [
+                .. Normalize(provider.Compile("%resource.id").Select(managingOrganization)),
+                .. Normalize(provider.Compile("resolve().name").Select(managingOrganization)),
+            ];
+        }
+
+        private static string CreateDocumentReferenceJson()
+        {
+            string size = ModelInfoProvider.Instance.Version == FhirSpecification.R5 ? "\"10\"" : "10";
+            return """{"resourceType":"DocumentReference","id":"doc-1","status":"current","content":[{"attachment":{"url":"http://example.org/a","size":""" + size + "}}]}";
+        }
 
         private static ITypedElement SelectNativeInput(ITypedElement patient, string inputKind)
             => inputKind switch

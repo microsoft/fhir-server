@@ -51,10 +51,10 @@ namespace Microsoft.Health.Fhir.Ignixa
 
             IElement ignixaInput;
             IgnixaEvaluationContext ignixaContext;
-            if (_contextBridge.TryGetNativeRoot(input, context, out IElement nativeRoot))
+            if (_contextBridge.IsIndexedResourceRoot(input, context))
             {
-                ignixaInput = nativeRoot;
-                ignixaContext = _contextBridge.CreateNative(input, nativeRoot, context);
+                ignixaInput = new IgnixaElementAdapter(input);
+                ignixaContext = _contextBridge.CreateForIndexedResourceRoot(input, ignixaInput, context);
             }
             else
             {

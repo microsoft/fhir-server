@@ -460,10 +460,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             ResourceElement pocoCarrier = ProductionFirelyJsonParser.Parse<Resource>(json).ToResourceElement();
             RawResource stored = new RawResourceFactory(new FhirJsonSerializer()).Create(nativeCarrier, keepMeta: true, keepVersion: true);
             ResourceElement storageReadCarrier = Deserializers.ResourceDeserializer.DeserializeRaw(stored, nativeCarrier.VersionId, nativeCarrier.LastUpdated.Value);
-            Assert.True(new IgnixaEvaluationContextBridge(schemaContext).TryGetNativeRoot(nativeCarrier.Instance, null, out _));
+            Assert.True(new IgnixaEvaluationContextBridge(schemaContext).IsIndexedResourceRoot(nativeCarrier.Instance, new Hl7.FhirPath.EvaluationContext { Resource = nativeCarrier.Instance }));
 
             ResourceElement scopedNodeCarrier = new(nativeCarrier.Instance.ToScopedNode());
-            Assert.False(new IgnixaEvaluationContextBridge(schemaContext).TryGetNativeRoot(scopedNodeCarrier.Instance, null, out _));
+            Assert.False(new IgnixaEvaluationContextBridge(schemaContext).IsIndexedResourceRoot(scopedNodeCarrier.Instance, new Hl7.FhirPath.EvaluationContext { Resource = scopedNodeCarrier.Instance }));
 
             string[] nativeEntriesInOrder = NormalizeEntriesInOrder(indexer.Extract(nativeCarrier));
             string[] scopedNodeEntriesInOrder = NormalizeEntriesInOrder(indexer.Extract(scopedNodeCarrier));
