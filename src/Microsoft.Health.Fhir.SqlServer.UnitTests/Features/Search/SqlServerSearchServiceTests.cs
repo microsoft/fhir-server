@@ -10,9 +10,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Medino;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -24,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -60,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public class SqlServerSearchServiceTests : IDisposable
+    public class SqlServerSearchServiceTests
     {
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly IFhirDataStore _fhirDataStore;
@@ -74,9 +73,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
         private readonly SqlServerSearchService _searchService;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration = new CoreFeatureConfiguration();
-        private readonly PartitionConfiguration _partitionConfiguration = new PartitionConfiguration();
-        private readonly IHttpContextAccessor _httpContextAccessor = Substitute.For<IHttpContextAccessor>();
-        private readonly ServiceProvider _partitionServices;
 
         public SqlServerSearchServiceTests()
         {
@@ -87,14 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             _sqlRetryService = Substitute.For<ISqlRetryService>();
             _compressedRawResourceConverter = Substitute.For<ICompressedRawResourceConverter>();
             _requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            _httpContextAccessor.HttpContext.Returns((HttpContext)null);
-            var services = new ServiceCollection();
-            services.AddSingleton(_requestContextAccessor);
-            services.AddSingleton(_httpContextAccessor);
-            services.AddSingleton(_ => new PartitionManager(Options.Create(_partitionConfiguration)));
-            services.AddLogging();
-            services.AddSqlPartitionDatabaseSelection();
-            _partitionServices = services.BuildServiceProvider(validateScopes: true);
+            _requestContextAccessor.RequestContext.Partition.Returns(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
             _queryHashCalculator = Substitute.For<ISqlQueryHashCalculator>();
             _queryPlanReuseChecker = Substitute.For<IQueryPlanReuseChecker>();
 
@@ -142,7 +131,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
                 Options.Create(_coreFeatureConfiguration),
-                CreatePartitionDatabaseResolver(),
                 NullLogger<SqlServerSearchService>.Instance);
         }
 
@@ -425,11 +413,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public async Task GivenRequestPartition_WhenSearchSqlIsGenerated_ThenConfiguredDatabaseIsUsed(string partitionId, string expectedTable, bool includesOperation)
         {
             // Arrange
-            using var scope = BeginRequestScope();
-            _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
-            _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-b", DatabaseName = "database-b" });
             var context = Substitute.For<IFhirRequestContext>();
-            context.Partition.Returns(new PartitionInfo { Id = partitionId });
+            context.Partition.Returns(partitionId == null ? null : new PartitionInfo { Id = partitionId, DatabaseName = partitionId.Replace("partition", "database", StringComparison.Ordinal) });
             _requestContextAccessor.RequestContext.Returns(context);
             _schemaInformation.Current = SchemaVersionConstants.Max;
             var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
@@ -460,18 +445,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         }
 
         [Theory]
-        [InlineData(null, false)]
-        [InlineData("", false)]
-        [InlineData("unused-partition", false)]
-        [InlineData(null, true)]
-        [InlineData("", true)]
-        [InlineData("unused-partition", true)]
-        public async Task GivenNoConfiguredPartitions_WhenSearchSqlIsGenerated_ThenTwoPartTableNamesAreUsed(string partitionId, bool includesOperation)
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenNoConfiguredPartitions_WhenSearchSqlIsGenerated_ThenTwoPartTableNamesAreUsed(bool includesOperation)
         {
             // Arrange
-            using var scope = BeginRequestScope();
             var context = Substitute.For<IFhirRequestContext>();
-            context.Partition.Returns(new PartitionInfo { Id = partitionId });
+            context.Partition.Returns((IPartitionInfo)null);
             _requestContextAccessor.RequestContext.Returns(context);
             _schemaInformation.Current = SchemaVersionConstants.Max;
             var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
@@ -500,11 +480,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public async Task GivenUnknownRequestPartition_WhenSearchSqlIsGenerated_ThenNoDefaultDatabaseQueryIsProduced(bool includesOperation)
+        public async Task GivenPartitionWithoutDatabase_WhenSearchSqlIsGenerated_ThenNoDefaultDatabaseQueryIsProduced(bool includesOperation)
         {
             // Arrange
-            using var scope = BeginRequestScope();
-            _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
             var context = Substitute.For<IFhirRequestContext>();
             context.Partition.Returns(new PartitionInfo { Id = "unknown-partition" });
             _requestContextAccessor.RequestContext.Returns(context);
@@ -520,7 +498,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SearchAsync(options, CancellationToken.None));
 
             // Assert
-            Assert.Contains("unknown-partition", exception.Message, StringComparison.Ordinal);
+            Assert.Contains("Database name is not set", exception.Message, StringComparison.Ordinal);
             _queryHashCalculator.DidNotReceive().CalculateHash(Arg.Any<string>());
         }
 
@@ -528,8 +506,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         public async Task GivenChangingRequestContexts_WhenGeneratingQueries_ThenPartitionDatabaseIsNotRetainedBetweenRequests()
         {
             // Arrange
-            _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
-            _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-b", DatabaseName = "database-b" });
             _schemaInformation.Current = SchemaVersionConstants.Max;
             var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
             service.StoredProcedureLayerIsEnabled = false;
@@ -549,11 +525,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 (null, "dbo.Resource"),
             })
             {
-                using var scope = BeginRequestScope();
                 var context = partitionId == null ? null : Substitute.For<IFhirRequestContext>();
                 if (context != null)
                 {
-                    context.Partition.Returns(new PartitionInfo { Id = partitionId });
+                    context.Partition.Returns(new PartitionInfo { Id = partitionId, DatabaseName = partitionId.Replace("partition", "database", StringComparison.Ordinal) });
                 }
 
                 _requestContextAccessor.RequestContext.Returns(context);
@@ -569,11 +544,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public async Task GivenUnknownPartition_WhenSearchUsesStoredProcedureShortcut_ThenNoDefaultDatabaseCallIsExecuted(bool includesOperation)
+        public async Task GivenPartitionWithoutDatabase_WhenSearchUsesStoredProcedureShortcut_ThenNoDefaultDatabaseCallIsExecuted(bool includesOperation)
         {
             // Arrange
-            using var scope = BeginRequestScope();
-            _partitionConfiguration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
             var context = Substitute.For<IFhirRequestContext>();
             context.Partition.Returns(new PartitionInfo { Id = "unknown-partition" });
             _requestContextAccessor.RequestContext.Returns(context);
@@ -594,21 +567,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SearchAsync(options, CancellationToken.None));
 
             // Assert
-            Assert.Contains("unsupported partition 'unknown-partition'", exception.Message, StringComparison.Ordinal);
+            Assert.Contains("Database name is not set", exception.Message, StringComparison.Ordinal);
             _queryHashCalculator.DidNotReceive().CalculateHash(Arg.Any<string>());
         }
-
-        public void Dispose() => _partitionServices.Dispose();
-
-        private IServiceScope BeginRequestScope()
-        {
-            var scope = _partitionServices.CreateScope();
-            _httpContextAccessor.HttpContext.Returns(new DefaultHttpContext { RequestServices = scope.ServiceProvider });
-            return scope;
-        }
-
-        private SqlPartitionDatabaseResolver CreatePartitionDatabaseResolver() =>
-            _partitionServices.GetRequiredService<SqlPartitionDatabaseResolver>();
 
         private void ExecuteSqlCallbacks()
         {
@@ -715,7 +676,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
                 Options.Create(_coreFeatureConfiguration),
-                CreatePartitionDatabaseResolver(),
                 NullLogger<SqlServerSearchService>.Instance);
         }
 
@@ -805,7 +765,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     Options.Create(new CoreFeatureConfiguration()),
-                    CreatePartitionDatabaseResolver(),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -856,7 +815,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     Options.Create(new CoreFeatureConfiguration()),
-                    CreatePartitionDatabaseResolver(),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 
@@ -907,7 +865,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     Options.Create(new CoreFeatureConfiguration()),
-                    CreatePartitionDatabaseResolver(),
                     NullLogger<SqlServerSearchService>.Instance);
             });
 

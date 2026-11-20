@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -286,15 +286,15 @@ END
             sqlRetryServiceOptions.MaxRetries = 3;
             if (testConnectionNoPooling)
             {
-                return new SqlRetryService(new SqlConnectionBuilderNoPooling(_fixture.SqlConnectionBuilder), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions(), Microsoft.Extensions.Options.Options.Create(new CoreFeatureConfiguration()), _fixture.PartitionDatabaseResolver);
+                return new SqlRetryService(new SqlConnectionBuilderNoPooling(_fixture.SqlConnectionBuilder), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions(), Microsoft.Extensions.Options.Options.Create(new CoreFeatureConfiguration()), _fixture.FhirRequestContextAccessor);
             }
             else if (testConnectionInitializationFailure)
             {
-                return new SqlRetryService(new SqlConnectionBuilderWithConnectionInitializationFailure(_fixture.SqlConnectionBuilder, testConnectionInitializationAllRetriesFail), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions(), Microsoft.Extensions.Options.Options.Create(new CoreFeatureConfiguration()), _fixture.PartitionDatabaseResolver);
+                return new SqlRetryService(new SqlConnectionBuilderWithConnectionInitializationFailure(_fixture.SqlConnectionBuilder, testConnectionInitializationAllRetriesFail), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions(), Microsoft.Extensions.Options.Options.Create(new CoreFeatureConfiguration()), _fixture.FhirRequestContextAccessor);
             }
             else
             {
-                return new SqlRetryService(_fixture.SqlConnectionBuilder, _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions(), Microsoft.Extensions.Options.Options.Create(new CoreFeatureConfiguration()), _fixture.PartitionDatabaseResolver);
+                return new SqlRetryService(_fixture.SqlConnectionBuilder, _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions(), Microsoft.Extensions.Options.Options.Create(new CoreFeatureConfiguration()), _fixture.FhirRequestContextAccessor);
             }
         }
 

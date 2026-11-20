@@ -37,7 +37,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly IOptions<SqlServerDataStoreConfiguration> _sqlServerDataStoreConfiguration;
         private readonly IOptions<CoreFeatureConfiguration> _coreFeatureConfiguration;
-        private readonly SqlPartitionDatabaseResolver _partitionDatabaseResolver;
+
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
 
         public SqlRetryServiceUnitTests()
         {
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 CommandTimeout = TimeSpan.FromSeconds(300),
             });
             _coreFeatureConfiguration = Options.Create(new CoreFeatureConfiguration());
-            _partitionDatabaseResolver = SqlPartitionTestRequest.CreateApplicationResolver();
+            _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         }
 
         [Theory]
@@ -60,34 +61,22 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         public async Task GivenPartitionContext_WhenExecutingStoredProcedure_ThenCommandTargetsConfiguredDatabase(string databaseName, string procedureName, string expectedName)
         {
             // Arrange
-            var configuration = new PartitionConfiguration();
             var accessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             accessor.RequestContext.Returns(_ => null);
             if (databaseName != null)
             {
-                configuration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = databaseName });
                 var context = Substitute.For<IFhirRequestContext>();
-                context.Partition.Returns(new PartitionInfo { Id = "partition-a" });
+                context.Partition.Returns(new PartitionInfo { Id = "partition-a", DatabaseName = databaseName });
                 accessor.RequestContext.Returns(context);
             }
 
-            var services = new ServiceCollection();
-            services.AddSingleton(accessor);
-            services.AddSingleton(new PartitionManager(Options.Create(configuration)));
-            services.AddLogging();
-            var http = Substitute.For<IHttpContextAccessor>();
-            services.AddSingleton(http);
-            services.AddSqlPartitionDatabaseSelection();
-            using var provider = services.BuildServiceProvider(validateScopes: true);
-            using var scope = provider.CreateScope();
-            http.HttpContext.Returns(new DefaultHttpContext { RequestServices = scope.ServiceProvider });
-            var service = ActivatorUtilities.CreateInstance<SqlRetryService>(
-                provider,
+            var service = new SqlRetryService(
                 _sqlConnectionBuilder,
                 _sqlServerDataStoreConfiguration,
                 Options.Create(new SqlRetryServiceOptions { MaxRetries = 1 }),
                 new SqlRetryServiceDelegateOptions(),
-                _coreFeatureConfiguration);
+                _coreFeatureConfiguration,
+                accessor);
             var stop = new OperationCanceledException("Stop before opening the connection.");
             _sqlConnectionBuilder.GetSqlConnectionAsync(Arg.Any<bool>(), Arg.Any<string>())
                 .Returns(Task.FromException<SqlConnection>(stop));
@@ -124,7 +113,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _partitionDatabaseResolver));
+                _fhirRequestContextAccessor));
         }
 
         [Fact]
@@ -140,7 +129,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 null,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _partitionDatabaseResolver));
+                _fhirRequestContextAccessor));
         }
 
         [Fact]
@@ -159,7 +148,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _partitionDatabaseResolver);
+                _fhirRequestContextAccessor);
 
             // Assert
             var transientErrors = GetPrivateFieldValue<HashSet<int>>(service, "_transientErrors");
@@ -182,7 +171,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _partitionDatabaseResolver);
+                _fhirRequestContextAccessor);
 
             // Assert
             var transientErrors = GetPrivateFieldValue<HashSet<int>>(service, "_transientErrors");
@@ -207,7 +196,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _partitionDatabaseResolver);
+                _fhirRequestContextAccessor);
 
             // Assert
             var transientErrors = GetPrivateFieldValue<HashSet<int>>(service, "_transientErrors");
@@ -258,7 +247,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _partitionDatabaseResolver);
+                _fhirRequestContextAccessor);
 
             var sqlEx = CreateSqlException(99999, "Custom transient error");
 
@@ -282,7 +271,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 new SqlRetryServiceDelegateOptions(),
                 _coreFeatureConfiguration,
-                _partitionDatabaseResolver);
+                _fhirRequestContextAccessor);
             var capacityException = CreateSqlException(capacityErrorCode, "Capacity error");
             var transientException = CreateSqlException(1205, "Transaction was deadlocked");
             Func<SqlException, bool> shouldNotRetry = ex => ex.Number == capacityErrorCode;
@@ -308,7 +297,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _partitionDatabaseResolver);
+                _fhirRequestContextAccessor);
 
             var sqlEx = CreateSqlException(121, "an error occurred during the pre-login handshake");
 
@@ -334,7 +323,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _partitionDatabaseResolver);
+                _fhirRequestContextAccessor);
 
             var sqlEx = CreateSqlException(121, "an error occurred during the pre-login handshake");
 
@@ -360,7 +349,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _partitionDatabaseResolver);
+                _fhirRequestContextAccessor);
 
             var ex = new InvalidOperationException("CustomRetriable error");
 
@@ -386,7 +375,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _partitionDatabaseResolver);
+                _fhirRequestContextAccessor);
 
             var sqlEx = CreateSqlException(121, "an error occurred during the pre-login handshake");
 
@@ -409,7 +398,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _partitionDatabaseResolver);
+                _fhirRequestContextAccessor);
 
             var ex = new ArgumentNullException("test");
 
@@ -432,7 +421,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 options,
                 delegateOptions,
                 _coreFeatureConfiguration,
-                _partitionDatabaseResolver);
+                _fhirRequestContextAccessor);
 
             var sqlEx = CreateSqlException(1205, "Transaction was deadlocked");
 
@@ -454,6 +443,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             // Act
             var service = SqlRetryService.GetInstance(
                 _sqlConnectionBuilder,
+                _fhirRequestContextAccessor,
                 expectedCommandTimeout,
                 expectedMaxRetries,
                 expectedRetryDelay);
@@ -473,7 +463,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         public void GetInstance_WithDefaultParameters_ShouldSetDefaultValues()
         {
             // Act
-            var service = SqlRetryService.GetInstance(_sqlConnectionBuilder);
+            var service = SqlRetryService.GetInstance(_sqlConnectionBuilder, _fhirRequestContextAccessor);
 
             // Assert
             Assert.NotNull(service);
@@ -490,7 +480,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         public void GetInstance_WithNullConnectionBuilder_ShouldThrowArgumentNullException()
         {
             // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => SqlRetryService.GetInstance(null));
+            Assert.Throws<ArgumentNullException>(() => SqlRetryService.GetInstance(null, _fhirRequestContextAccessor));
         }
 
         private static T GetPrivateFieldValue<T>(object obj, string fieldName)

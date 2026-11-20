@@ -457,7 +457,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         {
             // Arrange
             using var request = new SqlPartitionTestRequest("partition-a", "database-a");
-            var resolver = request.Resolver;
             var retryService = Substitute.For<ISqlRetryService>();
             string procedureName = null;
             retryService.ExecuteSql(
@@ -473,7 +472,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                     procedureName = call.Arg<SqlCommand>().CommandText;
                     return Task.CompletedTask;
                 });
-            var store = CreateSqlServerFhirDataStore(retryService, partitionDatabaseResolver: resolver);
+            var store = CreateSqlServerFhirDataStore(retryService, requestContextAccessor: request.Accessor);
             var statuses = includeSearchParameters
                 ? new[] { new ResourceSearchParameterStatus { Uri = new Uri("http://hl7.org/fhir/SearchParameter/Patient-name"), Status = SearchParameterStatus.Enabled } }
                 : [];
@@ -487,7 +486,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 procedureName);
         }
 
-        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null, SqlPartitionDatabaseResolver partitionDatabaseResolver = null)
+        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null, RequestContextAccessor<IFhirRequestContext> requestContextAccessor = null)
         {
             sqlTransactionHandler ??= new SqlTransactionHandler();
 
@@ -554,7 +553,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             var sqlServerDataStoreConfiguration = new SqlServerDataStoreConfiguration() { ConnectionString = sqlConnection.ConnectionString };
 
             var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, sqlConnectionBuilder, sqlRetryLogicBaseProvider, Options.Create(sqlServerDataStoreConfiguration));
-            partitionDatabaseResolver ??= SqlPartitionTestRequest.CreateApplicationResolver();
 
             var dataStore = new SqlServerFhirDataStore(
                 model,
@@ -570,10 +568,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 NullLogger<SqlServerFhirDataStore>.Instance,
                 schemaInfo,
                 ModelInfoProvider.Instance,
-                Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
+                requestContextAccessor ?? Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
                 Substitute.For<IImportErrorSerializer>(),
-                storeClient,
-                partitionDatabaseResolver);
+                storeClient);
 
             return dataStore;
         }

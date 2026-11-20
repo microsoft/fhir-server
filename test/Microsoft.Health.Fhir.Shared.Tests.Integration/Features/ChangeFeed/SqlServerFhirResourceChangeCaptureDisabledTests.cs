@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 var deletedResourceKey = await mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), DeleteOperation.SoftDelete);
 
                 // get resource changes
-                var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(sqlFixture.SqlConnectionWrapperFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, sqlFixture.SchemaInformation, sqlFixture.PartitionDatabaseResolver);
+                var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(sqlFixture.SqlConnectionWrapperFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, sqlFixture.SchemaInformation, sqlFixture.FhirRequestContextAccessor);
                 var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
 
                 Assert.NotNull(resourceChanges);

@@ -142,10 +142,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var sqlTransactionHandler = new SqlTransactionHandler();
             var defaultSqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, defaultSqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
-            var httpContextAccessor = Substitute.For<IHttpContextAccessor>();
-            httpContextAccessor.HttpContext.Returns((HttpContext)null);
-            var partitionDatabaseResolver = new SqlPartitionDatabaseResolver(httpContextAccessor);
-            var sqlRetryService = new SqlRetryService(defaultSqlConnectionBuilder, config, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()), partitionDatabaseResolver);
+            var requestContextAccessor = new Core.Features.Context.FhirRequestContextAccessor();
+            var sqlRetryService = new SqlRetryService(defaultSqlConnectionBuilder, config, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()), requestContextAccessor);
 
             SqlServerFhirModel sqlServerFhirModel = new SqlServerFhirModel(
                 schemaInformation,

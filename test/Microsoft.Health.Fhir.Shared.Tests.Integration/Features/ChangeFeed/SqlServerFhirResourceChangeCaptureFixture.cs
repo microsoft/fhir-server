@@ -8,7 +8,9 @@ using System.Numerics;
 using System.Threading.Tasks;
 using Medino;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -45,7 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 
         public SqlRetryService SqlRetryService => _sqlFixture.SqlRetryService;
 
-        public SqlPartitionDatabaseResolver PartitionDatabaseResolver => _sqlFixture.PartitionDatabaseResolver;
+        public RequestContextAccessor<IFhirRequestContext> FhirRequestContextAccessor => _sqlFixture.FhirRequestContextAccessor;
 
         public SchemaInformation SchemaInformation => _sqlFixture.SchemaInformation;
 

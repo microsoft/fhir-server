@@ -183,10 +183,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new Dictionary<string, StringValues>(),
                 new Dictionary<string, StringValues>())
             {
-                Partition = Substitute.For<IPartitionInfo>(),
+                Partition = _application.GetPartition(partition),
                 Principal = new ClaimsPrincipal(new ClaimsIdentity()),
             };
-            context.Partition.Id.Returns(partition);
             return _application.RunInRequestScopeAsync(context, operation);
         }
     }
