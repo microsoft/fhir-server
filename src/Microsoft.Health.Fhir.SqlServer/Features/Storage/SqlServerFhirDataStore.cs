@@ -33,6 +33,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
@@ -70,7 +71,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IImportErrorSerializer _importErrorSerializer;
-        private readonly SqlPartitionDatabaseResolver _partitionDatabaseResolver;
         private static CachedParameter<SqlServerFhirDataStore> _ignoreInputLastUpdated;
         private static CachedParameter<SqlServerFhirDataStore> _ignoreInputVersion;
         private static CachedParameter<SqlServerFhirDataStore> _rawResourceDeduping;
@@ -90,8 +90,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             IModelInfoProvider modelInfoProvider,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             IImportErrorSerializer importErrorSerializer,
-            SqlStoreClient storeClient,
-            SqlPartitionDatabaseResolver partitionDatabaseResolver)
+            SqlStoreClient storeClient)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -107,7 +106,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
-            _partitionDatabaseResolver = EnsureArg.IsNotNull(partitionDatabaseResolver, nameof(partitionDatabaseResolver));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
 
@@ -910,7 +908,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 var commandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
                 cmd.CommandTimeout = commandTimeout;
-                _partitionDatabaseResolver.PrepareCommand(cmd);
+                _requestContextAccessor.RequestContext.GetDatabaseNameFormatter().PrepareCommand(cmd);
 
                 if (enlistInTransaction && _sqlTransactionHandler.SqlTransactionScope != null)
                 {

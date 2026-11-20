@@ -35,6 +35,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -95,7 +96,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IFhirDataStore _fhirDataStore;
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
-        private readonly SqlPartitionDatabaseResolver _partitionDatabaseResolver;
 
         private static readonly string[] NewLineSeparators = ["\r\n", "\n"];
         private static readonly Regex WhitespacePattern = new Regex(@"\s+", RegexOptions.Compiled);
@@ -169,7 +169,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             ISqlQueryHashCalculator queryHashCalculator,
             IQueryPlanReuseChecker queryPlanReuseChecker,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
-            SqlPartitionDatabaseResolver partitionDatabaseResolver,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
         {
@@ -183,7 +182,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(queryGeneratorFactory, nameof(queryGeneratorFactory));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(queryPlanReuseChecker, nameof(queryPlanReuseChecker));
-            EnsureArg.IsNotNull(partitionDatabaseResolver, nameof(partitionDatabaseResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
@@ -201,7 +199,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _sqlRetryService = sqlRetryService;
             _queryHashCalculator = queryHashCalculator;
             _queryPlanReuseChecker = queryPlanReuseChecker;
-            _partitionDatabaseResolver = partitionDatabaseResolver;
             _logger = logger;
 
             _schemaInformation = schemaInformation;
@@ -539,7 +536,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             SearchResult searchResult = null;
-            string databaseName = _partitionDatabaseResolver.GetDatabaseName();
+            string databaseName = _requestContextAccessor.RequestContext.GetDatabaseName();
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
                 {
@@ -601,7 +598,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             _logger.LogInformation($"Query.SearchParamIds={string.Join(",", queryGenerator.SearchParamIds)}");
                         }
 
-                        _partitionDatabaseResolver.PrepareCommand(sqlCommand);
+                        _requestContextAccessor.RequestContext.GetDatabaseNameFormatter().PrepareCommand(sqlCommand);
                         LogSqlCommand(sqlCommand);
 
                         var st = DateTime.UtcNow;
@@ -2067,7 +2064,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             await CreateStats(expression, cancellationToken);
 
             SearchResult searchResult = null;
-            string databaseName = _partitionDatabaseResolver.GetDatabaseName();
+            string databaseName = _requestContextAccessor.RequestContext.GetDatabaseName();
 
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
@@ -2122,7 +2119,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 #pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
                         }
 
-                        _partitionDatabaseResolver.PrepareCommand(sqlCommand);
+                        _requestContextAccessor.RequestContext.GetDatabaseNameFormatter().PrepareCommand(sqlCommand);
                         LogSqlCommand(sqlCommand);
 
                         var executionStopwatch = Stopwatch.StartNew();

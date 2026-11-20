@@ -280,8 +280,6 @@ namespace Microsoft.Extensions.DependencyInjection
         internal static void AddSqlPartitionDatabaseSelection(this IServiceCollection services)
         {
             services.AddHttpContextAccessor();
-            services.AddScoped<SqlRequestDatabase>();
-            services.AddSingleton<SqlPartitionDatabaseResolver>();
         }
     }
 }

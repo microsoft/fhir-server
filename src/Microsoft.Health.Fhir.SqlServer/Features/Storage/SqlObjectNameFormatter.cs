@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// <summary>
     /// Qualifies physical SQL object identifiers without changing aliases or query-local tables.
     /// </summary>
-    internal sealed class SqlObjectNameFormatter
+    public sealed class SqlObjectNameFormatter
     {
         private const string IdentifierPattern = @"(?:\[(?:[^\]]|\]\])+\]|""(?:[^""]|"""")+""|[\p{L}_@#][\p{L}\p{N}_@$#]*)";
         private static readonly Regex ProcedureNamePattern = new Regex(
