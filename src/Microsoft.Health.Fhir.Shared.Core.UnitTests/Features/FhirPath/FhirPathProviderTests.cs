@@ -45,6 +45,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
 
         private const string NativePatientWithExtensionJson = """{"resourceType":"Patient","id":"patient-1","extension":[{"url":"http://example.org/ext","valueString":"x"}]}""";
 
+        private const string IndexedObservationJson = """{"resourceType":"Observation","id":"obs-1","identifier":[{"system":"http://example.org/obs","value":"obs-id-1"}],"status":"final","code":{"coding":[{"system":"http://loinc.org","code":"8867-4","display":"Heart rate"}],"text":"Heart rate"},"effectivePeriod":{"start":"2020-01-01T00:00:00Z","end":"2020-01-02T00:00:00Z"},"performer":[{"reference":"Practitioner/practitioner-1"}],"valueQuantity":{"value":72.5,"unit":"beats/minute","system":"http://unitsofmeasure.org","code":"/min"}}""";
+
+        private const string IndexedPatientJson = """{"resourceType":"Patient","id":"patient-2","identifier":[{"system":"http://example.org/mrn","value":"mrn-1"}],"name":[{"family":"Root","given":["Ada","Byron"]}],"address":[{"line":["1 Main St","Apt 2"],"city":"Seattle","postalCode":"98101"}]}""";
+
         private readonly IFhirPathProvider _originalAmbientProvider = FhirPathProvider.Instance;
         private readonly IModelInfoProvider _originalModelInfoProvider = ModelInfoProvider.Instance;
 
@@ -986,6 +990,52 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             Assert.Equal(scopedUrls, nativeUrls);
             Assert.Equal(["System.Boolean|True"], scopedComparison);
             Assert.Equal(scopedComparison, nativeComparison);
+        }
+
+        [Theory]
+        [InlineData("observation", "Observation.performer", "reference")]
+        [InlineData("observation", "Observation.code", "coding.system")]
+        [InlineData("observation", "Observation.code", "coding.code")]
+        [InlineData("observation", "Observation.code", "coding.display")]
+        [InlineData("observation", "Observation.code", "text")]
+        [InlineData("observation", "Observation.value.ofType(Quantity)", "value")]
+        [InlineData("observation", "Observation.value.ofType(Quantity)", "unit")]
+        [InlineData("observation", "Observation.value.ofType(Quantity)", "system")]
+        [InlineData("observation", "Observation.value.ofType(Quantity)", "code")]
+        [InlineData("observation", "Observation.effective.ofType(Period)", "start")]
+        [InlineData("observation", "Observation.effective.ofType(Period)", "end")]
+        [InlineData("observation", "Observation.identifier", "system")]
+        [InlineData("observation", "Observation.identifier", "value")]
+        [InlineData("patient", "Patient.name", "family")]
+        [InlineData("patient", "Patient.name", "given")]
+        [InlineData("patient", "Patient.address", "city")]
+        [InlineData("patient", "Patient.address", "line")]
+        [InlineData("patient", "Patient.address", "postalCode")]
+        [InlineData("patient", "Patient.identifier", "system")]
+        [InlineData("patient", "Patient.identifier", "value")]
+        public void GivenFastPathDescendant_WhenReEvaluatedWithoutContext_ThenResultMatchesScopedPathDescendant(
+            string resourceKind,
+            string firstStage,
+            string secondStage)
+        {
+            IFhirPathProvider provider = CreateIgnixaProvider();
+            ICompiledFhirPath first = provider.Compile(firstStage);
+            ICompiledFhirPath second = provider.Compile(secondStage);
+            string json = resourceKind == "observation" ? IndexedObservationJson : IndexedPatientJson;
+            ITypedElement nativeRoot = ParseNativeResource(json);
+            ITypedElement scopedRoot = ParseNativeResource(json).ToScopedNode();
+            EvaluationContext nativeContext = CreateNativeRootContext(nativeRoot);
+            bool isIndexedResourceRoot = CreateIgnixaBridge().IsIndexedResourceRoot(nativeRoot, nativeContext);
+
+            ITypedElement[] nativeDescendants = first.Select(nativeRoot, nativeContext).ToArray();
+            ITypedElement[] scopedDescendants = first.Select(scopedRoot, CreateNativeRootContext(scopedRoot)).ToArray();
+            string[] nativeValues = Normalize(nativeDescendants.SelectMany(descendant => second.Select(descendant, null)));
+            string[] scopedValues = Normalize(scopedDescendants.SelectMany(descendant => second.Select(descendant, null)));
+
+            Assert.True(isIndexedResourceRoot);
+            Assert.Equal(scopedDescendants.Length, nativeDescendants.Length);
+            Assert.NotEmpty(scopedValues);
+            Assert.Equal(scopedValues, nativeValues);
         }
 
         [Theory]
