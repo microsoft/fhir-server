@@ -467,7 +467,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             string[] nativeEntriesInOrder = NormalizeEntriesInOrder(indexer.Extract(nativeCarrier));
             string[] scopedNodeEntriesInOrder = NormalizeEntriesInOrder(indexer.Extract(scopedNodeCarrier));
-            string[] nativeEntries = NormalizeEntries(indexer.Extract(nativeCarrier));
+            string[] nativeEntries = nativeEntriesInOrder.OrderBy(x => x, StringComparer.Ordinal).ToArray();
             string[] pocoEntries = NormalizeEntries(indexer.Extract(pocoCarrier));
             string[] storageReadEntries = NormalizeEntries(indexer.Extract(storageReadCarrier));
 

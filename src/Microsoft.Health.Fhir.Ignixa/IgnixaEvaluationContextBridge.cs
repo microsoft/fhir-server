@@ -56,12 +56,12 @@ namespace Microsoft.Health.Fhir.Ignixa
         }
 
         /// <summary>
-        /// Creates an Ignixa context for a native resource root accepted by <see cref="TryGetNativeRoot"/>, populating the caller
-        /// context as <see cref="Create(ScopedNode, FirelyEvaluationContext)"/> does.
+        /// Creates an Ignixa context rooted at a native resource accepted by <see cref="TryGetNativeRoot"/>.
+        /// Sets <paramref name="context"/> Resource and RootResource to <paramref name="originalInput"/> when they are null.
         /// </summary>
         /// <param name="originalInput">The element passed to the compiled expression.</param>
-        /// <param name="root">The native resource root wrapped by <paramref name="originalInput"/>.</param>
-        /// <param name="context">The caller-supplied Firely context.</param>
+        /// <param name="root">The native root wrapped by <paramref name="originalInput"/>.</param>
+        /// <param name="context">The caller-supplied Firely context, or <see langword="null"/>.</param>
         /// <returns>The translated context.</returns>
         internal EvaluationContext CreateNative(ITypedElement originalInput, IElement root, FirelyEvaluationContext context)
         {
@@ -105,8 +105,8 @@ namespace Microsoft.Health.Fhir.Ignixa
         /// <see cref="ScopedNode"/>, and whether the caller context, if populated, refers to that same root.
         /// </summary>
         /// <param name="input">The element passed to the compiled expression.</param>
-        /// <param name="context">The caller-supplied Firely context.</param>
-        /// <param name="root">The native root when this method returns <see langword="true"/>.</param>
+        /// <param name="context">The caller-supplied Firely context, or <see langword="null"/>.</param>
+        /// <param name="root">The native root. Meaningful only when the method returns <see langword="true"/>.</param>
         /// <returns><see langword="true"/> if the native root can be evaluated directly.</returns>
         internal bool TryGetNativeRoot(ITypedElement input, FirelyEvaluationContext context, out IElement root)
         {
