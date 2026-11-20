@@ -12,7 +12,7 @@ The granular indexes remain partitioned by `ResourceTypeId` on the existing part
 Each index filters by `SearchParamId` without restricting the index to a single resource type.
 
 Data space can be reclaimed by disabling granular indexes with no observed read activity. If the customer 
-explicitely consented to use this space saving feature and has run a comprehensive workload, we can look at SQL Server index usage data in `sys.dm_db_index_usage_stats` to identify 
+explicitly consented to use this space saving feature and has run a comprehensive workload, we can look at SQL Server index usage data in `sys.dm_db_index_usage_stats` to identify 
 indexes with no observed read activity and disable them. Exact workflow supporting this process is a subject for future discussion. 
 
 This reclaiming strategy can reduce total search-index storage by up to 2x.
