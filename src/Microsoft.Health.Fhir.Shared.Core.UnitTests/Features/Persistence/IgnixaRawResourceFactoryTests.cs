@@ -8,12 +8,14 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Ignixa.Abstractions;
 using Ignixa.Extensions.FirelySdk;
 using Ignixa.Serialization;
 using Ignixa.Serialization.Models;
@@ -54,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         private readonly RawResourceFactory _firely = new(new FhirJsonSerializer());
         private readonly IRawResourceFactory _inner = Substitute.For<IRawResourceFactory>();
 
-        private IgnixaRawResourceFactory Factory => new(_inner, _schemaContext);
+        private IgnixaRawResourceFactory Factory => new(_inner, _schemaContext, new VersionSpecificModelInfoProvider());
 
         [Theory]
         [InlineData(false, false)]
@@ -555,19 +557,239 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             }
         }
 
-#if R4 || Stu3
+        [Theory]
+        [InlineData("\"not*base64\"")]
+        [InlineData("\"abc\"")]
+        [InlineData("\"aGVs\\u00a0bG8=\"")]
+        [InlineData("\"aGVs\\fbG8=\"")]
+        [InlineData("\"aGVs\\u000bbG8=\"")]
+        [InlineData("\"aGVs\\u2028bG8=\"")]
+        [InlineData("\"-w==\"")]
+        [InlineData("\"aGVsbG8==\"")]
+        [InlineData("\"aGVsbG9=\"")]
+        [InlineData("123")]
+        public void GivenInvalidBase64_ThenBothWritersReject(string token)
+        {
+            string json = $$$"""{"resourceType":"Patient","id":"p","photo":[{"data":{{{token}}}}]}""";
+            Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, _firely, true));
+            Assert.Contains("Patient.photo[0].data", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
+        }
+
+        [Theory]
+        [InlineData("\"+1\"", "1")]
+        [InlineData("\"01\"", "1")]
+        [InlineData("\".5\"", "0.5")]
+        [InlineData("\" 1.50 \"", "1.50")]
+        [InlineData("1e2", "1e2")]
+        [InlineData("1.0E+2", "1.0E+2")]
+        [InlineData("1.50", "1.50")]
+        public void GivenDecimal_ThenNativePreservesJsonSpellingOrCanonicalizes(string token, string expected)
+        {
+            string json = $$$"""{"resourceType":"Observation","id":"p","valueQuantity":{"value":{{{token}}}}}""";
+            using var mixed = JsonDocument.Parse(ImportWrite(json, ImportMode.IncrementalLoad, _firely, true).Data);
+            using var native = JsonDocument.Parse(ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data);
+            var actual = native.RootElement.GetProperty("valueQuantity").GetProperty("value");
+            Assert.Equal(expected, actual.GetRawText());
+            Assert.Equal(mixed.RootElement.GetProperty("valueQuantity").GetProperty("value").GetDecimal(), actual.GetDecimal());
+        }
+
+        [Theory]
+        [InlineData(""" "name":[{"given":["b",{"id":"c"}],"_given":["discard","c-value"]}] """, """ "name":[{"given":["b","c-value"],"_given":[null,{"id":"c"}]}] """)]
+        [InlineData(""" "name":[{"_given":"a"}] """, """ "name":[{"given":["a"]}] """)]
+        [InlineData(""" "telecom":[{"system":{"id":"inline"},"_system":"phone"}] """, """ "telecom":[{"system":"phone","_system":{"id":"inline"}}] """)]
+        [InlineData(""" "gender":"male","_gender":"female" """, """ "gender":"male" """)]
+        [InlineData(""" "contained":[{"resourceType":"Patient","id":"c","meta":{"lastUpdated":null,"_lastUpdated":{"id":"i"}}}] """, """ "contained":[{"resourceType":"Patient","id":"c","meta":{"_lastUpdated":{"id":"i"}}}] """)]
+        public void GivenPermissiveCompanion_ThenNativeMatchesFirely(string input, string expected)
+        {
+            string json = $$$"""{"resourceType":"Patient","id":"p",{{{input}}}}""";
+            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
+            {
+                string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, true).Data;
+                string native = ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data;
+                Assert.True(mixed.Contains(expected.Trim(), StringComparison.Ordinal), $"IF={mixed}; II={native}");
+                Assert.True(JsonNode.DeepEquals(JsonNode.Parse(mixed), JsonNode.Parse(native)), $"IF={mixed}; II={native}");
+            }
+        }
+
+        [Fact]
+        public void GivenNullCollectionSlotWithScalarCompanion_ThenNativePromotesTheValue()
+        {
+            const string json = """{"resourceType":"Patient","id":"p","name":[{"given":[null,"b"],"_given":["a","discard"]}]}""";
+            Assert.Contains("\"given\":[\"b\"]", ImportWrite(json, ImportMode.IncrementalLoad, _firely, true).Data);
+            Assert.Contains("\"given\":[\"a\",\"b\"]", ImportWrite(json, ImportMode.IncrementalLoad, native: true).Data);
+        }
+
+        [Fact]
+        public void GivenPaddedNonTextPrimitives_ThenNativeTrimsBeforeWriting()
+        {
+            const string json = """{"resourceType":"Patient","id":"p","active":" true ","language":" en ","multipleBirthInteger":" 2 ","identifier":[{"system":" http://example.org ","value":"  text  "}],"meta":{"lastUpdated":" 2020-01-01T00:00:00Z "}}""";
+            string native = Factory.Create(Native(json), true, true).Data;
+            Assert.Contains("\"lastUpdated\":\"2020-01-01T00:00:00+00:00\"", native);
+            Assert.Contains("\"active\":true", native);
+            Assert.Contains("\"language\":\"en\"", native);
+            Assert.Contains("\"multipleBirthInteger\":2", native);
+            Assert.Contains("\"system\":\"http://example.org\"", native);
+            Assert.Contains("\"value\":\"  text  \"", native);
+        }
+
+        [Fact]
+        public void GivenOutOfRangeDecimal_ThenBothWritersReject()
+        {
+            const string json = """{"resourceType":"Observation","id":"p","valueQuantity":{"value":123456789012345678901234567890}}""";
+            Assert.Throws<OverflowException>(() => ImportWrite(json, ImportMode.IncrementalLoad, _firely, true));
+            Assert.Contains("Observation.valueQuantity.value", Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true)).Message);
+        }
+
+        [Theory]
+        [InlineData("Observation", """ "valueCode":"bogus" """, """ "valueCode":"bogus" """)]
+        [InlineData("Patient", """ "active":[true] """, """ "active":true """)]
+        public void GivenMalformedShapeAcceptedByFirely_ThenNativeRejects(string resourceType, string input, string firelyOutput)
+        {
+            string json = $$$"""{"resourceType":"{{{resourceType}}}","id":"p",{{{input}}}}""";
+            Assert.Contains(firelyOutput.Trim(), ImportWrite(json, ImportMode.IncrementalLoad, _firely, true).Data);
+            Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true));
+        }
+
+        [Fact]
+        public void GivenGeneratedSchema_ThenFirelyMappingsCoverEveryCodeEnum()
+        {
+            IFhirSchemaProvider schema = _schemaContext.Schema;
+            var types = (IReadOnlyDictionary<string, IType>)schema.GetType().GetField("_types", BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic).GetValue(schema);
+            ModelInspector inspector = ModelInspector.ForAssembly(new VersionSpecificModelInfoProvider().GetTypeForFhirType("Patient").Assembly);
+            Assert.Equal(
+                schema.Version switch
+                {
+                    FhirVersion.Stu3 => 507,
+                    FhirVersion.R4 => 682,
+                    FhirVersion.R4B => 702,
+                    FhirVersion.R5 => 859,
+                    _ => throw new NotSupportedException(schema.Version.ToString()),
+                },
+                types.Count);
+
+            var missing = new List<string>();
+            int enumCount = 0;
+            foreach (string name in types.Keys.Order(StringComparer.Ordinal))
+            {
+                string[] segments = name.Split('.');
+                ClassMapping expected = ModelInfo.ModelInspector.FindClassMapping(segments[0]);
+                foreach (string segment in segments.Skip(1))
+                {
+                    expected = expected?.FindMappedElementByName(segment)?.PropertyTypeMapping;
+                }
+
+                if (expected is null)
+                {
+                    missing.Add(name);
+                    continue;
+                }
+
+                var enums = FirelyCompatibleResourceJsonWriter.FindCodeEnums(inspector, name);
+                var enumProperties = expected.PropertyMappings
+                    .Where(p => p.ImplementingType.IsConstructedGenericType && p.ImplementingType.GetGenericTypeDefinition() == typeof(Code<>))
+                    .ToArray();
+                Assert.Equal(enumProperties.Length, enums.Count);
+                enumCount += enums.Count;
+                foreach (PropertyMapping property in enumProperties)
+                {
+                    Assert.True(enums.TryGetValue(property.Name, out Type actual), $"{name}.{property.Name}");
+                    Assert.Equal(property.ImplementingType.GenericTypeArguments[0], actual);
+                }
+            }
+
+            Assert.True(missing.Count == 0, $"{schema.Version}: {types.Count} schema types; unmapped: {string.Join(", ", missing)}");
+            Assert.True(enumCount > 0);
+            Assert.Throws<InvalidOperationException>(() => FirelyCompatibleResourceJsonWriter.FindCodeEnums(inspector, "Patient.notARealBackbone"));
+        }
+
+        private static string[] FormatRejects() =>
+        [
+#if Stu3
+            "InvalidObservation.json",
+            "ObservationWithInvalidStatus.json",
+#elif R4B
+            "MedicinalProduct.json",
+            "compartmentdefinition-device.json",
+            "effectevidencesynthesis-example.json",
+            "evidence-example.json",
+            "medicinalproductauthorization-example.json",
+            "medicinalproductindication-example.json",
+            "medicinalproductingredient-example.json",
+            "medicinalproductinteraction-example.json",
+            "medicinalproductmanufactured-example.json",
+            "medicinalproductpackaged-example.json",
+            "medicinalproductpharmaceutical-example.json",
+            "medicinalproductundesirableeffect-example.json",
+            "riskevidencesynthesis-example.json",
+            "substancenucleicacid-example.json",
+            "substancepolymer-example.json",
+            "substanceprotein-example.json",
+            "substancereferenceinformation-example.json",
+            "substancesourcematerial-example.json",
+            "substancespecification-example.json",
+#elif R5
+            "SearchParameterInvalidBase.json",
+            "SearchParameterInvalidType.json",
+            "SearchParameterMissingType.json",
+#endif
+        ];
+
+        private static string[] MissingIdRejects() =>
+        [
+#if Stu3
+            "BloodGlucose.json",
+            "BloodPressure.json",
+            "Bundle-TransactionWithConditionalCreateAndReference.json",
+            "Bundle-TransactionWithConditionalUpdateAndReference.json",
+            "Expand-ValueSets.json",
+            "Includes-TestResources.json",
+            "PatientWithMinimalData.json",
+            "SearchParameter-USCoreIG.json",
+            "Weight.json",
+            "WeightInGrams.json",
+            "WeightInPounds.json",
+#elif R5
+            "Bundle-TransactionWithMetaHistory.json",
+            "Includes-TestResources.json",
+            "SearchDataBatch.json",
+            "SearchParameter-USCoreIG.json",
+#endif
+        ];
+
+        [Fact]
+        public void GivenDifferentialCorpus_ThenEveryExpectedRejectionAndVersionFixtureIsSelected()
+        {
+            object[][] corpus = DifferentialCorpus().ToArray();
+            var names = corpus.Select(row => (string)row[0]).ToHashSet(StringComparer.Ordinal);
+            Assert.Equal(corpus.Length, names.Count);
+            Assert.All(FormatRejects().Concat(MissingIdRejects()), name => Assert.Contains(name, names));
+#if Stu3
+            Assert.Equal(83, names.Count);
+#elif R4B
+            Assert.Equal(168, names.Count);
+            foreach (string fixture in new[] { "binary-example", "MedicinalProductDefinition", "examplescenario-example" })
+            {
+                string selected = (string)Assert.Single(corpus, row => (string)row[0] == fixture + ".json")[1];
+                Assert.Equal(EmbeddedResourceManager.GetStringContent("TestFiles", fixture, "json"), selected);
+            }
+#elif R4
+            Assert.Equal(167, names.Count);
+#elif R5
+            Assert.Equal(55, names.Count);
+#endif
+        }
+
         public static IEnumerable<object[]> DifferentialCorpus()
         {
-#if R4
-            const string version = "R4";
-#else
-            const string version = "Stu3";
-#endif
+            string version = new VersionSpecificModelInfoProvider().Version.ToString();
             var assembly = typeof(EmbeddedResourceManager).Assembly;
             string prefix = $"{typeof(EmbeddedResourceManager).Namespace}.TestFiles.{version}.";
-            foreach (string name in assembly.GetManifestResourceNames().Order(StringComparer.Ordinal))
+            string fallback = $"{typeof(EmbeddedResourceManager).Namespace}.TestFiles.R4.";
+            var names = assembly.GetManifestResourceNames().Where(n => n.EndsWith(".json", StringComparison.Ordinal)).ToHashSet(StringComparer.Ordinal);
+            foreach (string name in names.Order(StringComparer.Ordinal))
             {
-                if (!name.StartsWith(prefix, StringComparison.Ordinal) || !name.EndsWith(".json", StringComparison.Ordinal))
+                bool primary = name.StartsWith(prefix, StringComparison.Ordinal);
+                if (!primary && (version != "R4B" || !name.StartsWith(fallback, StringComparison.Ordinal) || names.Contains(prefix + name[fallback.Length..])))
                 {
                     continue;
                 }
@@ -576,7 +798,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 string json = reader.ReadToEnd();
                 if (IsSingleResource(json))
                 {
-                    yield return new object[] { name[prefix.Length..], json, ImportMode.IncrementalLoad };
+                    yield return new object[] { name[(primary ? prefix.Length : fallback.Length)..], json, ImportMode.IncrementalLoad };
                 }
             }
 
@@ -615,27 +837,38 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 RawResource native = null;
                 Exception mixedError = Record.Exception(() => mixed = ImportWrite(json, mode, _firely, useIgnixaParser: true));
                 Exception nativeError = Record.Exception(() => native = ImportWrite(json, mode, native: true));
-                Assert.True((mixedError is null) == (nativeError is null), $"{name}: IF={Describe(mixed, mixedError)}; II={Describe(native, nativeError)}");
-                if (mixedError is null)
+                if (FormatRejects().Contains(name))
                 {
-                    var expected = JsonNode.Parse(mixed.Data);
-                    var actual = JsonNode.Parse(native.Data);
-                    NormalizeDifferentialLiterals(expected, actual, mapping: null, root: true);
-#if R4
-                    if (name == "examplescenario-example.json")
-                    {
-                        AssertExampleScenarioDiscriminatorDifference(JsonNode.Parse(json), expected, actual);
-                    }
-#endif
-                    Assert.True(JsonNode.DeepEquals(expected, actual), $"{name}: {FirstDifference(expected, actual, "$")}");
+                    Assert.IsType<FormatException>(mixedError);
+                    Assert.IsType<FormatException>(nativeError);
+                    return;
                 }
+
+                if (MissingIdRejects().Contains(name))
+                {
+                    Assert.Contains("Invalid resource id", Assert.IsType<BadRequestException>(mixedError).Message);
+                    Assert.Contains("Invalid resource id", Assert.IsType<BadRequestException>(nativeError).Message);
+                    return;
+                }
+
+                Assert.True(mixedError is null && nativeError is null, $"{name}: IF={Describe(mixed, mixedError)}; II={Describe(native, nativeError)}");
+                var expected = JsonNode.Parse(mixed.Data);
+                var actual = JsonNode.Parse(native.Data);
+                NormalizeDifferentialLiterals(expected, actual, mapping: null, root: true, path: name);
+#if R4 || R4B
+                if (name == "examplescenario-example.json")
+                {
+                    AssertExampleScenarioDiscriminatorDifference(JsonNode.Parse(json), expected, actual);
+                }
+#endif
+                Assert.True(JsonNode.DeepEquals(expected, actual), $"{name}: {FirstDifference(expected, actual, "$")}");
             }
         }
 
         private static string Describe(RawResource result, Exception error)
             => error is null ? result.Data : $"{error.GetType().Name}: {error.Message}";
 
-#if R4
+#if R4 || R4B
         private static void AssertExampleScenarioDiscriminatorDifference(JsonNode input, JsonNode expected, JsonNode actual)
         {
             JsonArray instances = input["instance"].AsArray();
@@ -652,7 +885,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         }
 #endif
 
-        private static void NormalizeDifferentialLiterals(JsonNode expected, JsonNode actual, ClassMapping mapping, bool root = false, bool rootMeta = false)
+        private static void NormalizeDifferentialLiterals(JsonNode expected, JsonNode actual, ClassMapping mapping, string path, bool root = false, bool rootMeta = false)
         {
             if (expected is JsonObject left && actual is JsonObject right)
             {
@@ -672,7 +905,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                     }
                     else
                     {
-                        NormalizeDifferentialLiterals(value, right[key], child, rootMeta: root && key == "meta");
+                        NormalizeDifferentialLiterals(value, right[key], child, $"{path}.{key}", rootMeta: root && key == "meta");
                     }
                 }
             }
@@ -687,9 +920,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                     }
                     else
                     {
-                        NormalizeDifferentialLiterals(leftItems[i], rightItems[i], mapping);
+                        NormalizeDifferentialLiterals(leftItems[i], rightItems[i], mapping, $"{path}[{i}]");
                     }
                 }
+            }
+            else if (expected is JsonValue leftValue && actual is JsonValue rightValue
+                && leftValue.TryGetValue(out JsonElement leftNumber) && leftNumber.ValueKind == JsonValueKind.Number
+                && rightValue.TryGetValue(out JsonElement rightNumber) && rightNumber.ValueKind == JsonValueKind.Number
+                && leftNumber.GetRawText() != rightNumber.GetRawText())
+            {
+                Assert.True(
+                    mapping?.NativeType == typeof(FhirDecimal)
+                        && leftNumber.TryGetDecimal(out decimal leftDecimal)
+                        && rightNumber.TryGetDecimal(out decimal rightDecimal)
+                        && leftDecimal == rightDecimal,
+                    $"{path}: IF={leftNumber.GetRawText()}; II={rightNumber.GetRawText()}");
+                actual.ReplaceWith(expected.DeepClone());
             }
         }
 
@@ -766,7 +1012,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
 
             return $"{path}: IF={expected?.ToJsonString() ?? "(absent or null)"}; II={actual?.ToJsonString() ?? "(absent or null)"}";
         }
-#endif
 
         [Fact]
         public void GivenEmptyGender_ThenBothIgnixaImportPathsReject()

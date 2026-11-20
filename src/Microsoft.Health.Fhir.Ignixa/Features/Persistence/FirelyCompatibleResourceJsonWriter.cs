@@ -8,7 +8,6 @@ using System.Collections.Concurrent;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Reflection;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -25,17 +24,44 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
     {
         private static readonly Regex LastUpdatedPattern = new(@"\A[0-9]{4}-[0-9]{2}-[0-9]{2}(?:T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?(?:Z|[+-][0-9]{2}:[0-9]{2}))?\z", RegexOptions.CultureInvariant);
         private static readonly Regex DecimalPattern = new(@"\A-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?\z", RegexOptions.CultureInvariant);
-        private static readonly ConcurrentDictionary<(FhirVersion Version, string Parent), FrozenDictionary<string, Type>> CodeEnums = new();
+        private static readonly ConcurrentDictionary<(ModelInspector Inspector, string Parent), FrozenDictionary<string, Type>> CodeEnums = new();
 
-        public static string Write(ResourceJsonNode resource, IFhirSchemaProvider schema, string versionIdOverride, bool omitVersionId)
+        public static string Write(ResourceJsonNode resource, IFhirSchemaProvider schema, ModelInspector inspector, string versionIdOverride, bool omitVersionId)
         {
             var root = (JsonObject)resource.ToSourceNavigator().Meta<JsonNode>();
-            var writer = new Writer(schema, versionIdOverride, omitVersionId);
+            var writer = new Writer(schema, inspector, versionIdOverride, omitVersionId);
             writer.WriteObject(root, null, null, root: true);
             return writer.Output.ToString();
         }
 
-        private sealed class Writer(IFhirSchemaProvider schema, string versionIdOverride, bool omitVersionId)
+        internal static FrozenDictionary<string, Type> FindCodeEnums(ModelInspector inspector, string parent)
+        {
+            string[] segments = parent.Split('.');
+            ClassMapping mapping = inspector.FindClassMapping(segments[0]);
+            for (int i = 1; i < segments.Length && mapping is not null; i++)
+            {
+                mapping = mapping.FindMappedElementByName(segments[i])?.PropertyTypeMapping;
+            }
+
+            if (mapping is null)
+            {
+                throw new InvalidOperationException($"Firely has no model mapping for '{parent}'.");
+            }
+
+            var enums = new Dictionary<string, Type>(StringComparer.Ordinal);
+            foreach (PropertyMapping property in mapping.PropertyMappings)
+            {
+                Type nativeType = property.ImplementingType;
+                if (nativeType.IsConstructedGenericType && nativeType.GetGenericTypeDefinition() == typeof(Code<>))
+                {
+                    enums.Add(property.Name, nativeType.GenericTypeArguments[0]);
+                }
+            }
+
+            return enums.ToFrozenDictionary(StringComparer.Ordinal);
+        }
+
+        private sealed class Writer(IFhirSchemaProvider schema, ModelInspector inspector, string versionIdOverride, bool omitVersionId)
         {
             public StringBuilder Output { get; } = new();
 
@@ -170,7 +196,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                         }
 
                         Type codeEnum = type.Info.Name == "code"
-                            && CodeEnums.GetOrAdd((schema.Version, parent.Info.Name), static key => FindCodeEnums(key.Version, key.Parent)).TryGetValue(elementName, out Type enumType)
+                            && CodeEnums.GetOrAdd((inspector, parent.Info.Name), static key => FindCodeEnums(key.Inspector, key.Parent)).TryGetValue(elementName, out Type enumType)
                             ? enumType
                             : null;
                         WritePrimitiveProperty(objectStart, elementName, companion ? null : value, companion ? value : node["_" + name], definition.IsCollection, type.Info.Name, path, codeEnum, normalizeInstant);
@@ -213,7 +239,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                         Output.Length = start;
                     }
                 }
-                else if (!WriteComplexValue(value, type, path))
+                else if (!WriteComplexValue(value is JsonArray { Count: 1 } singleton && singleton[0] is JsonObject item ? item : value, type, path))
                 {
                     Output.Length = start;
                 }
@@ -229,17 +255,12 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                     return;
                 }
 
-                if (value is null && companion is JsonValue)
-                {
-                    value = companion;
-                    companion = null;
-                }
-
                 JsonObject metadata = PrimitiveMetadata(value, companion, path, companionPath);
-                if (value is not null and not JsonObject)
+                JsonNode scalar = PrimitiveValue(value, companion);
+                if (scalar is not null)
                 {
                     WritePropertyName(name, objectStart);
-                    WritePrimitiveValue(value, type, path, codeEnum, normalizeInstant);
+                    WritePrimitiveValue(scalar, type, path, codeEnum, normalizeInstant);
                 }
 
                 if (metadata is not null)
@@ -265,13 +286,14 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                     JsonNode input = Slot(values, i);
                     string itemPath = $"{path}[{i}]";
                     string itemCompanionPath = $"{companionPath}[{i}]";
-                    JsonObject metadata = PrimitiveMetadata(input, Slot(companions, i), itemPath, itemCompanionPath);
-                    JsonNode value = input is JsonObject ? null : input;
+                    JsonNode companion = Slot(companions, i);
+                    JsonObject metadata = PrimitiveMetadata(input, companion, itemPath, itemCompanionPath);
+                    JsonNode value = PrimitiveValue(input, companion);
                     int metadataStart = 0;
                     int metadataLength = 0;
                     if (metadata is not null)
                     {
-                        metadataWriter ??= new Writer(schema, versionIdOverride, omitVersionId);
+                        metadataWriter ??= new Writer(schema, inspector, versionIdOverride, omitVersionId);
                         metadataStart = metadataWriter.Output.Length;
                         metadataWriter.WriteComplexValue(metadata, schema.GetTypeDefinition("Element"), itemCompanionPath);
                         metadataLength = metadataWriter.Output.Length - metadataStart;
@@ -337,7 +359,10 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
             }
 
             private static JsonObject PrimitiveMetadata(JsonNode value, JsonNode companion, string path, string companionPath)
-                => value is JsonObject ? RequireElement(value, path) : companion is null ? null : RequireElement(companion, companionPath);
+                => value is JsonObject ? RequireElement(value, path) : companion is null or JsonValue ? null : RequireElement(companion, companionPath);
+
+            private static JsonNode PrimitiveValue(JsonNode value, JsonNode companion)
+                => value is null or JsonObject ? companion as JsonValue : value;
 
             private static JsonObject RequireElement(JsonNode value, string path)
             {
@@ -388,10 +413,16 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                 }
 
                 bool isString = scalar.TryGetValue<string>(out string literal);
+                string text = isString ? literal : scalar.ToJsonString();
+                if (type is not ("string" or "markdown" or "xhtml" or "base64Binary"))
+                {
+                    text = text.Trim();
+                }
+
                 if (normalizeInstant)
                 {
-                    if (!isString || !LastUpdatedPattern.IsMatch(literal)
-                        || !DateTimeOffset.TryParse(literal, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out DateTimeOffset parsed))
+                    if (!isString || !LastUpdatedPattern.IsMatch(text)
+                        || !DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out DateTimeOffset parsed))
                     {
                         throw Invalid(path, "Expected a FHIR instant or a full date");
                     }
@@ -400,11 +431,9 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                     return;
                 }
 
-                string text = isString ? literal : scalar.ToJsonString();
                 switch (type)
                 {
                     case "code":
-                        text = text.Trim();
                         if (codeEnum is null || EnumUtility.ParseLiteral(text, codeEnum, ignoreCase: false) is not null)
                         {
                             WriteString(text);
@@ -412,11 +441,8 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                         }
 
                         break;
-                    case "base64Binary" when isString && text.AsSpan().IndexOfAny(" \t\r\n") >= 0:
-                        WriteString(text.Replace(" ", string.Empty, StringComparison.Ordinal)
-                            .Replace("\t", string.Empty, StringComparison.Ordinal)
-                            .Replace("\r", string.Empty, StringComparison.Ordinal)
-                            .Replace("\n", string.Empty, StringComparison.Ordinal));
+                    case "base64Binary" when isString:
+                        WriteBase64(text, path);
                         return;
                     case "boolean" when text is "true" or "false":
                         Output.Append(text);
@@ -436,13 +462,13 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                     case "integer64" when long.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out long wideNumber):
                         WriteString(wideNumber.ToString(CultureInfo.InvariantCulture));
                         return;
-                    case "decimal" when DecimalPattern.IsMatch(text)
-                        && decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out _):
-                        Output.Append(text);
+                    case "decimal" when decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal amount):
+                        Output.Append(DecimalPattern.IsMatch(text) ? text : amount.ToString(CultureInfo.InvariantCulture));
                         return;
                     case "boolean":
                     case "integer64":
                     case "decimal":
+                    case "base64Binary":
                     case "xhtml" when !isString:
                         break;
                     default:
@@ -451,6 +477,27 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                 }
 
                 throw Invalid(path, $"Invalid {type} primitive");
+            }
+
+            private void WriteBase64(string text, string path)
+            {
+                string compact = text.Replace(" ", string.Empty, StringComparison.Ordinal)
+                    .Replace("\t", string.Empty, StringComparison.Ordinal)
+                    .Replace("\r", string.Empty, StringComparison.Ordinal)
+                    .Replace("\n", string.Empty, StringComparison.Ordinal);
+                byte[] bytes = new byte[compact.Length / 4 * 3];
+                if (!Convert.TryFromBase64String(compact, bytes, out int written))
+                {
+                    throw Invalid(path, "Invalid base64Binary primitive");
+                }
+
+                string canonical = Convert.ToBase64String(bytes.AsSpan(0, written));
+                if (canonical != compact)
+                {
+                    throw Invalid(path, "Invalid base64Binary padding bits");
+                }
+
+                WriteString(canonical);
             }
 
             private static FormatException Invalid(string path, string message) => new($"{message} at '{path}'.");
@@ -512,40 +559,6 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
 
             private static JsonNode Slot(JsonNode node, int index) =>
                 node is JsonArray array ? index < array.Count ? array[index] : null : index == 0 ? node : null;
-
-            private static FrozenDictionary<string, Type> FindCodeEnums(FhirVersion version, string parent)
-            {
-                string assemblyName = version switch
-                {
-                    FhirVersion.Stu3 => "Hl7.Fhir.STU3",
-                    FhirVersion.R4 => "Hl7.Fhir.R4",
-                    FhirVersion.R4B => "Hl7.Fhir.R4B",
-                    FhirVersion.R5 => "Hl7.Fhir.R5",
-                    _ => throw new NotSupportedException($"No Firely model for {version}."),
-                };
-                ModelInspector inspector = ModelInspector.ForAssembly(Assembly.Load(assemblyName));
-                string[] segments = parent.Split('.');
-                ClassMapping mapping = inspector.FindClassMapping(segments[0]);
-                for (int i = 1; i < segments.Length && mapping is not null; i++)
-                {
-                    mapping = mapping.FindMappedElementByName(segments[i])?.PropertyTypeMapping;
-                }
-
-                var enums = new Dictionary<string, Type>(StringComparer.Ordinal);
-                if (mapping is not null)
-                {
-                    foreach (PropertyMapping property in mapping.PropertyMappings)
-                    {
-                        Type nativeType = property.ImplementingType;
-                        if (nativeType.IsConstructedGenericType && nativeType.GetGenericTypeDefinition() == typeof(Code<>))
-                        {
-                            enums.Add(property.Name, nativeType.GenericTypeArguments[0]);
-                        }
-                    }
-                }
-
-                return enums.ToFrozenDictionary(StringComparer.Ordinal);
-            }
 
             private void WritePropertyName(string name, int objectStart)
             {
