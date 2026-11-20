@@ -915,7 +915,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                 new SupportedSearchParameterDefinitionManager(await new SearchParameterFixtureData().GetSearchDefinitionManagerAsync()),
                 await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync(),
                 Substitute.For<IReferenceToElementResolver>(),
-                ModelInfoProvider.Instance,
+                new VersionSpecificModelInfoProvider(),
                 new FirelyFhirPathProvider(),
                 NullLogger<TypedElementSearchIndexer>.Instance);
             ResourceWrapperFactory wrapperFactory = CreateWrapperFactory(searchIndexer);
