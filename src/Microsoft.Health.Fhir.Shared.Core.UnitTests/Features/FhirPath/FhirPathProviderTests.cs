@@ -51,6 +51,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
 
         private const string CollectionBundleJson = """{"resourceType":"Bundle","id":"bundle-1","type":"collection","entry":[{"fullUrl":"urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-000000000001","resource":{"resourceType":"Organization","id":"org-1","name":"Bundled Org"}},{"fullUrl":"urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-000000000002","resource":{"resourceType":"Patient","id":"pat-1","managingOrganization":{"reference":"urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-000000000001"}}}]}""";
 
+        private const string UnknownReferenceBundleJson = """{"resourceType":"Bundle","id":"bundle-2","type":"collection","entry":[{"fullUrl":"urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-000000000001","resource":{"resourceType":"Organization","id":"org-1","name":"Bundled Org"}},{"fullUrl":"urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-000000000003","resource":{"resourceType":"Patient","id":"pat-2","managingOrganization":{"reference":"urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-0000000000ff"}}}]}""";
+
+        private const string ComponentObservationJson = """{"resourceType":"Observation","id":"obs-2","status":"final","code":{"coding":[{"system":"http://loinc.org","code":"85354-9"}]},"component":[{"code":{"coding":[{"system":"http://loinc.org","code":"8480-6"}]},"valueQuantity":{"value":120,"unit":"mm[Hg]","system":"http://unitsofmeasure.org","code":"mm[Hg]"}}]}""";
+
+#if Stu3
+        private const string VariantSequenceJson = """{"resourceType":"Sequence","id":"ms-1","type":"dna","coordinateSystem":0,"referenceSeq":{"chromosome":{"coding":[{"system":"http://terminology.hl7.org/CodeSystem/chromosome-human","code":"1"}]},"genomeBuild":"GRCh38","referenceSeqId":{"coding":[{"system":"http://www.ncbi.nlm.nih.gov/nuccore","code":"NC_000001.11"}]}},"variant":[{"start":100,"end":101}]}""";
+#elif R4 || R4B
+        private const string VariantSequenceJson = """{"resourceType":"MolecularSequence","id":"ms-1","type":"dna","coordinateSystem":0,"referenceSeq":{"chromosome":{"coding":[{"system":"http://terminology.hl7.org/CodeSystem/chromosome-human","code":"1"}]},"genomeBuild":"GRCh38","referenceSeqId":{"coding":[{"system":"http://www.ncbi.nlm.nih.gov/nuccore","code":"NC_000001.11"}]}},"variant":[{"start":100,"end":101}]}""";
+#endif
+
         private readonly IFhirPathProvider _originalAmbientProvider = FhirPathProvider.Instance;
         private readonly IModelInfoProvider _originalModelInfoProvider = ModelInfoProvider.Instance;
 
@@ -1040,6 +1050,63 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             Assert.Equal(scopedValues, nativeValues);
         }
 
+        public static IEnumerable<object[]> GetSharedContextCompositeRows()
+        {
+#if Stu3
+            yield return [VariantSequenceJson, "Sequence.variant", "%resource.referenceSeq.chromosome"];
+            yield return [VariantSequenceJson, "Sequence.variant", "%resource.referenceSeq.chromosome.coding.code"];
+            yield return [VariantSequenceJson, "Sequence.variant", "%resource.referenceSeq.referenceSeqId"];
+            yield return [VariantSequenceJson, "Sequence.variant", "%resource.referenceSeq.referenceSeqId.coding.code"];
+            yield return [VariantSequenceJson, "Sequence.variant", "start"];
+            yield return [VariantSequenceJson, "Sequence.variant", "end"];
+#elif R4 || R4B
+            yield return [VariantSequenceJson, "MolecularSequence.variant", "%resource.referenceSeq.chromosome"];
+            yield return [VariantSequenceJson, "MolecularSequence.variant", "%resource.referenceSeq.chromosome.coding.code"];
+            yield return [VariantSequenceJson, "MolecularSequence.variant", "%resource.referenceSeq.referenceSeqId"];
+            yield return [VariantSequenceJson, "MolecularSequence.variant", "%resource.referenceSeq.referenceSeqId.coding.code"];
+            yield return [VariantSequenceJson, "MolecularSequence.variant", "start"];
+            yield return [VariantSequenceJson, "MolecularSequence.variant", "end"];
+#endif
+            yield return [ComponentObservationJson, "Observation.component", "value.as(Quantity).value"];
+            yield return [ComponentObservationJson, "Observation.component", "code.coding.code"];
+        }
+
+        [Theory]
+        [MemberData(nameof(GetSharedContextCompositeRows))]
+        public void GivenFastPathDescendant_WhenReEvaluatedWithSharedContext_ThenNativeEqualsScopedEqualsFirely(
+            string json,
+            string firstStage,
+            string secondStage)
+        {
+            IFhirPathProvider ignixa = CreateIgnixaProvider();
+            IFhirPathProvider firely = new FirelyFhirPathProvider();
+            ITypedElement nativeRoot = ParseNativeResource(json);
+            ITypedElement scopedRoot = ParseNativeResource(json).ToScopedNode();
+            ITypedElement pocoRoot = ParsePocoResource(json);
+            EvaluationContext nativeContext = CreateNativeRootContext(nativeRoot);
+
+            string[] nativeValues = SelectThenSelectWithSameContext(ignixa, nativeRoot, nativeContext, firstStage, secondStage);
+            string[] scopedValues = SelectThenSelectWithSameContext(ignixa, scopedRoot, CreateNativeRootContext(scopedRoot), firstStage, secondStage);
+            string[] firelyValues = SelectThenSelectWithSameContext(firely, pocoRoot, CreateNativeRootContext(pocoRoot), firstStage, secondStage);
+
+            Assert.True(CreateIgnixaBridge().IsIndexedResourceRoot(nativeRoot, nativeContext));
+            Assert.NotEmpty(firelyValues);
+            Assert.Equal(firelyValues, scopedValues);
+            Assert.Equal(firelyValues, nativeValues);
+        }
+
+        private static string[] SelectThenSelectWithSameContext(
+            IFhirPathProvider provider,
+            ITypedElement root,
+            EvaluationContext context,
+            string firstStage,
+            string secondStage)
+        {
+            ICompiledFhirPath second = provider.Compile(secondStage);
+            ITypedElement[] descendants = provider.Compile(firstStage).Select(root, context).ToArray();
+            return Normalize(descendants.SelectMany(descendant => second.Select(descendant, context)));
+        }
+
         [Theory]
         [InlineData("resource", "root", "patient", "extension.intersect(%resource.extension).exists()")]
         [InlineData("resource", "root", "patient", "%resource.extension.intersect(extension).exists()")]
@@ -1067,6 +1134,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         [InlineData("resourceAndRootResource", "root", "bundle", "entry.resource.ofType(Patient).where(%resource.entry.resource.ofType(Organization).id = 'org-1').exists()")]
         [InlineData("resourceAndRootResource", "root", "bundle", "entry.resource.ofType(Patient).managingOrganization.resolve().is(Organization)")]
         [InlineData("resourceAndRootResource", "root", "bundle", "entry.resource.ofType(Patient).select(%resource.type) = 'collection'")]
+        [InlineData("resource", "root", "unknownReferenceBundle", "entry.resource.ofType(Patient).where(id = 'pat-2').managingOrganization.resolve().exists().not()")]
+        [InlineData("resourceAndRootResource", "root", "unknownReferenceBundle", "entry.resource.ofType(Patient).where(id = 'pat-2').managingOrganization.resolve().exists().not()")]
         public void GivenNativeResourceInContext_WhenEvaluatedByIgnixa_ThenResultMatchesFirelyOverPoco(
             string contextShape,
             string inputKind,
@@ -1078,6 +1147,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
                 "patient" => NativePatientWithExtensionJson,
                 "documentReference" => CreateDocumentReferenceJson(),
                 "bundle" => CollectionBundleJson,
+                "unknownReferenceBundle" => UnknownReferenceBundleJson,
                 _ => throw new ArgumentOutOfRangeException(nameof(resourceKind), resourceKind, null),
             };
             (ITypedElement pocoInput, EvaluationContext pocoContext) = CreateInputAndContext(ParsePocoResource(json), contextShape, inputKind);
