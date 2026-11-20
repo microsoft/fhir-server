@@ -343,7 +343,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         [Theory]
         [InlineData("9", "2019-01-01T00:00:00+00:00")]
-        [InlineData("1", PinnedTimestamp, Skip = EqualitySkip)]
+        [InlineData("1", PinnedTimestamp, Skip = "Requires AB#206676 (root-scoped SQL meta rewrite)")]
         public async Task GivenContainedMetaBeforeRootMeta_WhenStoreRewritesRootMeta_ThenOnlyRootMetaChanges(string containedVersion, string containedTimestamp)
         {
             string id = Guid.NewGuid().ToString("N");
