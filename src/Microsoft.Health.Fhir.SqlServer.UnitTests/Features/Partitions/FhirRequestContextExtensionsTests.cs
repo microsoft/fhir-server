@@ -35,20 +35,32 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Partitions
             Assert.Equal(databaseName, result);
         }
 
-        [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public void GivenNoPartition_WhenGettingDatabaseTarget_ThenInvalidOperationIsThrown(bool getFormatter)
+        [Fact]
+        public void GivenNoPartition_WhenGettingDatabaseName_ThenNullIsReturned()
         {
             // Arrange
             var context = Substitute.For<IFhirRequestContext>();
             context.Partition.Returns((IPartitionInfo)null);
 
             // Act
-            var exception = Record.Exception(() => GetDatabaseTarget(context, getFormatter));
+            var result = context.GetDatabaseName();
 
             // Assert
-            Assert.IsType<InvalidOperationException>(exception);
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void GivenNoPartition_WhenGettingDatabaseFormatter_ThenDefaultFormatterIsReturned()
+        {
+            // Arrange
+            var context = Substitute.For<IFhirRequestContext>();
+            context.Partition.Returns((IPartitionInfo)null);
+
+            // Act
+            var result = context.GetDatabaseNameFormatter();
+
+            // Assert
+            Assert.Null(result.DatabaseName);
         }
 
         [Theory]

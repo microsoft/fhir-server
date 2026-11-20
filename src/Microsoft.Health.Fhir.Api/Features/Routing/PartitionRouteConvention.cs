@@ -25,7 +25,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                         {
                             // An absolute template avoids combining the controller prefix a second time.
                             Template = "/" + PartitionRouteMetadata.TemplatePrefix + "/" + route.Template,
-                            Name = route.Name == null ? null : PartitionRouteMetadata.NamePrefix + route.Name,
                         };
                         selector.EndpointMetadata.Add(new PartitionRouteMetadata(route.Name, true));
                     }

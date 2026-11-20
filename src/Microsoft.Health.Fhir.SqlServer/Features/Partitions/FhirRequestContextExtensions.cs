@@ -15,9 +15,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Partitions
     {
         public static string GetDatabaseName(this IFhirRequestContext fhirRequestContext)
         {
-            if (fhirRequestContext.Partition == null)
+            if (fhirRequestContext?.Partition == null)
             {
-                throw new InvalidOperationException("Partition is not set in the request context.");
+                return null;
             }
 
             if (fhirRequestContext.Partition is not PartitionInfo partitionInfo)

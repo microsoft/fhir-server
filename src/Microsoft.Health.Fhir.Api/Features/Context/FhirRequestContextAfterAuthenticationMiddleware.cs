@@ -110,6 +110,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 }
 
                 fhirRequestContextAccessor.RequestContext.Partition = partitionInfo;
+
+                /*
                 if (endpoint?.Metadata.GetMetadata<PartitionRouteMetadata>()?.HasPrefix == true)
                 {
                     fhirRequestContextAccessor.RequestContext.BaseUri = new Uri(UriHelper.BuildAbsolute(
@@ -118,6 +120,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                         context.Request.PathBase.Add(PartitionRouteMetadata.GetPrefix(context.Request)),
                         "/"));
                 }
+                */
             }
 
             // Call the next delegate/middleware in the pipeline
