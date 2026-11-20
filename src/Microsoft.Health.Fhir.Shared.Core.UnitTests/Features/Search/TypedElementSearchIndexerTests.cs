@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         private static readonly Dictionary<string, string[]> NativeCarrierSyntheticCodes = new()
         {
-            ["Observation"] = ["synthetic-ext", "synthetic-contained-performer", "synthetic-external-performer", "synthetic-value", "code-value-quantity", "component-code-value-quantity"],
+            ["Observation"] = ["synthetic-ext", "synthetic-contained-performer", "synthetic-external-performer", "synthetic-value", "synthetic-effective-after", "code-value-quantity", "component-code-value-quantity"],
             ["Patient"] = ["synthetic-ext", "synthetic-contained-organization", "general-practitioner", "name"],
             ["Condition"] = ["synthetic-ext", "synthetic-onset", "subject"],
         };
@@ -462,10 +462,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             ResourceElement storageReadCarrier = Deserializers.ResourceDeserializer.DeserializeRaw(stored, nativeCarrier.VersionId, nativeCarrier.LastUpdated.Value);
             Assert.True(new IgnixaEvaluationContextBridge(schemaContext).TryGetNativeRoot(nativeCarrier.Instance, null, out _));
 
+            ResourceElement scopedNodeCarrier = new(nativeCarrier.Instance.ToScopedNode());
+            Assert.False(new IgnixaEvaluationContextBridge(schemaContext).TryGetNativeRoot(scopedNodeCarrier.Instance, null, out _));
+
+            string[] nativeEntriesInOrder = NormalizeEntriesInOrder(indexer.Extract(nativeCarrier));
+            string[] scopedNodeEntriesInOrder = NormalizeEntriesInOrder(indexer.Extract(scopedNodeCarrier));
             string[] nativeEntries = NormalizeEntries(indexer.Extract(nativeCarrier));
             string[] pocoEntries = NormalizeEntries(indexer.Extract(pocoCarrier));
             string[] storageReadEntries = NormalizeEntries(indexer.Extract(storageReadCarrier));
 
+            Assert.Equal(scopedNodeEntriesInOrder, nativeEntriesInOrder);
             Assert.Equal(pocoEntries, nativeEntries);
             Assert.Equal(storageReadEntries, nativeEntries);
             foreach (string code in NativeCarrierSyntheticCodes[nativeCarrier.InstanceType])
@@ -860,6 +866,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     ("synthetic-contained-performer", ValueSets.SearchParamType.String, "Observation.performer.resolve().ofType(Organization).name"),
                     ("synthetic-external-performer", ValueSets.SearchParamType.Reference, "Observation.performer.where(resolve() is Practitioner)"),
                     ("synthetic-value", ValueSets.SearchParamType.Quantity, "Observation.value.ofType(Quantity)"),
+                    ("synthetic-effective-after", ValueSets.SearchParamType.Date, "Observation.effective.ofType(dateTime).where($this > @2019-01-01)"),
                 ],
                 "Patient" =>
                 [
@@ -897,7 +904,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             return carrier;
         }
 
+        private static string[] NormalizeEntriesInOrder(IEnumerable<SearchIndexEntry> entries)
+            => entries.Select(FhirPathProviderTests.Normalize).ToArray();
+
         private static string[] NormalizeEntries(IEnumerable<SearchIndexEntry> entries)
-            => entries.Select(FhirPathProviderTests.Normalize).OrderBy(x => x, StringComparer.Ordinal).ToArray();
+            => NormalizeEntriesInOrder(entries).OrderBy(x => x, StringComparer.Ordinal).ToArray();
     }
 }
