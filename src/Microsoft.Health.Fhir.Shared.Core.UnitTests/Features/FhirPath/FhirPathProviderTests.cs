@@ -1053,16 +1053,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         public static IEnumerable<object[]> GetSharedContextCompositeRows()
         {
 #if Stu3
-            yield return [VariantSequenceJson, "Sequence.variant", "%resource.referenceSeq.chromosome"];
+            yield return [VariantSequenceJson, "Sequence.variant", "%resource.referenceSeq.chromosome", "CodeableConcept,http://terminology.hl7.org/CodeSystem/chromosome-human,code|1"];
             yield return [VariantSequenceJson, "Sequence.variant", "%resource.referenceSeq.chromosome.coding.code"];
-            yield return [VariantSequenceJson, "Sequence.variant", "%resource.referenceSeq.referenceSeqId"];
+            yield return [VariantSequenceJson, "Sequence.variant", "%resource.referenceSeq.referenceSeqId", "CodeableConcept,http://www.ncbi.nlm.nih.gov/nuccore,NC_000001.11"];
             yield return [VariantSequenceJson, "Sequence.variant", "%resource.referenceSeq.referenceSeqId.coding.code"];
             yield return [VariantSequenceJson, "Sequence.variant", "start"];
             yield return [VariantSequenceJson, "Sequence.variant", "end"];
 #elif R4 || R4B
-            yield return [VariantSequenceJson, "MolecularSequence.variant", "%resource.referenceSeq.chromosome"];
+            yield return [VariantSequenceJson, "MolecularSequence.variant", "%resource.referenceSeq.chromosome", "CodeableConcept,http://terminology.hl7.org/CodeSystem/chromosome-human,code|1"];
             yield return [VariantSequenceJson, "MolecularSequence.variant", "%resource.referenceSeq.chromosome.coding.code"];
-            yield return [VariantSequenceJson, "MolecularSequence.variant", "%resource.referenceSeq.referenceSeqId"];
+            yield return [VariantSequenceJson, "MolecularSequence.variant", "%resource.referenceSeq.referenceSeqId", "CodeableConcept,http://www.ncbi.nlm.nih.gov/nuccore,NC_000001.11"];
             yield return [VariantSequenceJson, "MolecularSequence.variant", "%resource.referenceSeq.referenceSeqId.coding.code"];
             yield return [VariantSequenceJson, "MolecularSequence.variant", "start"];
             yield return [VariantSequenceJson, "MolecularSequence.variant", "end"];
@@ -1076,7 +1076,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         public void GivenFastPathDescendant_WhenReEvaluatedWithSharedContext_ThenNativeEqualsScopedEqualsFirely(
             string json,
             string firstStage,
-            string secondStage)
+            string secondStage,
+            string expectedFragments = null)
         {
             IFhirPathProvider ignixa = CreateIgnixaProvider();
             IFhirPathProvider firely = new FirelyFhirPathProvider();
@@ -1093,6 +1094,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             Assert.NotEmpty(firelyValues);
             Assert.Equal(firelyValues, scopedValues);
             Assert.Equal(firelyValues, nativeValues);
+
+            foreach (string fragment in expectedFragments?.Split(',') ?? [])
+            {
+                Assert.All(firelyValues, value => Assert.Contains(fragment, value));
+                Assert.All(scopedValues, value => Assert.Contains(fragment, value));
+                Assert.All(nativeValues, value => Assert.Contains(fragment, value));
+            }
         }
 
         private static string[] SelectThenSelectWithSameContext(
@@ -1104,8 +1112,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         {
             ICompiledFhirPath second = provider.Compile(secondStage);
             ITypedElement[] descendants = provider.Compile(firstStage).Select(root, context).ToArray();
-            return Normalize(descendants.SelectMany(descendant => second.Select(descendant, context)));
+            return descendants
+                .SelectMany(descendant => second.Select(descendant, context))
+                .Select(NormalizeStructure)
+                .OrderBy(value => value, StringComparer.Ordinal)
+                .ToArray();
         }
+
+        private static string NormalizeStructure(ITypedElement element)
+            => $"{element.InstanceType}|{element.Value}{{{string.Join(';', element.Children().Select(child => $"{child.Name}:{NormalizeStructure(child)}"))}}}";
 
         [Theory]
         [InlineData("resource", "root", "patient", "extension.intersect(%resource.extension).exists()")]
@@ -1134,8 +1149,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         [InlineData("resourceAndRootResource", "root", "bundle", "entry.resource.ofType(Patient).where(%resource.entry.resource.ofType(Organization).id = 'org-1').exists()")]
         [InlineData("resourceAndRootResource", "root", "bundle", "entry.resource.ofType(Patient).managingOrganization.resolve().is(Organization)")]
         [InlineData("resourceAndRootResource", "root", "bundle", "entry.resource.ofType(Patient).select(%resource.type) = 'collection'")]
-        [InlineData("resource", "root", "unknownReferenceBundle", "entry.resource.ofType(Patient).where(id = 'pat-2').managingOrganization.resolve().exists().not()")]
-        [InlineData("resourceAndRootResource", "root", "unknownReferenceBundle", "entry.resource.ofType(Patient).where(id = 'pat-2').managingOrganization.resolve().exists().not()")]
+        [InlineData("resource", "root", "unknownReferenceBundle", "entry.resource.ofType(Patient).where(id = 'pat-2').managingOrganization.reference = 'urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-0000000000ff' and entry.resource.ofType(Patient).where(id = 'pat-2').managingOrganization.resolve().empty()")]
+        [InlineData("resourceAndRootResource", "root", "unknownReferenceBundle", "entry.resource.ofType(Patient).where(id = 'pat-2').managingOrganization.reference = 'urn:uuid:9a0e4b8a-6d6e-4c3a-8b1c-0000000000ff' and entry.resource.ofType(Patient).where(id = 'pat-2').managingOrganization.resolve().empty()")]
         public void GivenNativeResourceInContext_WhenEvaluatedByIgnixa_ThenResultMatchesFirelyOverPoco(
             string contextShape,
             string inputKind,
