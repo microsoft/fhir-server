@@ -817,6 +817,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             Assert.False(CreateIgnixaBridge().TryGetNativeRoot(input, null, out _));
         }
 
+        [Fact]
+        public void GivenTypedElementAdapterOverFirelyElement_ThenScopedPathIsUsed()
+        {
+            ITypedElement input = new TypedElementAdapter(new Patient { Id = "patient-1" }.ToTypedElement().ToIgnixaElement());
+            bool hasNativeRoot = CreateIgnixaBridge().TryGetNativeRoot(input, null, out _);
+
+            Assert.Equal("Patient", input.Location);
+            Assert.Equal("Patient", input.InstanceType);
+            Assert.False(hasNativeRoot);
+        }
+
         [Theory]
         [InlineData("resource")]
         [InlineData("rootResource")]
