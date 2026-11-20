@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         private static readonly Dictionary<string, string[]> NativeCarrierSyntheticCodes = new()
         {
-            ["Observation"] = ["synthetic-ext", "synthetic-contained-performer", "synthetic-external-performer", "synthetic-value", "synthetic-effective-after", "code-value-quantity", "component-code-value-quantity"],
+            ["Observation"] = ["synthetic-ext", "synthetic-contained-performer", "synthetic-external-performer", "synthetic-value", "synthetic-effective-after", "code-value-quantity", "component-code-value-quantity", "synthetic-performer-composite"],
             ["Patient"] = ["synthetic-ext", "synthetic-contained-organization", "general-practitioner", "name"],
             ["Condition"] = ["synthetic-ext", "synthetic-onset", "subject"],
         };
@@ -881,13 +881,44 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _ => [],
             };
 
-            return parameters.Select(p => new SearchParameterInfo(
+            IEnumerable<SearchParameterInfo> searchParameters = parameters.Select(p => new SearchParameterInfo(
                 p.Code,
                 p.Code,
                 p.Type,
                 new Uri($"http://example.org/SearchParameter/{resourceType}-{p.Code}"),
                 expression: p.Expression,
                 baseResourceTypes: [resourceType]));
+
+            return resourceType == "Observation" ? searchParameters.Append(CreateNativeCarrierPerformerCompositeSearchParameter()) : searchParameters;
+        }
+
+        private static SearchParameterInfo CreateNativeCarrierPerformerCompositeSearchParameter()
+        {
+            var performerName = new SearchParameterInfo(
+                "synthetic-performer-name",
+                "synthetic-performer-name",
+                ValueSets.SearchParamType.String,
+                new Uri("http://example.org/SearchParameter/Observation-synthetic-performer-name"),
+                expression: "resolve().name");
+            var resourceStatus = new SearchParameterInfo(
+                "synthetic-resource-status",
+                "synthetic-resource-status",
+                ValueSets.SearchParamType.Token,
+                new Uri("http://example.org/SearchParameter/Observation-synthetic-resource-status"),
+                expression: "%resource.status");
+
+            return new SearchParameterInfo(
+                "synthetic-performer-composite",
+                "synthetic-performer-composite",
+                ValueSets.SearchParamType.Composite,
+                new Uri("http://example.org/SearchParameter/Observation-synthetic-performer-composite"),
+                components:
+                [
+                    new SearchParameterComponentInfo(performerName.Url, "resolve().name") { ResolvedSearchParameter = performerName },
+                    new SearchParameterComponentInfo(resourceStatus.Url, "%resource.status") { ResolvedSearchParameter = resourceStatus },
+                ],
+                expression: "Observation.performer",
+                baseResourceTypes: ["Observation"]);
         }
 
         private static ResourceElement ParseWithIgnixaImportParser(string json, IgnixaSchemaContext schemaContext)
