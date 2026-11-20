@@ -852,6 +852,51 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             Assert.Null(nativeContext.RootResource);
         }
 
+        [Fact]
+        public void GivenSchemaContext_WhenFilteringSchemaTypeNames_ThenAcceptedNamesEqualModelInfoResourceTypes()
+        {
+            var schemaContext = new IgnixaSchemaContext(ModelInfoProvider.Instance);
+            string[] schemaTypeNames = schemaContext.Schema.ResourceTypeNames.ToArray();
+            string[] modelInfoTypeNames = ModelInfoProvider.Instance.GetResourceTypeNames()
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(static name => name, StringComparer.Ordinal)
+                .ToArray();
+
+            string[] resourceTypeNames = schemaTypeNames
+                .Where(schemaContext.IsResourceType)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(static name => name, StringComparer.Ordinal)
+                .ToArray();
+
+            Assert.Equal(modelInfoTypeNames, resourceTypeNames);
+        }
+
+        [Theory]
+        [InlineData("string")]
+        [InlineData("HumanName")]
+        [InlineData("Reference")]
+        [InlineData("patient")]
+        [InlineData("PATIENT")]
+        [InlineData("")]
+        public void GivenNonResourceOrMiscasedTypeName_WhenChecked_ThenIsResourceTypeIsFalse(string typeName)
+        {
+            var schemaContext = new IgnixaSchemaContext(ModelInfoProvider.Instance);
+
+            bool isResourceType = schemaContext.IsResourceType(typeName);
+
+            Assert.False(isResourceType);
+        }
+
+        [Fact]
+        public void GivenResourceTypeName_WhenChecked_ThenIsResourceTypeIsTrue()
+        {
+            var schemaContext = new IgnixaSchemaContext(ModelInfoProvider.Instance);
+
+            bool isResourceType = schemaContext.IsResourceType("Patient");
+
+            Assert.True(isResourceType);
+        }
+
         private static IFhirPathProvider CreateIgnixaProvider()
             => new IgnixaFhirPathProvider(new IgnixaSchemaContext(ModelInfoProvider.Instance));
 

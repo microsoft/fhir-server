@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Ignixa
             ArgumentNullException.ThrowIfNull(modelInfoProvider);
 
             Schema = GetSchemaProvider(modelInfoProvider.Version);
-            _resourceTypeNames = Schema.ResourceTypeNames.ToFrozenSet(StringComparer.Ordinal);
+            _resourceTypeNames = modelInfoProvider.GetResourceTypeNames().ToFrozenSet(StringComparer.Ordinal);
         }
 
         /// <summary>
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Ignixa
         public IFhirSchemaProvider Schema { get; }
 
         /// <summary>
-        /// Determines whether <paramref name="typeName"/> is, with exact casing, a resource type of the current schema.
+        /// Determines whether <paramref name="typeName"/> is, with exact casing, a resource type the server supports for the current FHIR version.
         /// </summary>
         /// <param name="typeName">The FHIR type name.</param>
         /// <returns><see langword="true"/> if the type is a known resource type; otherwise <see langword="false"/>.</returns>
