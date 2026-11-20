@@ -338,9 +338,10 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
             private void WriteString(string value)
             {
                 Output.Append('"');
-                foreach (Rune scalar in value.EnumerateRunes())
+                for (int i = 0; i < value.Length; i++)
                 {
-                    string escape = scalar.Value switch
+                    char character = value[i];
+                    string escape = character switch
                     {
                         '"' => "\\\"",
                         '\\' => "\\\\",
@@ -355,28 +356,26 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                     {
                         Output.Append(escape);
                     }
-                    else if (scalar.Value is < 0x20 or 0x85 or 0x2028 or 0x2029)
+                    else if (character is < '\u0020' or '\u0085' or '\u2028' or '\u2029')
                     {
-                        Output.Append("\\u").Append(scalar.Value.ToString("x4", CultureInfo.InvariantCulture));
+                        Output.Append("\\u").Append(((int)character).ToString("x4", CultureInfo.InvariantCulture));
                     }
-                    else if (scalar.IsBmp)
+                    else if (char.IsSurrogate(character))
                     {
-                        Output.Append((char)scalar.Value);
+                        if (i + 1 == value.Length || !char.IsSurrogatePair(character, value[i + 1]))
+                        {
+                            throw new FormatException("Cannot write an unpaired UTF-16 surrogate to JSON.");
+                        }
+
+                        Output.Append(character).Append(value[++i]);
                     }
                     else
                     {
-                        AppendSupplementary(scalar);
+                        Output.Append(character);
                     }
                 }
 
                 Output.Append('"');
-            }
-
-            private void AppendSupplementary(Rune scalar)
-            {
-                Span<char> pair = stackalloc char[2];
-                scalar.EncodeToUtf16(pair);
-                Output.Append(pair);
             }
         }
     }

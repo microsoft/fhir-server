@@ -239,6 +239,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         }
 
         [Fact]
+        public void GivenLoneSurrogateInString_WhenWriting_ThenFailurePropagates()
+        {
+            ResourceElement element = Native("""{"resourceType":"Patient","id":"p"}""");
+            var carrier = (ResourceJsonNode)element.ResourceInstance;
+            carrier.ToSourceNavigator().Meta<JsonNode>()["id"] = "a\ud800b";
+
+            Assert.Throws<FormatException>(() => Factory.Create(element, false));
+            Assert.Empty(_inner.ReceivedCalls());
+        }
+
+        [Fact]
         public void GivenDateTypedElementWithDateTime_ThenStoredAsDate()
         {
             const string json = """{"resourceType":"Patient","id":"p","birthDate":"2001-02-03T04:05:06Z"}""";
