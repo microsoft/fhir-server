@@ -622,14 +622,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         [Fact]
         public void GivenPaddedNonTextPrimitives_ThenNativeTrimsBeforeWriting()
         {
-            const string json = """{"resourceType":"Patient","id":"p","active":" true ","language":" en ","multipleBirthInteger":" 2 ","identifier":[{"system":" http://example.org ","value":"  text  "}],"meta":{"lastUpdated":" 2020-01-01T00:00:00Z "}}""";
+            const string json = """{"resourceType":"Patient","id":"p","active":" true ","language":" en ","multipleBirthInteger":" 2 ","identifier":[{"system":" http://example.org ","value":"  text  "}],"text":{"status":"generated","div":"  <div xmlns=\"http://www.w3.org/1999/xhtml\">Narrative</div>  "},"extension":[{"url":"http://example.org/markdown","valueMarkdown":"  markdown  "}],"meta":{"lastUpdated":" 2020-01-01T00:00:00Z "}}""";
             string native = Factory.Create(Native(json), true, true).Data;
+            string mixed = ImportWrite(json, ImportMode.IncrementalLoad, _firely, true).Data;
+            var nativeJson = JsonNode.Parse(native);
+            var mixedJson = JsonNode.Parse(mixed);
             Assert.Contains("\"lastUpdated\":\"2020-01-01T00:00:00+00:00\"", native);
             Assert.Contains("\"active\":true", native);
             Assert.Contains("\"language\":\"en\"", native);
             Assert.Contains("\"multipleBirthInteger\":2", native);
             Assert.Contains("\"system\":\"http://example.org\"", native);
-            Assert.Contains("\"value\":\"  text  \"", native);
+            Assert.Equal("  text  ", nativeJson["identifier"][0]["value"].GetValue<string>());
+            Assert.Equal("text", mixedJson["identifier"][0]["value"].GetValue<string>());
+            Assert.Equal("  markdown  ", nativeJson["extension"][0]["valueMarkdown"].GetValue<string>());
+            Assert.Equal("markdown", mixedJson["extension"][0]["valueMarkdown"].GetValue<string>());
+            const string div = """<div xmlns="http://www.w3.org/1999/xhtml">Narrative</div>""";
+            Assert.Equal($"  {div}  ", nativeJson["text"]["div"].GetValue<string>());
+            Assert.Equal(div, mixedJson["text"]["div"].GetValue<string>());
         }
 
         [Fact]
@@ -933,7 +942,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                     mapping?.NativeType == typeof(FhirDecimal)
                         && leftNumber.TryGetDecimal(out decimal leftDecimal)
                         && rightNumber.TryGetDecimal(out decimal rightDecimal)
-                        && leftDecimal == rightDecimal,
+                        && leftDecimal == rightDecimal
+                        && (leftNumber.GetRawText().AsSpan().IndexOfAny('e', 'E') >= 0
+                            || rightNumber.GetRawText().AsSpan().IndexOfAny('e', 'E') >= 0
+                            || leftDecimal.Scale == rightDecimal.Scale),
                     $"{path}: IF={leftNumber.GetRawText()}; II={rightNumber.GetRawText()}");
                 actual.ReplaceWith(expected.DeepClone());
             }
