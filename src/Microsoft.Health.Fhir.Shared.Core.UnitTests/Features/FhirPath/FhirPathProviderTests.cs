@@ -50,11 +50,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
 
         public FhirPathProviderTests()
         {
-            // Other classes in this assembly (e.g. VectorSearchExpressionParserTests) install a mock process-wide
-            // ModelInfoProvider and never restore it. Production code exercised here reads that global internally
-            // (ReferenceSearchValue, ReferenceSearchValueParser, MoneyToQuantitySearchValueConverter), so a local
-            // provider is not enough: install the real one for each test and restore the previous one in Dispose.
-            // This collection disables parallelization, so no other test observes the swap.
+            // Production code exercised here reads the process-wide ModelInfoProvider internally (ReferenceSearchValue,
+            // ReferenceSearchValueParser, MoneyToQuantitySearchValueConverter), and other classes may leave a mock
+            // installed, so install the real one for each test and restore the previous one in Dispose. This collection
+            // disables parallelization, as does VectorSearchExpressionParserTests' ModelInfoProviderSerialCollection,
+            // so no other test observes the swap.
             ModelExtensions.SetModelInfoProvider();
         }
 
