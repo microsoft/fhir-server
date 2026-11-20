@@ -128,6 +128,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\SearchParameterDefinitionBuilderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ResourceToNdjsonBytesSerializerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\IgnixaRawResourceFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\ResourceDeserializerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceReferenceResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceExtensionsTests.cs" />
