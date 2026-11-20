@@ -988,6 +988,51 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             Assert.Equal(scopedComparison, nativeComparison);
         }
 
+        [Theory]
+        [InlineData("resource", "root", "patient", "extension.intersect(%resource.extension).exists()")]
+        [InlineData("resource", "root", "patient", "%resource.extension.intersect(extension).exists()")]
+        [InlineData("resource", "root", "patient", "extension.intersect(%rootResource.extension).exists()")]
+        [InlineData("resource", "root", "documentReference", "content.attachment.size = %resource.content.attachment.size")]
+        [InlineData("resource", "root", "documentReference", "%resource.content.attachment.size > 9")]
+        [InlineData("resource", "root", "documentReference", "%rootResource.content.attachment.size > 9")]
+        [InlineData("resourceAndRootResource", "root", "patient", "extension.intersect(%resource.extension).exists()")]
+        [InlineData("resourceAndRootResource", "root", "patient", "%resource.extension.intersect(extension).exists()")]
+        [InlineData("resourceAndRootResource", "root", "patient", "extension.intersect(%rootResource.extension).exists()")]
+        [InlineData("resourceAndRootResource", "root", "documentReference", "content.attachment.size = %resource.content.attachment.size")]
+        [InlineData("resourceAndRootResource", "root", "documentReference", "%resource.content.attachment.size > 9")]
+        [InlineData("resourceAndRootResource", "root", "documentReference", "%rootResource.content.attachment.size > 9")]
+        [InlineData("resource", "child", "patient", "%resource.extension.intersect($this).exists()")]
+        [InlineData("resourceAndRootResource", "child", "patient", "%rootResource.extension.intersect($this).exists()")]
+        [InlineData("resource", "child", "documentReference", "attachment.size = %resource.content.attachment.size")]
+        [InlineData("resourceAndRootResource", "child", "documentReference", "%rootResource.content.attachment.size > 9")]
+        public void GivenNativeResourceInContext_WhenEvaluatedByIgnixa_ThenResultMatchesFirelyOverPoco(
+            string contextShape,
+            string inputKind,
+            string resourceKind,
+            string expression)
+        {
+            string json = resourceKind == "patient" ? NativePatientWithExtensionJson : CreateDocumentReferenceJson();
+            (ITypedElement pocoInput, EvaluationContext pocoContext) = CreateInputAndContext(ParsePocoResource(json), contextShape, inputKind);
+            (ITypedElement nativeInput, EvaluationContext nativeContext) = CreateInputAndContext(ParseNativeResource(json), contextShape, inputKind);
+
+            string[] firelyValues = Normalize(new FirelyFhirPathProvider().Compile(expression).Select(pocoInput, pocoContext));
+            string[] ignixaValues = Normalize(CreateIgnixaProvider().Compile(expression).Select(nativeInput, nativeContext));
+
+            Assert.NotEmpty(firelyValues);
+            Assert.Equal(firelyValues, ignixaValues);
+        }
+
+        private static (ITypedElement Input, EvaluationContext Context) CreateInputAndContext(ITypedElement root, string contextShape, string inputKind)
+        {
+            EvaluationContext context = CreateNativeRootContext(root);
+            context.RootResource = contextShape == "resourceAndRootResource" ? root : null;
+            ITypedElement input = inputKind == "root"
+                ? root
+                : root.Children(root.InstanceType == "Patient" ? "extension" : "content").First();
+
+            return (input, context);
+        }
+
         private static IFhirPathProvider CreateIgnixaProvider()
             => new IgnixaFhirPathProvider(new IgnixaSchemaContext(ModelInfoProvider.Instance));
 
