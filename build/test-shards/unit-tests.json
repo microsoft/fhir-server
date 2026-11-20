@@ -1,0 +1,25 @@
+{
+  "suite": "unit-tests",
+  "source": "Test runs named 'Unit Tests' of build 53409 (net11.0 and net10.0): per-test durations summed per test assembly and averaged over the two frameworks. Minutes of test time, not wall time; only the relative sizes are used (build/scripts/Invoke-ParallelUnitTests.ps1 -ModuleShard).",
+  "minutes": {
+    "Microsoft.Health.Fhir.Azure.UnitTests": 0.35,
+    "Microsoft.Health.Fhir.Core.UnitTests": 0.5,
+    "Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests": 0.01,
+    "Microsoft.Health.Fhir.CosmosDb.UnitTests": 0.55,
+    "Microsoft.Health.Fhir.R4.Api.UnitTests": 0.73,
+    "Microsoft.Health.Fhir.R4.Core.UnitTests": 27.52,
+    "Microsoft.Health.Fhir.R4.Web.UnitTests": 0.69,
+    "Microsoft.Health.Fhir.R4B.Api.UnitTests": 0.96,
+    "Microsoft.Health.Fhir.R4B.Core.UnitTests": 16.92,
+    "Microsoft.Health.Fhir.R4B.Web.UnitTests": 1.24,
+    "Microsoft.Health.Fhir.R5.Api.UnitTests": 0.98,
+    "Microsoft.Health.Fhir.R5.Core.UnitTests": 13.59,
+    "Microsoft.Health.Fhir.R5.Web.UnitTests": 0.89,
+    "Microsoft.Health.Fhir.SchemaManager.UnitTests": 0.04,
+    "Microsoft.Health.Fhir.SqlServer.UnitTests": 0.45,
+    "Microsoft.Health.Fhir.Stu3.Api.UnitTests": 0.69,
+    "Microsoft.Health.Fhir.Stu3.Core.UnitTests": 4.38,
+    "Microsoft.Health.Fhir.Stu3.Web.UnitTests": 0.31,
+    "Microsoft.Health.TaskManagement.UnitTests": 0.26
+  }
+}

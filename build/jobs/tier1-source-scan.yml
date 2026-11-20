@@ -1,0 +1,70 @@
+# Tier 1 source scanners (docs/arch/adr-2611-tiered-pr-validation.md): the Guardian tools that need only the source
+# checkout, so a lean run keeps them without the build artifact. They block the PR; the tools that need build output
+# (BinSkim, RoslynAnalyzers, AntiMalware over binaries, the SBOM validator) run in the full pipeline (analyze.yml).
+# Task inputs are the same as in analyze.yml; keep them equal.
+jobs:
+- job: Tier1SourceScan
+  displayName: 'Source security scan (CredScan, CSRF, PSScriptAnalyzer, Armory, TemplateAnalyzer)'
+  pool:
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalWindowsImage)
+  steps:
+  - checkout: self
+    fetchDepth: 1
+    fetchTags: false
+
+  - task: Armory@2
+    inputs:
+      targetDirectory: '$(Build.SourcesDirectory)/samples/templates'
+      targetFiles: 'f|*.json'
+      excludePassesFromLog: false
+
+  - task: TemplateAnalyzer@3
+    displayName: 'Run Template Analyzer'
+    inputs:
+        ToolVersion: Latest
+        AnalyzeDirectory: '$(Build.SourcesDirectory)/samples/templates'
+        Verbose: false
+        IncludeNonSecurityRules: true
+
+  - task: CredScan@3
+    inputs:
+      scanFolder: '$(Build.SourcesDirectory)'
+      outputFormat: 'pre'
+      suppressionsFile: 'CredScanSuppressions.json'
+      verboseOutput: true
+
+  - task: CSRF@1
+    inputs:
+        Path: '$(Build.SourcesDirectory)'
+        ToolVersion: Latest
+
+  - task: PSScriptAnalyzer@1
+    displayName: 'Run PSScriptAnalyzer'
+    inputs:
+      Path: '$(Build.SourcesDirectory)'
+      Settings: required
+      IgnorePattern: .gdn
+      Recurse: true
+
+  - task: PublishSecurityAnalysisLogs@3
+    condition: succeededOrFailed()
+    continueOnError: True
+    inputs:
+      ArtifactName: 'Tier1CodeAnalysisLogs'
+      ArtifactType: 'Container'
+      AllTools: false
+      Armory: true
+      CredScan: true
+      CSRF: true
+      ToolLogsNotFoundAction: 'Standard'
+
+  - task: PostAnalysis@2
+    condition: succeededOrFailed()
+    inputs:
+      GdnBreakAllTools: false
+      GdnBreakGdnToolArmory: true
+      GdnBreakGdnToolCredScan: true
+      GdnBreakGdnToolCSRF: true
+      CredScan: true

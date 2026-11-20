@@ -1,0 +1,47 @@
+# Starts Azurite (image pinned in build/docker/test-dependencies.Dockerfile, stage "azurite") on 127.0.0.1:10000-10002
+# and waits until the blob endpoint answers. Clients use "UseDevelopmentStorage=true". The container carries the label
+# fhir-test-dependency=$(System.JobId); the job removes it by that label.
+steps:
+- pwsh: |
+    $ErrorActionPreference = 'Stop'
+    $dockerfile = '$(Build.SourcesDirectory)/build/docker/test-dependencies.Dockerfile'
+    $fromLines = @(Select-String -Path $dockerfile -Pattern '^\s*FROM\s+(\S+)\s+AS\s+azurite\s*$')
+    if ($fromLines.Count -ne 1) {
+      throw "Expected exactly one 'FROM <image> AS azurite' line in $dockerfile, found $($fromLines.Count)"
+    }
+
+    $image = $fromLines[0].Matches[0].Groups[1].Value
+    $name = 'fhir-azurite-$(System.JobId)'
+    Write-Host "Starting $image as $name"
+    # The image's default command plus --skipApiVersionCheck: the Azure Storage SDKs the server and tests use can send
+    # an x-ms-version newer than the latest Azurite release supports (Azurite 3.37.0 rejects 2026-10-06).
+    & docker run -d --name $name --label 'fhir-test-dependency=$(System.JobId)' -p 127.0.0.1:10000:10000 -p 127.0.0.1:10001:10001 -p 127.0.0.1:10002:10002 $image `
+      azurite -l /data --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --skipApiVersionCheck
+    if ($LASTEXITCODE -ne 0) {
+      throw "docker run failed with exit code $LASTEXITCODE"
+    }
+
+    # Any HTTP status (an anonymous request is refused) means the blob service is listening.
+    $deadline = [DateTime]::UtcNow.AddSeconds(60)
+    while ($true) {
+      try {
+        $null = Invoke-WebRequest -Uri 'http://127.0.0.1:10000/devstoreaccount1?comp=list' -SkipHttpErrorCheck -TimeoutSec 5
+        break
+      }
+      catch {
+        $running = & docker inspect -f '{{.State.Running}}' $name
+        if ($running -ne 'true' -or [DateTime]::UtcNow -ge $deadline) {
+          Write-Host '##[group]Azurite container log'
+          & docker logs --tail 200 $name
+          Write-Host '##[endgroup]'
+          throw "Azurite did not become ready within 60 seconds (running: $running). Last error: $($_.Exception.Message)"
+        }
+
+        Start-Sleep -Seconds 2
+      }
+    }
+
+    Write-Host 'Azurite is ready'
+  displayName: 'Start Azurite container'
+  # Bounds the image pull plus the 60-second readiness wait.
+  timeoutInMinutes: 3

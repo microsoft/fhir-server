@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Health.Fhir.Api.OpenIddict.Configuration;
+using Microsoft.Health.Fhir.Api.OpenIddict.Extensions;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.IdentityModel.Tokens;
@@ -89,7 +91,14 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Controllers
             // Set the list of scopes granted to the client application in access_token.
             identity.SetScopes(request.GetScopes());
             var resources = await ToListAsync(_scopeManager.ListResourcesAsync(identity.GetScopes()));
-            resources.Add("fhir-api");
+
+            // SMART clinical scopes are validated dynamically, not registered, so they map to no resource: issue the token for the FHIR server.
+            // The wrong-audience scope stands for another application's resource, as in Entra ID, so its token must not carry the FHIR server audience.
+            if (!identity.HasScope(DevelopmentIdentityProviderRegistrationExtensions.WrongAudienceClient))
+            {
+                resources.Add(DevelopmentIdentityProviderConfiguration.Audience);
+            }
+
             identity.SetResources(resources);
 
             // Add a custom claim for the raw scope with dynamic query parameters.
