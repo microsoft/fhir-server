@@ -60,7 +60,9 @@ the number of built-in parameters provisioned on each table.
    indexes to lead with `SearchParamId`. This approach exposes SQL Server bug when SQL does not preserve 
    physical order of rows for multiple filtered resource types, and runs separate sort operation (expensive). 
    It also leaves a parameter without its index until the write-triggered creation has completed; searches before
-   that write need to look at existing indexes before submitting a query (if no indexes, no data, no resource returned).
+   that write need to look at existing indexes before submitting a query. If no indexes, query should assume no 
+   matching data exist and preserve query semantics. For example, search for resources with address=XYZ should 
+   return no records, while search for address:missing=true, should return all records.
    
 2. **Pre-create filtered indexes** - Create a separate index for each eligible search parameter,
    filtered by `SearchParamId`, before or independently of writes. Keep the existing resource-type
