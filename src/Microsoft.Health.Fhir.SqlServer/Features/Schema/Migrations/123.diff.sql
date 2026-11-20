@@ -3,6 +3,70 @@ IF EXISTS (SELECT 1 FROM dbo.SearchParam)
 ALTER TABLE dbo.SearchParam ADD TargetTable varchar(128) NOT NULL
 ALTER TABLE dbo.SearchParam ADD CONSTRAINT CH_SearchParam_TargetTable CHECK (len(TargetTable) > 0)
 GO
+ALTER PROCEDURE dbo.DisableIndexes
+WITH EXECUTE AS 'dbo'
+AS
+set nocount on
+DECLARE @SP varchar(100) = 'DisableIndexes'
+       ,@Mode varchar(200) = ''
+       ,@st datetime = getUTCdate()
+       ,@Tbl varchar(100)
+       ,@Ind varchar(200)
+       ,@Txt varchar(4000)
+
+BEGIN TRY
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start'
+
+  DECLARE @Tables TABLE (Tbl varchar(100) PRIMARY KEY, Supported bit)
+  INSERT INTO @Tables EXECUTE dbo.GetPartitionedTables @IncludeNotDisabled = 1, @IncludeNotSupported = 1
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target='@Tables',@Action='Insert',@Rows=@@rowcount
+
+  DELETE FROM @Tables WHERE Tbl IN ('Resource', 'TokenText')
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target='@Tables',@Action='Delete',@Rows=@@rowcount
+
+  DECLARE @Indexes TABLE (Tbl varchar(100), Ind varchar(200), TblId int, IndId int PRIMARY KEY (Tbl, Ind))
+  INSERT INTO @Indexes
+    SELECT Tbl
+          ,I.Name
+          ,TblId
+          ,I.index_id
+      FROM (SELECT TblId = object_id(Tbl), Tbl FROM @Tables) O
+           JOIN sys.indexes I ON I.object_id = TblId
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target='@Indexes',@Action='Insert',@Rows=@@rowcount
+
+  INSERT INTO dbo.IndexProperties
+         ( TableName, IndexName,       PropertyName, PropertyValue )
+    SELECT       Tbl,       Ind, 'DATA_COMPRESSION',     data_comp
+      FROM (SELECT Tbl
+                  ,Ind
+                  ,data_comp = isnull((SELECT TOP 1 CASE WHEN data_compression_desc = 'PAGE' THEN 'PAGE' END FROM sys.partitions WHERE object_id = TblId AND index_id = IndId),'NONE')
+              FROM @Indexes
+           ) A
+      WHERE NOT EXISTS (SELECT * FROM dbo.IndexProperties WHERE TableName = Tbl AND IndexName = Ind)
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target='IndexProperties',@Action='Insert',@Rows=@@rowcount
+
+  DELETE FROM @Indexes WHERE Tbl = 'Resource' OR IndId = 1
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target='@Indexes',@Action='Delete',@Rows=@@rowcount
+
+  WHILE EXISTS (SELECT * FROM @Indexes)
+  BEGIN
+    SELECT TOP 1 @Tbl = Tbl, @Ind = Ind FROM @Indexes
+
+    SET @Txt = 'ALTER INDEX '+@Ind+' ON dbo.'+@Tbl+' DISABLE'
+    EXECUTE(@Txt)
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@Ind,@Action='Disable',@Text=@Txt
+
+    DELETE FROM @Indexes WHERE Tbl = @Tbl AND Ind = @Ind
+  END
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st
+END TRY
+BEGIN CATCH
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  THROW
+END CATCH
+GO
 CREATE OR ALTER PROCEDURE dbo.CreateGranularSecondaryIndexes @TableName varchar(128), @ResourceTypeId smallint, @SearchParamId smallint
 WITH EXECUTE AS 'dbo'
 AS
@@ -36,7 +100,9 @@ BEGIN TRY
            +' WITH (DATA_COMPRESSION = '+P.PropertyValue+')'
            +' ON PartitionScheme_ResourceTypeId(ResourceTypeId)'
       FROM sys.indexes I
-           CROSS APPLY (SELECT IndexName = 'GIX_'+replace(I.name,'_SearchParamId','')+'_WHERE_SearchParam_'+@SearchParamIdChar) N
+           CROSS APPLY (SELECT IndexName = CASE WHEN I.is_unique = 1 THEN 'GIXU_' ELSE 'GIX_' END
+                                      +replace(replace(replace(I.name,'_SearchParamId',''),'IXU_',''),'IX_','')
+                                      +'_WHERE_SearchParam_'+@SearchParamIdChar) N
            LEFT JOIN dbo.IndexProperties P ON P.TableName = @TableName AND P.IndexName = I.name AND P.PropertyName = 'DATA_COMPRESSION'
            CROSS APPLY
            (SELECT KeyColumns = string_agg(convert(nvarchar(max),CASE WHEN IC.key_ordinal > 0 AND C.name <> 'SearchParamId' THEN C.name+CASE WHEN IC.is_descending_key = 1 THEN ' DESC' ELSE '' END END), ',') WITHIN GROUP (ORDER BY IC.key_ordinal, IC.index_column_id)
@@ -132,7 +198,7 @@ BEGIN
 END
 GO
 
-CREATE OR ALTER PROCEDURE dbo.InitializeBase
+ALTER PROCEDURE dbo.InitializeBase
      @searchParams nvarchar(max)
     ,@resourceTypes nvarchar(3000)
     ,@claimTypes varchar(100)
@@ -187,7 +253,7 @@ SELECT Value, SystemId from dbo.System;
 SELECT Value, QuantityCodeId FROM dbo.QuantityCode
 GO
 
-CREATE OR ALTER PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY, @ReindexId bigint = NULL, @SearchParamTargets nvarchar(max) = NULL
+ALTER PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY, @ReindexId bigint = NULL, @SearchParamTargets nvarchar(max) = NULL
 -- @ReindexId IS NULL - not reindex. @ReindexId IS NOT NULL - reindex.
 AS
 set nocount on
@@ -271,7 +337,7 @@ BEGIN CATCH
 END CATCH
 GO
 
-CREATE OR ALTER PROCEDURE dbo.MergeResourcesAndSearchParams
+ALTER PROCEDURE dbo.MergeResourcesAndSearchParams
      @SearchParams dbo.SearchParamList READONLY
     ,@SearchParamTargets nvarchar(max) = NULL
     ,@ReindexId bigint = NULL
