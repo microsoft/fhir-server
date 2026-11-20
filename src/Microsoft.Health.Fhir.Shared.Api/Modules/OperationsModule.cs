@@ -7,6 +7,7 @@ using System;
 using EnsureThat;
 using Medino;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
@@ -81,9 +82,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     break;
 
                 case FhirSdkProvider.Ignixa:
-                    services.Add<IgnixaSchemaContext>()
-                        .Singleton()
-                        .AsSelf();
+                    services.TryAddSingleton<IgnixaSchemaContext>();
 
                     services.Add<IgnixaImportResourceParser>()
                         .Transient()
