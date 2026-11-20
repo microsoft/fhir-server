@@ -56,10 +56,11 @@ namespace Microsoft.Health.Fhir.Ignixa
         }
 
         /// <summary>
-        /// Determines whether <paramref name="input"/> is the native Ignixa resource root that the search indexer evaluates
-        /// against: <paramref name="context"/> Resource wraps that same root and RootResource is absent or the same root.
-        /// Results evaluated on this root carry no <see cref="ScopedNode"/> ancestry, so only callers that pass the resource
-        /// context on every evaluation may use it.
+        /// Determines whether <paramref name="input"/> is a native Ignixa resource root that can be evaluated without a
+        /// <see cref="ScopedNode"/>. This is taken automatically when the context Resource wraps that root, as
+        /// the search indexer and <c>ResourceElement</c> provide, and RootResource is absent, the same root, or a
+        /// <see cref="ScopedNode"/> over it. Results carry no <see cref="ScopedNode"/> ancestry, so callers must pass
+        /// that context when they re-evaluate them.
         /// </summary>
         /// <param name="input">The element passed to the compiled expression.</param>
         /// <param name="context">The caller-supplied Firely context, or <see langword="null"/>.</param>
@@ -71,12 +72,15 @@ namespace Microsoft.Health.Fhir.Ignixa
                 && string.Equals(root.Location, root.InstanceType, StringComparison.Ordinal)
                 && _schemaContext.IsResourceType(root.InstanceType)
                 && ReferenceEquals(context?.Resource?.ToIgnixaElement(), root)
-                && (context.RootResource is null || ReferenceEquals(context.RootResource.ToIgnixaElement(), root));
+                && (context.RootResource is null
+                    || ReferenceEquals(context.RootResource.ToIgnixaElement(), root)
+                    || (context.RootResource is ScopedNode scopedRoot && ReferenceEquals(scopedRoot.Current.ToIgnixaElement(), root)));
         }
 
         /// <summary>
         /// Creates an Ignixa context for an input accepted by <see cref="IsIndexedResourceRoot"/>.
-        /// Sets <paramref name="context"/> RootResource to <paramref name="originalInput"/> when it is null.
+        /// Sets <paramref name="context"/> RootResource to a <see cref="ScopedNode"/> over <paramref name="originalInput"/>
+        /// when it is null, as the scoped path does.
         /// </summary>
         /// <param name="originalInput">The element passed to the compiled expression.</param>
         /// <param name="contextNode">The Ignixa element the expression is evaluated on.</param>
@@ -84,7 +88,7 @@ namespace Microsoft.Health.Fhir.Ignixa
         /// <returns>The translated context.</returns>
         internal EvaluationContext CreateForIndexedResourceRoot(ITypedElement originalInput, IElement contextNode, FirelyEvaluationContext context)
         {
-            context.RootResource ??= originalInput;
+            context.RootResource ??= originalInput.ToScopedNode();
 
             return Create(contextNode, context.Resource.ToIgnixaElement(), context.RootResource.ToIgnixaElement(), context);
         }

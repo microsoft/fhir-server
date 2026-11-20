@@ -774,21 +774,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         }
 
         [Fact]
-        public void GivenNativeRoot_ThenCallerContextIsPopulatedLikeScopedPath()
+        public void GivenNativeRootWithIndexerContextShape_WhenSelecting_ThenRootResourceIsScopedNodeAndFastPathIsKept()
         {
             ICompiledFhirPath compiled = CreateIgnixaProvider().Compile("id");
             ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
-            ITypedElement scopedRoot = ParseNativeResource(NativePatientJson).ToScopedNode();
-            EvaluationContext nativeContext = CreateNativeRootContext(nativeRoot);
-            EvaluationContext scopedContext = CreateNativeRootContext(scopedRoot);
+            EvaluationContext context = CreateNativeRootContext(nativeRoot);
+            IgnixaEvaluationContextBridge bridge = CreateIgnixaBridge();
 
-            _ = compiled.Select(nativeRoot, nativeContext).ToArray();
-            _ = compiled.Select(scopedRoot, scopedContext).ToArray();
+            _ = compiled.Select(nativeRoot, context).ToArray();
+            bool isIndexedResourceRootAfterFirstSelect = bridge.IsIndexedResourceRoot(nativeRoot, context);
+            _ = compiled.Select(nativeRoot, context).ToArray();
 
-            Assert.Same(nativeRoot, nativeContext.Resource);
-            Assert.Same(nativeRoot, nativeContext.RootResource);
-            Assert.Same(scopedRoot, scopedContext.Resource);
-            Assert.Same(scopedRoot, scopedContext.RootResource);
+            Assert.Same(nativeRoot, context.Resource);
+            ScopedNode rootResource = Assert.IsType<ScopedNode>(context.RootResource);
+            Assert.Same(nativeRoot, rootResource.Current);
+            Assert.True(isIndexedResourceRootAfterFirstSelect);
+            Assert.True(bridge.IsIndexedResourceRoot(nativeRoot, context));
+            Assert.Same(rootResource, context.RootResource);
         }
 
         [Theory]
@@ -797,6 +799,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
         [InlineData("resource", true)]
         [InlineData("rootResource", false)]
         [InlineData("resourceAndRootResource", true)]
+        [InlineData("resourceAndScopedRootResource", true)]
+        [InlineData("resourceAndScopedForeignRootResource", false)]
         public void GivenNativeRootAndContextShape_ThenNativePathIsUsedOnlyWhenContextResourceIsTheRoot(string contextShape, bool expected)
         {
             ITypedElement nativeRoot = ParseNativeResource(NativePatientJson);
@@ -804,8 +808,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             if (contextShape != "nullContext")
             {
                 context = ModelInfoProvider.Instance.GetEvaluationContext();
-                context.Resource = contextShape is "resource" or "resourceAndRootResource" ? nativeRoot : null;
-                context.RootResource = contextShape is "rootResource" or "resourceAndRootResource" ? nativeRoot : null;
+                context.Resource = contextShape is "emptyContext" or "rootResource" ? null : nativeRoot;
+                context.RootResource = contextShape switch
+                {
+                    "rootResource" or "resourceAndRootResource" => nativeRoot,
+                    "resourceAndScopedRootResource" => nativeRoot.ToScopedNode(),
+                    "resourceAndScopedForeignRootResource" => ParseNativeResource(NativePatientJson).ToScopedNode(),
+                    _ => null,
+                };
             }
 
             Assert.Equal(expected, CreateIgnixaBridge().IsIndexedResourceRoot(nativeRoot, context));
@@ -932,10 +942,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPath
             Assert.Equal(pocoValues, nativeValues);
         }
 
-        [Fact]
-        public void GivenIndexedNativeRootAndFirelyEnvironmentVariable_WhenIntersecting_ThenResultMatchesScopedPath()
+        [Theory]
+        [InlineData("extension.intersect(%expected).exists()")]
+        [InlineData("%rootResource.extension.intersect(%expected).exists()")]
+        public void GivenIndexedNativeRootAndFirelyEnvironmentVariable_WhenIntersecting_ThenResultMatchesScopedPath(string expression)
         {
-            ICompiledFhirPath compiled = CreateIgnixaProvider().Compile("extension.intersect(%expected).exists()");
+            ICompiledFhirPath compiled = CreateIgnixaProvider().Compile(expression);
             ITypedElement nativeRoot = ParseNativeResource(NativePatientWithExtensionJson);
             ITypedElement scopedRoot = ParseNativeResource(NativePatientWithExtensionJson).ToScopedNode();
             ITypedElement[] expected = ParsePocoResource(NativePatientWithExtensionJson).Children("extension").ToArray();
