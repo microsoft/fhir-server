@@ -71,6 +71,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
                 ImportMode.IncrementalLoad
             },
             {
+                """{"resourceType":"Patient","id":"patient-1","meta":{"versionId":"7","lastUpdated":"2020-01-01T00:00:00Z","_lastUpdated":{"id":"original"}}}""",
+                ImportMode.IncrementalLoad
+            },
+            {
                 """{"resourceType":"Patient","id":"patient-1","meta":{"versionId":"9","lastUpdated":"2020-01-01T00:00:00Z"}}""",
                 ImportMode.InitialLoad
             },

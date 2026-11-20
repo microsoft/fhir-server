@@ -6,6 +6,7 @@
 using System;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Ignixa.Extensions.FirelySdk;
@@ -92,6 +93,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         }
 
         [Theory]
+        [InlineData("2020-01-01", "2020-01-01T00:00:00+00:00")]
         [InlineData("2020-01-01T00:00:00.100+00:00", "2020-01-01T00:00:00.1+00:00")]
         [InlineData("2020-01-01T00:00:00.000Z", "2020-01-01T00:00:00+00:00")]
         public void GivenTrailingZeroMilliseconds_ThenLastUpdatedIsInstantString(string instant, string expected)
@@ -104,6 +106,69 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             Assert.DoesNotContain("\\u002B", data);
             AssertExactly(FirelyWrite(json).Data, data);
         }
+
+        [Theory]
+        [InlineData("\"01/02/2020\"")]
+        [InlineData("\"2020-01-01T00:00:00\"")]
+        [InlineData("\"2020-01-01T00:00:00+00:60\"")]
+        [InlineData("123")]
+        [InlineData("{}")]
+        [InlineData("null")]
+        public void GivenInvalidLastUpdated_ThenRejectsWithPath(string token)
+        {
+            string json = $$$"""{"resourceType":"Patient","meta":{"lastUpdated":{{{token}}}}}""";
+
+            var error = Assert.Throws<FormatException>(() => Factory.Create(Native(json), false));
+
+            Assert.Contains("Patient.meta.lastUpdated", error.Message);
+        }
+
+        [Theory]
+        [InlineData("""{"resourceType":"Patient","active":"true"}""", """{"resourceType":"Patient","active":true}""")]
+        [InlineData("""{"resourceType":"Patient","multipleBirthInteger":"2"}""", """{"resourceType":"Patient","multipleBirthInteger":2}""")]
+        [InlineData("""{"resourceType":"Observation","valueQuantity":{"value":"1.50"}}""", """{"resourceType":"Observation","valueQuantity":{"value":1.50}}""")]
+        [InlineData("""{"resourceType":"Patient","name":[{"family":123,"given":[true]}]}""", """{"resourceType":"Patient","name":[{"family":"123","given":["true"]}]}""")]
+        public void GivenAlternatePrimitiveToken_ThenWritesSchemaLiteral(string input, string expected)
+        {
+            Assert.Equal(expected, FirelyWrite(input, false).Data);
+            Assert.Equal(expected, Factory.Create(Native(input), false).Data);
+        }
+
+        [Theory]
+        [InlineData("active", "\"yes\"")]
+        [InlineData("multipleBirthInteger", "\"2.5\"")]
+        [InlineData("multipleBirthInteger", "true")]
+        [InlineData("multipleBirthInteger", "\"2147483648\"")]
+        [InlineData("active", "[true]")]
+        [InlineData("maritalStatus", "\"single\"")]
+        [InlineData("_active", "\"bad\"")]
+        [InlineData("name", "[{\"given\":[{}]}]")]
+        [InlineData("contained", "[{\"resourceType\":\"HumanName\",\"family\":\"Smith\"}]")]
+        [InlineData("text", "{\"status\":\"generated\",\"div\":123}")]
+        public void GivenInvalidPrimitiveToken_ThenRejectsWithPath(string name, string token)
+        {
+            string json = $$$"""{"resourceType":"Patient","{{{name}}}":{{{token}}}}""";
+
+            var error = Assert.Throws<FormatException>(() => Factory.Create(Native(json), false));
+
+            Assert.Contains($"Patient.{name}", error.Message);
+        }
+
+#if R4 || R4B
+        [Fact]
+        public void GivenExampleScenarioInstance_ThenResourceTypeIsAPropertyNotADiscriminator()
+        {
+            const string json = """{"resourceType":"ExampleScenario","status":"draft","instance":[{"resourceId":"one","resourceType":"Patient","name":"Example patient"}]}""";
+
+            string data = Factory.Create(Native(json), false).Data;
+
+            using var document = JsonDocument.Parse(data);
+            JsonElement instance = document.RootElement.GetProperty("instance")[0];
+            Assert.Equal("Patient", instance.GetProperty("resourceType").GetString());
+            Assert.Equal("Example patient", instance.GetProperty("name").GetString());
+            AssertExactly(FirelyWrite(json, false).Data, data);
+        }
+#endif
 
         [Theory]
         [InlineData("<div xmlns=\"http://www.w3.org/1999/xhtml\"><b>\"é\" &amp;</b></div>", true)]
@@ -146,7 +211,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             Assert.Contains("\"birthDate\":\"1970\"", data);
             Assert.Contains("\"effectiveDateTime\":\"2020-01-01T10:00:00.000+05:00\"", data);
             Assert.Contains("\"text\":\"  a  b  \"", data);
-            AssertExactly(FirelyWrite(json, false).Data, data);
+            var expected = JsonNode.Parse(FirelyWrite(json, false).Data);
+            Assert.Equal("a  b", expected["code"]["text"].GetValue<string>());
+            expected["code"]["text"] = "  a  b  ";
+            AssertExactly(expected.ToJsonString(), data);
         }
 
         [Fact]
@@ -250,6 +318,34 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         }
 
         [Fact]
+        public void GivenLastUpdatedCompanion_WhenWritingDirectly_ThenPreservesIt()
+        {
+            const string json = """{"resourceType":"Patient","meta":{"lastUpdated":"2020-01-01T00:00:00Z","_lastUpdated":{"id":"original"}}}""";
+
+            string data = Factory.Create(Native(json), false).Data;
+
+            AssertExactly(FirelyWrite(json, false).Data, data);
+            Assert.Contains("\"_lastUpdated\":{\"id\":\"original\"}", data);
+        }
+
+        [Theory]
+        [InlineData(ImportMode.InitialLoad)]
+        [InlineData(ImportMode.IncrementalLoad)]
+        public void GivenLastUpdatedCompanion_WhenImportWrites_ThenReplacementDropsOnlyRootCompanion(ImportMode mode)
+        {
+            const string json = """{"resourceType":"Patient","id":"p","meta":{"lastUpdated":"2020-01-01T00:00:00Z","_lastUpdated":{"id":"original"}},"contained":[{"resourceType":"Patient","id":"c","meta":{"lastUpdated":"2019-01-01T00:00:00Z","_lastUpdated":{"id":"contained"}}}]}""";
+            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
+            {
+                string expected = ImportWrite(json, mode, native: false).Data;
+                var meta = JsonNode.Parse(expected)["meta"].AsObject();
+                Assert.False(meta.ContainsKey("_lastUpdated"));
+                Assert.Contains("\"_lastUpdated\":{\"id\":\"contained\"}", expected);
+
+                AssertExactly(expected, ImportWrite(json, mode, native: true).Data);
+            }
+        }
+
+        [Fact]
         public void GivenDateTypedElementWithDateTime_ThenStoredAsDate()
         {
             const string json = """{"resourceType":"Patient","id":"p","birthDate":"2001-02-03T04:05:06Z"}""";
@@ -279,10 +375,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         [InlineData("{", ImportMode.IncrementalLoad, typeof(FormatException))]
         [InlineData("""{"resourceType":"Patient","id":"bad id"}""", ImportMode.IncrementalLoad, typeof(BadRequestException))]
         [InlineData("""{"resourceType":"Patient","id":"p","generalPractitioner":{"reference":"Practitioner?identifier=x"}}""", ImportMode.InitialLoad, typeof(NotSupportedException))]
-        public void GivenRejectedCorpus_ThenBothProvidersThrowExpectedType(string json, ImportMode mode, Type exceptionType)
+        [InlineData("""{"resourceType":"Patient","id":"p","foo":"unknown"}""", ImportMode.IncrementalLoad, typeof(FormatException), "Patient.foo", typeof(StructuralTypeException))]
+        [InlineData("""{"resourceType":"Patient","id":"p","maritalStatus":{"resourceType":"Patient"}}""", ImportMode.IncrementalLoad, typeof(FormatException), "Patient.maritalStatus.resourceType", typeof(StructuralTypeException))]
+        [InlineData("""{"resourceType":"Patient","id":"p","deceasedDateTime":{"resourceType":"Patient"}}""", ImportMode.IncrementalLoad, typeof(FormatException), "Patient.deceasedDateTime", typeof(StructuralTypeException))]
+        [InlineData("""{"resourceType":"Patient","id":"p","birthDate":{"resourceType":"Patient"}}""", ImportMode.IncrementalLoad, typeof(FormatException), "Patient.birthDate", typeof(StructuralTypeException))]
+        public void GivenRejectedCorpus_ThenBothProvidersThrowExpectedType(string json, ImportMode mode, Type exceptionType, string nativePath = null, Type firelyExceptionType = null)
         {
-            Assert.Throws(exceptionType, () => ImportWrite(json, mode, native: false));
-            Assert.Throws(exceptionType, () => ImportWrite(json, mode, native: true));
+            Exception nativeError = Record.Exception(() => ImportWrite(json, mode, native: true));
+            Assert.Throws(firelyExceptionType ?? exceptionType, () => ImportWrite(json, mode, native: false));
+            Assert.IsType(exceptionType, nativeError);
+            if (nativePath is not null)
+            {
+                Assert.Contains(nativePath, nativeError.Message);
+            }
+        }
+
+        [Theory]
+        [InlineData("\"birthDate\":{\"id\":\"bad\"}", "\"_birthDate\":{\"id\":\"bad\"}", "birthDate")]
+        [InlineData("\"gender\":\"\"", null, "gender")]
+        public void GivenMalformedPrimitiveFirelySilentlyRepairs_ThenNativeRejects(string input, string firelyOutput, string name)
+        {
+            string json = $$$"""{"resourceType":"Patient","id":"p",{{{input}}}}""";
+
+            var error = Assert.Throws<FormatException>(() => ImportWrite(json, ImportMode.IncrementalLoad, native: true));
+            Assert.Contains($"Patient.{name}", error.Message);
+            Assert.Equal(
+                firelyOutput is null ? NoMeta : $$$"""{"resourceType":"Patient","id":"p",{{{firelyOutput}}}}""",
+                FirelyWrite(json, false).Data);
         }
 
         private static string Version(string data)
@@ -295,6 +414,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
 
         private static void AssertExactly(string expected, string actual)
         {
+            Assert.True(JsonNode.DeepEquals(JsonNode.Parse(expected), JsonNode.Parse(actual)), $"Firely: {expected}\nIgnixa: {actual}");
             Assert.True(FirelyParser.Parse<Resource>(expected).IsExactly(FirelyParser.Parse<Resource>(actual)), $"Firely: {expected}\nIgnixa: {actual}");
         }
 

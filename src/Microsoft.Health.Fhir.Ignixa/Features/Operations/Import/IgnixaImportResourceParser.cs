@@ -63,6 +63,11 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Operations.Import
             var lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdatedOffset == null;
             var lastUpdated = lastUpdatedIsNull ? Clock.UtcNow : resource.Meta.LastUpdatedOffset.Value;
             resource.Meta.LastUpdatedOffset = new DateTimeOffset(lastUpdated.DateTime.TruncateToMillisecond(), lastUpdated.Offset);
+            if (resource.ToSourceNavigator().Meta<JsonNode>()?["meta"] is JsonObject meta)
+            {
+                meta.Remove("_lastUpdated");
+            }
+
             if (!lastUpdatedIsNull && resource.Meta.LastUpdatedOffset.Value > Clock.UtcNow.AddSeconds(10)) // 10 sec is the max for the computers in the domain
             {
                 throw new NotSupportedException("LastUpdated in the resource cannot be in the future.");

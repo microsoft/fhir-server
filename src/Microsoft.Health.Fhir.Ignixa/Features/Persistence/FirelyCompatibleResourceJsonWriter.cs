@@ -7,6 +7,7 @@ using System;
 using System.Globalization;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Ignixa.Abstractions;
 using Ignixa.Serialization.SourceNodes;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -15,11 +16,14 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
 {
     internal static class FirelyCompatibleResourceJsonWriter
     {
+        private static readonly Regex LastUpdatedPattern = new(@"\A[0-9]{4}-[0-9]{2}-[0-9]{2}(?:T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?(?:Z|[+-][0-9]{2}:[0-9]{2}))?\z", RegexOptions.CultureInvariant);
+        private static readonly Regex DecimalPattern = new(@"\A-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?\z", RegexOptions.CultureInvariant);
+
         public static string Write(ResourceJsonNode resource, IFhirSchemaProvider schema, string versionIdOverride, bool omitVersionId)
         {
             var root = (JsonObject)resource.ToSourceNavigator().Meta<JsonNode>();
             var writer = new Writer(schema, versionIdOverride, omitVersionId);
-            writer.WriteObject(root, null, root: true);
+            writer.WriteObject(root, null, null, root: true);
             return writer.Output.ToString();
         }
 
@@ -27,13 +31,25 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
         {
             public StringBuilder Output { get; } = new();
 
-            public void WriteObject(JsonObject node, IType type, bool root = false, bool resourceMeta = false, bool editVersion = false)
+            public void WriteObject(JsonObject node, IType type, string path, bool root = false, bool editVersion = false)
             {
-                string resourceType = (node["resourceType"] as JsonValue)?.GetValue<string>();
-                bool resource = resourceType is not null;
+                bool resource = root || type.Info.Name is "Resource" or "DomainResource";
+                string resourceType = null;
                 if (resource)
                 {
+                    if (node["resourceType"] is not JsonValue discriminator
+                        || !discriminator.TryGetValue(out resourceType)
+                        || string.IsNullOrEmpty(resourceType))
+                    {
+                        throw Invalid(path is null ? "resourceType" : $"{path}.resourceType", "Expected a resource type name");
+                    }
+
+                    path ??= resourceType;
                     type = schema.GetTypeDefinition(resourceType);
+                    if (type is null || !type.Info.IsResource || type.Info.IsAbstract)
+                    {
+                        throw Invalid($"{path}.resourceType", $"Unknown resource type '{resourceType}'");
+                    }
                 }
 
                 int start = Output.Length;
@@ -41,9 +57,10 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
 
                 if (root)
                 {
-                    WriteProperty(node, type, start, "resourceType", node["resourceType"]);
-                    WriteProperty(node, type, start, "id", node["id"]);
-                    WriteMeta(start, node["meta"], editVersion: true);
+                    WritePropertyName("resourceType", start);
+                    WriteString(resourceType);
+                    WriteProperty(node, type, start, "id", node["id"], $"{path}.id");
+                    WriteMeta(start, node["meta"], $"{path}.meta", editVersion: true);
                 }
 
                 bool replaceVersion = editVersion && versionIdOverride is not null;
@@ -64,19 +81,32 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                         WriteVersion(start);
                         versionWritten = true;
                     }
+                    else if (resource && name == "resourceType")
+                    {
+                        WritePropertyName(name, start);
+                        WriteString(resourceType);
+                    }
                     else if (resource && name == "meta")
                     {
-                        WriteMeta(start, value, editVersion: false);
+                        WriteMeta(start, value, $"{path}.meta", editVersion: false);
                     }
-                    else if (resourceMeta && name == "lastUpdated" && value is JsonValue instant)
+                    else if (type.Info.Name == "Meta" && name == "lastUpdated")
                     {
-                        DateTimeOffset parsed = DateTimeOffset.Parse(instant.GetValue<string>(), CultureInfo.InvariantCulture);
+                        string instantPath = $"{path}.lastUpdated";
+                        if (value is not JsonValue instant
+                            || !instant.TryGetValue<string>(out string text)
+                            || !LastUpdatedPattern.IsMatch(text)
+                            || !DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out DateTimeOffset parsed))
+                        {
+                            throw Invalid(instantPath, "Expected a FHIR instant or a full date");
+                        }
+
                         WritePropertyName(name, start);
                         WriteString(parsed.ToInstantString());
                     }
                     else
                     {
-                        WriteProperty(node, type, start, name, value);
+                        WriteProperty(node, type, start, name, value, $"{path}.{name}");
                     }
                 }
 
@@ -88,7 +118,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                 Output.Append('}');
             }
 
-            private void WriteMeta(int objectStart, JsonNode value, bool editVersion)
+            private void WriteMeta(int objectStart, JsonNode value, string path, bool editVersion)
             {
                 if (value is null)
                 {
@@ -104,10 +134,15 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                     return;
                 }
 
+                if (value is not JsonObject meta)
+                {
+                    throw Invalid(path, "Expected a Meta object");
+                }
+
                 int start = Output.Length;
                 WritePropertyName("meta", objectStart);
                 int valueStart = Output.Length;
-                WriteObject((JsonObject)value, schema.GetTypeDefinition("Meta"), resourceMeta: true, editVersion: editVersion);
+                WriteObject(meta, schema.GetTypeDefinition("Meta"), path, editVersion: editVersion);
                 if (Output.Length == valueStart + 2)
                 {
                     Output.Length = start;
@@ -120,34 +155,53 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                 WriteString(versionIdOverride);
             }
 
-            private void WriteProperty(JsonObject node, IType parent, int objectStart, string name, JsonNode value)
+            private void WriteProperty(JsonObject node, IType parent, int objectStart, string name, JsonNode value, string path)
             {
+                bool companion = name.StartsWith("_", StringComparison.Ordinal);
+                string elementName = companion ? name[1..] : name;
+                (IType definition, IType type) = ResolveChild(parent, elementName);
+                if (type is null || (companion && !type.Info.IsPrimitive))
+                {
+                    throw Invalid(path, "Unknown element");
+                }
+
                 if (value is null)
                 {
                     return;
                 }
 
-                bool companion = name.StartsWith("_", StringComparison.Ordinal);
-                string elementName = companion ? name[1..] : name;
-                (IType definition, IType type) = ResolveChild(parent, elementName);
-                bool collection = definition?.IsCollection == true;
-                bool primitive = type?.Info.IsPrimitive == true;
+                bool collection = definition.IsCollection;
                 IType valueType = companion ? schema.GetTypeDefinition("Element") : type;
 
                 int start = Output.Length;
                 WritePropertyName(name, objectStart);
-                if (collection && primitive)
+                if (collection && type.Info.IsPrimitive)
                 {
                     JsonNode other = node[companion ? elementName : "_" + name];
-                    if (!WritePrimitiveArray(value, other, valueType))
+                    if (!WritePrimitiveArray(value, other, valueType, path))
                     {
                         Output.Length = start;
                     }
                 }
-                else if (collection && value is not JsonArray)
+                else if (collection)
                 {
+                    int arrayStart = Output.Length;
                     Output.Append('[');
-                    if (WriteValue(value, valueType))
+                    for (int i = 0; i < SlotCount(value); i++)
+                    {
+                        int itemStart = Output.Length;
+                        if (itemStart > arrayStart + 1)
+                        {
+                            Output.Append(',');
+                        }
+
+                        if (!WriteValue(Slot(value, i), valueType, $"{path}[{i}]"))
+                        {
+                            Output.Length = itemStart;
+                        }
+                    }
+
+                    if (Output.Length > arrayStart + 1)
                     {
                         Output.Append(']');
                     }
@@ -156,80 +210,70 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                         Output.Length = start;
                     }
                 }
-                else if (!WriteValue(value, valueType))
+                else if (!WriteValue(value, valueType, path))
                 {
                     Output.Length = start;
                 }
             }
 
-            private bool WritePrimitiveArray(JsonNode value, JsonNode other, IType type)
+            private bool WritePrimitiveArray(JsonNode value, JsonNode other, IType type, string path)
             {
                 int count = Math.Max(SlotCount(value), SlotCount(other));
-                int lastPopulated = count;
-                while (lastPopulated > 0 && !HasValue(Slot(value, lastPopulated - 1)) && !HasValue(Slot(other, lastPopulated - 1)))
-                {
-                    lastPopulated--;
-                }
-
                 Output.Append('[');
+                int end = Output.Length;
                 bool containsValue = false;
-                for (int i = 0; i < lastPopulated; i++)
+                for (int i = 0; i < count; i++)
                 {
                     if (i > 0)
                     {
                         Output.Append(',');
                     }
 
-                    if (WriteValue(Slot(value, i), type))
+                    if (WriteValue(Slot(value, i), type, $"{path}[{i}]"))
                     {
                         containsValue = true;
+                        end = Output.Length;
                     }
                     else
                     {
                         Output.Append("null");
+                        if (HasValue(Slot(other, i)))
+                        {
+                            end = Output.Length;
+                        }
                     }
                 }
 
+                Output.Length = end;
                 Output.Append(']');
                 return containsValue;
             }
 
-            private bool WriteValue(JsonNode value, IType type)
+            private bool WriteValue(JsonNode value, IType type, string path)
             {
-                int start = Output.Length;
-                switch (value)
+                if (value is null)
                 {
-                    case JsonObject obj:
-                        WriteObject(obj, type);
-                        break;
-                    case JsonArray array:
-                        Output.Append('[');
-                        foreach (JsonNode item in array)
-                        {
-                            int itemStart = Output.Length;
-                            if (itemStart > start + 1)
-                            {
-                                Output.Append(',');
-                            }
-
-                            if (!WriteValue(item, type))
-                            {
-                                Output.Length = itemStart;
-                            }
-                        }
-
-                        Output.Append(']');
-                        break;
-                    case JsonValue scalar when scalar.TryGetValue<string>(out string text):
-                        WriteString(text);
-                        return true;
-                    case JsonValue scalar:
-                        Output.Append(scalar.ToJsonString());
-                        return true;
-                    default:
-                        return false;
+                    return false;
                 }
 
+                if (type.Info.IsPrimitive || type.Info.Name == "xhtml")
+                {
+                    if (value is not JsonValue scalar)
+                    {
+                        throw Invalid(path, $"Expected a {type.Info.Name} primitive");
+                    }
+
+                    WritePrimitive(scalar, type.Info.Name, path);
+                    return true;
+                }
+
+                if (value is not JsonObject obj)
+                {
+                    throw Invalid(path, $"Expected a {type.Info.Name} object");
+                }
+
+                int start = Output.Length;
+                WriteObject(obj, type, path);
                 if (Output.Length > start + 2)
                 {
                     return true;
@@ -238,6 +282,54 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.Persistence
                 Output.Length = start;
                 return false;
             }
+
+            private void WritePrimitive(JsonValue value, string type, string path)
+            {
+                bool isString = value.TryGetValue<string>(out string literal);
+                string text = isString ? literal : value.ToJsonString();
+                switch (type)
+                {
+                    case "boolean" when text is "true" or "false":
+                        Output.Append(text);
+                        return;
+                    case "integer":
+                    case "positiveInt":
+                    case "unsignedInt":
+                        if (int.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out int number)
+                            && (type != "positiveInt" || number > 0)
+                            && (type != "unsignedInt" || number >= 0))
+                        {
+                            Output.Append(number.ToString(CultureInfo.InvariantCulture));
+                            return;
+                        }
+
+                        break;
+                    case "integer64" when long.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out long wideNumber):
+                        WriteString(wideNumber.ToString(CultureInfo.InvariantCulture));
+                        return;
+                    case "decimal" when DecimalPattern.IsMatch(text)
+                        && decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out _):
+                        Output.Append(text);
+                        return;
+                    case "boolean":
+                    case "integer64":
+                    case "decimal":
+                    case "xhtml" when !isString:
+                        break;
+                    default:
+                        if (!string.IsNullOrWhiteSpace(text))
+                        {
+                            WriteString(text);
+                            return;
+                        }
+
+                        break;
+                }
+
+                throw Invalid(path, $"Invalid {type} primitive");
+            }
+
+            private static FormatException Invalid(string path, string message) => new($"{message} at '{path}'.");
 
             private (IType Definition, IType Type) ResolveChild(IType parent, string name)
             {
