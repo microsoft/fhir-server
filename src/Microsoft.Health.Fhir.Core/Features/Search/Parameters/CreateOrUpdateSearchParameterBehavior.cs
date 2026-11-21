@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Create;
@@ -70,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     throw new BadRequestException(string.Format(Core.Resources.SearchParameterDefinitionDuplicatedEntry, url));
                 }
 
-                QueueStatus(url, SearchParameterStatus.Supported, lastUpdated, null);
+                QueueStatus(url, SearchParameterStatus.Supported, lastUpdated, null, request.Resource.Instance);
             }
 
             return await next();
@@ -115,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                                 ? _modelInfoProvider.ToTypedElement(prevSearchParamResource.RawResource).GetStringScalar("url")
                                 : null;
 
-                QueueStatus(newUrl, SearchParameterStatus.Supported, lastUpdated, previousUrl);
+                QueueStatus(newUrl, SearchParameterStatus.Supported, lastUpdated, previousUrl, request.Resource.Instance);
             }
 
             return await next();
@@ -147,9 +148,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
         }
 
-        private void QueueStatus(string url, SearchParameterStatus status, DateTimeOffset lastUpdated, string previousUrl)
+        private void QueueStatus(string url, SearchParameterStatus status, DateTimeOffset lastUpdated, string previousUrl, ITypedElement resource)
         {
             _searchParameterDefinitionManager.TryGetSearchParameter(url, out var existing);
+            var definition = new SearchParameterInfo(new SearchParameterWrapper(resource));
+            foreach (var component in definition.Component)
+            {
+                component.ResolvedSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(component.DefinitionUrl.OriginalString);
+            }
 
             var update = new ResourceSearchParameterStatus
             {
@@ -159,6 +165,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 IsPartiallySupported = existing?.IsPartiallySupported ?? false,
                 SortStatus = existing?.SortStatus ?? SortParameterStatus.Disabled,
                 PreviousUri = previousUrl == null || previousUrl == url ? null : new Uri(previousUrl),
+                Definition = definition,
             };
 
             var context = _requestContextAccessor.RequestContext ?? throw new InvalidOperationException("Request context is required for search param status updates.");

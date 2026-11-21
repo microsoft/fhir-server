@@ -7,7 +7,9 @@
     WITH (DATA_COMPRESSION = PAGE),
     Status                  varchar(20)                 NOT NULL,
     LastUpdated             datetimeoffset(7)           NOT NULL,
-    IsPartiallySupported    bit                         NOT NULL
+    IsPartiallySupported    bit                         NOT NULL,
+    TargetTable             varchar(128)                NOT NULL,
+    CONSTRAINT CH_SearchParam_TargetTable CHECK (len(TargetTable) > 0)
 )
 
 CREATE NONCLUSTERED INDEX IX_LastUpdated

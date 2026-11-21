@@ -44,6 +44,7 @@ using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.IO;
 using Microsoft.SqlServer.Management.XEvent;
+using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -968,6 +969,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     cmd.CommandText = "dbo.MergeResourcesAndSearchParams";
                     new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(pendingStatuses));
+                    if (_schemaInformation.Current >= (int)SchemaVersion.V123)
+                    {
+                        var targets = pendingStatuses.Where(s => s.Definition != null).Select(s => new { Uri = s.Uri.OriginalString, TargetTable = SearchParameterTargetTable.Get(s.Definition) });
+                        cmd.Parameters.Add(new SqlParameter("@SearchParamTargets", SqlDbType.NVarChar, -1) { Value = JsonConvert.SerializeObject(targets) });
+                    }
                 }
                 else
                 {

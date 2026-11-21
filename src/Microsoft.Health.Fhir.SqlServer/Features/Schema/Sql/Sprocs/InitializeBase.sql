@@ -18,12 +18,13 @@ SELECT ResourceTypeId, Name FROM dbo.ResourceType;
 ;WITH Input AS (
     SELECT DISTINCT
             j.Uri,
-            CAST(j.IsPartiallySupported AS bit) AS IsPartiallySupported
+            CAST(j.IsPartiallySupported AS bit) AS IsPartiallySupported,
+            j.TargetTable
     FROM OPENJSON(@searchParams)
-    WITH (Uri varchar(128) '$.Uri', IsPartiallySupported bit '$.IsPartiallySupported') AS j
+    WITH (Uri varchar(128) '$.Uri', IsPartiallySupported bit '$.IsPartiallySupported', TargetTable varchar(128) '$.TargetTable') AS j
 )
-INSERT dbo.SearchParam (Uri, Status, LastUpdated, IsPartiallySupported)
-SELECT i.Uri, 'Initialized', SYSDATETIMEOFFSET(), i.IsPartiallySupported
+INSERT dbo.SearchParam (Uri, Status, LastUpdated, IsPartiallySupported, TargetTable)
+SELECT i.Uri, 'Initialized', SYSDATETIMEOFFSET(), i.IsPartiallySupported, i.TargetTable
 FROM Input AS i
 WHERE NOT EXISTS (SELECT 1 FROM dbo.SearchParam AS sp WHERE sp.Uri = i.Uri);
 

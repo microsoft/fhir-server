@@ -269,7 +269,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public async Task GivenAnUpsertResourceRequest_WhenSearchParameterUrlChanges_ThenOldUrlIsQueuedAsDeletedAndNewUrlIsQueued()
         {
             var oldSearchParameter = new SearchParameter() { Id = "ExistingId", Url = "http://example.com/old-url", Version = "1" };
-            var newSearchParameter = new SearchParameter() { Id = "ExistingId", Url = "http://example.com/new-url", Version = "2" };
+            var newSearchParameter = new SearchParameter() { Id = "ExistingId", Url = "http://example.com/new-url", Version = "2", Type = Hl7.Fhir.Model.SearchParamType.String };
 
             var oldResource = oldSearchParameter.ToTypedElement().ToResourceElement();
             var newResource = newSearchParameter.ToTypedElement().ToResourceElement();
@@ -297,6 +297,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotNull(pendingStatus);
             Assert.Equal("http://example.com/new-url", pendingStatus.Uri.OriginalString);
             Assert.Equal(SearchParameterStatus.Supported, pendingStatus.Status);
+            Assert.NotNull(pendingStatus.Definition);
+            Assert.Equal(Microsoft.Health.Fhir.ValueSets.SearchParamType.String, pendingStatus.Definition.Type);
         }
 
         [Fact]
