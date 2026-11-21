@@ -4,9 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
@@ -46,6 +52,77 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Watchdogs
 
             lastRunTime = utcNow.AddSeconds(-60);
             Assert.True(Watchdog<ExpiredResourceCleanupWatchdog>.ShouldRun(utcNow, lastRunTime, TimeSpan.FromSeconds(60)));
+        }
+
+        [Fact]
+        public async Task GivenWatchdogIsNotLeaseHolder_WhenTickRuns_ThenExistingSkipLogRunsInsideWatchdogActivity()
+        {
+            using var listener = new ActivityListener
+            {
+                ShouldListenTo = source => source.Name == "Watchdog",
+                Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+                SampleUsingParentId = (ref ActivityCreationOptions<string> _) => ActivitySamplingResult.AllData,
+            };
+            ActivitySource.AddActivityListener(listener);
+
+            var logger = new ActivityCapturingLogger<TraceTestWatchdog>();
+            var watchdog = new TraceTestWatchdog(Substitute.For<ISqlRetryService>(), logger);
+
+            await watchdog.TickAsync(CancellationToken.None);
+
+            Assert.Contains("Skipping because watchdog is not a lease holder", logger.Message);
+            Assert.NotNull(logger.Activity);
+            Assert.Equal("Watchdog", logger.Activity.OperationName);
+            Assert.Equal("Watchdog", logger.Activity.Source.Name);
+            Assert.NotEqual(default, logger.Activity.TraceId);
+            Assert.Null(Activity.Current);
+        }
+
+        private sealed class TraceTestWatchdog : Watchdog<TraceTestWatchdog>
+        {
+            public TraceTestWatchdog(ISqlRetryService sqlRetryService, ILogger<TraceTestWatchdog> logger)
+                : base(sqlRetryService, logger)
+            {
+            }
+
+            public override double LeasePeriodSec { get; internal set; } = 1;
+
+            public override bool AllowRebalance { get; internal set; }
+
+            public override double PeriodSec { get; internal set; } = 1;
+
+            public Task TickAsync(CancellationToken cancellationToken)
+            {
+                return OnNextTickAsync(cancellationToken);
+            }
+
+            protected override Task RunWorkAsync(CancellationToken cancellationToken)
+            {
+                return Task.CompletedTask;
+            }
+        }
+
+        private sealed class ActivityCapturingLogger<T> : ILogger<T>
+        {
+            public string Message { get; private set; }
+
+            public Activity Activity { get; private set; }
+
+            public IDisposable BeginScope<TState>(TState state)
+            {
+                return null;
+            }
+
+            public bool IsEnabled(LogLevel logLevel)
+            {
+                return true;
+            }
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+            {
+                Message = formatter(state, exception);
+                Activity = Activity.Current;
+            }
         }
     }
 }
