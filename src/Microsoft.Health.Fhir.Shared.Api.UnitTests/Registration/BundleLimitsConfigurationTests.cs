@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             BundleConfiguration bundle = provider.GetRequiredService<IOptions<BundleConfiguration>>().Value;
             Assert.False(bundle.EnableSizeRestrictions);
             Assert.Equal(50 * 1024 * 1024, bundle.MaxBundleSizeBytes);
-            Assert.Equal(10 * 1024 * 1024, bundle.MaxResourceSizeBytes);
+            Assert.Equal(20 * 1024 * 1024, bundle.MaxResourceSizeBytes);
             Assert.Equal(100, bundle.MaxSearchIndexValuesPerResource);
 
             CircuitBreakerConfiguration circuitBreaker = provider.GetRequiredService<IOptions<CircuitBreakerConfiguration>>().Value;
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             {
                 ["FhirServer:Bundle:EnableSizeRestrictions"] = "true",
                 ["FhirServer:Bundle:MaxBundleSizeBytes"] = "0",
-                ["FhirServer:Bundle:MaxResourceSizeBytes"] = "20971520",
+                ["FhirServer:Bundle:MaxResourceSizeBytes"] = "31457280",
                 ["FhirServer:Bundle:MaxSearchIndexValuesPerResource"] = "2000",
                 ["FhirServer:CircuitBreaker:EnableAutoThrottle"] = "true",
                 ["FhirServer:CircuitBreaker:MemoryPressureThreshold"] = "0.75",
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Registration
             BundleConfiguration bundle = provider.GetRequiredService<IOptions<BundleConfiguration>>().Value;
             Assert.True(bundle.EnableSizeRestrictions);
             Assert.Equal(0, bundle.MaxBundleSizeBytes);
-            Assert.Equal(20 * 1024 * 1024, bundle.MaxResourceSizeBytes);
+            Assert.Equal(30 * 1024 * 1024, bundle.MaxResourceSizeBytes);
             Assert.Equal(2000, bundle.MaxSearchIndexValuesPerResource);
 
             CircuitBreakerConfiguration circuitBreaker = provider.GetRequiredService<IOptions<CircuitBreakerConfiguration>>().Value;

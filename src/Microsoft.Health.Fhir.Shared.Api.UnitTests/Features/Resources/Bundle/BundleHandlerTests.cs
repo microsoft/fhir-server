@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using Hl7.Fhir.Model;
@@ -69,6 +70,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly IMediator _mediator;
         private readonly IBundleMetricHandler _bundleMetricHandler;
+        private readonly IFailureMetricHandler _failureMetricHandler;
         private readonly ITransactionHandler _transactionHandler;
         private readonly FhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly DefaultHttpContext _httpContext;
@@ -97,6 +99,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             _mediator = Substitute.For<IMediator>();
 
             _bundleMetricHandler = Substitute.For<IBundleMetricHandler>();
+
+            _failureMetricHandler = Substitute.For<IFailureMetricHandler>();
 
             _fhirRequestContextAccessor = new FhirRequestContextAccessor { RequestContext = _fhirRequestContext };
 
@@ -1153,6 +1157,73 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var exception = await Assert.ThrowsAsync<BundleEntryLimitExceededException>(async () => await _bundleHandler.HandleAsync(bundleRequest, CancellationToken.None));
             Assert.Equal(exception.Message, expectedMessage);
+            _failureMetricHandler.Received(1).EmitException(Arg.Is<IExceptionMetricNotification>(n => n.ExceptionType == "EntryLimitExceeded"));
+        }
+
+        [Theory]
+        [InlineData(BundleType.Batch)]
+        [InlineData(BundleType.Transaction)]
+        public async Task GivenSizeRestrictionsEnabled_WhenAResourceExceedsTheLimit_ThenTheBundleIsRejectedBeforeAnyEntryRuns(BundleType bundleType)
+        {
+            var largePatient = CreatePatientWithNarrative("large", 2048);
+            _bundleConfiguration.EnableSizeRestrictions = true;
+            _bundleConfiguration.MaxResourceSizeBytes = SerializedSize(largePatient) - 1;
+            StrongBox<int> executedEntries = CountExecutedEntries();
+
+            var exception = await Assert.ThrowsAsync<RequestEntityTooLargeException>(
+                () => _bundleHandler.HandleAsync(CreateBundleRequest(bundleType, new Patient { Id = "small" }, largePatient), CancellationToken.None));
+
+            Assert.Equal(0, executedEntries.Value);
+            Assert.Contains("bundle entry 1", exception.Message, StringComparison.Ordinal);
+            Assert.Contains(_bundleConfiguration.MaxResourceSizeBytes.ToString(), exception.Message, StringComparison.Ordinal);
+            _failureMetricHandler.Received(1).EmitException(Arg.Is<IExceptionMetricNotification>(n => n.ExceptionType == "ResourceSizeLimitExceeded"));
+        }
+
+        [Theory]
+        [InlineData(true, 0, false)]
+        [InlineData(false, 0, true)]
+        [InlineData(false, -1, false)]
+        public async Task GivenAResourceAtOrUnderTheLimitOrRestrictionsDisabled_WhenProcessed_ThenTheBundleRuns(bool enabled, int limitOffset, bool disableLimit)
+        {
+            var patient = CreatePatientWithNarrative("p1", 2048);
+            _bundleConfiguration.EnableSizeRestrictions = enabled;
+            _bundleConfiguration.MaxResourceSizeBytes = disableLimit ? 0 : SerializedSize(patient) + limitOffset;
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>())).Do(RouteAsyncFunction);
+
+            BundleResponse response = await _bundleHandler.HandleAsync(CreateBundleRequest(BundleType.Batch, patient), CancellationToken.None);
+
+            Assert.Single(response.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>().Entry);
+            _failureMetricHandler.DidNotReceive().EmitException(Arg.Any<IExceptionMetricNotification>());
+        }
+
+        [Theory]
+        [InlineData(true, 2000, 1999, true)]
+        [InlineData(true, 2000, 2000, false)]
+        [InlineData(true, 2000, 0, false)]
+        [InlineData(false, 2000, 1999, false)]
+        public async Task GivenABundleContentLength_WhenComparedWithTheBundleSizeLimit_ThenOnlyOversizedBundlesAreRejected(bool enabled, long contentLength, long limit, bool expectRejected)
+        {
+            _bundleConfiguration.EnableSizeRestrictions = enabled;
+            _bundleConfiguration.MaxBundleSizeBytes = limit;
+            _httpContext.Request.ContentLength = contentLength;
+            StrongBox<int> executedEntries = CountExecutedEntries();
+            BundleRequest request = CreateBundleRequest(BundleType.Batch, new Patient { Id = "p1" });
+
+            if (expectRejected)
+            {
+                var exception = await Assert.ThrowsAsync<RequestEntityTooLargeException>(() => _bundleHandler.HandleAsync(request, CancellationToken.None));
+
+                Assert.Equal(0, executedEntries.Value);
+                Assert.Equal(string.Format(Api.Resources.BundleSizeLimitExceeded, contentLength, limit), exception.Message);
+                _failureMetricHandler.Received(1).EmitException(Arg.Is<IExceptionMetricNotification>(n => n.ExceptionType == "BundleSizeLimitExceeded"));
+            }
+            else
+            {
+                await _bundleHandler.HandleAsync(request, CancellationToken.None);
+
+                Assert.Equal(1, executedEntries.Value);
+                _failureMetricHandler.DidNotReceive().EmitException(Arg.Any<IExceptionMetricNotification>());
+            }
         }
 
         [Fact]
@@ -1828,6 +1899,53 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.All(capturedHeaders, value => Assert.Equal(headerValue, (string)value));
         }
 
+        private static BundleRequest CreateBundleRequest(BundleType bundleType, params Patient[] patients)
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = bundleType,
+                Entry = patients.Select(p => new EntryComponent
+                {
+                    Request = new RequestComponent { Method = HTTPVerb.PUT, Url = $"/Patient/{p.Id}" },
+                    Resource = p,
+                }).ToList(),
+            };
+
+            return new BundleRequest(bundle.ToResourceElement());
+        }
+
+        private static Patient CreatePatientWithNarrative(string id, int narrativeLength)
+        {
+            return new Patient
+            {
+                Id = id,
+                Text = new Narrative
+                {
+                    Status = Narrative.NarrativeStatus.Generated,
+                    Div = $"<div xmlns=\"http://www.w3.org/1999/xhtml\">{new string('a', narrativeLength)}</div>",
+                },
+            };
+        }
+
+        private static long SerializedSize(Resource resource)
+        {
+            return new FhirJsonSerializer().SerializeToBytes(resource).Length;
+        }
+
+        private StrongBox<int> CountExecutedEntries()
+        {
+            var counter = new StrongBox<int>();
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(callInfo => callInfo.Arg<RouteContext>().Handler = context =>
+                {
+                    counter.Value++;
+                    context.Response.StatusCode = 200;
+                    return Task.CompletedTask;
+                });
+
+            return counter;
+        }
+
         private static BundleRequest CreateBundleRequest(int entryCount)
         {
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -1987,6 +2105,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 _mediator,
                 _router,
                 _bundleMetricHandler,
+                _failureMetricHandler,
                 logger ?? NullLogger<BundleHandler>.Instance);
         }
 
