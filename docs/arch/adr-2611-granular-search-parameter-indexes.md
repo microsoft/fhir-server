@@ -52,6 +52,11 @@ provisioning 135 built-in parameters uses 270 granular indexes plus two retained
 leaving room for 363 custom string parameters at two indexes each. Actual capacity depends on
 the number of built-in parameters provisioned on each table.
 
+Having more indexes available can increase query compilation time as the optimizer considers
+candidate plans and index combinations. The increase may be less than one second, but even that
+can be unacceptable for some customers. It means that this feature can be released only as disabled
+by default, and can be enabled only for specific scenarios or customers.
+
 ## Options
 
 1. **Create indexes on write** - Create a filtered index when a search parameter is first written.
