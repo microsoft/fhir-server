@@ -25,6 +25,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public BulkUpdateJobConfiguration BulkUpdate { get; set; } = new BulkUpdateJobConfiguration();
 
+        /// <summary>
+        /// Gets or sets the durable FHIR package installation queue settings.
+        /// </summary>
+        public FhirPackageInstallJobConfiguration FhirPackageInstall { get; set; } = new FhirPackageInstallJobConfiguration();
+
         public TerminologyConfiguration Terminology { get; set; } = new TerminologyConfiguration();
     }
 }

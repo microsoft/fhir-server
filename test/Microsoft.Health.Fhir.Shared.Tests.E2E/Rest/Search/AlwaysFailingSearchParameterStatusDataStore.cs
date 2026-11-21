@@ -30,6 +30,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         public Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken) => Task.CompletedTask;
 
-        public Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken) => Task.FromResult(new CacheConsistencyResult());
+        public Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken, string updateProcess = null) => Task.FromResult(new CacheConsistencyResult());
     }
 }

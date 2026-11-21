@@ -25,5 +25,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         /// Gets or sets the number of hosts that have converged to the target version.
         /// </summary>
         public int ConvergedHosts { get; set; }
+
+        /// <summary>
+        /// Gets or sets the shared cache update value, including any fingerprint, for the converged hosts.
+        /// </summary>
+        public string SearchParameterVersion { get; set; }
     }
 }

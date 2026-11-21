@@ -31,12 +31,15 @@ using Microsoft.Health.Fhir.Azure.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.FhirPackages;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.Core.Features.Telemetry;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Registration;
+using Microsoft.Health.Fhir.Ignixa.Features.FhirPackages;
 using Microsoft.Health.Fhir.Shared.Web;
+using Microsoft.Health.Fhir.SqlServer.Features.FhirPackages;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.SemanticSearch;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
@@ -125,7 +128,22 @@ namespace Microsoft.Health.Fhir.Web
                     Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
                 });
                 services.Configure<SqlRetryServiceOptions>(Configuration.GetSection(SqlRetryServiceOptions.SqlServer));
+                AddFhirPackageInstallation(services);
             }
+        }
+
+        private void AddFhirPackageInstallation(IServiceCollection services)
+        {
+            services.Configure<FhirPackageAcquisitionOptions>(Configuration.GetSection("FhirPackageAcquisition"));
+            services.Configure<FhirPackageReaderOptions>(Configuration.GetSection("FhirPackageReader"));
+            services.AddSingleton<IgnixaFhirPackageReader>();
+            services.AddSingleton<IFhirPackageReader>(provider => provider.GetRequiredService<IgnixaFhirPackageReader>());
+            services.AddSingleton<IFhirPackageAcquirer, IgnixaFhirPackageAcquirer>();
+            services.AddScoped<ISearchParameterPackageWriter, SqlServerSearchParameterPackageWriter>();
+            services.AddScoped<IFhirPackageResourceHandler, SearchParameterPackageHandler>();
+            services.AddScoped<IFhirPackageInstallVerifier, SearchParameterPackageInstallVerifier>();
+            services.AddScoped<IFhirPackageInstaller, FhirPackageInstaller>();
+            services.AddScoped<FhirPackageInstallJobEnqueuer>();
         }
 
         private void AddSemanticSearch(

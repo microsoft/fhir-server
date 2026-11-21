@@ -28,7 +28,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         /// <param name="updateEventsSince">Only cache update records after this time are considered for convergence.</param>
         /// <param name="activeHostsSince">Only active hosts after this time are considered.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
+        /// <param name="updateProcess">The event process to check, or <c>null</c> for the standard cache watermark.</param>
         /// <returns>A <see cref="CacheConsistencyResult"/> indicating convergence status.</returns>
-        Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken);
+        Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken, string updateProcess = null);
     }
 }

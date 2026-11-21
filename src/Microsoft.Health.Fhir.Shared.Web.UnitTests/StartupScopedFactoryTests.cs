@@ -9,7 +9,11 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.FhirPackages;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Ignixa.Features.FhirPackages;
 using Microsoft.Health.Fhir.Scoping;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Web;
@@ -23,13 +27,20 @@ namespace Microsoft.Health.Fhir.Web.UnitTests
     [Trait(Traits.Category, Categories.Validate)]
     public class StartupScopedFactoryTests
     {
-        [Fact]
-        public async Task GivenTaskHostingEnabled_WhenResolvingScopes_ThenRealJobHostingGraphIsCallerOwned()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenTaskHostingEnabled_WhenResolvingScopes_ThenRealJobHostingGraphIsCallerOwned(bool packageInstallEnabled)
         {
             IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string>
             {
                 { "DataStore", "SqlServer" },
                 { "TaskHosting:Enabled", "true" },
+                { "FhirServer:Operations:FhirPackageInstall:Enabled", packageInstallEnabled.ToString() },
+                { "FhirPackageAcquisition:Sources:trusted:Registry", "https://registry.example.test/npm/" },
+                { "FhirPackageAcquisition:Sources:trusted:AllowedArtifactPrefixes:0", "https://artifacts.example.test/packages/" },
+                { "FhirPackageAcquisition:Sources:trusted:TokenScope", "https://registry.example.test/.default" },
+                { "FhirPackageAcquisition:Sources:trusted:MaxRedirects", "2" },
                 { "Telemetry:Provider", "None" },
                 { "FhirServer:Security:Authentication:Authority", "https://offline.invalid" },
                 { "FhirServer:Security:Authentication:Audience", "https://fhir.offline.invalid" },
@@ -56,6 +67,19 @@ namespace Microsoft.Health.Fhir.Web.UnitTests
             Assert.Same(secondValue, second.Value);
 
             using IServiceScope jobScope = provider.CreateScope();
+            var operations = jobScope.ServiceProvider.GetRequiredService<IOptions<OperationsConfiguration>>().Value;
+            Assert.Equal(packageInstallEnabled, operations.FhirPackageInstall.Enabled);
+
+            var acquisition = jobScope.ServiceProvider.GetRequiredService<IOptions<FhirPackageAcquisitionOptions>>().Value;
+            FhirPackageSourceOptions source = Assert.Single(acquisition.Sources).Value;
+            Assert.Equal("https://registry.example.test/npm/", source.Registry);
+            Assert.Equal("https://artifacts.example.test/packages/", Assert.Single(source.AllowedArtifactPrefixes));
+            Assert.Equal("https://registry.example.test/.default", source.TokenScope);
+            Assert.Equal(2, source.MaxRedirects);
+            Assert.IsType<IgnixaFhirPackageAcquirer>(jobScope.ServiceProvider.GetRequiredService<IFhirPackageAcquirer>());
+            Assert.NotNull(jobScope.ServiceProvider.GetRequiredService<IFhirPackageInstallVerifier>());
+            Assert.NotNull(jobScope.ServiceProvider.GetRequiredService<IFhirPackageInstaller>());
+
             IJobFactory jobFactory = jobScope.ServiceProvider.GetRequiredService<IJobFactory>();
             foreach (JobType jobType in Enum.GetValues<JobType>())
             {

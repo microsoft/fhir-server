@@ -118,6 +118,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\FhirPackages\FhirPackageInstallEndToEndTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\FhirPackages\IgnixaFhirPackageReaderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\FhirPackages\SearchParameterPackageHandlerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\FhirPackages\SearchParameterPackageInstallVerifierTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\FhirPackages\IgnixaFhirPackageAcquirerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterSupportResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterToTypeResolverTests.cs" />

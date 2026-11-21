@@ -22,8 +22,8 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
     /// <item>reject the write with a retryable conflict, or revalidate, if the reference set has changed since that token;</item>
     /// <item>commit the complete set atomically, so that either every SearchParameter is written or none is.</item>
     /// </list>
-    /// Looping ordinary per-resource writes does not satisfy this contract. The implementation also owns status,
-    /// ownership and the applied-package record.
+    /// Looping ordinary per-resource writes does not satisfy this contract. The implementation also sets the
+    /// SearchParameter statuses; the install job verifies existing resources before calling the writer.
     /// </remarks>
     public interface ISearchParameterPackageWriter
     {

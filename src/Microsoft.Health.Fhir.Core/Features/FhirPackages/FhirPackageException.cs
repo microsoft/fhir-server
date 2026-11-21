@@ -11,7 +11,7 @@ using Microsoft.Health.Fhir.Core.Models;
 namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
 {
     /// <summary>
-    /// A FHIR package was rejected. Nothing from the package has been written.
+    /// A FHIR package was rejected during acquisition or validation.
     /// </summary>
     public sealed class FhirPackageException : FhirException
     {

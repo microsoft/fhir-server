@@ -5,13 +5,16 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -33,6 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
         private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly IScopeProvider<IFhirDataStore> _fhirDataStoreFactory;
+        private readonly bool _packageInstallCacheProofEnabled;
         private readonly ILogger _logger;
         private DateTimeOffset? _searchParamLastUpdated;
         private readonly SemaphoreSlim _refreshSemaphore;
@@ -46,6 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             IDataStoreSearchParameterValidator dataStoreSearchParameterValidator,
             IScopeProvider<ISearchService> searchServiceFactory,
             IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
+            IOptions<OperationsConfiguration> operationsConfiguration,
             ILogger<SearchParameterOperations> logger)
         {
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
@@ -55,6 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             EnsureArg.IsNotNull(dataStoreSearchParameterValidator, nameof(dataStoreSearchParameterValidator));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
+            EnsureArg.IsNotNull(operationsConfiguration?.Value?.FhirPackageInstall, nameof(operationsConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchParameterStatusManager = searchParameterStatusManager;
@@ -64,6 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _dataStoreSearchParameterValidator = dataStoreSearchParameterValidator;
             _searchServiceFactory = searchServiceFactory;
             _fhirDataStoreFactory = fhirDataStoreFactory;
+            _packageInstallCacheProofEnabled = operationsConfiguration.Value.FhirPackageInstall.Enabled;
             _logger = logger;
             _refreshSemaphore = new SemaphoreSlim(1, 1);
         }
@@ -320,8 +327,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 if (zeroWaitForSemaphore && _searchParamLastUpdated.HasValue) // log only for background
                 {
                     // log for cross-instance cache refresh tracking (SQL only; Cosmos/File are no-ops).
-                    var lastUpdatedText = _searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff");
+                    var lastUpdatedText = _searchParamLastUpdated.Value.ToString("yyyy-MM-dd HH:mm:ss.fffffff", CultureInfo.InvariantCulture);
                     await _searchParameterStatusManager.TryLogEvent(_searchParameterStatusManager.SearchParamCacheUpdateProcessName, "Warn", lastUpdatedText, null, cancellationToken);
+
+                    if (_packageInstallCacheProofEnabled && _searchParameterStatusManager.SearchParamCacheUpdateProcessName != null)
+                    {
+                        // A watermark can advance even when a definition was not loaded. Report the actual cache as well.
+                        string version = _searchParamLastUpdated.Value.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss.fffffff", CultureInfo.InvariantCulture);
+                        string fingerprint = SearchParameterCacheFingerprint.Calculate(_searchParameterDefinitionManager);
+                        await _searchParameterStatusManager.TryLogEvent(SearchParameterCacheFingerprint.UpdateProcessName, "Warn", $"{version}|{fingerprint}", null, cancellationToken);
+                    }
                 }
             }
             finally
@@ -464,7 +479,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             for (var i = 0; i < searchParameterUrls.Count; i += chunkSize)
             {
-                var urlParam = string.Join(",", searchParameterUrls.Skip(i).Take(chunkSize));
+                var urlParam = string.Join(",", searchParameterUrls.Skip(i).Take(chunkSize).Select(url => url.EscapeSearchParameterValue()));
 
                 // TODO: Remove ContinuationToken when we stop cosmos support.
                 var continuationToken = string.Empty;

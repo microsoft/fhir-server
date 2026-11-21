@@ -356,6 +356,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 dataStoreSearchParameterValidator,
                 SearchService.CreateMockScopeProvider(),
                 DataStore.CreateMockScopeProvider(),
+                Options.Create(new OperationsConfiguration()),
                 NullLogger<SearchParameterOperations>.Instance);
 
             var deleter = new DeletionService(
