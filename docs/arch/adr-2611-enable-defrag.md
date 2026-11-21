@@ -50,19 +50,19 @@ on a lock chain attributable to defrag, the defrag watchdog will cancel the acti
 The policy is based on the blocking chain and wait duration, not the SQL statement type.
 Detection must correlate the waiting query with active defrag so unrelated waits are not affected. Every watchdog-triggered cancellation must be logged with enough
 context to identify the affected table, index, partition, blocking condition, and cancellation outcome for subsequent analysis. Cancellation releases the
-operation's locks and lets queued work proceed. This is the same interruption mechanism for all strategies. If the command is executing a resumable online rebuild,
-SQL Server retains the resumable operation so a later watchdog run can issue `ALTER INDEX ... RESUME`; an in-place reorganization or non-resumable rebuild is
-aborted and must be started again.
+operation's locks and lets queued work proceed. This is the same interruption mechanism for all strategies. If cancellation fails it should be immediately retried. 
+If the command is executing a resumable online rebuild, SQL Server retains the resumable operation so a later watchdog run can issue 
+`ALTER INDEX ... RESUME`; an in-place reorganization or non-resumable rebuild is aborted and must be started again.
 
 Both strategies will remain available through the existing setting. In-place reorganization remains the default; rebuilding is an explicit option when its
 potential compaction benefits justify its higher resource and temporary-space cost. Resumable rebuilds are separately opt-in through
 `Defrag.IndexRebuild.IsResumable`. When defrag is enabled, a subsequent watchdog run will detect resumable rebuilds left paused after command cancellation
 and issue `ALTER INDEX ... RESUME` before starting duplicate work. The same blocking detection and stop behavior must apply to either strategy.
 
-When `Defrag.IsEnabled` is false, the watchdog must still run cleanup for paused resumable rebuilds left by an earlier run. In this cleanup-only mode, it will abort
-those operations rather than resume them, then exit without starting new defrag work.
+When `Defrag.IsEnabled` is false, the watchdog must still run cleanup for paused resumable rebuilds left by an earlier run. These will be identified by checking 
+corresponding rows in the JobQueue. In this cleanup-only mode, it will abort those operations rather than resume them, then exit without starting new defrag work.
 
-Default value for threshold is 1 second. It should be verified during implementation and testing and changed if necessary.
+Default value for threshold is 1 second. It is a reasonable value allowing not very frequent checks. It should be verified during implementation and testing and changed if necessary.
 
 Default fragmentation value triggering defrag is 10%. It should be verified during implementation and testing and changed if necessary.
 
