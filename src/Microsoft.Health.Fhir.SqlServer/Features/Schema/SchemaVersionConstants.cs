@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int FhirModelInitialization = (int)SchemaVersion.V107;
         public const int GetMostRecentJob = (int)SchemaVersion.V117;
         public const int VectorSearchVersion = (int)SchemaVersion.V119;
+        public const int GranularSearchParameterIndexes = (int)SchemaVersion.V123;
 
         // It is currently used in Azure Healthcare APIs.
         public const int ParameterizedRemovePartitionFromResourceChangesVersion = (int)SchemaVersion.V21;

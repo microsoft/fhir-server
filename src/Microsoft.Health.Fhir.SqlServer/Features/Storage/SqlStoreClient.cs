@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger _logger;
         private readonly SchemaInformation _schemaInformation;
-        private readonly HashSet<(string TableName, short ResourceTypeId, short SearchParamId)> _createdSearchParameterIndexes = new();
+        private readonly HashSet<(string TableName, short SearchParamId)> _createdSearchParameterIndexes = new();
         private readonly object _searchParameterIndexCacheLock = new();
         private const string _invisibleResource = " ";
 
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             var keys = GetSearchParameterIndexKeys(parameters);
-            List<(string TableName, short ResourceTypeId, short SearchParamId)> missing;
+            List<(string TableName, short SearchParamId)> missing;
             lock (_searchParameterIndexCacheLock)
             {
                 missing = keys.Where(key => !_createdSearchParameterIndexes.Contains(key)).ToList();
@@ -69,14 +69,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return;
             }
 
-            missing = missing.OrderBy(key => key.TableName, StringComparer.Ordinal).ThenBy(key => key.ResourceTypeId).ThenBy(key => key.SearchParamId).ToList();
+            missing = missing.OrderBy(key => key.TableName, StringComparer.Ordinal).ThenBy(key => key.SearchParamId).ToList();
             try
             {
                 foreach (var key in missing)
                 {
                     using var command = new SqlCommand("dbo.CreateGranularSecondaryIndexes") { CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
                     command.Parameters.Add(new SqlParameter("@TableName", SqlDbType.VarChar, 128) { Value = key.TableName });
-                    command.Parameters.Add(new SqlParameter("@ResourceTypeId", SqlDbType.SmallInt) { Value = key.ResourceTypeId });
                     command.Parameters.Add(new SqlParameter("@SearchParamId", SqlDbType.SmallInt) { Value = key.SearchParamId });
                     await command.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
                     lock (_searchParameterIndexCacheLock)
@@ -94,14 +93,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        internal static HashSet<(string TableName, short ResourceTypeId, short SearchParamId)> GetSearchParameterIndexKeys(SqlParameterCollection parameters)
+        internal static HashSet<(string TableName, short SearchParamId)> GetSearchParameterIndexKeys(SqlParameterCollection parameters)
         {
             const string schemaPrefix = "dbo.";
             const string searchParamSuffix = "SearchParamList";
             const string listSuffix = "List";
             const string tokenTextType = "dbo.TokenTextList";
 
-            var keys = new HashSet<(string, short, short)>();
+            var keys = new HashSet<(string, short)>();
             foreach (SqlParameter parameter in parameters)
             {
                 var typeName = parameter.TypeName;
@@ -119,7 +118,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // Generated TVPs are repeatable enumerables; capture values rather than their reused SqlDataRecord.
                 foreach (SqlDataRecord record in (IEnumerable<SqlDataRecord>)parameter.Value)
                 {
-                    keys.Add((tableName, record.GetInt16(0), record.GetInt16(2)));
+                    keys.Add((tableName, record.GetInt16(2)));
                 }
             }
 

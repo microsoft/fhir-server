@@ -38,7 +38,7 @@ DECLARE @TableName varchar(128), @SearchParamId smallint
 WHILE EXISTS (SELECT * FROM @Targets)
 BEGIN
   SELECT TOP 1 @TableName = TableName, @SearchParamId = SearchParamId FROM @Targets ORDER BY TableName, SearchParamId
-  EXECUTE dbo.CreateGranularSecondaryIndexes @TableName, 0, @SearchParamId
+  EXECUTE dbo.CreateGranularSecondaryIndexes @TableName, @SearchParamId
   DELETE FROM @Targets WHERE TableName = @TableName AND SearchParamId = @SearchParamId
 END
 GO

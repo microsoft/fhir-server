@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         public void GivenGeneratedRows_WhenReadingKeys_ThenCombinationsAreDistinctAndRowsRemainReadable()
         {
             // Arrange
-            using var command = CreateWriteCommand(10, 10, 11);
+            using var command = CreateWriteCommandForResourceTypes((1, 10), (2, 10), (2, 11));
 
             // Act
             var first = SqlStoreClient.GetSearchParameterIndexKeys(command.Parameters);
@@ -35,8 +35,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             // Assert
             Assert.Equal(2, first.Count);
-            Assert.Contains(("TokenSearchParam", (short)1, (short)10), first);
-            Assert.Contains(("TokenSearchParam", (short)1, (short)11), first);
+            Assert.Contains(("TokenSearchParam", (short)10), first);
+            Assert.Contains(("TokenSearchParam", (short)11), first);
             Assert.True(first.SetEquals(second));
         }
 
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             }
             else
             {
-                Assert.Equal((expectedTableName, (short)1, (short)10), Assert.Single(keys));
+                Assert.Equal((expectedTableName, (short)10), Assert.Single(keys));
             }
         }
 
@@ -83,8 +83,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             // Arrange
             var retryService = Substitute.For<ISqlRetryService>();
             var client = CreateClient(retryService);
-            using var first = CreateWriteCommand(10, 10);
-            using var second = CreateWriteCommand(10, 11);
+            using var first = CreateWriteCommandForResourceTypes((1, 10), (2, 10));
+            using var second = CreateWriteCommandForResourceTypes((2, 11));
 
             // Act
             await client.CreateGranularSecondaryIndexesAsync(first.Parameters, CancellationToken.None);
@@ -95,9 +95,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             var commands = GetExecutedCommands(retryService);
             Assert.Equal(2, commands.Count);
             Assert.All(commands, command => Assert.Equal("dbo.CreateGranularSecondaryIndexes", command.CommandText));
-            Assert.All(commands, command => Assert.Equal(3, command.Parameters.Count));
+            Assert.All(commands, command => Assert.Equal(2, command.Parameters.Count));
             Assert.Equal("TokenSearchParam", commands[0].Parameters["@TableName"].Value);
-            Assert.Equal((short)1, commands[0].Parameters["@ResourceTypeId"].Value);
             Assert.Equal((short)10, commands[0].Parameters["@SearchParamId"].Value);
             Assert.Equal((short)11, commands[1].Parameters["@SearchParamId"].Value);
         }
@@ -194,6 +193,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             new TokenSearchParamListTableValuedParameterDefinition("@TokenSearchParams").AddParameter(
                 command.Parameters,
                 searchParamIds.Select((id, index) => new TokenSearchParamListRow(1, index + 1, id, null, "code", null)));
+            return command;
+        }
+
+        private static SqlCommand CreateWriteCommandForResourceTypes(params (short ResourceTypeId, short SearchParamId)[] entries)
+        {
+            var command = new SqlCommand();
+            new TokenSearchParamListTableValuedParameterDefinition("@TokenSearchParams").AddParameter(
+                command.Parameters,
+                entries.Select((entry, index) => new TokenSearchParamListRow(entry.ResourceTypeId, index + 1, entry.SearchParamId, null, "code", null)));
             return command;
         }
 

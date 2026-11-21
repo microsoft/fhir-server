@@ -1,4 +1,4 @@
-CREATE PROCEDURE dbo.CreateGranularSecondaryIndexes @TableName varchar(128), @ResourceTypeId smallint, @SearchParamId smallint
+CREATE PROCEDURE dbo.CreateGranularSecondaryIndexes @TableName varchar(128), @SearchParamId smallint
 WITH EXECUTE AS 'dbo'
 AS
 set nocount on
@@ -6,20 +6,19 @@ set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
        ,@st datetime = getUTCdate()
        ,@ObjectId int = object_id(@TableName)
-       ,@ResourceTypeIdChar varchar(6) = convert(varchar,@ResourceTypeId)
        ,@SearchParamIdChar varchar(6) = convert(varchar,@SearchParamId)
        ,@IndexName sysname
        ,@IndexId int
        ,@Sql nvarchar(max)
 
-DECLARE @Mode varchar(200) = 'T='+@TableName+' RT='+@ResourceTypeIdChar+' SP='+@SearchParamIdChar
+DECLARE @Mode varchar(200) = 'T='+@TableName+' SP='+@SearchParamIdChar
 
 BEGIN TRY
   IF @@trancount <> 0
     RAISERROR('Granular secondary indexes must be created outside transaction.', 18, 128)
   
-  IF @ObjectId IS NULL OR @ResourceTypeId IS NULL OR @SearchParamId IS NULL OR NOT @TableName LIKE '%SearchParam'
-    RAISERROR('A search parameter table, resource type ID, and search parameter ID are required.', 18, 128)
+  IF @ObjectId IS NULL OR @SearchParamId IS NULL OR NOT @TableName LIKE '%SearchParam'
+    RAISERROR('A search parameter table and search parameter ID are required.', 18, 128)
 
   DECLARE @Indexes TABLE (IndexId int PRIMARY KEY, TemplateName sysname NOT NULL, IndexName sysname NOT NULL UNIQUE, Compression varchar(100), Sql nvarchar(max))
   INSERT INTO @Indexes
