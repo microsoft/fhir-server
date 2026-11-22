@@ -9,6 +9,7 @@ using System.Threading;
 using Microsoft.Data.SqlClient;
 using Microsoft.Data.SqlClient.Server;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Internal.Fhir.Sql;
@@ -28,7 +29,8 @@ namespace Microsoft.Health.Internal.Fhir.Exporter
         {
             _connectionString = connectionString;
             ISqlConnectionBuilder iSqlConnectionBuilder = new SqlConnectionBuilder(_connectionString);
-            _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder);
+            var fhirContextAccessor = new FhirRequestContextAccessor();
+            _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder, fhirContextAccessor);
             _queue = new SqlQueueClient(_sqlRetryService, NullLogger<SqlQueueClient>.Instance);
         }
 

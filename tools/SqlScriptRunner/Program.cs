@@ -9,6 +9,7 @@ using System.Configuration;
 using System.Diagnostics;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
 
@@ -27,7 +28,8 @@ namespace Microsoft.Health.Internal.Fhir.SqlScriptRunner
             Console.WriteLine($"{DateTime.UtcNow.ToString("s")}: script = {_script}");
             var script = File.ReadAllText(_script);
             ISqlConnectionBuilder iSqlConnectionBuilder = new Sql.SqlConnectionBuilder(_connectionString);
-            _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder);
+            var fhirContextAccessor = new FhirRequestContextAccessor();
+            _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder, fhirContextAccessor);
             var scriptSections = script.Split($"{_newLine}GO{_newLine}", StringSplitOptions.RemoveEmptyEntries);
             foreach (var section in scriptSections)
             {
