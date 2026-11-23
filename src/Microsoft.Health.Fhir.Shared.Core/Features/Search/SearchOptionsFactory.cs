@@ -623,6 +623,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
+            ApplySmartScopeFiltersToChainedExpressions(searchExpressions, grantedScopes);
+
             if (searchExpressions.Count == 1)
             {
                 searchOptions.Expression = searchExpressions[0];
@@ -1249,6 +1251,217 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             semanticParameter = null;
             return false;
+        }
+
+        /// <summary>
+        /// Applies SMART v2 scope search-parameter filters to the resources reached through chained and
+        /// reverse-chained (_has) searches. Without this, a chain could match far-side resources that the
+        /// granted scope's filter excludes (e.g. a Condition.rs?category=encounter-diagnosis token matching
+        /// any Condition through _has). When a filter cannot be enforced inside the chain, the request fails closed.
+        /// </summary>
+        /// <param name="searchExpressions">The parsed search expressions; chained expressions are rewritten in place.</param>
+        /// <param name="grantedScopes">The SMART scopes granting the requested data actions.</param>
+        private void ApplySmartScopeFiltersToChainedExpressions(List<Expression> searchExpressions, IReadOnlyCollection<ScopeRestriction> grantedScopes)
+        {
+            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl != true)
+            {
+                return;
+            }
+
+            // An unfiltered wildcard scope grants every resource of every type, so there is nothing to apply.
+            if (grantedScopes.Any(r => r.Resource == KnownResourceTypes.All && !HasScopeSearchParameters(r)))
+            {
+                return;
+            }
+
+            for (int i = 0; i < searchExpressions.Count; i++)
+            {
+                searchExpressions[i] = ApplySmartScopeFiltersToChains(searchExpressions[i], grantedScopes);
+            }
+        }
+
+        private Expression ApplySmartScopeFiltersToChains(Expression expression, IReadOnlyCollection<ScopeRestriction> grantedScopes)
+        {
+            switch (expression)
+            {
+                case ChainedExpression chained:
+                    return ApplySmartScopeFiltersToChain(chained, grantedScopes);
+
+                // Scope-injected expressions come from the token itself and never contain chains.
+                case MultiaryExpression multiary when !multiary.IsSmartV2UnionExpressionForScopesSearchParameters:
+                    var rewritten = multiary.Expressions.Select(e => ApplySmartScopeFiltersToChains(e, grantedScopes)).ToList();
+                    return rewritten.SequenceEqual(multiary.Expressions)
+                        ? multiary
+                        : new MultiaryExpression(multiary.MultiaryOperation, rewritten);
+
+                default:
+                    return expression;
+            }
+        }
+
+        private ChainedExpression ApplySmartScopeFiltersToChain(ChainedExpression chained, IReadOnlyCollection<ScopeRestriction> grantedScopes)
+        {
+            Expression inner = ApplySmartScopeFiltersToChains(chained.Expression, grantedScopes);
+
+            // The far side of a forward chain is its target; for _has it is the referencing resource type.
+            string[] farSideTypes = chained.Reversed ? chained.ResourceTypes : chained.TargetResourceTypes;
+
+            IReadOnlyList<Tuple<string, string>> filteringParameters = null;
+            foreach (string farSideType in farSideTypes)
+            {
+                IReadOnlyList<Tuple<string, string>> parameters = GetChainFilteringParameters(farSideType, grantedScopes);
+                if (parameters == null)
+                {
+                    continue;
+                }
+
+                // A chain spanning several far-side types would need a different filter per type, which a
+                // single chain expression cannot express.
+                if (farSideTypes.Length > 1)
+                {
+                    throw new InvalidSearchOperationException(
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeChainedSearchNotEnforceable, farSideType));
+                }
+
+                filteringParameters = parameters;
+            }
+
+            if (filteringParameters == null)
+            {
+                return ReferenceEquals(inner, chained.Expression)
+                    ? chained
+                    : new ChainedExpression(chained.ResourceTypes, chained.ReferenceSearchParameter, chained.TargetResourceTypes, chained.Reversed, inner);
+            }
+
+            string targetType = farSideTypes[0];
+
+            // Backends evaluate each AND child of a chain link as a separate predicate on the same resource; a nested
+            // chain at this level is a further link and cannot be combined with predicates on this link.
+            if (ContainsChain(inner))
+            {
+                throw new InvalidSearchOperationException(
+                    string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeChainedSearchNotEnforceable, targetType));
+            }
+
+            List<Expression> filters = BuildChainScopeFilters(filteringParameters, targetType);
+
+            var children = new List<Expression>();
+            if (inner is MultiaryExpression { MultiaryOperation: MultiaryOperator.And } innerAnd)
+            {
+                children.AddRange(innerAnd.Expressions);
+            }
+            else
+            {
+                children.Add(inner);
+            }
+
+            children.AddRange(filters);
+
+            return new ChainedExpression(
+                chained.ResourceTypes,
+                chained.ReferenceSearchParameter,
+                chained.TargetResourceTypes,
+                chained.Reversed,
+                Expression.And(children.ToArray()));
+        }
+
+        /// <summary>
+        /// Returns the scope filter parameters that govern <paramref name="resourceType"/> inside a chain, or null when
+        /// the type is either granted without a filter or not granted at all (the latter is denied by the chained type check).
+        /// Several filtered scopes are alternatives (OR). Chain links only support ANDed predicates, so they are combined
+        /// only when each filters on the same single unmodified parameter, as one comma-separated (OR) value; otherwise
+        /// the request is rejected.
+        /// </summary>
+        private static IReadOnlyList<Tuple<string, string>> GetChainFilteringParameters(string resourceType, IReadOnlyCollection<ScopeRestriction> grantedScopes)
+        {
+            var applicable = grantedScopes
+                .Where(r => r.Resource == resourceType || r.Resource == KnownResourceTypes.All)
+                .ToList();
+
+            if (applicable.Count == 0 || applicable.Any(r => !HasScopeSearchParameters(r)))
+            {
+                return null;
+            }
+
+            if (applicable.Count == 1)
+            {
+                return applicable[0].SearchParameters.Parameters.ToList();
+            }
+
+            var scopeParameters = applicable.Select(r => r.SearchParameters.Parameters.ToList()).ToList();
+            string key = scopeParameters[0][0].Item1;
+
+            // Modifiers are excluded because comma-separated values do not mean OR for all of them (e.g. :not).
+            bool canMerge = !key.Contains(':', StringComparison.Ordinal) &&
+                scopeParameters.All(p => p.Count == 1 && string.Equals(p[0].Item1, key, StringComparison.Ordinal));
+
+            if (!canMerge)
+            {
+                throw new InvalidSearchOperationException(
+                    string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeChainedSearchNotEnforceable, resourceType));
+            }
+
+            string mergedValue = string.Join(",", scopeParameters.Select(p => p[0].Item2).Distinct(StringComparer.Ordinal));
+            return new[] { Tuple.Create(key, mergedValue) };
+        }
+
+        private List<Expression> BuildChainScopeFilters(IReadOnlyList<Tuple<string, string>> parameters, string targetResourceType)
+        {
+            var filters = new List<Expression>();
+            foreach (Tuple<string, string> param in parameters)
+            {
+                // Normalize each parameter through SearchParams before parsing for the target resource type.
+                var smartSearchParams = new SearchParams();
+                smartSearchParams.Add(param.Item1, param.Item2);
+                foreach (Tuple<string, string> q in smartSearchParams.Parameters)
+                {
+                    Expression parsed;
+                    try
+                    {
+                        parsed = _expressionParser.Parse(new[] { targetResourceType }, q.Item1, q.Item2)
+                            .AcceptVisitor(SmartScopeLocalReferenceRewriter.Instance, null);
+                    }
+                    catch (SearchParameterNotSupportedException)
+                    {
+                        throw new InvalidSearchOperationException(
+                            string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeSearchParameterNotEnforceable, q.Item1));
+                    }
+
+                    // Semantic predicates and resource-level parameters (_id, _lastUpdated, _type) are not evaluated
+                    // as per-link predicates inside a chain by every backend, so they cannot be enforced there.
+                    if (ContainsVectorSearch(parsed) || IsResourceLevelParameter(parsed))
+                    {
+                        throw new InvalidSearchOperationException(
+                            string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeChainedSearchNotEnforceable, targetResourceType));
+                    }
+
+                    filters.Add(parsed);
+                }
+            }
+
+            return filters;
+        }
+
+        private static bool HasScopeSearchParameters(ScopeRestriction restriction)
+        {
+            return restriction.SearchParameters != null && restriction.SearchParameters.Parameters.Any();
+        }
+
+        private static bool IsResourceLevelParameter(Expression expression)
+        {
+            return expression is SearchParameterExpressionBase { Parameter.Code: SearchParameterNames.Id or SearchParameterNames.LastUpdated or SearchParameterNames.ResourceType };
+        }
+
+        private static bool ContainsChain(Expression expression)
+        {
+            return expression switch
+            {
+                ChainedExpression => true,
+                MultiaryExpression multiary => multiary.Expressions.Any(ContainsChain),
+                UnionExpression union => union.Expressions.Any(ContainsChain),
+                NotExpression not => ContainsChain(not.Expression),
+                _ => false,
+            };
         }
 
         private bool TryBuildSmartScopeExpression(

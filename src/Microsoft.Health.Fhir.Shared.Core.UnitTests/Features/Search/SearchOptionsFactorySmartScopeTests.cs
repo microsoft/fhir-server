@@ -662,6 +662,136 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Contains(options.QueryHints, h => h.Param == KnownQueryParameterNames.GlobalEndSurrogateId && h.Value == "200");
         }
 
+        [Theory]
+        [InlineData("_has:Condition:subject:code", "Condition", true)]
+        [InlineData("subject:Condition.code", "Condition", false)]
+        public void GivenAFilteredScopeForTheFarSideOfAChain_WhenCreated_ThenTheScopeFilterIsAppliedInsideTheChain(string key, string farType, bool reversed)
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
+                new ScopeRestriction(farType, DataActions.Read, "patient", CreateSearchParams(("category", "encounter-diagnosis"))));
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create(key, "x") }, onlyIds: false, isIncludesOperation: false);
+
+            ChainedExpression chain = FindChain(options.Expression);
+            Assert.NotNull(chain);
+            Assert.Equal(reversed, chain.Reversed);
+            var inner = Assert.IsType<MultiaryExpression>(chain.Expression);
+            Assert.Equal(MultiaryOperator.And, inner.MultiaryOperation);
+            Assert.Contains(inner.Expressions, e => e.ToString() == "code=x");
+            Assert.Contains(inner.Expressions, e => e.ToString() == "category=encounter-diagnosis");
+        }
+
+        [Fact]
+        public void GivenAFilteredWildcardScope_WhenCreatedWithAChain_ThenTheScopeFilterIsAppliedInsideTheChain()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams((AvailableParameterCode, "loinc-1"))));
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false);
+
+            Assert.Contains($"{AvailableParameterCode}=loinc-1", FindChain(options.Expression).Expression.ToString(), StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenAnUnfilteredScopeAlsoGrantsTheFarSideType_WhenCreatedWithAChain_ThenTheChainIsUnchanged()
+        {
+            // Scopes are alternatives: the unfiltered Condition scope already permits every Condition.
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams(("category", "encounter-diagnosis"))),
+                new ScopeRestriction("Condition", DataActions.Read, "patient"));
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false);
+
+            Assert.Equal("code=x", FindChain(options.Expression).Expression.ToString());
+        }
+
+        [Fact]
+        public void GivenANonSmartRequest_WhenCreatedWithAChain_ThenTheChainIsUnchanged()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                strictHandling: false,
+                isBackgroundTask: false,
+                smartRequest: false,
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams(("category", "encounter-diagnosis"))));
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false);
+
+            Assert.Equal("code=x", FindChain(options.Expression).Expression.ToString());
+        }
+
+        [Fact]
+        public void GivenSeveralFilteredScopesOnTheSameParameter_WhenCreatedWithAChain_ThenTheirValuesAreCombinedInsideTheChain()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams(("category", "encounter-diagnosis"))),
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams(("category", "problem-list-item"))));
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false);
+
+            var inner = Assert.IsType<MultiaryExpression>(FindChain(options.Expression).Expression);
+            Assert.Contains(inner.Expressions, e => e.ToString() == "code=x");
+            Assert.Contains(inner.Expressions, e => e.ToString() == "category=encounter-diagnosis,problem-list-item");
+        }
+
+        [Theory]
+        [InlineData("category", "code")]
+        [InlineData("category:not", "category:not")]
+        public void GivenSeveralFilteredScopesThatCannotBeCombinedInAChain_WhenCreated_ThenRequestIsDenied(string firstCode, string secondCode)
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams((firstCode, "encounter-diagnosis"))),
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams((secondCode, "problem-list-item"))));
+
+            Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false));
+        }
+
+        [Theory]
+        [InlineData(UnavailableParameterCode, "patient-B")]
+        [InlineData(SemanticParameterCode, "heart")]
+        [InlineData("_id", "c1")]
+        public void GivenAFarSideScopeFilterThatCannotBeEnforcedInAChain_WhenCreated_ThenRequestIsDenied(string code, string value)
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams((code, value))));
+
+            Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false));
+        }
+
+        [Fact]
+        public void GivenAFilteredScopeOnALinkFollowedByANestedChain_WhenCreated_ThenRequestIsDenied()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "patient"),
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams(("category", "encounter-diagnosis"))));
+
+            Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:_has:Observation:subject:code", "x") }, onlyIds: false, isIncludesOperation: false));
+        }
+
+        [Fact]
+        public void GivenAFilteredScopeOnTheInnermostLinkOfANestedChain_WhenCreated_ThenTheFilterIsAppliedToThatLink()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
+                new ScopeRestriction("Condition", DataActions.Read, "patient"),
+                new ScopeRestriction(KnownResourceTypes.Observation, DataActions.Read, "patient", CreateSearchParams((AvailableParameterCode, "loinc-1"))));
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:_has:Observation:subject:status", "x") }, onlyIds: false, isIncludesOperation: false);
+
+            ChainedExpression outer = FindChain(options.Expression);
+            ChainedExpression innerChain = Assert.IsType<ChainedExpression>(outer.Expression);
+            Assert.Contains($"{AvailableParameterCode}=loinc-1", innerChain.Expression.ToString(), StringComparison.Ordinal);
+        }
+
         private static List<Tuple<string, string>> CreateRangeQuery(params string[] parameterNames)
         {
             var query = new List<Tuple<string, string>> { Tuple.Create(KnownQueryParameterNames.Type, KnownResourceTypes.Observation) };
@@ -718,6 +848,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 {
                     string targetType = callInfo.ArgAt<string[]>(0).First();
                     string code = callInfo.ArgAt<string>(1);
+
+                    if (ExpressionParser.ContainsChainOrReverseParameter(code))
+                    {
+                        return CreateChainExpression(targetType, code, callInfo.ArgAt<string>(2));
+                    }
+
+                    if (string.Equals(code, SearchParameterNames.Id, StringComparison.Ordinal))
+                    {
+                        return Expression.SearchParameter(
+                            new SearchParameterInfo(SearchParameterNames.Id, SearchParameterNames.Id, ValueSets.SearchParamType.Token),
+                            Expression.StringEquals(FieldName.TokenCode, null, callInfo.ArgAt<string>(2), false));
+                    }
 
                     if (string.Equals(code, UnavailableParameterCode, StringComparison.Ordinal))
                     {
@@ -827,6 +969,57 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 sortingValidator,
                 new ExpressionAccessControl(contextAccessor),
                 NullLogger<SearchOptionsFactory>.Instance);
+        }
+
+        /// <summary>
+        /// Builds the chain shape the production parser produces for "_has:Far:ref:rest" (reversed) and
+        /// "ref:Target.rest" (forward) keys; the innermost parameter becomes a <see cref="TestExpression"/>.
+        /// </summary>
+        private static Expression CreateChainExpression(string resourceType, string key, string value)
+        {
+            var reference = new SearchParameterInfo(
+                ReferenceParameterCode,
+                ReferenceParameterCode,
+                ValueSets.SearchParamType.Reference,
+                new Uri("http://hl7.org/fhir/SearchParameter/clinical-subject"));
+
+            if (key.StartsWith("_has:", StringComparison.Ordinal))
+            {
+                string[] parts = key.Split(':', 4);
+                string farType = parts[1];
+                return new ChainedExpression(
+                    new[] { farType },
+                    reference,
+                    new[] { resourceType },
+                    reversed: true,
+                    ParseChainRemainder(farType, parts[3], value));
+            }
+
+            int dot = key.IndexOf('.', StringComparison.Ordinal);
+            string targetType = key.Substring(0, dot).Split(':')[1];
+            return new ChainedExpression(
+                new[] { resourceType },
+                reference,
+                new[] { targetType },
+                reversed: false,
+                ParseChainRemainder(targetType, key.Substring(dot + 1), value));
+        }
+
+        private static Expression ParseChainRemainder(string resourceType, string remainder, string value)
+        {
+            return ExpressionParser.ContainsChainOrReverseParameter(remainder)
+                ? CreateChainExpression(resourceType, remainder, value)
+                : new TestExpression($"{remainder}={value}");
+        }
+
+        private static ChainedExpression FindChain(Expression expression)
+        {
+            return expression switch
+            {
+                ChainedExpression chained => chained,
+                MultiaryExpression multiary => multiary.Expressions.Select(FindChain).FirstOrDefault(c => c != null),
+                _ => null,
+            };
         }
 
         private sealed class TestExpression : Expression
