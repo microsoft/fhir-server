@@ -974,6 +974,125 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             Assert.Equal(5, results.Results.Count());
         }
 
+        [Theory]
+        [InlineData("SMARTLeakChild", null)]
+        [InlineData("SMARTLeakParent", "smart-leak-root-focus-obs")]
+        public async Task GivenPatientBScopeReadAll_WhenChainedSearchTargetsPatient_ThenChainTargetMustBeInCompartment(string patientName, string expectedObservationId)
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+            SkipIfIncludeCompartmentEnforcementNotSupported();
+
+            // Arrange ─ caller is patient-scoped to Patient B (smart-leak-parent). smart-leak-focus-obs is in
+            // B's compartment but its focus is Patient A, so focus:Patient.name=SMARTLeakChild must not match
+            // (it would confirm A's name). The positive control chains to B itself and must still match.
+            var query = new List<Tuple<string, string>>
+            {
+                new("focus:Patient.name", patientName),
+            };
+            var scopeRestriction = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-leak-parent";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Act
+            var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+
+            // Assert
+            if (expectedObservationId == null)
+            {
+                Assert.Empty(results.Results);
+            }
+            else
+            {
+                Assert.Single(results.Results, x => x.Resource.ResourceTypeName == "Observation" && x.Resource.ResourceId == expectedObservationId);
+                Assert.Single(results.Results);
+            }
+        }
+
+        [Theory]
+        [InlineData("_has:Observation:focus:code", "http://loinc.org|4548-4", false)]
+        [InlineData("_has:Observation:subject:code", "http://loinc.org|8867-4", true)]
+        public async Task GivenPatientAScopeReadAll_WhenHasSearchUsesReferencingResource_ThenReferencingResourceMustBeInCompartment(string parameter, string value, bool expectMatch)
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+            SkipIfIncludeCompartmentEnforcementNotSupported();
+
+            // Arrange ─ caller is patient-scoped to Patient A (smart-leak-child). The only Observation with
+            // focus = A is smart-leak-focus-obs (subject = Patient B), which is outside A's compartment, so
+            // _has:Observation:focus must not match (it would confirm B's Observation code). The positive
+            // control uses an in-compartment Observation (subject = A) and must still match.
+            var query = new List<Tuple<string, string>>
+            {
+                new(parameter, value),
+            };
+            var scopeRestriction = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-leak-child";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Act
+            var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+
+            // Assert
+            if (expectMatch)
+            {
+                Assert.Single(results.Results, x => x.Resource.ResourceTypeName == "Patient" && x.Resource.ResourceId == "smart-leak-child");
+                Assert.Single(results.Results);
+            }
+            else
+            {
+                Assert.Empty(results.Results);
+            }
+        }
+
+        [Theory]
+        [InlineData("result:Observation.focus:Patient.name", "SMARTLeakParent", false)]
+        [InlineData("result:Observation.subject:Patient.name", "SMARTLeakChild", true)]
+        public async Task GivenPatientAScopeReadAll_WhenTwoHopChainLeavesCompartment_ThenNoResultsAreReturned(string parameter, string value, bool expectMatch)
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+            SkipIfIncludeCompartmentEnforcementNotSupported();
+
+            // Arrange ─ caller is patient-scoped to Patient A (smart-leak-child). smart-leak-child-report (A) has
+            // result smart-leak-child-obs-with-outside-focus (A), whose focus is Patient B. The first hop stays in
+            // the compartment but the second hop leaves it, so the focus chain must not match. The positive
+            // control follows the same two hops but stays within A's compartment.
+            var query = new List<Tuple<string, string>>
+            {
+                new(parameter, value),
+            };
+            var scopeRestriction = new ScopeRestriction(KnownResourceTypes.All, Core.Features.Security.DataActions.Read, "patient");
+
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction });
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-leak-child";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            // Act
+            var results = await _searchService.Value.SearchAsync("DiagnosticReport", query, CancellationToken.None);
+
+            // Assert
+            if (expectMatch)
+            {
+                Assert.Single(results.Results, x => x.Resource.ResourceTypeName == "DiagnosticReport" && x.Resource.ResourceId == "smart-leak-child-report");
+                Assert.Single(results.Results);
+            }
+            else
+            {
+                Assert.Empty(results.Results);
+            }
+        }
+
         [Fact]
         public async Task GivenPatientBScopeReadAll_WhenIncludesPagingCrossesUnauthorizedFocusTarget_ThenAllAuthorizedTargetsAreReturned()
         {

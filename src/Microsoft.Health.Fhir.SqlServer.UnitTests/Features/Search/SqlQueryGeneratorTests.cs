@@ -1448,8 +1448,10 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
     {
         // Arrange - a patient-compartment token issuing a chained search (subject:Patient.x=...) or
         // _has (_has:Observation:subject:x=...). Each link pulls in a new resource (refTarget for a forward
-        // chain, refSource for _has) that must be inside the caller's compartment.
+        // chain, refSource for _has) that must be inside the caller's compartment. Depth 2 is a connected
+        // chain: DiagnosticReport.result -> Observation.subject -> Patient.
         var referenceUrl = new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject");
+        var resultUrl = new Uri("http://hl7.org/fhir/SearchParameter/DiagnosticReport-result");
         var membershipParameterUrl = new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject-membership");
         var reference = new SearchParameterInfo(
             "subject",
@@ -1459,6 +1461,22 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
             null,
             "Observation.subject",
             ["Patient"]);
+        var result = new SearchParameterInfo(
+            "result",
+            "result",
+            SearchParamType.Reference,
+            resultUrl,
+            null,
+            "DiagnosticReport.result",
+            ["Observation"]);
+        var subjectLink = new SqlChainLinkExpression(["Observation"], reference, ["Patient"], reversed);
+        var resultLink = new SqlChainLinkExpression(["DiagnosticReport"], result, ["Observation"], reversed);
+
+        // Forward: DiagnosticReport?result:Observation.subject:Patient.x  (result hop, then subject hop).
+        // Reverse: Patient?_has:Observation:subject:_has:DiagnosticReport:result:x  (subject hop, then result hop).
+        SqlChainLinkExpression[] links = chainDepth == 1
+            ? [subjectLink]
+            : reversed ? [subjectLink, resultLink] : [resultLink, subjectLink];
         var membership = new SmartCompartmentMembershipContext(
             "Patient",
             "patient-a",
@@ -1468,17 +1486,18 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         {
             new(null, null, SearchParamTableExpressionKind.All),
         };
-        for (int level = 1; level <= chainDepth; level++)
+        for (int level = 1; level <= links.Length; level++)
         {
             tables.Add(new SearchParamTableExpression(
                 ChainLinkQueryGenerator.Instance,
-                new SqlChainLinkExpression(["Observation"], reference, ["Patient"], reversed),
+                links[level - 1],
                 SearchParamTableExpressionKind.Chain,
                 chainLevel: level));
         }
 
         ConfigureResourceTypeIds();
         _fhirModel.GetSearchParamId(referenceUrl).Returns((short)40);
+        _fhirModel.GetSearchParamId(resultUrl).Returns((short)42);
         _fhirModel.GetSearchParamId(membershipParameterUrl).Returns((short)41);
 
         // Act
