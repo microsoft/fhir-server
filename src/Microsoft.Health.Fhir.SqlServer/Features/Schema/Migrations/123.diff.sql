@@ -21,7 +21,7 @@ DECLARE @Mode varchar(200) = 'T='+@TableName+' SP='+@SearchParamIdChar
 BEGIN TRY
   IF @@trancount <> 0
     RAISERROR('Granular secondary indexes must be created outside transaction.', 18, 128)
-
+  
   IF @ObjectId IS NULL OR @SearchParamId IS NULL OR NOT @TableName LIKE '%SearchParam'
     RAISERROR('A search parameter table and search parameter ID are required.', 18, 128)
 
@@ -35,7 +35,7 @@ BEGIN TRY
            +' WITH (DATA_COMPRESSION = '+P.PropertyValue+')'
            +' ON PartitionScheme_ResourceTypeId(ResourceTypeId)'
       FROM sys.indexes I
-           CROSS APPLY (SELECT IndexName = 'GIX_'+replace(I.name,'_SearchParamId','')+'_WHERE_SearchParam_'+@SearchParamIdChar) N
+           CROSS APPLY (SELECT IndexName = 'G_'+replace(I.name,'_SearchParamId','')+'_WHERE_SearchParam_'+@SearchParamIdChar) N
            LEFT JOIN dbo.IndexProperties P ON P.TableName = @TableName AND P.IndexName = I.name AND P.PropertyName = 'DATA_COMPRESSION'
            CROSS APPLY
            (SELECT KeyColumns = string_agg(convert(nvarchar(max),CASE WHEN IC.key_ordinal > 0 AND C.name <> 'SearchParamId' THEN C.name+CASE WHEN IC.is_descending_key = 1 THEN ' DESC' ELSE '' END END), ',') WITHIN GROUP (ORDER BY IC.key_ordinal, IC.index_column_id)
@@ -46,7 +46,7 @@ BEGIN TRY
       WHERE I.object_id = @ObjectId
         AND I.type = 2
         AND I.is_disabled = 1
-        AND I.name NOT LIKE 'GIX[_]%'
+        AND I.name NOT LIKE 'G[_]%'
         AND I.is_primary_key = 0
         AND I.is_unique_constraint = 0
 
@@ -71,7 +71,7 @@ BEGIN TRY
     BEGIN CATCH
       IF error_number() <> 1913
         THROW;
-      ELSE
+      ELSE 
         EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Action='Index Exists',@Target=@TableName,@Start=@st,@Text=@Sql
     END CATCH
     DELETE FROM @Indexes WHERE IndexId = @IndexId
@@ -86,6 +86,7 @@ END CATCH
 GO
 INSERT INTO dbo.Parameters (Id, Char) SELECT 'CreateGranularSecondaryIndexes','LogEvent'
 GO
+
 CREATE OR ALTER PROCEDURE dbo.CreateAllGranularSecondaryIndexes
 WITH EXECUTE AS 'dbo'
 AS

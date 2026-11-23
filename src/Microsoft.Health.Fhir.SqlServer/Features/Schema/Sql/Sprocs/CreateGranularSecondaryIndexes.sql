@@ -30,7 +30,7 @@ BEGIN TRY
            +' WITH (DATA_COMPRESSION = '+P.PropertyValue+')'
            +' ON PartitionScheme_ResourceTypeId(ResourceTypeId)'
       FROM sys.indexes I
-           CROSS APPLY (SELECT IndexName = 'GIX_'+replace(I.name,'_SearchParamId','')+'_WHERE_SearchParam_'+@SearchParamIdChar) N
+           CROSS APPLY (SELECT IndexName = 'G_'+replace(I.name,'_SearchParamId','')+'_WHERE_SearchParam_'+@SearchParamIdChar) N
            LEFT JOIN dbo.IndexProperties P ON P.TableName = @TableName AND P.IndexName = I.name AND P.PropertyName = 'DATA_COMPRESSION'
            CROSS APPLY
            (SELECT KeyColumns = string_agg(convert(nvarchar(max),CASE WHEN IC.key_ordinal > 0 AND C.name <> 'SearchParamId' THEN C.name+CASE WHEN IC.is_descending_key = 1 THEN ' DESC' ELSE '' END END), ',') WITHIN GROUP (ORDER BY IC.key_ordinal, IC.index_column_id)
@@ -41,7 +41,7 @@ BEGIN TRY
       WHERE I.object_id = @ObjectId
         AND I.type = 2
         AND I.is_disabled = 1
-        AND I.name NOT LIKE 'GIX[_]%'
+        AND I.name NOT LIKE 'G[_]%'
         AND I.is_primary_key = 0
         AND I.is_unique_constraint = 0
 
