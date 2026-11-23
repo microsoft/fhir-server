@@ -365,7 +365,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             FhirPackage package = await acquirer.AcquireAsync(PackageId, PackageVersion, "trusted", CancellationToken.None);
 
             // Assert
-            Assert.Single(package.ResourceEntries);
+            Assert.Equal(new[] { "SearchParameter", "StructureDefinition" }, package.ResourceEntries.Select(entry => entry.ResourceType).OrderBy(type => type, StringComparer.Ordinal));
             Assert.Equal(2, credential.Calls);
             Assert.Contains(server.Requests, request =>
                 request.Path == "/npm/artifact/redirect.tgz" && request.Authorization == credential.AuthorizationHeader);
