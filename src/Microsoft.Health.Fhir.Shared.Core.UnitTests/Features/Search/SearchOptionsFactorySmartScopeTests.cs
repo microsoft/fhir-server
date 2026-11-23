@@ -749,6 +749,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [InlineData("category", "code")]
         [InlineData("category:not", "category:not")]
         [InlineData(DateParameterCode, DateParameterCode, "ge2020-01-01", "lt2010-01-01")]
+        [InlineData("category", "category", "encounter-diagnosis\\", "problem-list-item")]
+        [InlineData("category", "category", "encounter-diagnosis", "problem-list-item\\")]
         public void GivenSeveralFilteredScopesThatCannotBeCombinedInAChain_WhenCreated_ThenRequestIsDenied(string firstCode, string secondCode, string firstValue = "encounter-diagnosis", string secondValue = "problem-list-item")
         {
             SearchOptionsFactory factory = CreateFactory(

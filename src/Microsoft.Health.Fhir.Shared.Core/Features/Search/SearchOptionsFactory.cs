@@ -1400,6 +1400,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string key = scopeParameters[0][0].Item1;
 
             bool canMerge = scopeParameters.All(p => p.Count == 1 && string.Equals(p[0].Item1, key, StringComparison.Ordinal)) &&
+                !scopeParameters.Any(p => EndsWithDanglingEscape(p[0].Item2)) &&
                 !HasComparatorValue(resourceType, key, scopeParameters.Select(p => p[0].Item2));
 
             if (!canMerge)
@@ -1410,6 +1411,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             string mergedValue = string.Join(",", scopeParameters.Select(p => p[0].Item2).Distinct(StringComparer.Ordinal));
             return new[] { Tuple.Create(key, mergedValue) };
+        }
+
+        /// <summary>
+        /// A value ending in an unmatched escape character would escape the comma added when values are merged,
+        /// turning the alternatives into a single different value.
+        /// </summary>
+        private static bool EndsWithDanglingEscape(string value)
+        {
+            int trailingEscapes = 0;
+            for (int i = value.Length - 1; i >= 0 && value[i] == '\\'; i--)
+            {
+                trailingEscapes++;
+            }
+
+            return trailingEscapes % 2 == 1;
         }
 
         /// <summary>
