@@ -670,7 +670,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // Compartment leak reproduction: _include must not cross the compartment boundary.
             // The caller is a SMART patient-scoped user (patient/*.read) confined to Patient/smart-leak-child.
@@ -713,7 +713,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // Compartment leak reproduction: _revinclude must not cross the compartment boundary.
             // The caller is a SMART patient-scoped user (patient/*.read) confined to Patient/smart-leak-child.
@@ -758,7 +758,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // Arrange ─ caller is patient-scoped to Patient B (smart-leak-parent).
             // smart-leak-focus-obs lives in Patient B's compartment (subject = Parent) and
@@ -818,7 +818,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // Arrange ─ caller is patient-scoped to Patient A (smart-leak-child).
             // smart-leak-focus-obs has focus = Patient A, but its subject = Patient B, so it
@@ -852,7 +852,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // Arrange ─ caller is patient-scoped to Patient A (smart-leak-child).
             // smart-leak-child-obs-with-outside-focus is in Patient A's compartment (subject = Child)
@@ -1001,7 +1001,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // Arrange
             var query = new List<Tuple<string, string>>
@@ -1036,7 +1036,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // Arrange. Target surrogate IDs put the unauthorized child Patient between the
             // authorized shared Practitioner and authorized parent Patient.
@@ -1273,7 +1273,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // An includes continuation token encodes only a scan position (the matched surrogate-id window and
             // the last included surrogate id) — never any authorization. Compartment authorization is derived
@@ -1361,7 +1361,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // Arrange ─ caller is patient-scoped to Patient A (smart-leak-child). Two-hop chain:
             // DiagnosticReport/smart-leak-child-report (subject = Child, in-compartment)
@@ -1397,7 +1397,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // Arrange ─ caller is patient-scoped to Patient A (smart-leak-child). Two-hop reverse chain:
             // _revinclude=Observation:subject pulls the child's Observations (in-compartment), then
@@ -1435,7 +1435,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // Arrange ─ same shape as the "_include=*" wildcard test, but using the typed wildcard form
             // "Coverage:*". ExpressionParser.ParseInclude produces a THIRD distinct IncludeExpression for
@@ -1471,7 +1471,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // Arrange ─ Device is the only resource type with CONDITIONAL compartment visibility
             // (GetConditionalCompartmentRules): a Device is visible when it is unassigned, or when
@@ -1507,7 +1507,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // Arrange ─ caller is patient-scoped to Patient A (smart-leak-child). _include=* expands every
             // reference of the in-compartment Coverage: beneficiary/payor = Child (compartment root, allowed),
@@ -1538,7 +1538,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // Arrange ─ caller is patient-scoped to Patient A (smart-leak-child). _revinclude=* expands every
             // resource referencing the child. Observation/smart-leak-focus-obs references the child only via
@@ -1579,7 +1579,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // Arrange ─ SMART v2 fine-grained scopes WITH search parameters
             // (patient/Coverage.s?status=active + patient/Patient.s), confined to Patient A (smart-leak-child).
@@ -1674,7 +1674,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // Arrange ─ caller is patient-scoped to Patient A (smart-leak-child). A sorted search emits the
             // includes after the sorted filtered-data split, so the include compartment predicate must hold
@@ -1782,7 +1782,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // Arrange ─ caller is user-scoped to Practitioner/smart-practitioner-A (SMART user launch).
             // Observation/smart-leak-pract-obs is in the practitioner's compartment (performer = Practitioner A)
@@ -1815,7 +1815,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // Arrange ─ caller is user-scoped to Practitioner/smart-practitioner-A.
             // smart-leak-pract-obs references the practitioner via `performer` (a Practitioner-compartment
@@ -1850,7 +1850,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
                 "This test is only valid for R4 and R4B");
-            SkipIfIncludeCompartmentEnforcementNotSupported();
+            SkipIfSmartCompartmentEnforcementNotSupported();
 
             // Arrange ─ caller is user-scoped to Practitioner/smart-practitioner-A.
             // The Practitioner compartment maps Encounter via `practitioner` (Encounter-practitioner), which is
@@ -3042,13 +3042,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             return $"smart-v2-{scenario}-{Guid.NewGuid():N}";
         }
 
-        // The SMART _include/_revinclude compartment enforcement (candidate authorization) is implemented in the
-        // SQL data provider only. Cosmos DB resolves includes by direct id lookups with no compartment predicate
+        // SMART compartment enforcement for _include/_revinclude, chained and _has searches (candidate authorization)
+        // is implemented in the SQL data provider only. Cosmos DB resolves includes by direct id lookups with no compartment predicate
         // (and does not support iterative includes or the $includes operation), so the leak is NOT fixed there.
         // Cosmos DB is deprecated and out of scope for this fix — see
         // docs/arch/adr-2607-smart-include-compartment-scoping.md. A follow-up is required if Cosmos SMART
-        // includes ever need the same guarantee.
-        private void SkipIfIncludeCompartmentEnforcementNotSupported()
+        // includes, chains or _has ever need the same guarantee.
+        private void SkipIfSmartCompartmentEnforcementNotSupported()
         {
             Assert.SkipWhen(
                 !string.Equals(_fixture.FhirRuntimeConfiguration.DataStore, KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase),
