@@ -664,23 +664,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Theory]
-        [InlineData("_has:Condition:subject:code", "Condition", true)]
-        [InlineData("subject:Condition.code", "Condition", false)]
-        public void GivenAFilteredScopeForTheFarSideOfAChain_WhenCreated_ThenTheScopeFilterIsAppliedInsideTheChain(string key, string farType, bool reversed)
+        [InlineData(KnownResourceTypes.Patient, "_has:Condition:subject:code", "Condition", "category", "encounter-diagnosis", "code=x", true)]
+        [InlineData(KnownResourceTypes.Observation, "subject:Patient.name", KnownResourceTypes.Patient, "gender", "male", "name=x", false)]
+        public void GivenAFilteredScopeForTheFarSideOfAChain_WhenCreated_ThenTheScopeFilterIsAppliedInsideTheChain(
+            string baseType,
+            string key,
+            string farType,
+            string filterParameter,
+            string filterValue,
+            string expectedChainCriteria,
+            bool reversed)
         {
             SearchOptionsFactory factory = CreateFactory(
-                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
-                new ScopeRestriction(farType, DataActions.Read, "patient", CreateSearchParams(("category", "encounter-diagnosis"))));
+                new ScopeRestriction(baseType, DataActions.Read, "patient"),
+                new ScopeRestriction(farType, DataActions.Read, "patient", CreateSearchParams((filterParameter, filterValue))));
 
-            SearchOptions options = factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create(key, "x") }, onlyIds: false, isIncludesOperation: false);
+            SearchOptions options = factory.Create(baseType, new List<Tuple<string, string>> { Tuple.Create(key, "x") }, onlyIds: false, isIncludesOperation: false);
 
             ChainedExpression chain = FindChain(options.Expression);
             Assert.NotNull(chain);
             Assert.Equal(reversed, chain.Reversed);
             var inner = Assert.IsType<MultiaryExpression>(chain.Expression);
             Assert.Equal(MultiaryOperator.And, inner.MultiaryOperation);
-            Assert.Contains(inner.Expressions, e => e.ToString() == "code=x");
-            Assert.Contains(inner.Expressions, e => e.ToString() == "category=encounter-diagnosis");
+            Assert.Contains(inner.Expressions, e => e.ToString() == expectedChainCriteria);
+            Assert.Contains(inner.Expressions, e => e.ToString() == $"{filterParameter}={filterValue}");
         }
 
         [Fact]

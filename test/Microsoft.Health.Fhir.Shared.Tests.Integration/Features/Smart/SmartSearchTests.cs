@@ -3024,6 +3024,76 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
         // SMART v2 Granular Scope Tests
 
+        [Theory]
+        [InlineData("final", true)]
+        [InlineData("registered", false)]
+        public async Task GivenSmartV2GranularScopeForObservation_WhenRevChainedSearchFromPatient_ThenObservationScopeFilterIsApplied(string observationStatus, bool patientExpected)
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // scopes = patient/Patient.s patient/Observation.s?status={observationStatus}
+            var scopeRestriction1 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", null);
+            var scopeRestriction2 = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("status", observationStatus)));
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction1, scopeRestriction2 }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var query = new List<Tuple<string, string>>
+            {
+                new Tuple<string, string>("_has:Observation:subject:code", "http://loinc.org|4548-4"),
+            };
+
+            var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+
+            if (patientExpected)
+            {
+                Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            }
+            else
+            {
+                Assert.Empty(results.Results);
+            }
+        }
+
+        [Theory]
+        [InlineData("male", true)]
+        [InlineData("female", false)]
+        public async Task GivenSmartV2GranularScopeForPatient_WhenChainedSearchFromObservation_ThenPatientScopeFilterIsApplied(string patientGender, bool observationsExpected)
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // scopes = patient/Observation.s patient/Patient.s?gender={patientGender}
+            var scopeRestriction1 = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", null);
+            var scopeRestriction2 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("gender", patientGender)));
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction1, scopeRestriction2 }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var query = new List<Tuple<string, string>>
+            {
+                new Tuple<string, string>("subject:Patient.name", "SMARTGivenName1"),
+            };
+
+            var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+
+            if (observationsExpected)
+            {
+                Assert.Equal(
+                    new[] { "smart-observation-A1", "smart-observation-A2" },
+                    results.Results.Select(r => r.Resource.ResourceId).OrderBy(id => id, StringComparer.Ordinal));
+            }
+            else
+            {
+                Assert.Empty(results.Results);
+            }
+        }
+
         [Fact]
         public async Task GivenSmartV2CreateScope_WhenCreatingPatient_ThenPatientIsCreated()
         {
