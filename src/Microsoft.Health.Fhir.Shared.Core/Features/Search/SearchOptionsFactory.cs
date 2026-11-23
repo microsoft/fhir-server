@@ -1436,36 +1436,66 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var filters = new List<Expression>();
             foreach (Tuple<string, string> param in parameters)
             {
-                // Normalize each parameter through SearchParams before parsing for the target resource type.
-                var smartSearchParams = new SearchParams();
-                smartSearchParams.Add(param.Item1, param.Item2);
-                foreach (Tuple<string, string> q in smartSearchParams.Parameters)
+                if (!TryParseScopeParameter(param, targetResourceType, filters, out string unenforceableParameter))
                 {
-                    Expression parsed;
-                    try
-                    {
-                        parsed = _expressionParser.Parse(new[] { targetResourceType }, q.Item1, q.Item2)
-                            .AcceptVisitor(SmartScopeLocalReferenceRewriter.Instance, null);
-                    }
-                    catch (SearchParameterNotSupportedException)
-                    {
-                        throw new InvalidSearchOperationException(
-                            string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeSearchParameterNotEnforceable, q.Item1));
-                    }
-
-                    // Semantic predicates and resource-level parameters (_id, _lastUpdated, _type) are not evaluated
-                    // as per-link predicates inside a chain by every backend, so they cannot be enforced there.
-                    if (ContainsVectorSearch(parsed) || IsResourceLevelParameter(parsed))
-                    {
-                        throw new InvalidSearchOperationException(
-                            string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeChainedSearchNotEnforceable, targetResourceType));
-                    }
-
-                    filters.Add(parsed);
+                    throw new InvalidSearchOperationException(
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeSearchParameterNotEnforceable, unenforceableParameter));
                 }
             }
 
+            // Resource-level parameters (_id, _lastUpdated, _type) are not evaluated as per-link predicates inside a
+            // chain by every backend, so they cannot be enforced there.
+            if (filters.Any(IsResourceLevelParameter))
+            {
+                throw new InvalidSearchOperationException(
+                    string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeChainedSearchNotEnforceable, targetResourceType));
+            }
+
             return filters;
+        }
+
+        /// <summary>
+        /// Parses one scope search parameter for <paramref name="targetResourceType"/> and appends the resulting
+        /// predicates to <paramref name="parsedExpressions"/>. Returns false, with the offending parameter, when the
+        /// parameter is unsupported or is a semantic predicate, neither of which can be enforced as a scope constraint.
+        /// </summary>
+        private bool TryParseScopeParameter(
+            Tuple<string, string> param,
+            string targetResourceType,
+            List<Expression> parsedExpressions,
+            out string unenforceableParameter)
+        {
+            unenforceableParameter = null;
+
+            // Normalize each parameter through SearchParams before parsing for the target resource type.
+            var smartSearchParams = new SearchParams();
+            smartSearchParams.Add(param.Item1, param.Item2);
+            foreach (Tuple<string, string> q in smartSearchParams.Parameters)
+            {
+                Expression parsed;
+                try
+                {
+                    parsed = _expressionParser.Parse(new[] { targetResourceType }, q.Item1, q.Item2)
+                        .AcceptVisitor(SmartScopeLocalReferenceRewriter.Instance, null);
+                }
+                catch (SearchParameterNotSupportedException)
+                {
+                    unenforceableParameter = q.Item1;
+                    return false;
+                }
+
+                // A semantic predicate ranks and thresholds rather than filters, and is evaluated only once over the
+                // primary matches, so it cannot be enforced as a scope constraint.
+                if (ContainsVectorSearch(parsed))
+                {
+                    unenforceableParameter = q.Item1;
+                    return false;
+                }
+
+                parsedExpressions.Add(parsed);
+            }
+
+            return true;
         }
 
         private static bool HasScopeSearchParameters(ScopeRestriction restriction)
@@ -1510,32 +1540,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, targetResourceType, false)));
                 }
 
-                // Normalize each parameter through SearchParams before parsing for the target resource type.
-                var smartSearchParams = new SearchParams();
-                smartSearchParams.Add(param.Item1, param.Item2);
-                foreach (Tuple<string, string> q in smartSearchParams.Parameters)
+                if (!TryParseScopeParameter(param, targetResourceType, fineGrainedSmartSearchExpressions, out unenforceableParameter))
                 {
-                    Expression parsed;
-                    try
-                    {
-                        parsed = _expressionParser.Parse(new[] { targetResourceType }, q.Item1, q.Item2)
-                            .AcceptVisitor(SmartScopeLocalReferenceRewriter.Instance, null);
-                    }
-                    catch (SearchParameterNotSupportedException)
-                    {
-                        unenforceableParameter = q.Item1;
-                        return false;
-                    }
-
-                    // A semantic predicate is evaluated once, over the primary matches, and cannot be re-evaluated for
-                    // resources reached through _include/_revinclude, so a scope constraint using one is unenforceable.
-                    if (ContainsVectorSearch(parsed))
-                    {
-                        unenforceableParameter = q.Item1;
-                        return false;
-                    }
-
-                    fineGrainedSmartSearchExpressions.Add(parsed);
+                    return false;
                 }
 
                 var individualAndExp = Expression.And(fineGrainedSmartSearchExpressions.ToArray());
