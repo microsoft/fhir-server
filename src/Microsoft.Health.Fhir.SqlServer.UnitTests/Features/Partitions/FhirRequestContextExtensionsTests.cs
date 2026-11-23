@@ -26,10 +26,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Partitions
         {
             // Arrange
             var context = Substitute.For<IFhirRequestContext>();
-            context.Partition.Returns(new PartitionInfo { Id = "partition-a", DatabaseName = databaseName });
+            context.Partition.Returns(new SqlPartitionInfo { Id = "partition-a", Database = databaseName });
 
             // Act
-            string result = context.GetDatabaseName();
+            string result = context.GetDatabase();
 
             // Assert
             Assert.Equal(databaseName, result);
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Partitions
             context.Partition.Returns((IPartitionInfo)null);
 
             // Act
-            var result = context.GetDatabaseName();
+            var result = context.GetDatabase();
 
             // Assert
             Assert.Null(result);
@@ -82,24 +82,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Partitions
         }
 
         [Theory]
-        [InlineData(null, false)]
-        [InlineData("", false)]
-        [InlineData(null, true)]
-        [InlineData("", true)]
-        public void GivenSqlPartitionWithoutDatabase_WhenGettingDatabaseTarget_ThenInvalidOperationIsThrown(string databaseName, bool getFormatter)
-        {
-            // Arrange
-            var context = Substitute.For<IFhirRequestContext>();
-            context.Partition.Returns(new PartitionInfo { Id = "partition-a", DatabaseName = databaseName });
-
-            // Act
-            var exception = Record.Exception(() => GetDatabaseTarget(context, getFormatter));
-
-            // Assert
-            Assert.IsType<InvalidOperationException>(exception);
-        }
-
-        [Theory]
         [InlineData("database-a", "[database-a].[dbo].[Resource]", "[database-a].[dbo].[GetResources]")]
         [InlineData("database.a]", "[database.a]]].[dbo].[Resource]", "[database.a]]].[dbo].[GetResources]")]
         public void GivenSqlPartition_WhenGettingDatabaseNameFormatter_ThenSqlObjectsTargetPartitionDatabase(
@@ -109,7 +91,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Partitions
         {
             // Arrange
             var context = Substitute.For<IFhirRequestContext>();
-            context.Partition.Returns(new PartitionInfo { Id = "partition-a", DatabaseName = databaseName });
+            context.Partition.Returns(new SqlPartitionInfo { Id = "partition-a", Database = databaseName });
 
             // Act
             var formatter = context.GetDatabaseNameFormatter();
@@ -124,12 +106,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Partitions
         {
             // Arrange
             var context = Substitute.For<IFhirRequestContext>();
-            context.Partition.Returns(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
+            context.Partition.Returns(new SqlPartitionInfo { Id = "partition-a", Database = "database-a" });
             var firstFormatter = context.GetDatabaseNameFormatter();
-            context.Partition.Returns(new PartitionInfo { Id = "partition-b", DatabaseName = "database-b" });
+            context.Partition.Returns(new SqlPartitionInfo { Id = "partition-b", Database = "database-b" });
 
             // Act
-            string databaseName = context.GetDatabaseName();
+            string databaseName = context.GetDatabase();
             var secondFormatter = context.GetDatabaseNameFormatter();
 
             // Assert
@@ -146,7 +128,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Partitions
             }
             else
             {
-                context.GetDatabaseName();
+                context.GetDatabase();
             }
         }
     }

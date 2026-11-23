@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
         [Theory]
         [InlineData(0, "/Patient/_search", "http://localhost/")]
-        [InlineData(1, "/Patient/_search", "http://localhost/")]
+        [InlineData(1, "/partition/partition-a/Patient/_search", "http://localhost/partition/partition-a/")]
         [InlineData(2, "/partition/partition-a/Patient/_search", "http://localhost/partition/partition-a/")]
         public async Task GivenPostSearch_WhenRoutingRequest_ThenSearchTransformationPrecedesPartitionRouting(int partitionCount, string path, string baseUri)
         {
@@ -106,11 +106,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         }
 
         [Theory]
-        [InlineData("/partition/partition-a/metadata", "http://localhost/partition/partition-a/")]
-        [InlineData("/metadata", "http://localhost/")]
-        public async Task GivenAbsoluteActionRoute_WhenRequestingMetadata_ThenControllerPrefixIsNotDuplicated(string path, string baseUri)
+        [InlineData(1, "/partition/partition-a/metadata", "http://localhost/partition/partition-a/")]
+        [InlineData(0, "/metadata", "http://localhost/")]
+        public async Task GivenAbsoluteActionRoute_WhenRequestingMetadata_ThenControllerPrefixIsNotDuplicated(int partitionCount, string path, string baseUri)
         {
-            using var host = CreateHost(1);
+            using var host = CreateHost(partitionCount);
             using var client = host.GetTestClient();
 
             using var response = await client.GetAsync(new Uri(path, UriKind.Relative));
@@ -122,11 +122,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         }
 
         [Theory]
-        [InlineData("/fhir/Patient", "http://localhost/fhir/")]
-        [InlineData("/fhir/partition/partition-a/Patient", "http://localhost/fhir/partition/partition-a/")]
-        public async Task GivenPartitionRoute_WhenGeneratingResourceAndPagingLinks_ThenLinksRetainTheSelectedBase(string path, string baseUri)
+        [InlineData(0, "/fhir/Patient", "http://localhost/fhir/")]
+        [InlineData(1, "/fhir/partition/partition-a/Patient", "http://localhost/fhir/partition/partition-a/")]
+        public async Task GivenPartitionRoute_WhenGeneratingResourceAndPagingLinks_ThenLinksRetainTheSelectedBase(int partitionCount, string path, string baseUri)
         {
-            using var host = CreateHost(1, pathBase: "/fhir");
+            using var host = CreateHost(partitionCount, pathBase: "/fhir");
             using var client = host.GetTestClient();
 
             using var response = await client.GetAsync(new Uri(path, UriKind.Relative));
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         [Theory]
         [InlineData(0, "/Patient", HttpStatusCode.OK, null)]
         [InlineData(0, "/partition/partition-a/Patient", HttpStatusCode.NotFound, null)]
-        [InlineData(1, "/Patient", HttpStatusCode.OK, "partition-a")]
+        [InlineData(1, "/Patient", HttpStatusCode.NotFound, null)]
         [InlineData(2, "/Patient", HttpStatusCode.NotFound, null)]
         [InlineData(2, "/partition/partition-a/Patient", HttpStatusCode.OK, "partition-a")]
         [InlineData(2, "/partition/partition-b/Patient", HttpStatusCode.OK, "partition-b")]
@@ -253,7 +253,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
         [Theory]
         [InlineData(0, "/Patient", "http://localhost/", null)]
-        [InlineData(1, "/Patient", "http://localhost/", "partition-a")]
         [InlineData(1, "/partition/partition-a/Patient", "http://localhost/partition/partition-a/", "partition-a")]
         [InlineData(2, "/partition/partition-a/Patient", "http://localhost/partition/partition-a/", "partition-a")]
         [InlineData(2, "/partition/partition-b/Patient", "http://localhost/partition/partition-b/", "partition-b")]
@@ -397,14 +396,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal("healthy", await response.Content.ReadAsStringAsync());
-            if (partitionCount == 1)
-            {
-                Assert.Equal("partition-a", Assert.Single(response.Headers.GetValues("X-Test-Partition")));
-            }
-            else
-            {
-                Assert.False(response.Headers.Contains("X-Test-Partition"));
-            }
+            Assert.False(response.Headers.Contains("X-Test-Partition"));
         }
 
         [Theory]
@@ -487,6 +479,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             }
 
             var manager = Substitute.For<IPartitionManager>();
+            manager.IsEnabled.Returns(partitionCount > 0);
             manager.TryGetPartition(Arg.Any<string>(), out Arg.Any<IPartitionInfo>()).Returns(callInfo =>
             {
                 var partitionId = callInfo.Arg<string>();

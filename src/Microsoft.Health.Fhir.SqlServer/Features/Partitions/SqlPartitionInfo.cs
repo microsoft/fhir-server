@@ -8,12 +8,9 @@ using Microsoft.Health.Fhir.Core.Features.Partitions;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Partitions
 {
     /// <summary>A SQL partition and its database.</summary>
-    public sealed class PartitionInfo : IPartitionInfo
+    public sealed class SqlPartitionInfo : PartitionOptions, IPartitionInfo
     {
         /// <summary>Gets the case-sensitive partition identifier.</summary>
         public string Id { get; init; }
-
-        /// <summary>Gets the partition database name.</summary>
-        public string DatabaseName { get; init; }
     }
 }

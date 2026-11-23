@@ -58,13 +58,12 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             IServiceCollection services = fhirServerBuilder.Services;
 
-            services.AddSingleton(provider =>
-                {
-                    var config = new PartitionConfiguration();
-                    provider.GetRequiredService<IConfiguration>().GetSection("FhirSqlSettings:PartitionConfiguration").Bind(config);
-                    return Options.Options.Create(config);
-                });
-            services.Add<PartitionManager>()
+            services
+                .AddOptions<DatabasePartitioningOptions>()
+                .BindConfiguration("FhirSqlSettings:PartitionConfiguration")
+                .ValidateDataAnnotations();
+
+            services.Add<SqlPartitionManager>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();

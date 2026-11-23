@@ -57,12 +57,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _application = new SqlServerFhirStorageTestsFixture(
                 SchemaVersionConstants.Max,
                 SqlServerFhirStorageTestsFixture.GetDatabaseName(),
-                partitionConfiguration: new PartitionConfiguration
+                partitionConfiguration: new DatabasePartitioningOptions
                 {
-                    Partitions =
+                    Partitions = new Dictionary<string, PartitionOptions>
                     {
-                        new PartitionInfo { Id = "alpha", DatabaseName = firstDatabase },
-                        new PartitionInfo { Id = "beta", DatabaseName = secondDatabase },
+                        ["alpha"] = new PartitionOptions { Database = firstDatabase },
+                        ["beta"] = new PartitionOptions { Database = secondDatabase },
                     },
                 });
         }

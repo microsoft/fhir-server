@@ -13,12 +13,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     public sealed class CosmosPartitionManager : IPartitionManager
     {
         /// <inheritdoc />
+        public bool IsEnabled => false;
+
+        /// <inheritdoc />
         public bool TryGetPartition(string partitionId, out IPartitionInfo partitionInfo)
         {
             partitionInfo = null;
             return false;
         }
-
-        public int GetPartitionCount() => 0;
     }
 }

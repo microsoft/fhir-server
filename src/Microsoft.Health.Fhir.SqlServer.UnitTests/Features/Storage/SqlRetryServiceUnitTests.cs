@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             if (databaseName != null)
             {
                 var context = Substitute.For<IFhirRequestContext>();
-                context.Partition.Returns(new PartitionInfo { Id = "partition-a", DatabaseName = databaseName });
+                context.Partition.Returns(new SqlPartitionInfo { Id = "partition-a", Database = databaseName });
                 accessor.RequestContext.Returns(context);
             }
 

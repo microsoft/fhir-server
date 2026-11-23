@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly IOptions<CoreFeatureConfiguration> _options;
         private readonly int _maximumSupportedSchemaVersion;
         private readonly string _databaseName;
-        private readonly PartitionConfiguration _partitionConfiguration;
+        private readonly DatabasePartitioningOptions _partitionConfiguration;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
         private IMediator _mediator;
@@ -91,12 +91,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
         }
 
-        internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, IOptions<CoreFeatureConfiguration> coreFeatures = null, PartitionConfiguration partitionConfiguration = null)
+        internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, IOptions<CoreFeatureConfiguration> coreFeatures = null, DatabasePartitioningOptions partitionConfiguration = null)
         {
             _initialConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
             _maximumSupportedSchemaVersion = maximumSupportedSchemaVersion;
             _databaseName = databaseName;
-            _partitionConfiguration = partitionConfiguration ?? new PartitionConfiguration();
+            _partitionConfiguration = partitionConfiguration ?? new DatabasePartitioningOptions();
             TestConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = _databaseName, Encrypt = true }.ToString();
 
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal RequestContextAccessor<IFhirRequestContext> FhirRequestContextAccessor => _fhirRequestContextAccessor;
 
-        internal PartitionInfo GetPartition(string id) => _partitionConfiguration.Partitions.Single(partition => partition.Id == id);
+        internal SqlPartitionInfo GetPartition(string id) => new() { Id = id, Database = _partitionConfiguration.Partitions[id].Database };
 
         internal static string GetDatabaseName(string test = null)
         {
@@ -189,7 +189,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SqlTransactionHandler = new SqlTransactionHandler();
             SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, SqlConnectionBuilder, sqlRetryLogicBaseProvider, SqlServerDataStoreConfiguration);
-            _fhirRequestContextAccessor.RequestContext.Partition.Returns(new PartitionInfo { Id = "application", DatabaseName = _databaseName });
+            _fhirRequestContextAccessor.RequestContext.Partition.Returns(new SqlPartitionInfo { Id = "application", Database = _databaseName });
             SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()), _fhirRequestContextAccessor);
 
             var sqlServerFhirModel = new SqlServerFhirModel(

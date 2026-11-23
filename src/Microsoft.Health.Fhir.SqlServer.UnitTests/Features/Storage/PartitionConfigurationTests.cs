@@ -5,14 +5,13 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.ComponentModel.DataAnnotations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
-using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -24,36 +23,103 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     public class PartitionConfigurationTests
     {
+        private const string PartitionsSection = "FhirSqlSettings:PartitionConfiguration:Partitions";
+
         [Fact]
         public void GivenSqlSettings_WhenRegisteringSqlServer_ThenManagerContainsConfiguredPartitions()
         {
-            IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string>
+            // Arrange
+            using ServiceProvider provider = CreateServiceProvider(CreateConfiguration(new Dictionary<string, string>
             {
-                ["FhirSqlSettings:PartitionConfiguration:Partitions:0:Id"] = "partition-a",
-                ["FhirSqlSettings:PartitionConfiguration:Partitions:0:DatabaseName"] = "database-a",
-                ["FhirSqlSettings:PartitionConfiguration:Partitions:1:Id"] = "partition-b",
-                ["FhirSqlSettings:PartitionConfiguration:Partitions:1:DatabaseName"] = "database-b",
-            }).Build();
-            var services = new ServiceCollection();
-            services.AddSingleton(configuration);
-            var builder = Substitute.For<IFhirServerBuilder>();
-            builder.Services.Returns(services);
-            builder.AddSqlServer(_ => { });
-            using var provider = services.BuildServiceProvider();
+                [$"{PartitionsSection}:partition-a:Database"] = "database-a",
+                [$"{PartitionsSection}:partition-b:Database"] = "database-b",
+            }));
 
+            // Act
             var manager = provider.GetRequiredService<IPartitionManager>();
-            var sqlManager = provider.GetRequiredService<PartitionManager>();
+            var sqlManager = provider.GetRequiredService<SqlPartitionManager>();
 
+            // Assert
             Assert.Same(sqlManager, manager);
-            Assert.True(manager.TryGetPartition("partition-a", out var partition));
-            Assert.Equal("partition-a", partition.Id);
-            Assert.False(manager.TryGetPartition("PARTITION-A", out _));
-            Assert.True(sqlManager.TryGetDatabaseName("partition-a", out string database));
-            Assert.Equal("database-a", database);
+            Assert.True(manager.IsEnabled);
+            AssertPartition(manager, "partition-a", "database-a");
+            AssertPartition(manager, "partition-b", "database-b");
+            Assert.False(manager.TryGetPartition("PARTITION-A", out IPartitionInfo partition));
+            Assert.Null(partition);
+        }
+
+        [Fact]
+        public void GivenNoPartitionSettings_WhenRegisteringSqlServer_ThenPartitioningIsDisabled()
+        {
+            // Arrange
+            using ServiceProvider provider = CreateServiceProvider(CreateConfiguration(new Dictionary<string, string>()));
+
+            // Act
+            var manager = provider.GetRequiredService<IPartitionManager>();
+
+            // Assert
+            Assert.False(manager.IsEnabled);
+            Assert.False(manager.TryGetPartition("partition-a", out IPartitionInfo partition));
+            Assert.Null(partition);
+        }
+
+        [Fact]
+        public void GivenInvalidSqlSettings_WhenResolvingManager_ThenConfigurationIsRejected()
+        {
+            // Arrange
+            using ServiceProvider provider = CreateServiceProvider(CreateConfiguration(new Dictionary<string, string>
+            {
+                [$"{PartitionsSection}:partition-a:Database"] = " ",
+            }));
+
+            // Act
+            var exception = Assert.Throws<OptionsValidationException>(() => provider.GetRequiredService<IPartitionManager>());
+
+            // Assert
+            Assert.Equal(typeof(DatabasePartitioningOptions), exception.OptionsType);
+            Assert.Contains("partition-a", Assert.Single(exception.Failures), StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenConfigurationReload_WhenManagerWasCreated_ThenPartitionsDoNotChange()
+        {
+            // Arrange
+            IConfigurationRoot configuration = CreateConfiguration(new Dictionary<string, string>
+            {
+                [$"{PartitionsSection}:partition-a:Database"] = "database-a",
+            });
+            using ServiceProvider provider = CreateServiceProvider(configuration);
+            var manager = provider.GetRequiredService<IPartitionManager>();
+
+            // Act
+            configuration[$"{PartitionsSection}:partition-a:Database"] = "database-changed";
+            configuration[$"{PartitionsSection}:partition-b:Database"] = "database-b";
+            configuration.Reload();
+
+            // Assert
+            AssertPartition(manager, "partition-a", "database-a");
+            Assert.False(manager.TryGetPartition("partition-b", out _));
         }
 
         [Theory]
-        [InlineData(null, "database")]
+        [InlineData("partition-a")]
+        [InlineData("Partition_A.1~")]
+        [InlineData("Patient")]
+        [InlineData("metadata")]
+        [InlineData("_history")]
+        public void GivenValidPartition_WhenValidatingOptions_ThenOptionsAreAccepted(string id)
+        {
+            // Arrange
+            DatabasePartitioningOptions options = CreateOptions(id, "database");
+
+            // Act
+            List<ValidationResult> results = Validate(options);
+
+            // Assert
+            Assert.Empty(results);
+        }
+
+        [Theory]
         [InlineData("", "database")]
         [InlineData(" ", "database")]
         [InlineData(".", "database")]
@@ -67,58 +133,64 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         [InlineData("partition-a", null)]
         [InlineData("partition-a", "")]
         [InlineData("partition-a", " ")]
-        public void GivenInvalidPartition_WhenCreatingManager_ThenConfigurationIsRejected(string id, string databaseName)
+        public void GivenInvalidPartition_WhenValidatingOptions_ThenOptionsAreRejected(string id, string database)
         {
-            var configuration = new PartitionConfiguration();
-            configuration.Partitions.Add(new PartitionInfo { Id = id, DatabaseName = databaseName });
-            var exception = Assert.Throws<InvalidOperationException>(() => new PartitionManager(Options.Create(configuration)));
-            Assert.Contains("FhirSqlSettings:PartitionConfiguration:Partitions", exception.Message, StringComparison.Ordinal);
+            // Arrange
+            DatabasePartitioningOptions options = CreateOptions(id, database);
+
+            // Act
+            List<ValidationResult> results = Validate(options);
+
+            // Assert
+            ValidationResult result = Assert.Single(results);
+            Assert.Equal(nameof(DatabasePartitioningOptions.Partitions), Assert.Single(result.MemberNames));
         }
 
         [Fact]
-        public void GivenDuplicateIds_WhenCreatingManager_ThenConfigurationIsRejected()
+        public void GivenNullPartition_WhenValidatingOptions_ThenOptionsAreRejected()
         {
-            var configuration = new PartitionConfiguration();
-            configuration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
-            configuration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-b" });
-            Assert.Throws<InvalidOperationException>(() => new PartitionManager(Options.Create(configuration)));
+            // Arrange
+            var options = new DatabasePartitioningOptions
+            {
+                Partitions = new Dictionary<string, PartitionOptions> { ["partition-a"] = null },
+            };
+
+            // Act
+            List<ValidationResult> results = Validate(options);
+
+            // Assert
+            Assert.Single(results);
         }
 
-        [Fact]
-        public void GivenNullPartition_WhenCreatingManager_ThenConfigurationIsRejected()
+        private static DatabasePartitioningOptions CreateOptions(string id, string database) =>
+            new() { Partitions = new Dictionary<string, PartitionOptions> { [id] = new PartitionOptions { Database = database } } };
+
+        private static List<ValidationResult> Validate(DatabasePartitioningOptions options)
         {
-            var configuration = new PartitionConfiguration();
-            configuration.Partitions.Add(null);
-            Assert.Throws<InvalidOperationException>(() => new PartitionManager(Options.Create(configuration)));
+            var results = new List<ValidationResult>();
+            Validator.TryValidateObject(options, new ValidationContext(options), results, validateAllProperties: true);
+            return results;
         }
 
-        [Fact]
-        public void GivenConfigurationChanges_WhenManagerWasCreated_ThenSnapshotDoesNotChange()
-        {
-            var configuration = new PartitionConfiguration();
-            configuration.Partitions.Add(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
-            var manager = new PartitionManager(Options.Create(configuration));
-            configuration.Partitions.Clear();
-            configuration.Partitions.Add(new PartitionInfo { Id = "partition-b", DatabaseName = "database-b" });
+        private static IConfigurationRoot CreateConfiguration(Dictionary<string, string> settings) =>
+            new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
 
-            Assert.True(manager.TryGetPartition("partition-a", out var partition));
-            Assert.Equal("partition-a", partition.Id);
-            Assert.True(manager.TryGetDatabaseName("partition-a", out string database));
-            Assert.Equal("database-a", database);
+        private static ServiceProvider CreateServiceProvider(IConfiguration configuration)
+        {
+            var services = new ServiceCollection();
+            services.AddSingleton(configuration);
+            var builder = Substitute.For<IFhirServerBuilder>();
+            builder.Services.Returns(services);
+            builder.AddSqlServer(_ => { });
+            return services.BuildServiceProvider();
         }
 
-        [Theory]
-        [InlineData("Patient")]
-        [InlineData("metadata")]
-        [InlineData("_history")]
-        public void GivenPartitionIdMatchingRoute_WhenCreatingManager_ThenIdIsAccepted(string id)
+        private static void AssertPartition(IPartitionManager manager, string id, string database)
         {
-            var configuration = new PartitionConfiguration();
-            configuration.Partitions.Add(new PartitionInfo { Id = id, DatabaseName = "database" });
-            var manager = new PartitionManager(Options.Create(configuration));
-
-            Assert.True(manager.TryGetPartition(id, out var partition));
-            Assert.Equal(id, partition.Id);
+            Assert.True(manager.TryGetPartition(id, out IPartitionInfo partition));
+            var sqlPartition = Assert.IsType<SqlPartitionInfo>(partition);
+            Assert.Equal(id, sqlPartition.Id);
+            Assert.Equal(database, sqlPartition.Database);
         }
     }
 }

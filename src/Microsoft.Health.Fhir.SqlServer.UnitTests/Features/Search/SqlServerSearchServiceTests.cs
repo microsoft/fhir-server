@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             _sqlRetryService = Substitute.For<ISqlRetryService>();
             _compressedRawResourceConverter = Substitute.For<ICompressedRawResourceConverter>();
             _requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            _requestContextAccessor.RequestContext.Partition.Returns(new PartitionInfo { Id = "partition-a", DatabaseName = "database-a" });
+            _requestContextAccessor.RequestContext.Partition.Returns(new SqlPartitionInfo { Id = "partition-a", Database = "database-a" });
             _queryHashCalculator = Substitute.For<ISqlQueryHashCalculator>();
             _queryPlanReuseChecker = Substitute.For<IQueryPlanReuseChecker>();
 
@@ -414,7 +414,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         {
             // Arrange
             var context = Substitute.For<IFhirRequestContext>();
-            context.Partition.Returns(partitionId == null ? null : new PartitionInfo { Id = partitionId, DatabaseName = partitionId.Replace("partition", "database", StringComparison.Ordinal) });
+            context.Partition.Returns(partitionId == null ? null : new SqlPartitionInfo { Id = partitionId, Database = partitionId.Replace("partition", "database", StringComparison.Ordinal) });
             _requestContextAccessor.RequestContext.Returns(context);
             _schemaInformation.Current = SchemaVersionConstants.Max;
             var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
@@ -477,31 +477,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.DoesNotContain("[dbo]", generatedSql, StringComparison.Ordinal);
         }
 
-        [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public async Task GivenPartitionWithoutDatabase_WhenSearchSqlIsGenerated_ThenNoDefaultDatabaseQueryIsProduced(bool includesOperation)
-        {
-            // Arrange
-            var context = Substitute.For<IFhirRequestContext>();
-            context.Partition.Returns(new PartitionInfo { Id = "unknown-partition" });
-            _requestContextAccessor.RequestContext.Returns(context);
-            _schemaInformation.Current = SchemaVersionConstants.Max;
-            var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
-            service.StoredProcedureLayerIsEnabled = false;
-            ExecuteSqlCallbacks();
-            var options = includesOperation
-                ? CreateIncludesCountOptions(CreateIncludesExpression(CreateInclude("Patient", "Observation", reversed: false, iterate: false)))
-                : new SearchOptions { CountOnly = true, Sort = [], UnsupportedSearchParams = [] };
-
-            // Act
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SearchAsync(options, CancellationToken.None));
-
-            // Assert
-            Assert.Contains("Database name is not set", exception.Message, StringComparison.Ordinal);
-            _queryHashCalculator.DidNotReceive().CalculateHash(Arg.Any<string>());
-        }
-
         [Fact]
         public async Task GivenChangingRequestContexts_WhenGeneratingQueries_ThenPartitionDatabaseIsNotRetainedBetweenRequests()
         {
@@ -528,7 +503,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 var context = partitionId == null ? null : Substitute.For<IFhirRequestContext>();
                 if (context != null)
                 {
-                    context.Partition.Returns(new PartitionInfo { Id = partitionId, DatabaseName = partitionId.Replace("partition", "database", StringComparison.Ordinal) });
+                    context.Partition.Returns(new SqlPartitionInfo { Id = partitionId, Database = partitionId.Replace("partition", "database", StringComparison.Ordinal) });
                 }
 
                 _requestContextAccessor.RequestContext.Returns(context);
@@ -539,36 +514,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 // Assert
                 Assert.Contains("FROM " + table, generatedSql, StringComparison.Ordinal);
             }
-        }
-
-        [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public async Task GivenPartitionWithoutDatabase_WhenSearchUsesStoredProcedureShortcut_ThenNoDefaultDatabaseCallIsExecuted(bool includesOperation)
-        {
-            // Arrange
-            var context = Substitute.For<IFhirRequestContext>();
-            context.Partition.Returns(new PartitionInfo { Id = "unknown-partition" });
-            _requestContextAccessor.RequestContext.Returns(context);
-            _schemaInformation.Current = SchemaVersionConstants.Max;
-            var service = CreateSearchService(CreateConcreteModel(_sqlRetryService));
-            ExecuteSqlCallbacks();
-            var options = includesOperation
-                ? CreateIncludesCountOptions(CreateIncludesExpression(CreateInclude("Patient", "Observation", reversed: false, iterate: false)))
-                : new SearchOptions { CountOnly = true, Sort = [], UnsupportedSearchParams = [] };
-            options.QueryHints = new[]
-            {
-                (KnownQueryParameterNames.Type, "Patient"),
-                (KnownQueryParameterNames.StartSurrogateId, "100"),
-                (KnownQueryParameterNames.EndSurrogateId, "200"),
-            };
-
-            // Act
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SearchAsync(options, CancellationToken.None));
-
-            // Assert
-            Assert.Contains("Database name is not set", exception.Message, StringComparison.Ordinal);
-            _queryHashCalculator.DidNotReceive().CalculateHash(Arg.Any<string>());
         }
 
         private void ExecuteSqlCallbacks()

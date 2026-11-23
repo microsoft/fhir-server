@@ -13,29 +13,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Partitions
 {
     public static class FhirRequestContextExtensions
     {
-        public static string GetDatabaseName(this IFhirRequestContext fhirRequestContext)
+        public static string GetDatabase(this IFhirRequestContext fhirRequestContext)
         {
             if (fhirRequestContext?.Partition == null)
             {
                 return null;
             }
 
-            if (fhirRequestContext.Partition is not PartitionInfo partitionInfo)
+            if (fhirRequestContext.Partition is not SqlPartitionInfo partitionInfo)
             {
-                throw new InvalidOperationException("Partition is not of type IPartitionInfo.");
+                throw new InvalidOperationException("Partition is not of type SqlPartitionInfo.");
             }
 
-            if (string.IsNullOrEmpty(partitionInfo.DatabaseName))
-            {
-                throw new InvalidOperationException("Database name is not set in the partition.");
-            }
-
-            return partitionInfo.DatabaseName;
+            return partitionInfo.Database;
         }
 
         public static SqlObjectNameFormatter GetDatabaseNameFormatter(this IFhirRequestContext fhirRequestContext)
         {
-            string databaseName = fhirRequestContext.GetDatabaseName();
+            string databaseName = fhirRequestContext.GetDatabase();
             return new SqlObjectNameFormatter(databaseName);
         }
     }

@@ -34,29 +34,27 @@ Partitions can be configured at startup in `appsettings.json`:
 {
   "FhirSqlSettings": {
     "PartitionConfiguration": {
-      "Partitions": [
-        { "Id": "partition-a", "DatabaseName": "database-a" },
-        { "Id": "partition-b", "DatabaseName": "database-b" }
-      ]
+      "Partitions": {
+        "partition-a": { "Database": "database-a" },
+        "partition-b": { "Database": "database-b" }
+      }
     }
   }
 }
 ```
 
-Partition IDs are case-sensitive, unique URL segments containing only ASCII letters,
-digits, `-`, `_`, `.`, or `~`; `.` and `..` are not valid IDs. Each partition must
-have a nonblank database name. Invalid settings prevent startup. The partition
+Each key under `Partitions` is a partition ID. Partition IDs are case-sensitive URL segments
+containing only ASCII letters, digits, `-`, `_`, `.`, or `~`; `.` and `..` are not valid IDs.
+Each partition must have a nonblank `Database`. Invalid settings prevent startup. The partition
 manager retains a read-only startup snapshot; changing partitions requires a restart.
 Cosmos DB rejects configured partitions.
 
 Requests identify a partition with `/partition/<id>`, for example
 `/partition/partition-a/Patient`.
 
-When there is exactly one partition, FHIR requests without a partition prefix use that partition.
-When there are multiple partitions, requests without a recognized prefix return 404,
+When any partitions are configured, FHIR requests without a recognized prefix return 404,
 except for the unprefixed `/health/check` and service-wide authentication endpoints.
-An explicit `/partition` prefix with a missing or unknown ID returns 404, even
-when exactly one partition is configured.
+An explicit `/partition` prefix with a missing or unknown ID returns 404.
 
 With no configured partitions, existing single-service behavior is unchanged.
 Authentication, SMART discovery, and token introspection endpoints remain

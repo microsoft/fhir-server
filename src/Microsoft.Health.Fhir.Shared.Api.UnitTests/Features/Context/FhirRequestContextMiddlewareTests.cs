@@ -246,6 +246,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         private static IPartitionManager CreatePartitionManager(params string[] ids)
         {
             var manager = Substitute.For<IPartitionManager>();
+            manager.IsEnabled.Returns(ids.Length > 0);
             manager.TryGetPartition(Arg.Any<string>(), out Arg.Any<IPartitionInfo>()).Returns(callInfo =>
             {
                 var partitionId = callInfo.Arg<string>();

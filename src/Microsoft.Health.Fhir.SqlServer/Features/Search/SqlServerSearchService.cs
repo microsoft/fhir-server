@@ -536,7 +536,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             SearchResult searchResult = null;
-            string databaseName = _requestContextAccessor.RequestContext.GetDatabaseName();
+            string databaseName = _requestContextAccessor.RequestContext.GetDatabase();
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
                 {
@@ -2064,7 +2064,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             await CreateStats(expression, cancellationToken);
 
             SearchResult searchResult = null;
-            string databaseName = _requestContextAccessor.RequestContext.GetDatabaseName();
+            string databaseName = _requestContextAccessor.RequestContext.GetDatabase();
 
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
