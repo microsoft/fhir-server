@@ -116,7 +116,7 @@ IF EXISTS (
   WHERE T.TableName NOT LIKE '%SearchParam' OR NOT EXISTS (
     SELECT * FROM sys.indexes I
     WHERE I.object_id = object_id('dbo.'+T.TableName)
-      AND I.type = 2 AND I.is_disabled = 1 AND I.name NOT LIKE 'GIX[_]%'
+      AND I.type = 2 AND I.is_disabled = 1 AND I.name NOT LIKE 'G[_]%'
       AND I.is_primary_key = 0 AND I.is_unique_constraint = 0))
 BEGIN
   RAISERROR('A target table does not have a disabled index template.', 18, 128)
