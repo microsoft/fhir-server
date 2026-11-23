@@ -7,10 +7,12 @@ using Microsoft.AspNetCore.Http;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
 {
-    internal sealed record PartitionRouteMetadata(string RouteName, bool HasPrefix)
+    /// <summary>
+    /// Route constants and helpers for partition-prefixed requests.
+    /// </summary>
+    internal static class PartitionRoute
     {
         internal const string PartitionId = "partitionId";
-        internal const string NamePrefix = "partition:";
         internal const string TemplatePrefix = "partition/{partitionId}";
 
         internal static PathString GetFhirPath(HttpRequest request)

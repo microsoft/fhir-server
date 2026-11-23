@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             var parserToUse = _parser;
 
             if (string.Equals(request.Method, HttpMethods.Post, StringComparison.OrdinalIgnoreCase) &&
-                PartitionRouteMetadata.GetFhirPath(request).Equals(new PathString("/"), StringComparison.OrdinalIgnoreCase))
+                PartitionRoute.GetFhirPath(request).Equals(new PathString("/"), StringComparison.OrdinalIgnoreCase))
             {
                 var newsettings = _parser.Settings.Clone();
                 newsettings.AllowUnrecognizedEnums = true;

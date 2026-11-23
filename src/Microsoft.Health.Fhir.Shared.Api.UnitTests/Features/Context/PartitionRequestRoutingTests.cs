@@ -75,10 +75,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             var endpoints = host.Services.GetRequiredService<EndpointDataSource>().Endpoints.OfType<RouteEndpoint>().ToArray();
 
             Assert.Equal("/partition/partition-a/metadata", links.GetPathByName(
-                PartitionRouteMetadata.NamePrefix + RouteNames.Metadata,
+                RouteNames.Metadata,
                 new RouteValueDictionary { ["partitionId"] = "partition-a" }));
             Assert.DoesNotContain(endpoints, endpoint =>
-                endpoint.Metadata.GetMetadata<PartitionRouteMetadata>()?.HasPrefix == true
+                endpoint.RoutePattern.GetParameter(PartitionRoute.PartitionId) != null
                 && endpoint.Metadata.GetMetadata<PartitionIndependentAttribute>() != null);
 
             foreach (string id in new[] { "partition-a", "unknown" })
@@ -138,6 +138,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             Assert.Equal("patients", Assert.Single(response.Headers.GetValues("X-Test-Route-Name")));
         }
 
+        [Fact]
+        public async Task GivenPartitionRequest_WhenResolvingNamedRoutes_ThenOnlyPartitionRoutesIncludeThePartition()
+        {
+            using var host = CreateHost(2);
+            using var client = host.GetTestClient();
+
+            using var response = await client.GetAsync(new Uri("/partition/partition-a/Patient", UriKind.Relative));
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("http://localhost/partition/partition-a/metadata", Assert.Single(response.Headers.GetValues("X-Test-Metadata-Link")));
+            Assert.Equal("http://localhost/.well-known/smart-configuration", Assert.Single(response.Headers.GetValues("X-Test-Service-Link")));
+        }
+
         [Theory]
         [InlineData("/partition/partition-a/")]
         [InlineData("/partition/partition-a")]
@@ -160,7 +173,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             using var host = CreateHost(partitionCount, securityEnabled: true);
             using var client = host.GetTestClient();
 
-            foreach (string path in new[] { "/partition/partition-a/Patient", "/partition/partition-b/Patient", "/partition/unknown/Patient", "/partition/PARTITION-A/Patient", "/Patient" })
+            foreach (string path in new[] { "/partition/partition-a/Patient", "/partition/partition-b/Patient", "/partition/unknown/Patient", "/partition/PARTITION-A/Patient" })
             {
                 foreach (string credentials in new[] { null, "Bearer invalid" })
                 {
@@ -637,9 +650,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             [PartitionIndependent]
             [AllowAnonymous]
             [HttpGet("/.well-known/smart-configuration", Name = RouteNames.WellKnownSmartConfiguration)]
-            public Task SmartConfiguration() => WriteContext();
+            public Task SmartConfiguration() => WriteContext(includeLinks: false);
 
-            private async Task WriteContext()
+            private async Task WriteContext(bool includeLinks = true)
             {
                 Response.Headers["X-Test-Path"] = Request.Path.Value;
                 Response.Headers["X-Test-PathBase"] = Request.PathBase.Value;
@@ -650,17 +663,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                     Response.Headers["X-Test-Partition"] = accessor.RequestContext.Partition.Id;
                 }
 
-                var resolver = HttpContext.RequestServices.GetRequiredService<IUrlResolver>();
-                Response.Headers["X-Test-Link"] = resolver.ResolveRouteNameUrl("patients", new RouteValueDictionary()).AbsoluteUri;
-                Response.Headers["X-Test-Metadata-Link"] = resolver.ResolveMetadataUrl(false).AbsoluteUri;
-                Response.Headers["X-Test-Service-Link"] = resolver.ResolveRouteNameUrl(RouteNames.WellKnownSmartConfiguration, new RouteValueDictionary()).AbsoluteUri;
-                var resource = new Hl7.Fhir.Model.Patient { Id = "example", Meta = new Hl7.Fhir.Model.Meta { VersionId = "7" } }.ToResourceElement();
-                Response.Headers["X-Test-Resource-Link"] = resolver.ResolveResourceUrl(resource).AbsoluteUri;
-                Response.Headers["X-Test-Version-Link"] = resolver.ResolveResourceUrl(resource, includeVersion: true).AbsoluteUri;
-                Response.Headers["X-Test-Paging-Link"] = resolver.ResolveRouteUrl(
-                    continuationToken: "next",
-                    routeNameOverride: "patients",
-                    ambientRouteValuesOverride: new Dictionary<string, object> { ["partitionId"] = "partition-b" }).AbsoluteUri;
+                if (includeLinks)
+                {
+                    var resolver = HttpContext.RequestServices.GetRequiredService<IUrlResolver>();
+                    Response.Headers["X-Test-Link"] = resolver.ResolveRouteNameUrl("patients", new RouteValueDictionary()).AbsoluteUri;
+                    Response.Headers["X-Test-Metadata-Link"] = resolver.ResolveMetadataUrl(false).AbsoluteUri;
+                    Response.Headers["X-Test-Service-Link"] = resolver.ResolveRouteNameUrl(RouteNames.WellKnownSmartConfiguration, new RouteValueDictionary()).AbsoluteUri;
+                    var resource = new Hl7.Fhir.Model.Patient { Id = "example", Meta = new Hl7.Fhir.Model.Meta { VersionId = "7" } }.ToResourceElement();
+                    Response.Headers["X-Test-Resource-Link"] = resolver.ResolveResourceUrl(resource).AbsoluteUri;
+                    Response.Headers["X-Test-Version-Link"] = resolver.ResolveResourceUrl(resource, includeVersion: true).AbsoluteUri;
+                    Response.Headers["X-Test-Paging-Link"] = resolver.ResolveRouteUrl(
+                        continuationToken: "next",
+                        routeNameOverride: "patients",
+                        ambientRouteValuesOverride: new Dictionary<string, object> { ["partitionId"] = "partition-b" }).AbsoluteUri;
+                }
+
                 Response.Headers["X-Test-Route-Name"] = accessor.RequestContext.RouteName;
                 Response.Headers["X-Test-Uri"] = accessor.RequestContext.Uri.AbsoluteUri;
                 await Response.WriteAsync(accessor.RequestContext.BaseUri.AbsoluteUri);

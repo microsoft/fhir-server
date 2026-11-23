@@ -62,7 +62,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 _httpContextAccessor,
                 _actionContextAccessor,
                 _bundleHttpContextAccessor,
-                _linkGenerator);
+                _linkGenerator,
+                Substitute.For<IEndpointAddressScheme<RouteValuesAddress>>());
 
             _fhirRequestContextAccessor.RequestContext.RouteName = DefaultRouteName;
 

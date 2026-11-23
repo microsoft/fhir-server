@@ -141,8 +141,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             HttpContext httpContext = CreateHttpContext();
             httpContext.Request.Host = new HostString("api.example.com");
             httpContext.Request.Path = new PathString("/partition/partition-a/Patient");
-            httpContext.Request.RouteValues[PartitionRouteMetadata.PartitionId] = "partition-a";
-            httpContext.SetEndpoint(new Endpoint(null, new EndpointMetadataCollection(new PartitionRouteMetadata(null, true)), "partition"));
+            httpContext.Request.RouteValues[PartitionRoute.PartitionId] = "partition-a";
+            httpContext.SetEndpoint(new Endpoint(null, EndpointMetadataCollection.Empty, "partition"));
             var accessor = new FhirRequestContextAccessor();
             var instanceConfiguration = new FhirServerInstanceConfiguration();
             IFhirRequestContext capturedContext = null;

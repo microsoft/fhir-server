@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Api.Features.RuntimeState
                 return false;
             }
 
-            string[] segments = GetPathSegments(PartitionRouteMetadata.GetFhirPath(request));
+            string[] segments = GetPathSegments(PartitionRoute.GetFhirPath(request));
 
             return IsHealthCheckRequest(segments) || IsMetadataRequest(segments) || IsExportStartRequest(segments) || IsExportStatusRequest(segments);
         }

@@ -15,18 +15,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         {
             foreach (ControllerModel controller in application.Controllers.Where(x => !x.Attributes.OfType<PartitionIndependentAttribute>().Any()))
             {
+                // Controller-level routes (e.g., SchemaController's "_schema") are combined below; multiple controller routes are not supported.
+                AttributeRouteModel controllerRoute = controller.Selectors.SingleOrDefault(x => x.AttributeRouteModel != null)?.AttributeRouteModel;
+
                 foreach (ActionModel action in controller.Actions.Where(x => !x.Attributes.OfType<PartitionIndependentAttribute>().Any()))
                 {
                     foreach (SelectorModel selector in action.Selectors)
                     {
-                        AttributeRouteModel route = selector.AttributeRouteModel;
+                        AttributeRouteModel route = AttributeRouteModel.CombineAttributeRouteModel(controllerRoute, selector.AttributeRouteModel);
 
                         selector.AttributeRouteModel = new AttributeRouteModel(route)
                         {
-                            // An absolute template avoids combining the controller prefix a second time.
-                            Template = "/" + PartitionRouteMetadata.TemplatePrefix + "/" + route.Template,
+                            // An absolute template prevents MVC from combining the controller route a second time.
+                            Template = "/" + AttributeRouteModel.CombineTemplates(PartitionRoute.TemplatePrefix, route.Template),
                         };
-                        selector.EndpointMetadata.Add(new PartitionRouteMetadata(route.Name, true));
                     }
                 }
             }

@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                     return;
                 }
 
-                if (_excludedEndpoints.Contains((context.Request.Method, PartitionRouteMetadata.GetFhirPath(context.Request).Value)))
+                if (_excludedEndpoints.Contains((context.Request.Method, PartitionRoute.GetFhirPath(context.Request).Value)))
                 {
                     // Endpoint is exempt from concurrent request limits.
                     await _next(context);

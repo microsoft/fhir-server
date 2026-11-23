@@ -729,7 +729,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             httpContext.Request.Method = requestMethod.ToString();
 
             var contextPath = path.Length is 0 || path[0] is not '/' ? new PathString('/' + path) : new PathString(path);
-            httpContext.Request.Path = PartitionRouteMetadata.GetPrefix(_outerHttpContext.Request).Add(contextPath);
+            httpContext.Request.Path = PartitionRoute.GetPrefix(_outerHttpContext.Request).Add(contextPath);
 
             AddHeaderIfNeeded(HeaderNames.IfMatch, entry.Request.IfMatch, httpContext);
             AddHeaderIfNeeded(HeaderNames.IfModifiedSince, entry.Request.IfModifiedSince?.ToString(), httpContext);

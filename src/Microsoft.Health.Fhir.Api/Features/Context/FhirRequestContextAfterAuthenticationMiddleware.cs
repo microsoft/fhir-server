@@ -67,20 +67,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 && (!_securityConfiguration.Enabled || context.User?.Identity?.IsAuthenticated == true || endpoint?.Metadata.GetMetadata<AllowAnonymousAttribute>() != null)
                 && endpoint?.Metadata.GetMetadata<PartitionIndependentAttribute>() == null)
             {
-                string partitionId = context.Request.RouteValues[PartitionRouteMetadata.PartitionId]?.ToString();
+                string partitionId = context.Request.RouteValues[PartitionRoute.PartitionId]?.ToString();
                 IPartitionInfo partitionInfo = null;
-                bool partitionRequired;
-                if (partitionId != null)
-                {
-                    partitionInfo = _partitionManager.TryGetPartition(partitionId, out var partition) ? partition : null;
-                    partitionRequired = partitionInfo == null;
-                }
-                else
-                {
-                    partitionRequired = endpoint?.Metadata.GetMetadata<PartitionRouteMetadata>() != null;
-                }
-
-                if (partitionRequired)
+                if (partitionId != null && !_partitionManager.TryGetPartition(partitionId, out partitionInfo))
                 {
                     _logger.LogWarning("Request rejected: a configured partition ID is required after /partition.");
                     context.Response.StatusCode = StatusCodes.Status404NotFound;
@@ -106,16 +95,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 
                 fhirRequestContextAccessor.RequestContext.Partition = partitionInfo;
 
-                /*
-                if (endpoint?.Metadata.GetMetadata<PartitionRouteMetadata>()?.HasPrefix == true)
+                if (partitionInfo != null && fhirRequestContextAccessor.RequestContext is FhirRequestContext requestContext)
                 {
-                    fhirRequestContextAccessor.RequestContext.BaseUri = new Uri(UriHelper.BuildAbsolute(
+                    requestContext.BaseUri = new Uri(UriHelper.BuildAbsolute(
                         context.Request.Scheme,
                         context.Request.Host,
-                        context.Request.PathBase.Add(PartitionRouteMetadata.GetPrefix(context.Request)),
+                        context.Request.PathBase.Add(PartitionRoute.GetPrefix(context.Request)),
                         "/"));
                 }
-                */
             }
 
             // Call the next delegate/middleware in the pipeline
