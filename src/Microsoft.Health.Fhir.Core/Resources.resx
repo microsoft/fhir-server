@@ -1035,6 +1035,10 @@
     <value>The granted SMART scope restricts access using the search parameter '{0}', which is not currently available on this server. The request cannot be authorized.</value>
     <comment>{0} is the code of the search parameter the SMART clinical scope depends on.</comment>
   </data>
+  <data name="SmartScopeChainedSearchNotEnforceable" xml:space="preserve">
+    <value>The granted SMART scopes restrict resource type '{0}' using search parameters that cannot be applied to a chained or reverse-chained (_has) search. The request cannot be authorized.</value>
+    <comment>{0} is the resource type reached through the chained or reverse-chained search.</comment>
+  </data>
   <data name="LongUriSearchValue" xml:space="preserve">
     <value>URI parameter '{0}' exceeds {1} characters. Evaluation is limited to the first {1} characters, which may return broader search results.</value>
     <comment>{0} is a comma-separated list of search parameter codes. {1} is the number of URI characters the data store compares.</comment>

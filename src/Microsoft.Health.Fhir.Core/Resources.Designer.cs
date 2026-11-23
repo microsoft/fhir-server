@@ -1935,6 +1935,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The granted SMART scopes restrict resource type &apos;{0}&apos; using search parameters that cannot be applied to a chained or reverse-chained (_has) search. The request cannot be authorized..
+        /// </summary>
+        internal static string SmartScopeChainedSearchNotEnforceable {
+            get {
+                return ResourceManager.GetString("SmartScopeChainedSearchNotEnforceable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The granted SMART scope restricts access using the search parameter &apos;{0}&apos;, which is not currently available on this server. The request cannot be authorized..
         /// </summary>
         internal static string SmartScopeSearchParameterNotEnforceable {
