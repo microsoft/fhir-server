@@ -97,6 +97,22 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
             Dictionary<string, ResourceSearchParameterStatus> statuses = (await _statusManager.GetAllSearchParameterStatuses(cancellationToken))
                 .ToDictionary(status => status.Uri.OriginalString, StringComparer.Ordinal);
 
+            string[] concurrentInstallUrls = candidates.Keys
+                .Where(url => !persisted.ContainsKey(url) &&
+                    statuses.TryGetValue(url, out ResourceSearchParameterStatus status) &&
+                    status.Status != SearchParameterStatus.Deleted)
+                .ToArray();
+            if (concurrentInstallUrls.Length > 0)
+            {
+                foreach (KeyValuePair<string, SearchParameter> resource in await GetResourcesAsync(concurrentInstallUrls, cancellationToken))
+                {
+                    persisted[resource.Key] = resource.Value;
+                }
+
+                statuses = (await _statusManager.GetAllSearchParameterStatuses(cancellationToken))
+                    .ToDictionary(status => status.Uri.OriginalString, StringComparer.Ordinal);
+            }
+
             var missing = new List<FhirPackageEntry>();
             DateTimeOffset? lastUpdated = null;
             foreach (KeyValuePair<string, (FhirPackageEntry Entry, SearchParameter Resource)> candidate in candidates)
@@ -107,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
                 {
                     if (hasStatus && status.Status != SearchParameterStatus.Deleted)
                     {
-                        throw Conflict(candidate.Key, "a live status exists without a matching resource");
+                        throw Conflict(candidate.Key, "a live status exists without a matching resource", isRetryable: true);
                     }
 
                     missing.Add(candidate.Value.Entry);
@@ -126,6 +142,7 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
 
                 if (_searchParameterOperations.SearchParamLastUpdated < status.LastUpdated ||
                     !_definitionManager.TryGetSearchParameter(candidate.Key, out SearchParameterInfo info) ||
+                    !MatchesCachedDefinition(candidate.Value.Entry, candidate.Value.Resource, info) ||
                     info.SearchParameterStatus != SearchParameterStatus.Enabled ||
                     !info.IsSearchable ||
                     info.IsPartiallySupported)
@@ -143,6 +160,51 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
 
             return new FhirPackageInstallInspection(candidates.Keys.ToArray(), missing, lastUpdated);
         }
+
+        private bool MatchesCachedDefinition(FhirPackageEntry entry, SearchParameter expected, SearchParameterInfo actual)
+        {
+            if (actual == null)
+            {
+                return false;
+            }
+
+            var expectedComponents = expected.Component
+                .Select(component => (GetComponentDefinition(component), component.Expression));
+            var actualComponents = actual.Component
+                .Select(component => (component.DefinitionUrl?.OriginalString, component.Expression));
+            var expectedElement = new RawResource(entry.Json, FhirResourceFormat.Json, true)
+                .ToITypedElement(_modelInfoProvider);
+            VectorSearchParameterConfig expectedVectorConfig = expectedElement.Select("extension").ParseVectorConfig();
+
+            return string.Equals(expected.Name, actual.Name, StringComparison.Ordinal) &&
+                string.Equals(expected.Code, actual.Code, StringComparison.Ordinal) &&
+                string.Equals(expected.Type?.ToString(), actual.Type.ToString(), StringComparison.Ordinal) &&
+                string.Equals(expected.Expression, actual.Expression, StringComparison.Ordinal) &&
+                expected.Base.Select(value => value?.ToString()).SequenceEqual(actual.BaseResourceTypes, StringComparer.Ordinal) &&
+                expected.Target.Select(value => value?.ToString()).SequenceEqual(actual.TargetResourceTypes, StringComparer.Ordinal) &&
+                expectedComponents.SequenceEqual(actualComponents) &&
+                VectorConfigsMatch(expectedVectorConfig, actual.VectorConfig);
+        }
+
+        private static string GetComponentDefinition(SearchParameter.ComponentComponent component)
+        {
+#if Stu3
+            return component.Definition?.Reference;
+#else
+            return component.Definition;
+#endif
+        }
+
+        private static bool VectorConfigsMatch(VectorSearchParameterConfig expected, VectorSearchParameterConfig actual) =>
+            expected == null
+                ? actual == null
+                : actual != null &&
+                    expected.ExtractionPolicy == actual.ExtractionPolicy &&
+                    expected.MaxInputTokens == actual.MaxInputTokens &&
+                    expected.MinimumScore == actual.MinimumScore &&
+                    expected.ChunkSizeTokens == actual.ChunkSizeTokens &&
+                    expected.ChunkOverlapTokens == actual.ChunkOverlapTokens &&
+                    string.Equals(expected.DistanceMetric, actual.DistanceMetric, StringComparison.Ordinal);
 
         private static SearchParameter ParseEntry(FhirPackageEntry entry)
         {
@@ -233,9 +295,9 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
             }
         }
 
-        private static FhirPackageWriteConflictException Conflict(string url, string detail) =>
+        private static FhirPackageWriteConflictException Conflict(string url, string detail, bool isRetryable = false) =>
             new FhirPackageWriteConflictException(
                 string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageExistingSearchParameterConflict, url, detail),
-                isRetryable: false);
+                isRetryable);
     }
 }

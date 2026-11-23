@@ -109,9 +109,33 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.FhirPackages
 
             // Assert
             Assert.Equal(FhirPackageInstallJobState.Converged, result.State);
+            await _installer.Received(1).ValidateAsync(_package, Arg.Any<CancellationToken>());
             await _installer.Received(1).InstallAsync(
                 Arg.Is<FhirPackage>(p => p.ResourceEntries.Contains(_entryB) && !p.ResourceEntries.Contains(_entryA)),
                 Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenFinalInspectionTimesOut_WhenWaitingForConvergence_ThenTheCommittedStateIsRetryable()
+        {
+            // Arrange
+            var failure = new InvalidOperationException("cache refresh lock timed out");
+            _verifier.InspectAsync(_package, Arg.Any<CancellationToken>())
+                .Returns(
+                    _ => Task.FromResult(Installed()),
+                    _ => Task.FromException<FhirPackageInstallInspection>(failure));
+            SetCacheProof(LastUpdated, SearchParameterCacheFingerprint.Calculate(_definitions));
+
+            // Act
+            JobExecutionException exception = await Assert.ThrowsAsync<JobExecutionException>(
+                () => _job.ExecuteAsync(Job(), CancellationToken.None));
+
+            // Assert
+            var result = Assert.IsType<FhirPackageInstallJobResult>(exception.Error);
+            Assert.Equal(FhirPackageInstallJobState.Committed, result.State);
+            Assert.True(result.IsRetryable);
+            Assert.Contains("could not be inspected", result.Message, StringComparison.Ordinal);
+            Assert.Same(failure, Assert.IsType<FhirPackageWriteConflictException>(exception.InnerException).InnerException);
         }
 
         [Fact]

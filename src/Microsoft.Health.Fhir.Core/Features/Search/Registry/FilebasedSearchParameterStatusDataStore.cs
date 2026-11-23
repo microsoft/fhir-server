@@ -44,6 +44,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await Task.CompletedTask; // noop
         }
 
+        public async Task TryLogCacheUpdateProof(string process, string text, CancellationToken cancellationToken)
+        {
+            await Task.CompletedTask; // noop
+        }
+
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
         {
             if (_statusResults == null)

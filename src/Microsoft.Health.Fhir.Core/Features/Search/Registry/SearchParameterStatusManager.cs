@@ -256,6 +256,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await _searchParameterStatusDataStore.TryLogEvent(process, status, text, startDate, cancellationToken);
         }
 
+        public async Task TryLogCacheUpdateProof(string process, string text, CancellationToken cancellationToken)
+        {
+            await _searchParameterStatusDataStore.TryLogCacheUpdateProof(process, text, cancellationToken);
+        }
+
         private struct TempStatus
         {
             public bool IsSearchable;

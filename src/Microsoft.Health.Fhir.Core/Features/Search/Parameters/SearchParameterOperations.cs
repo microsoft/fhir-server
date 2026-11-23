@@ -335,7 +335,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         // A watermark can advance even when a definition was not loaded. Report the actual cache as well.
                         string version = _searchParamLastUpdated.Value.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss.fffffff", CultureInfo.InvariantCulture);
                         string fingerprint = SearchParameterCacheFingerprint.Calculate(_searchParameterDefinitionManager);
-                        await _searchParameterStatusManager.TryLogEvent(SearchParameterCacheFingerprint.UpdateProcessName, "Warn", $"{version}|{fingerprint}", null, cancellationToken);
+                        await _searchParameterStatusManager.TryLogCacheUpdateProof(SearchParameterCacheFingerprint.UpdateProcessName, $"{version}|{fingerprint}", cancellationToken);
                     }
                 }
             }

@@ -50,6 +50,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             await Task.CompletedTask; // noop
         }
 
+        public async Task TryLogCacheUpdateProof(string process, string text, CancellationToken cancellationToken)
+        {
+            await Task.CompletedTask; // noop
+        }
+
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
         {
             using IScoped<Container> clientScope = _containerScopeFactory.Invoke();

@@ -173,11 +173,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchParameters
             await operations.GetAndApplySearchParameterUpdates(CancellationToken.None, zeroWaitForSemaphore: backgroundRefresh);
 
             // Assert
-            await _statusDataStore.Received(publishesProof ? 1 : 0).TryLogEvent(
+            await _statusDataStore.Received(publishesProof ? 1 : 0).TryLogCacheUpdateProof(
                 SearchParameterCacheFingerprint.UpdateProcessName,
-                "Warn",
                 proof,
-                null,
                 Arg.Any<CancellationToken>());
         }
 
@@ -208,11 +206,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchParameters
             // Assert
             Assert.Equal(FirstReadLastUpdated, operations.SearchParamLastUpdated);
             Assert.NotEqual(completeFingerprint, missingFingerprint);
-            await _statusDataStore.Received(1).TryLogEvent(
+            await _statusDataStore.Received(1).TryLogCacheUpdateProof(
                 SearchParameterCacheFingerprint.UpdateProcessName,
-                "Warn",
                 $"{watermark}|{missingFingerprint}",
-                null,
                 Arg.Any<CancellationToken>());
         }
 

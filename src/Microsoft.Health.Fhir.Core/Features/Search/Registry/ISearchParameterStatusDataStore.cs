@@ -23,6 +23,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken);
 
         /// <summary>
+        /// Tries logging a cache update proof to the service-local event log.
+        /// </summary>
+        /// <param name="process">The event process name.</param>
+        /// <param name="text">The cache update proof.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        Task TryLogCacheUpdateProof(string process, string text, CancellationToken cancellationToken);
+
+        /// <summary>
         /// Checks whether all active instances have updated their search parameter caches
         /// </summary>
         /// <param name="updateEventsSince">Only cache update records after this time are considered for convergence.</param>

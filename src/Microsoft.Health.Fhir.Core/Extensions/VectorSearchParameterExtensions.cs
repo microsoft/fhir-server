@@ -15,7 +15,10 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
 {
-    internal static class VectorSearchParameterExtensions
+    /// <summary>
+    /// Parses vector configuration from SearchParameter extensions.
+    /// </summary>
+    public static class VectorSearchParameterExtensions
     {
         /// <summary>
         /// Parses vector search configuration from a SearchParameter's extensions.

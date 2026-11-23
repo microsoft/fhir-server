@@ -67,6 +67,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             await _sqlRetryService.TryLogEvent(process, status, text, startDate, cancellationToken);
         }
 
+        public async Task TryLogCacheUpdateProof(string process, string text, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await using var cmd = new SqlCommand { CommandType = CommandType.StoredProcedure, CommandText = "dbo.LogEvent" };
+                cmd.Parameters.AddWithValue("@Process", process);
+                cmd.Parameters.AddWithValue("@Status", "Warn");
+                cmd.Parameters.AddWithValue("@Text", text);
+                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Unable to write the SearchParameter cache update proof to the service-local event log.");
+            }
+        }
+
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
         {
             using var cmd = new SqlCommand();

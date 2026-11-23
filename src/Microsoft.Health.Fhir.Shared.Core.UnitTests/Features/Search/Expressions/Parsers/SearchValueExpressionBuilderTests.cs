@@ -109,6 +109,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         }
 
         [Theory]
+        [InlineData(@"https://example.org/SearchParameter/a\$b", "https://example.org/SearchParameter/a$b")]
+        [InlineData(@"https://example.org/SearchParameter/a\,b", "https://example.org/SearchParameter/a,b")]
+        public void GivenAnEscapedUriSearchValue_WhenBuilding_ThenTheEscapeIsRemovedAfterSeparatorSplitting(string escapedValue, string expectedValue)
+        {
+            Validate(
+                CreateSearchParameter(SearchParamType.Uri),
+                null,
+                escapedValue,
+                expression => ValidateStringExpression(expression, FieldName.Uri, StringOperator.Equals, expectedValue, false));
+        }
+
+        [Theory]
         [InlineData(SearchParamType.Date, "lt2018,2019")]
         [InlineData(SearchParamType.Number, "gt10,11")]
         [InlineData(SearchParamType.Quantity, "ne15|s|c,5|s|c")]

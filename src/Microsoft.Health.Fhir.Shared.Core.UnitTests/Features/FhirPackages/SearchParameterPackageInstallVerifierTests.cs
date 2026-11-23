@@ -41,6 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
         private readonly ISearchParameterOperations _operations = Substitute.For<ISearchParameterOperations>();
         private readonly ISearchParameterStatusManager _statuses = Substitute.For<ISearchParameterStatusManager>();
         private readonly ISearchParameterDefinitionManager _definitions = Substitute.For<ISearchParameterDefinitionManager>();
+        private readonly Dictionary<string, SearchParameterInfo> _cachedDefinitions = new Dictionary<string, SearchParameterInfo>(StringComparer.Ordinal);
         private readonly IModelInfoProvider _model = new VersionSpecificModelInfoProvider();
         private readonly SearchParameterPackageInstallVerifier _verifier;
 
@@ -50,12 +51,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             _definitions.TryGetSearchParameter(Arg.Any<string>(), out Arg.Any<SearchParameterInfo>())
                 .Returns(call =>
                 {
-                    call[1] = new SearchParameterInfo("test", "test")
-                    {
-                        SearchParameterStatus = SearchParameterStatus.Enabled,
-                        IsSearchable = true,
-                    };
-                    return true;
+                    string url = call.ArgAt<string>(0);
+                    call[1] = _cachedDefinitions.TryGetValue(url, out SearchParameterInfo info) ? info : null;
+                    return info != null;
                 });
             _verifier = new SearchParameterPackageInstallVerifier(
                 _search.CreateMockScopeProvider(),
@@ -73,6 +71,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             SearchParameter persisted = (SearchParameter)expected.DeepCopy();
             persisted.Id = "server-assigned";
             persisted.Meta = new Meta { VersionId = "3", LastUpdated = LastUpdated };
+            SetupDefinition(expected);
             SetupStatuses(Status(UrlA));
             SetupResults(Result(null, persisted));
 
@@ -92,6 +91,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             SearchParameter first = Parameter(UrlA, "a");
             SearchParameter second = Parameter(UrlB, "b");
             var package = Package(first, second);
+            SetupDefinition(first);
             SetupStatuses(Status(UrlA));
             SetupResults(Result(null, first));
 
@@ -128,6 +128,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
         {
             // Arrange
             SearchParameter parameter = Parameter(UrlA, "a");
+            SetupDefinition(parameter);
             SetupStatuses(Status(UrlA, status));
             SetupResults(Result(null, parameter));
 
@@ -145,14 +146,49 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
         {
             // Arrange
             SetupStatuses(Status(UrlA));
-            SetupResults(Result(null));
+            SetupResults(Result(null), Result(null));
 
             // Act
             FhirPackageWriteConflictException exception = await Assert.ThrowsAsync<FhirPackageWriteConflictException>(
                 () => _verifier.InspectAsync(Package(Parameter(UrlA, "a")), CancellationToken.None));
 
             // Assert
-            Assert.False(exception.IsRetryable);
+            Assert.True(exception.IsRetryable);
+        }
+
+        [Fact]
+        public async Task GivenAConcurrentInstallCompletesDuringInspection_WhenInspecting_ThenTheMatchingResourceIsAccepted()
+        {
+            // Arrange
+            SearchParameter parameter = Parameter(UrlA, "a");
+            SetupDefinition(parameter);
+            SetupStatuses(Status(UrlA), Status(UrlA));
+            SetupResults(Result(null), Result(null, parameter));
+
+            // Act
+            FhirPackageInstallInspection inspection = await _verifier.InspectAsync(Package(parameter), CancellationToken.None);
+
+            // Assert
+            Assert.Empty(inspection.MissingEntries);
+            Assert.Equal(LastUpdated, inspection.LastUpdated);
+        }
+
+        [Fact]
+        public async Task GivenAStaleCachedDefinition_WhenInspecting_ThenItIsRetryableUntilTheCacheMatchesTheResource()
+        {
+            // Arrange
+            SearchParameter parameter = Parameter(UrlA, "a");
+            SetupDefinition(parameter, "Patient.name");
+            SetupStatuses(Status(UrlA));
+            SetupResults(Result(null, parameter));
+
+            // Act
+            FhirPackageWriteConflictException exception = await Assert.ThrowsAsync<FhirPackageWriteConflictException>(
+                () => _verifier.InspectAsync(Package(parameter), CancellationToken.None));
+
+            // Assert
+            Assert.True(exception.IsRetryable);
+            Assert.Contains("cache", exception.Message, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
@@ -189,11 +225,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             Assert.Contains("more than one", exception.Message, StringComparison.Ordinal);
         }
 
-        [Fact]
-        public async Task GivenAnUrlContainingSearchSeparators_WhenInspecting_ThenTheUrlIsEscaped()
+        [Theory]
+        [InlineData("https://example.org/SearchParameter/a,b", @"https://example.org/SearchParameter/a\,b")]
+        [InlineData("https://example.org/SearchParameter/a$b", @"https://example.org/SearchParameter/a\$b")]
+        public async Task GivenAnUrlContainingSearchSeparators_WhenInspecting_ThenTheUrlIsEscaped(string url, string escapedUrl)
         {
             // Arrange
-            const string url = "https://example.org/SearchParameter/a,b";
             SetupStatuses();
             SetupResults(Result(null));
 
@@ -203,7 +240,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             // Assert
             await _search.Received(1).SearchAsync(
                 KnownResourceTypes.SearchParameter,
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(values => values.Any(v => v.Item1 == "url" && v.Item2 == @"https://example.org/SearchParameter/a\,b")),
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(values => values.Any(v => v.Item1 == "url" && v.Item2 == escapedUrl)),
                 Arg.Any<CancellationToken>(),
                 Arg.Any<bool>(),
                 Arg.Any<ResourceVersionType>(),
@@ -237,6 +274,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
 
         private void SetupStatuses(params ResourceSearchParameterStatus[] statuses) =>
             _statuses.GetAllSearchParameterStatuses(Arg.Any<CancellationToken>()).Returns(statuses);
+
+        private void SetupDefinition(SearchParameter parameter, string expression = null)
+        {
+            SearchParameterInfo definition = parameter.ToInfo();
+            if (expression != null)
+            {
+                definition = new SearchParameterInfo(
+                    parameter.Name,
+                    parameter.Code,
+                    Enum.Parse<Microsoft.Health.Fhir.ValueSets.SearchParamType>(parameter.Type.ToString()),
+                    new Uri(parameter.Url),
+                    definition.Component,
+                    expression,
+                    parameter.Target.Select(value => value?.ToString()).ToArray(),
+                    parameter.Base.Select(value => value?.ToString()).ToArray(),
+                    parameter.Description,
+                    definitionStatus: parameter.Status?.ToString())
+                {
+                    SearchParameterStatus = SearchParameterStatus.Enabled,
+                    IsSearchable = true,
+                };
+            }
+            else
+            {
+                definition.SearchParameterStatus = SearchParameterStatus.Enabled;
+                definition.IsSearchable = true;
+            }
+
+            _cachedDefinitions[parameter.Url] = definition;
+        }
 
         private void SetupResults(params SearchResult[] results) =>
             _search.SearchAsync(

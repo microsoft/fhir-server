@@ -24,5 +24,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken, string updateProcess = null);
 
         Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Tries logging a cache update proof to the service-local event log.
+        /// </summary>
+        /// <param name="process">The event process name.</param>
+        /// <param name="text">The cache update proof.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        Task TryLogCacheUpdateProof(string process, string text, CancellationToken cancellationToken);
     }
 }

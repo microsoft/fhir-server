@@ -158,6 +158,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
                 throw new InvalidOperationException("The package installer returned without installing a SearchParameter.");
             }
 
+            await installer.ValidateAsync(package, cancellationToken);
+
             for (int attempt = 0; inspection.MissingEntries.Count > 0 && attempt < MaxConcurrentInstallAttempts; attempt++)
             {
                 int missingBefore = inspection.MissingEntries.Count;
@@ -236,7 +238,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
                 if (consistency.IsConsistent && separator > 0 &&
                     string.CompareOrdinal(proof[..separator], target) >= 0)
                 {
-                    FhirPackageInstallInspection current = await verifier.InspectAsync(package, cancellationToken);
+                    FhirPackageInstallInspection current;
+                    try
+                    {
+                        current = await verifier.InspectAsync(package, cancellationToken);
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        throw new FhirPackageWriteConflictException(
+                            "The committed package SearchParameters could not be inspected during cache convergence. Retry the install job.",
+                            isRetryable: true,
+                            ex);
+                    }
+
                     if (current.MissingEntries.Count > 0 || !current.LastUpdated.HasValue)
                     {
                         throw new FhirPackageWriteConflictException("The committed package SearchParameters changed during cache convergence. Retry the install job.", isRetryable: true);

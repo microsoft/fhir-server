@@ -14,6 +14,15 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
     public interface IFhirPackageInstaller
     {
         /// <summary>
+        /// Validates every installable resource in the package without writing anything.
+        /// </summary>
+        /// <param name="package">A package whose archive and manifest have already been verified.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A task that completes when the package is valid.</returns>
+        /// <exception cref="FhirPackageException">The package was rejected and nothing was written.</exception>
+        Task ValidateAsync(FhirPackage package, CancellationToken cancellationToken);
+
+        /// <summary>
         /// Validates every installable resource in the package and, only if all are valid, writes them.
         /// </summary>
         /// <param name="package">A package whose archive and manifest have already been verified.</param>
