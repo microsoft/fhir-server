@@ -1369,10 +1369,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Returns the scope filter parameters that govern <paramref name="resourceType"/> inside a chain, or null when
         /// the type is either granted without a filter or not granted at all (the latter is denied by the chained type check).
         /// Several filtered scopes are alternatives (OR). Chain links only support ANDed predicates, so they are combined
-        /// only when each filters on the same single unmodified parameter, as one comma-separated (OR) value; otherwise
-        /// the request is rejected.
+        /// only when each filters on the same single parameter, as one comma-separated (OR) value; otherwise the request
+        /// is rejected. Modified or chained scope parameters (e.g. category:not) are always rejected, because a chain link
+        /// evaluates each predicate per indexed value rather than per resource.
         /// </summary>
-        private static IReadOnlyList<Tuple<string, string>> GetChainFilteringParameters(string resourceType, IReadOnlyCollection<ScopeRestriction> grantedScopes)
+        private IReadOnlyList<Tuple<string, string>> GetChainFilteringParameters(string resourceType, IReadOnlyCollection<ScopeRestriction> grantedScopes)
         {
             var applicable = grantedScopes
                 .Where(r => r.Resource == resourceType || r.Resource == KnownResourceTypes.All)
@@ -1383,17 +1384,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 return null;
             }
 
-            if (applicable.Count == 1)
+            var scopeParameters = applicable.Select(r => r.SearchParameters.Parameters.ToList()).ToList();
+
+            if (scopeParameters.Any(p => p.Any(param => param.Item1.Contains(':', StringComparison.Ordinal) || param.Item1.Contains('.', StringComparison.Ordinal))))
             {
-                return applicable[0].SearchParameters.Parameters.ToList();
+                throw new InvalidSearchOperationException(
+                    string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeChainedSearchNotEnforceable, resourceType));
             }
 
-            var scopeParameters = applicable.Select(r => r.SearchParameters.Parameters.ToList()).ToList();
+            if (scopeParameters.Count == 1)
+            {
+                return scopeParameters[0];
+            }
+
             string key = scopeParameters[0][0].Item1;
 
-            // Modifiers are excluded because comma-separated values do not mean OR for all of them (e.g. :not).
-            bool canMerge = !key.Contains(':', StringComparison.Ordinal) &&
-                scopeParameters.All(p => p.Count == 1 && string.Equals(p[0].Item1, key, StringComparison.Ordinal));
+            bool canMerge = scopeParameters.All(p => p.Count == 1 && string.Equals(p[0].Item1, key, StringComparison.Ordinal)) &&
+                !HasComparatorValue(resourceType, key, scopeParameters.Select(p => p[0].Item2));
 
             if (!canMerge)
             {
@@ -1403,6 +1410,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             string mergedValue = string.Join(",", scopeParameters.Select(p => p[0].Item2).Distinct(StringComparer.Ordinal));
             return new[] { Tuple.Create(key, mergedValue) };
+        }
+
+        /// <summary>
+        /// Comparator prefixes (e.g. ge, lt) cannot be combined with a comma-separated (OR) value, so scopes whose
+        /// values use them cannot be merged.
+        /// </summary>
+        private bool HasComparatorValue(string resourceType, string parameterCode, IEnumerable<string> values)
+        {
+            if (!_searchParameterDefinitionManager.TryGetSearchParameter(resourceType, parameterCode, out SearchParameterInfo searchParameter) ||
+                (searchParameter.Type != ValueSets.SearchParamType.Date &&
+                 searchParameter.Type != ValueSets.SearchParamType.Number &&
+                 searchParameter.Type != ValueSets.SearchParamType.Quantity))
+            {
+                return false;
+            }
+
+            return values
+                .SelectMany(v => v.SplitByOrSeparator())
+                .Any(v => Enum.GetValues<ValueSets.SearchComparator>().Any(c => v.StartsWith(c.GetLiteral(), StringComparison.Ordinal)));
         }
 
         private List<Expression> BuildChainScopeFilters(IReadOnlyList<Tuple<string, string>> parameters, string targetResourceType)

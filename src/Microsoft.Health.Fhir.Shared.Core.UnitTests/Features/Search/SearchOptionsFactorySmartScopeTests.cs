@@ -50,6 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private const string AnyBaseReferenceA = "(Param subject (And (StringEquals ReferenceResourceType 'Patient') (StringEquals ReferenceResourceId 'A')))";
         private const string TagParameterCode = "_tag";
         private const string SemanticParameterCode = "semantic-text";
+        private const string DateParameterCode = "onset-date";
 
         [Fact]
         public void GivenResourceSpecificScopeWithUnavailableParameter_WhenCreated_ThenRequestIsDenied()
@@ -740,12 +741,41 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Theory]
         [InlineData("category", "code")]
         [InlineData("category:not", "category:not")]
-        public void GivenSeveralFilteredScopesThatCannotBeCombinedInAChain_WhenCreated_ThenRequestIsDenied(string firstCode, string secondCode)
+        [InlineData(DateParameterCode, DateParameterCode, "ge2020-01-01", "lt2010-01-01")]
+        public void GivenSeveralFilteredScopesThatCannotBeCombinedInAChain_WhenCreated_ThenRequestIsDenied(string firstCode, string secondCode, string firstValue = "encounter-diagnosis", string secondValue = "problem-list-item")
         {
             SearchOptionsFactory factory = CreateFactory(
                 new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
-                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams((firstCode, "encounter-diagnosis"))),
-                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams((secondCode, "problem-list-item"))));
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams((firstCode, firstValue))),
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams((secondCode, secondValue))));
+
+            Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false));
+        }
+
+        [Fact]
+        public void GivenSeveralFilteredScopesOnTheSameDateParameterWithoutComparators_WhenCreatedWithAChain_ThenTheirValuesAreCombinedInsideTheChain()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams((DateParameterCode, "2020-01-01"))),
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams((DateParameterCode, "2010-01-01"))));
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false);
+
+            var inner = Assert.IsType<MultiaryExpression>(FindChain(options.Expression).Expression);
+            Assert.Contains(inner.Expressions, e => e.ToString() == $"{DateParameterCode}=2020-01-01,2010-01-01");
+        }
+
+        [Theory]
+        [InlineData("category:not")]
+        [InlineData("category:missing")]
+        [InlineData("subject:Patient.name")]
+        public void GivenASingleFilteredScopeWithAModifierOrChain_WhenCreatedWithAChain_ThenRequestIsDenied(string code)
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams((code, "encounter-diagnosis"))));
 
             Assert.Throws<InvalidSearchOperationException>(
                 () => factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false));
@@ -931,6 +961,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), Arg.Any<string>())
                 .Returns(new SearchParameterInfo(SearchParameterNames.ResourceType, SearchParameterNames.ResourceType, ValueSets.SearchParamType.Token, SearchParameterNames.ResourceTypeUri));
+            searchParameterDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), DateParameterCode, out Arg.Any<SearchParameterInfo>())
+                .Returns(callInfo =>
+                {
+                    callInfo[2] = new SearchParameterInfo(DateParameterCode, DateParameterCode, ValueSets.SearchParamType.Date);
+                    return true;
+                });
 
             var requestContext = new DefaultFhirRequestContext
             {
