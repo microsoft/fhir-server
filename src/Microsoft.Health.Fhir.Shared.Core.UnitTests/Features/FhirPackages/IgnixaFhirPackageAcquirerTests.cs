@@ -223,7 +223,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
             // Arrange
             byte[] tarball = EmbeddedResourceManager.GetBytesContent("TestFiles", "FhirPackage-SearchParameters", "tgz");
             string integrity = Integrity(tarball);
-            await using var server = new SyntheticHttpsServer(path =>
+            SyntheticHttpsServer server = null;
+            await using var serverLifetime = server = new SyntheticHttpsServer(path =>
             {
                 if (path == $"/npm/{PackageId}/{PackageVersion}")
                 {
