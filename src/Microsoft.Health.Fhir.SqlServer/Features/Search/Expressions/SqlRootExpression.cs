@@ -43,9 +43,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         public IReadOnlyList<SearchParameterExpressionBase> ResourceTableExpressions { get; }
 
         /// <summary>
-        /// Gets candidate-driven SMART compartment membership rules for include authorization.
+        /// Gets candidate-driven SMART compartment membership rules for include, chained and _has authorization.
         /// </summary>
         public SmartCompartmentMembershipContext SmartCompartmentMembership { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether any table expression reaches resources other than the matched
+        /// resource by following references (_include/_revinclude, chained and _has links). These steps
+        /// are generated with a SMART compartment predicate only when <see cref="SmartCompartmentMembership"/>
+        /// is set, so a compartment-bound search must not generate them without it.
+        /// </summary>
+        public bool RequiresSmartCompartmentMembership =>
+            SearchParamTableExpressions.Any(t => t.Kind is SearchParamTableExpressionKind.Include or SearchParamTableExpressionKind.Chain);
 
         public SqlRootExpression WithSmartCompartmentMembership(SmartCompartmentMembershipContext membership)
         {

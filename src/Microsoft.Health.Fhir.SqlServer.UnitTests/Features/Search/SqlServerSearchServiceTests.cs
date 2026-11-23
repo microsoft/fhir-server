@@ -414,6 +414,30 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Equal(cts.Token, exception.CancellationToken);
         }
 
+        [Fact]
+        public async Task GivenCompartmentBoundCallerWithoutCompartmentScope_WhenIncludesSearchIsRun_ThenSearchFailsBeforeAnySqlRuns()
+        {
+            // Arrange
+            var fhirRequestContext = Substitute.For<IFhirRequestContext>();
+            fhirRequestContext.Properties.Returns(new Dictionary<string, object>());
+            fhirRequestContext.AccessControlContext.Returns(new AccessControlContext { CompartmentResourceType = "Patient" });
+            _requestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+            var searchService = CreateSearchService(CreateConcreteModel(_sqlRetryService));
+            var options = CreateIncludesCountOptions(CreateIncludesExpression(CreateInclude("Patient", "Observation", reversed: false, iterate: false)));
+
+            // Act
+            await Assert.ThrowsAsync<InvalidOperationException>(() => searchService.SearchAsync(options, CancellationToken.None));
+
+            // Assert
+            await _sqlRetryService.DidNotReceiveWithAnyArgs().ExecuteSql(
+                Arg.Any<Func<SqlConnection, CancellationToken, SqlException, Task>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<Func<SqlException, bool>>());
+        }
+
         private static SqlServerFhirModel CreateConcreteModel(ISqlRetryService sqlRetryService)
         {
             var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max)

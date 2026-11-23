@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -629,7 +629,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 reuseQueryPlans && _queryPlanReuseChecker.CanReuseQueryPlan(clonedSearchOptions),
                                 sqlSearchOptions.IsAsyncOperation,
                                 sqlException,
-                                enableChainSourceDeduplication: _fhirSqlServerConfiguration.EnableChainSourceDeduplication);
+                                enableChainSourceDeduplication: _fhirSqlServerConfiguration.EnableChainSourceDeduplication,
+                                logger: _logger);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
                             isSortValueNeeded = queryGenerator.IsSortValueNeeded(clonedSearchOptions);
@@ -2216,7 +2217,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 _fhirSqlServerConfiguration.ReuseQueryPlans && _queryPlanReuseChecker.CanReuseQueryPlan(clonedSearchOptions),
                                 sqlSearchOptions.IsAsyncOperation,
                                 sqlException,
-                                enableChainSourceDeduplication: _fhirSqlServerConfiguration.EnableChainSourceDeduplication);
+                                enableChainSourceDeduplication: _fhirSqlServerConfiguration.EnableChainSourceDeduplication,
+                                logger: _logger);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 
@@ -2463,7 +2465,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 // _include/_revinclude and chained/_has leaks). This should be unreachable; if it ever fires, a
                 // rewrite step is hiding or dropping the compartment expression, and we refuse to serve the request.
                 if (!string.IsNullOrWhiteSpace(_requestContextAccessor.RequestContext?.AccessControlContext?.CompartmentResourceType)
-                    && sqlExpression.SearchParamTableExpressions.Any(t => t.Kind is SearchParamTableExpressionKind.Include or SearchParamTableExpressionKind.Chain))
+                    && sqlExpression.RequiresSmartCompartmentMembership)
                 {
                     _logger.LogCritical(
                         "SMART {CompartmentResourceType} compartment restriction is active but no compartment authorization context was constructed; refusing to generate _include/_revinclude or chained/_has SQL without compartment authorization.",
@@ -2479,7 +2481,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             // Record on the options that this SQL generation MUST carry the membership context; the query
             // generator re-checks this so that any future rewrite step that reconstructs SqlRootExpression
             // after this point (dropping the attached context) fails loudly instead of silently generating
-            // unauthorized include CTEs.
+            // unauthorized include or chain CTEs.
             searchOptions.IsSmartCompartmentSearch = true;
             return sqlExpression.WithSmartCompartmentMembership(membership);
         }

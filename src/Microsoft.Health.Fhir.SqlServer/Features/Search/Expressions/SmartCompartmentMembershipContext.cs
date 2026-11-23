@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
     /// </summary>
     /// <param name="CompartmentResourceType">The compartment root resource type (for example, Patient or Practitioner).</param>
     /// <param name="CompartmentResourceId">The authorized compartment root resource id.</param>
-    /// <param name="SharedResourceTypes">Resource types that are always authorized as include candidates (universal/shared).</param>
+    /// <param name="SharedResourceTypes">Resource types that are always authorized as include, chained and _has candidates (universal/shared).</param>
     /// <param name="MembershipRules">Formal compartment membership rules grouped by candidate resource type.</param>
     /// <param name="ConditionalRules">Rules for resource types whose visibility is conditional (neither universally shared nor plain members), for example the SMART Device limits. Each rule authorizes a candidate that either references the compartment root or has no reference at all, depending on its visibility.</param>
     internal sealed record SmartCompartmentMembershipContext(
