@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Security;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Core;
@@ -44,6 +45,17 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.FhirPackages
             IOptions<FhirPackageReaderOptions> readerOptions,
             TokenCredential credential,
             ILoggerFactory loggerFactory)
+            : this(options, reader, readerOptions, credential, loggerFactory, validateServerCertificate: null)
+        {
+        }
+
+        internal IgnixaFhirPackageAcquirer(
+            IOptions<FhirPackageAcquisitionOptions> options,
+            IgnixaFhirPackageReader reader,
+            IOptions<FhirPackageReaderOptions> readerOptions,
+            TokenCredential credential,
+            ILoggerFactory loggerFactory,
+            RemoteCertificateValidationCallback validateServerCertificate)
         {
             _options = EnsureArg.IsNotNull(options?.Value, nameof(options));
             _reader = EnsureArg.IsNotNull(reader, nameof(reader));
@@ -52,7 +64,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.FhirPackages
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
 
             var extractor = new PackageExtractor(loggerFactory.CreateLogger<PackageExtractor>());
-            _acquirer = new NpmPackageAcquirer(extractor, AuthenticateAsync);
+            _acquirer = new NpmPackageAcquirer(extractor, AuthenticateAsync, validateServerCertificate: validateServerCertificate);
         }
 
         /// <inheritdoc />
