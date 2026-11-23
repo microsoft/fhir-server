@@ -1547,6 +1547,8 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         var searchOptions = new SqlSearchOptions(new SearchOptions
         {
             Sort = [],
+            SearchParameters = [],
+            UnsupportedSearchParams = [],
             CountOnly = true,
             ResourceVersionTypes = ResourceVersionType.Latest,
         })
