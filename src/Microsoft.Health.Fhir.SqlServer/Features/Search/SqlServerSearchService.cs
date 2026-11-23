@@ -2459,18 +2459,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 // parsed fhirUser claim (system scopes never set it, so system-scope searches never enter this
                 // branch), and SearchOptionsFactory adds a SmartCompartmentSearchExpression whenever it is set —
                 // so a compartment-bound request whose expression yields no membership context means the include
-                // CTEs are about to be generated WITHOUT compartment authorization (the pre-fix
-                // _include/_revinclude leak). This should be unreachable; if it ever fires, a rewrite step is
-                // hiding or dropping the compartment expression, and we refuse to serve unauthorized includes.
+                // or chain CTEs are about to be generated WITHOUT compartment authorization (the pre-fix
+                // _include/_revinclude and chained/_has leaks). This should be unreachable; if it ever fires, a
+                // rewrite step is hiding or dropping the compartment expression, and we refuse to serve the request.
                 if (!string.IsNullOrWhiteSpace(_requestContextAccessor.RequestContext?.AccessControlContext?.CompartmentResourceType)
-                    && sqlExpression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include))
+                    && sqlExpression.SearchParamTableExpressions.Any(t => t.Kind is SearchParamTableExpressionKind.Include or SearchParamTableExpressionKind.Chain))
                 {
                     _logger.LogCritical(
-                        "SMART {CompartmentResourceType} compartment restriction is active but no include authorization context was constructed; refusing to generate _include/_revinclude SQL without compartment authorization.",
+                        "SMART {CompartmentResourceType} compartment restriction is active but no compartment authorization context was constructed; refusing to generate _include/_revinclude or chained/_has SQL without compartment authorization.",
                         _requestContextAccessor.RequestContext.AccessControlContext.CompartmentResourceType);
 
                     throw new InvalidOperationException(
-                        "SMART compartment restriction is active but no include authorization context was constructed for this request.");
+                        "SMART compartment restriction is active but no compartment authorization context was constructed for this request.");
                 }
 
                 return sqlExpression;

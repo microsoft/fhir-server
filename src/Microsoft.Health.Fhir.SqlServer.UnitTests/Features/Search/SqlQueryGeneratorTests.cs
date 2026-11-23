@@ -1436,6 +1436,138 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         Assert.DoesNotContain("smartCompartmentRoot", generatedSql);
     }
 
+    [Theory]
+    [InlineData(false, "refTarget", 1)]
+    [InlineData(true, "refSource", 1)]
+    [InlineData(false, "refTarget", 2)]
+    [InlineData(true, "refSource", 2)]
+    public void GivenSmartCompartmentChainOrHas_WhenSqlGenerated_ThenEveryChainLinkCandidateIsMembershipChecked(
+        bool reversed,
+        string candidateAlias,
+        int chainDepth)
+    {
+        // Arrange - a patient-compartment token issuing a chained search (subject:Patient.x=...) or
+        // _has (_has:Observation:subject:x=...). Each link pulls in a new resource (refTarget for a forward
+        // chain, refSource for _has) that must be inside the caller's compartment.
+        var referenceUrl = new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject");
+        var membershipParameterUrl = new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject-membership");
+        var reference = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            referenceUrl,
+            null,
+            "Observation.subject",
+            ["Patient"]);
+        var membership = new SmartCompartmentMembershipContext(
+            "Patient",
+            "patient-a",
+            ["Practitioner"],
+            [new SmartCompartmentMembershipRule("Observation", [membershipParameterUrl])]);
+        var tables = new List<SearchParamTableExpression>
+        {
+            new(null, null, SearchParamTableExpressionKind.All),
+        };
+        for (int level = 1; level <= chainDepth; level++)
+        {
+            tables.Add(new SearchParamTableExpression(
+                ChainLinkQueryGenerator.Instance,
+                new SqlChainLinkExpression(["Observation"], reference, ["Patient"], reversed),
+                SearchParamTableExpressionKind.Chain,
+                chainLevel: level));
+        }
+
+        ConfigureResourceTypeIds();
+        _fhirModel.GetSearchParamId(referenceUrl).Returns((short)40);
+        _fhirModel.GetSearchParamId(membershipParameterUrl).Returns((short)41);
+
+        // Act
+        _queryGenerator.VisitSqlRoot(
+            new SqlRootExpression(tables, [], membership),
+            new SearchOptions { Sort = [], CountOnly = true, ResourceVersionTypes = ResourceVersionType.Latest });
+
+        // Assert
+        string generatedSql = _strBuilder.ToString();
+        string membershipCheck = $"smartCompartmentMembership.ResourceSurrogateId = {candidateAlias}.ResourceSurrogateId";
+        int occurrences = (generatedSql.Length - generatedSql.Replace(membershipCheck, string.Empty, StringComparison.Ordinal).Length) / membershipCheck.Length;
+        Assert.Equal(chainDepth, occurrences);
+        Assert.Contains($"smartCompartmentMembership.ResourceTypeId = {candidateAlias}.ResourceTypeId", generatedSql);
+        Assert.Contains("smartCompartmentMembership.BaseUri IS NULL", generatedSql);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GivenChainWithoutSmartCompartmentMembership_WhenSqlGenerated_ThenNoCandidatePredicateIsEmitted(bool reversed)
+    {
+        // Arrange
+        var reference = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+            null,
+            "Observation.subject",
+            ["Patient"]);
+        ConfigureResourceTypeIds();
+        _fhirModel.GetSearchParamId(reference.Url).Returns((short)40);
+
+        // Act
+        _queryGenerator.VisitSqlRoot(
+            new SqlRootExpression(
+                [
+                    new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All),
+                    new SearchParamTableExpression(
+                        ChainLinkQueryGenerator.Instance,
+                        new SqlChainLinkExpression(["Observation"], reference, ["Patient"], reversed),
+                        SearchParamTableExpressionKind.Chain,
+                        chainLevel: 1),
+                ],
+                []),
+            new SearchOptions { Sort = [], CountOnly = true, ResourceVersionTypes = ResourceVersionType.Latest });
+
+        // Assert
+        string generatedSql = _strBuilder.ToString();
+        Assert.DoesNotContain("smartCompartmentMembership", generatedSql);
+        Assert.DoesNotContain("smartCompartmentRoot", generatedSql);
+    }
+
+    [Fact]
+    public void GivenSmartCompartmentSearchWithChainButMembershipDropped_WhenSqlGenerated_ThenGenerationFailsClosed()
+    {
+        // Arrange
+        var reference = new SearchParameterInfo(
+            "subject",
+            "subject",
+            SearchParamType.Reference,
+            new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+            null,
+            "Observation.subject",
+            ["Patient"]);
+        var searchOptions = new SqlSearchOptions(new SearchOptions
+        {
+            Sort = [],
+            CountOnly = true,
+            ResourceVersionTypes = ResourceVersionType.Latest,
+        })
+        {
+            IsSmartCompartmentSearch = true,
+        };
+        SqlRootExpression sqlExpression = new(
+            [
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.All),
+                new SearchParamTableExpression(
+                    ChainLinkQueryGenerator.Instance,
+                    new SqlChainLinkExpression(["Observation"], reference, ["Patient"], reversed: true),
+                    SearchParamTableExpressionKind.Chain,
+                    chainLevel: 1),
+            ],
+            []);
+
+        // Act & Assert
+        Assert.Throws<InvalidOperationException>(() => _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions));
+    }
+
     [Fact]
     public void GivenObservationCompartmentDefinition_WhenMembershipCreated_ThenFocusIsNotAMembershipParameter()
     {

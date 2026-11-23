@@ -144,15 +144,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             // (see SqlServerSearchService.AttachSmartCompartmentMembership), it must still be present on the
             // root expression that reaches SQL generation. SmartCompartmentMembership is carried outside the
             // visitable expression tree, so a rewrite step that reconstructs SqlRootExpression after the attach
-            // would silently drop it — and the include CTEs would be generated without compartment
+            // would silently drop it — and the include and chain CTEs would be generated without compartment
             // authorization. Refuse to generate that SQL. This cannot affect non-SMART or system-scope
             // searches: IsSmartCompartmentSearch is only set when a membership context was actually attached.
             if (context is SqlSearchOptions { IsSmartCompartmentSearch: true }
                 && expression.SmartCompartmentMembership == null
-                && expression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include))
+                && expression.SearchParamTableExpressions.Any(t => t.Kind is SearchParamTableExpressionKind.Include or SearchParamTableExpressionKind.Chain))
             {
                 throw new InvalidOperationException(
-                    "SMART compartment membership context was dropped before SQL generation; refusing to generate _include/_revinclude SQL without compartment authorization.");
+                    "SMART compartment membership context was dropped before SQL generation; refusing to generate _include/_revinclude or chained/_has SQL without compartment authorization.");
             }
 
             var visitedInclude = false;
@@ -1376,6 +1376,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 {
                     delimited.BeginDelimitedElement();
                     chainedExpression.ExpressionOnSource.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext(chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias));
+                }
+
+                // The root compartment filter only restricts the returned resources. Each chain link introduces a new
+                // resource (the reference source for _has, the reference target for a forward chain) whose search
+                // predicates would otherwise be evaluated across every compartment, turning the outer result into an
+                // oracle over out-of-compartment data. Authorize that resource exactly as _include/_revinclude do.
+                if (_rootExpression.SmartCompartmentMembership != null)
+                {
+                    AppendSmartCompartmentCandidatePredicate(
+                        delimited.BeginDelimitedElement(),
+                        chainedExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias,
+                        candidateIsResourceTable: !chainedExpression.Reversed);
                 }
             }
         }
