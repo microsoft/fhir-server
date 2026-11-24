@@ -1563,6 +1563,68 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         Assert.Matches(@"^FROM dbo\.TokenSearchParam\s+JOIN cte\d+ ON ResourceTypeId = T2 AND ResourceSurrogateId = Sid2", tokenCte);
     }
 
+    [Fact]
+    public void GivenSmartScopeUnionFollowedByChain_WhenChainTargetNumericPredicateIsSplit_ThenBothBranchesJoinTheChain()
+    {
+        // Arrange - a numeric chain-target predicate is split into Normal + Concatenation branches.
+        var statusUrl = new Uri("http://hl7.org/fhir/SearchParameter/Observation-status");
+        var subjectUrl = new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject");
+        var probabilityUrl = new Uri("http://hl7.org/fhir/SearchParameter/RiskAssessment-probability");
+        var status = new SearchParameterInfo("status", "status", SearchParamType.Token, statusUrl, null, "Observation.status", ["Observation"]);
+        var subject = new SearchParameterInfo("subject", "subject", SearchParamType.Reference, subjectUrl, null, "Observation.subject", ["RiskAssessment"]);
+        var probability = new SearchParameterInfo("probability", "probability", SearchParamType.Number, probabilityUrl, null, "RiskAssessment.prediction.probability", ["RiskAssessment"]);
+
+        var individualAnd = Expression.And(Expression.SearchParameter(status, Expression.StringEquals(FieldName.TokenCode, null, "final", false)));
+        individualAnd.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+        var scopeAnd = Expression.And(individualAnd);
+        scopeAnd.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+        var smartUnion = Expression.Union(UnionOperator.All, [scopeAnd]);
+        smartUnion.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+
+        SqlRootExpression sqlExpression = new(
+            [
+                new SearchParamTableExpression(TokenQueryGenerator.Instance, Expression.And(smartUnion), SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(
+                    ChainLinkQueryGenerator.Instance,
+                    new SqlChainLinkExpression(["Observation"], subject, ["RiskAssessment"], false),
+                    SearchParamTableExpressionKind.Chain,
+                    chainLevel: 1),
+                new SearchParamTableExpression(
+                    NumberQueryGenerator.Instance,
+                    Expression.SearchParameter(probability, Expression.Equals(FieldName.Number, null, 0.5m)),
+                    SearchParamTableExpressionKind.Normal,
+                    chainLevel: 1),
+                new SearchParamTableExpression(
+                    NumberQueryGenerator.Instance,
+                    Expression.SearchParameter(probability, Expression.LessThanOrEqual(SqlFieldName.NumberLow, null, 0.5m)),
+                    SearchParamTableExpressionKind.Concatenation,
+                    chainLevel: 1),
+            ],
+            []);
+
+        ConfigureResourceTypeIds();
+        _fhirModel.GetSearchParamId(statusUrl).Returns((short)40);
+        _fhirModel.GetSearchParamId(subjectUrl).Returns((short)41);
+        _fhirModel.GetSearchParamId(probabilityUrl).Returns((short)43);
+
+        // Act
+        _queryGenerator.VisitSqlRoot(sqlExpression, new SearchOptions { Sort = [], CountOnly = true, ResourceVersionTypes = ResourceVersionType.Latest });
+
+        // Assert - both numeric branches must restrict on the chain CTE's target (T2/Sid2), not on each other.
+        string generatedSql = _strBuilder.ToString();
+        string chainCte = Regex.Match(generatedSql, @"(cte\d+) AS\s*\(\s*SELECT[^()]*?FROM dbo\.ReferenceSearchParam", RegexOptions.Singleline).Groups[1].Value;
+        Assert.False(string.IsNullOrEmpty(chainCte), generatedSql);
+
+        MatchCollection numberJoins = Regex.Matches(generatedSql, @"FROM dbo\.NumberSearchParam\s+JOIN (cte\d+) ON ResourceTypeId = (\w+) AND ResourceSurrogateId = (\w+)");
+        Assert.Equal(2, numberJoins.Count);
+        Assert.All(numberJoins, m =>
+        {
+            Assert.Equal(chainCte, m.Groups[1].Value);
+            Assert.Equal("T2", m.Groups[2].Value);
+            Assert.Equal("Sid2", m.Groups[3].Value);
+        });
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

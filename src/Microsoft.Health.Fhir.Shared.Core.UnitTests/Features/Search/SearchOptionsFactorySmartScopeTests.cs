@@ -762,6 +762,58 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 () => factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false));
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GivenIdenticalFilteredScopesThatCouldNotBeCombined_WhenCreatedWithAChain_ThenTheFilterIsAppliedOnce(bool comparator)
+        {
+            (string Name, string Value)[] filter = comparator
+                ? new[] { (DateParameterCode, "ge2020-01-01") }
+                : new[] { ("category", "encounter-diagnosis"), (AvailableParameterCode, "y") };
+
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams(filter)),
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams(filter)));
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false);
+
+            var inner = Assert.IsType<MultiaryExpression>(FindChain(options.Expression).Expression);
+            Assert.Equal(1 + filter.Length, inner.Expressions.Count);
+            foreach ((string name, string value) in filter)
+            {
+                Assert.Contains(inner.Expressions, e => e.ToString() == $"{name}={value}");
+            }
+        }
+
+        [Fact]
+        public void GivenAnUnavailableFilteredScopeAndAUsableAlternative_WhenCreatedWithAChain_ThenTheUnavailableScopeIsWithdrawn()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams(("category", "encounter-diagnosis"))),
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams((UnavailableParameterCode, "patient-B"))));
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false);
+
+            string chainCriteria = FindChain(options.Expression).Expression.ToString();
+            Assert.Contains("category=encounter-diagnosis", chainCriteria, StringComparison.Ordinal);
+            Assert.DoesNotContain($"{UnavailableParameterCode}=", chainCriteria, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenAnUnavailableWildcardScopeFilterAndAUsableAlternative_WhenCreatedWithAChain_ThenRequestIsDenied()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams(("category", "encounter-diagnosis"))),
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams((UnavailableParameterCode, "patient-B"))));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false));
+            Assert.Contains(UnavailableParameterCode, exception.Message, StringComparison.Ordinal);
+        }
+
         [Fact]
         public void GivenSeveralFilteredScopesOnTheSameDateParameterWithoutComparators_WhenCreatedWithAChain_ThenTheirValuesAreCombinedInsideTheChain()
         {

@@ -1372,6 +1372,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// only when each filters on the same single parameter, as one comma-separated (OR) value; otherwise the request
         /// is rejected. Modified or chained scope parameters (e.g. category:not) are always rejected, because a chain link
         /// evaluates each predicate per indexed value rather than per resource.
+        /// As in direct search (ADR 2609), a resource-specific scope whose filter is unavailable is withdrawn before
+        /// merging, and the request is denied only when no scope is left; an unavailable wildcard constraint is denied.
         /// </summary>
         private IReadOnlyList<Tuple<string, string>> GetChainFilteringParameters(string resourceType, IReadOnlyCollection<ScopeRestriction> grantedScopes)
         {
@@ -1384,13 +1386,38 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 return null;
             }
 
-            var scopeParameters = applicable.Select(r => r.SearchParameters.Parameters.ToList()).ToList();
-
-            if (scopeParameters.Any(p => p.Any(param => param.Item1.Contains(':', StringComparison.Ordinal) || param.Item1.Contains('.', StringComparison.Ordinal))))
+            var scopeParameters = new List<List<Tuple<string, string>>>();
+            string withdrawnReason = null;
+            foreach (ScopeRestriction restriction in applicable)
             {
-                throw new InvalidSearchOperationException(
-                    string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeChainedSearchNotEnforceable, resourceType));
+                List<Tuple<string, string>> parameters = restriction.SearchParameters.Parameters.ToList();
+                string unusableReason = GetChainScopeUnusableReason(parameters, resourceType);
+
+                if (unusableReason == null)
+                {
+                    scopeParameters.Add(parameters);
+                }
+                else if (restriction.Resource == KnownResourceTypes.All)
+                {
+                    // A wildcard constraint applies to every scope, so it cannot be withdrawn without widening access.
+                    throw new InvalidSearchOperationException(unusableReason);
+                }
+                else
+                {
+                    withdrawnReason ??= unusableReason;
+                }
             }
+
+            if (scopeParameters.Count == 0)
+            {
+                throw new InvalidSearchOperationException(withdrawnReason);
+            }
+
+            // Identical grants are the same alternative and must not be treated as distinct ones that need merging.
+            scopeParameters = scopeParameters
+                .GroupBy(p => string.Join("&", p.Select(param => param.Item1 + "=" + param.Item2).OrderBy(s => s, StringComparer.Ordinal)), StringComparer.Ordinal)
+                .Select(g => g.First())
+                .ToList();
 
             if (scopeParameters.Count == 1)
             {
@@ -1411,6 +1438,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             string mergedValue = string.Join(",", scopeParameters.Select(p => p[0].Item2).Distinct(StringComparer.Ordinal));
             return new[] { Tuple.Create(key, mergedValue) };
+        }
+
+        /// <summary>
+        /// Returns why one scope's filter cannot be enforced on a chain link for <paramref name="resourceType"/>, or null when it can.
+        /// Resource-level parameters (_id, _lastUpdated, _type) are not evaluated as per-link predicates inside a chain by
+        /// every backend.
+        /// </summary>
+        private string GetChainScopeUnusableReason(IReadOnlyList<Tuple<string, string>> parameters, string resourceType)
+        {
+            if (parameters.Any(param => param.Item1.Contains(':', StringComparison.Ordinal) || param.Item1.Contains('.', StringComparison.Ordinal)))
+            {
+                return string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeChainedSearchNotEnforceable, resourceType);
+            }
+
+            var filters = new List<Expression>();
+            foreach (Tuple<string, string> param in parameters)
+            {
+                if (!TryParseScopeParameter(param, resourceType, filters, out string unenforceableParameter))
+                {
+                    return string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeSearchParameterNotEnforceable, unenforceableParameter);
+                }
+            }
+
+            if (filters.Any(IsResourceLevelParameter))
+            {
+                return string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeChainedSearchNotEnforceable, resourceType);
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -1457,14 +1513,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     throw new InvalidSearchOperationException(
                         string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeSearchParameterNotEnforceable, unenforceableParameter));
                 }
-            }
-
-            // Resource-level parameters (_id, _lastUpdated, _type) are not evaluated as per-link predicates inside a
-            // chain by every backend, so they cannot be enforced there.
-            if (filters.Any(IsResourceLevelParameter))
-            {
-                throw new InvalidSearchOperationException(
-                    string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeChainedSearchNotEnforceable, targetResourceType));
             }
 
             return filters;

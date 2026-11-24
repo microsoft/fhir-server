@@ -62,6 +62,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private bool _smartV2UnionVisited = false;
         private int _unionAggregateCTEIndex = -1; // the index of the CTE that aggregates all union results
         private bool _firstChainAfterUnionVisited = false;
+        private int _lastChainAfterUnionPredecessorIndex = -1;
+        private bool _lastChainAfterUnionJoinOnTarget = false;
         private HashSet<int> _cteToLimit = new HashSet<int>();
         private bool _hasIdentifier = false;
         private int _searchParamCount = 0;
@@ -1020,9 +1022,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     specialCaseTableName = new VLatest.ResourceTable();
                 }
 
-                // A chain CTE exposes the chain target as T2/Sid2, so predicates following it must bind there.
-                int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
-                bool joinOnChainTarget = _firstChainAfterUnionVisited || _chainTableExpressionIndexes.Contains(predecessorIndex);
+                // The union adds CTEs that have no matching table expression, so CTE indexes cannot be used to look up
+                // table expressions here. Join the CTE emitted just before this one; a concatenation is the second half of
+                // a split predicate and must restrict the same input, on the same columns, as the first half.
+                int predecessorIndex;
+                bool joinOnChainTarget;
+                if (searchParamTableExpression.Kind == SearchParamTableExpressionKind.Concatenation)
+                {
+                    predecessorIndex = _lastChainAfterUnionPredecessorIndex;
+                    joinOnChainTarget = _lastChainAfterUnionJoinOnTarget;
+                }
+                else
+                {
+                    // A chain CTE exposes the chain target as T2/Sid2, so predicates following it must bind there.
+                    predecessorIndex = _tableExpressionCounter - 1;
+                    joinOnChainTarget = _firstChainAfterUnionVisited || _chainTableExpressionIndexes.Contains(predecessorIndex);
+                    _lastChainAfterUnionPredecessorIndex = predecessorIndex;
+                    _lastChainAfterUnionJoinOnTarget = joinOnChainTarget;
+                }
 
                 StringBuilder.Append("SELECT T1, Sid1, ")
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
@@ -1032,8 +1049,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(joinOnChainTarget ? "T2" : "T1")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine(joinOnChainTarget ? "Sid2" : "Sid1");
 
-                // once we have visited a table after the union all, the remained of the inner joins
-                // should be on T1 and Sid1
+                // Every CTE emitted here exposes the chain target as T2/Sid2, so the remaining inner joins bind on T2/Sid2.
                 _firstChainAfterUnionVisited = true;
             }
             else
