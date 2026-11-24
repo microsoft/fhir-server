@@ -16,6 +16,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         public bool IsEnabled => false;
 
         /// <inheritdoc />
+        public IEnumerable<IPartitionInfo> GetPartitions() => [];
+
+        /// <inheritdoc />
         public bool TryGetPartition(string partitionId, out IPartitionInfo partitionInfo)
         {
             partitionInfo = null;

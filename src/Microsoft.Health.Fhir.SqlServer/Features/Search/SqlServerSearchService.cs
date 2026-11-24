@@ -28,6 +28,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Caching;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Parameters;
@@ -96,6 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IFhirDataStore _fhirDataStore;
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
+        private readonly ScopedCache<CustomQueryProcedures> _customQueries;
 
         private static readonly string[] NewLineSeparators = ["\r\n", "\n"];
         private static readonly Regex WhitespacePattern = new Regex(@"\s+", RegexOptions.Compiled);
@@ -168,6 +170,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ISqlQueryHashCalculator queryHashCalculator,
             IQueryPlanReuseChecker queryPlanReuseChecker,
+            ScopedCache<CustomQueryProcedures> customQueries,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
@@ -199,6 +202,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _sqlRetryService = sqlRetryService;
             _queryHashCalculator = queryHashCalculator;
             _queryPlanReuseChecker = queryPlanReuseChecker;
+            _customQueries = EnsureArg.IsNotNull(customQueries, nameof(customQueries));
             _logger = logger;
 
             _schemaInformation = schemaInformation;
@@ -211,6 +215,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         internal bool StoredProcedureLayerIsEnabled { get; set; } = true;
 
         internal ISqlServerFhirModel Model => _model;
+
+        // Custom queries only replace the generated SQL with a faster equivalent, so a failed load must not fail the search.
+        // Loaded before the search opens its connection, so a reload never waits for a second pooled connection.
+        private async Task<CustomQueryProcedures> GetCustomQueriesAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                return await _customQueries.GetAsync(cancellationToken);
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex, "Error loading the custom query cache. Searches run without custom queries until it loads.");
+                return null;
+            }
+        }
+
+        private static string GetCustomQuery(CustomQueryProcedures customQueries, string queryHash) =>
+            customQueries != null && customQueries.TryGetProcedureName(queryHash, out string procedureName) ? procedureName : null;
 
         private static void InitializeProcessingFlags(ILogger<SqlServerSearchService> logger)
         {
@@ -537,6 +559,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             SearchResult searchResult = null;
             string databaseName = _requestContextAccessor.RequestContext.GetDatabase();
+            CustomQueryProcedures customQueries = await GetCustomQueriesAsync(cancellationToken);
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
                 {
@@ -581,7 +604,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             var queryText = stringBuilder.ToString();
                             queryText = queryGenerator.CalculateHashThenAddNormalizedQueryShape(queryText, clonedSearchOptions.NormalizedQueryShape, _queryHashCalculator, out var queryHash);
                             _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
-                            var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
+                            var customQuery = GetCustomQuery(customQueries, queryHash);
 
                             if (!string.IsNullOrEmpty(customQuery))
                             {
@@ -2065,6 +2088,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             SearchResult searchResult = null;
             string databaseName = _requestContextAccessor.RequestContext.GetDatabase();
+            CustomQueryProcedures customQueries = await GetCustomQueriesAsync(cancellationToken);
 
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
@@ -2104,7 +2128,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             var queryText = stringBuilder.ToString();
                             queryText = queryGenerator.CalculateHashThenAddNormalizedQueryShape(queryText, clonedSearchOptions.NormalizedQueryShape, _queryHashCalculator, out var queryHash);
                             _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
-                            var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
+                            var customQuery = GetCustomQuery(customQueries, queryHash);
 
                             if (!string.IsNullOrEmpty(customQuery))
                             {

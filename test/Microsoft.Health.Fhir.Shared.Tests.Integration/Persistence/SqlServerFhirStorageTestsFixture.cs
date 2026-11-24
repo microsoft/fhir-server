@@ -17,9 +17,11 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Time.Testing;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Caching;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -143,6 +145,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal SchemaInformation SchemaInformation { get; private set; }
 
         internal ISqlQueryHashCalculator SqlQueryHashCalculator { get; private set; }
+
+        internal FakeTimeProvider CustomQueryTimeProvider { get; } = new FakeTimeProvider();
+
+        internal ScopedCache<CustomQueryProcedures> CustomQueries { get; private set; }
 
         internal RequestContextAccessor<IFhirRequestContext> FhirRequestContextAccessor => _fhirRequestContextAccessor;
 
@@ -311,6 +317,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var queryPlanReuseChecker = new QueryPlanReuseChecker(SqlRetryService, _fhirSqlConfiguration, NullLogger<QueryPlanReuseChecker>.Instance);
 
             SqlQueryHashCalculator = new TestSqlHashCalculator();
+            CustomQueries = new ScopedCache<CustomQueryProcedures>(
+                new CustomQueryCache(SqlConnectionBuilder, NullLogger<CustomQueryCache>.Instance, CustomQueryTimeProvider),
+                _fhirRequestContextAccessor);
 
             _searchService = new SqlServerSearchService(
                 searchOptionsFactory,
@@ -331,6 +340,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new CompressedRawResourceConverter(),
                 SqlQueryHashCalculator,
                 queryPlanReuseChecker,
+                CustomQueries,
                 _options,
                 NullLogger<SqlServerSearchService>.Instance);
 
@@ -461,6 +471,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(TestSqlHashCalculator))
             {
                 return SqlQueryHashCalculator as TestSqlHashCalculator;
+            }
+
+            if (serviceType == typeof(ScopedCache<CustomQueryProcedures>))
+            {
+                return CustomQueries;
+            }
+
+            if (serviceType == typeof(FakeTimeProvider))
+            {
+                return CustomQueryTimeProvider;
             }
 
             if (serviceType == typeof(FhirSqlServerConfiguration))

@@ -182,11 +182,11 @@ Caches are loaded at startup and refreshed in the background, so most reads are 
 
 ### 13. Custom query procedures
 - **What it does:** Lets a search use a hand-tuned stored procedure (`CustomQuery_<hash>`) when one exists for its query hash.
-- **Loads from:** `sys.objects`.
-- **When:** First search.
+- **Loads from:** `sys.objects` in the partition's database.
+- **When:** Preloaded at startup for each partition; otherwise on first search.
 - **Refresh:** Expires after 60 seconds; reloaded on the next search.
-- **Code:** `CustomQueries` (static, SqlServer).
-- **Refactor effort:** Low – small static class.
+- **Code:** `CustomQueryCache : SqlPartitionCache<CustomQueryProcedures>` (SqlServer), read by `SqlServerSearchService` through `ScopedCache<CustomQueryProcedures>`. Moved; previously the static `CustomQueries`, which read `sys.objects` on the search connection and so always used the default database.
+- **Refactor effort:** Low – done.
 
 ### 14. SQL statistics list
 - **What it does:** Remembers which SQL statistics already exist on search tables so they are not created again.

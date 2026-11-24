@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features.Partitions;
@@ -25,6 +26,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Partitions
 
         /// <inheritdoc />
         public bool IsEnabled => _options.Partitions.Count > 0;
+
+        /// <inheritdoc />
+        public IEnumerable<IPartitionInfo> GetPartitions() =>
+            _options.Partitions.Select(p => new SqlPartitionInfo { Database = p.Value.Database, Id = p.Key });
 
         /// <inheritdoc />
         public bool TryGetPartition(string partitionId, out IPartitionInfo partitionInfo)
