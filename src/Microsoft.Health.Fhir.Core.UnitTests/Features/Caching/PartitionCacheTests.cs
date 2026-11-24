@@ -57,6 +57,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
         }
 
         [Fact]
+        public async Task GivenASynchronousLoadWasRejectedAsIncomplete_WhenItCompletesAfterALaterLoad_ThenTheLaterValueIsKept()
+        {
+            var release = new TaskCompletionSource<int>();
+            int calls = 0;
+            var cache = new TestPartitionCache<int>((_, _, _) => ++calls == 1 ? new ValueTask<int>(release.Task) : new ValueTask<int>(2));
+
+            Assert.Throws<InvalidOperationException>(() => cache.Get(PartitionA));
+            Assert.Equal(2, await cache.GetAsync(PartitionA));
+
+            release.SetResult(1);
+
+            Assert.Equal(2, await cache.GetAsync(PartitionA));
+        }
+
+        [Fact]
         public async Task GivenAnExpiry_WhenItElapses_ThenTheValueIsReloaded()
         {
             var time = new FakeTimeProvider();

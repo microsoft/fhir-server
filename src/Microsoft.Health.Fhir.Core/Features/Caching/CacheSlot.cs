@@ -83,9 +83,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
             Entry previous = Volatile.Read(ref _entry);
             try
             {
-                T value = await load(async, cancellationToken).ConfigureAwait(false);
-                Volatile.Write(ref _entry, new Entry(value, _timeProvider.GetUtcNow()));
-                return value;
+                ValueTask<T> pending = load(async, cancellationToken);
+                if (async || pending.IsCompleted)
+                {
+                    T value = await pending.ConfigureAwait(false);
+                    Volatile.Write(ref _entry, new Entry(value, _timeProvider.GetUtcNow()));
+                    return value;
+                }
             }
             catch (Exception ex) when (previous != null && !cancellationToken.IsCancellationRequested)
             {
@@ -93,6 +97,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
                 onRefreshFailed(ex);
                 return previous.Value;
             }
+
+            // Not awaited, so the rejected load can never publish its value later, outside the lock.
+            throw new InvalidOperationException("A synchronous load returned an incomplete task. Loaders must not await when async is false.");
         }
 
         private sealed record Entry(T Value, DateTimeOffset LoadedAt);

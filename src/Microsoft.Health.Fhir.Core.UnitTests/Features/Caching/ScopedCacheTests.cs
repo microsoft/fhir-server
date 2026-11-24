@@ -11,6 +11,7 @@ using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
+using NSubstitute.ReturnsExtensions;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
         [Fact]
         public async Task GivenARequestWithoutAPartition_WhenRead_ThenTheUnpartitionedValueIsReturned()
         {
-            _requestContextAccessor.RequestContext.Partition.Returns((IPartitionInfo)null);
+            _requestContextAccessor.RequestContext.Partition.ReturnsNull();
             var scopedCache = new ScopedCache<string>(_cache, _requestContextAccessor);
 
             Assert.Equal("default", await scopedCache.GetAsync());

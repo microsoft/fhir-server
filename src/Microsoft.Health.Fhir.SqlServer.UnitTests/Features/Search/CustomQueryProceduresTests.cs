@@ -26,5 +26,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.False(procedures.TryGetProcedureName("hash3", out _));
             Assert.False(procedures.TryGetProcedureName("a", out _));
         }
+
+        [Fact]
+        public void GivenAProcedureWithALowercasePrefix_WhenCreated_ThenItIsStillUsed()
+        {
+            var procedures = CustomQueryProcedures.Create(["customquery_Hash1"]);
+
+            Assert.True(procedures.TryGetProcedureName("Hash1", out string name));
+            Assert.Equal("customquery_Hash1", name);
+        }
     }
 }

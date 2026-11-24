@@ -61,7 +61,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             SqlConnection.ClearAllPools();
             foreach (string database in new[] { _applicationDatabase, _alphaDatabase, _betaDatabase })
             {
-                await ExecuteAsync(null, $"IF DB_ID('{database}') IS NOT NULL BEGIN ALTER DATABASE [{database}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{database}] END");
+                // Standalone batch from master: Azure SQL Database (used in CI) requires DROP DATABASE alone in its batch.
+                await ExecuteAsync(null, $"DROP DATABASE IF EXISTS [{database}]");
             }
         }
 
@@ -122,7 +123,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             await using var connection = new SqlConnection(GetConnectionString(database));
             await connection.OpenAsync();
-            await using var command = new SqlCommand(sql, connection);
+            await using var command = new SqlCommand(sql, connection) { CommandTimeout = 300 };
             await command.ExecuteNonQueryAsync();
         }
     }

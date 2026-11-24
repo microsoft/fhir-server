@@ -34,7 +34,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _procedureNamesByHash.TryGetValue(EnsureArg.IsNotNull(queryHash, nameof(queryHash)), out procedureName);
 
         /// <summary>
-        /// Builds the lookup from procedure names. Names that aren't exactly <c>CustomQuery_&lt;hash&gt;</c> are ignored.
+        /// Builds the lookup from procedure names. Names that aren't <c>CustomQuery_&lt;hash&gt;</c> are ignored; the
+        /// prefix matches case-insensitively, like the <c>LIKE</c> filter that loads them under a case-insensitive collation.
         /// </summary>
         /// <param name="procedureNames">The procedure names.</param>
         /// <returns>The procedures keyed by hash.</returns>
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             foreach (string name in EnsureArg.IsNotNull(procedureNames, nameof(procedureNames)))
             {
                 string[] tokens = name.Split('_');
-                if (tokens.Length == 2 && name.StartsWith(Prefix, StringComparison.Ordinal))
+                if (tokens.Length == 2 && name.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
                 {
                     procedureNamesByHash.TryAdd(tokens[1], name);
                 }
