@@ -41,6 +41,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IActionContextAccessor _actionContextAccessor;
         private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
+        private readonly IEndpointAddressScheme<RouteValuesAddress> _endpointAddressScheme;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="UrlResolver"/> class.
@@ -51,19 +52,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         /// <param name="actionContextAccessor">The ASP.NET Core Action context accessor.</param>
         /// <param name="bundleHttpContextAccessor">The bundle aware http context accessor.</param>
         /// <param name="linkGenerator">The ASP.NET Core link generator.</param>
+        /// <param name="endpointAddressScheme">The ASP.NET Core endpoint lookup for route names.</param>
         public UrlResolver(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlHelperFactory urlHelperFactory,
             IHttpContextAccessor httpContextAccessor,
             IActionContextAccessor actionContextAccessor,
             IBundleHttpContextAccessor bundleHttpContextAccessor,
-            LinkGenerator linkGenerator)
+            LinkGenerator linkGenerator,
+            IEndpointAddressScheme<RouteValuesAddress> endpointAddressScheme)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(urlHelperFactory, nameof(urlHelperFactory));
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(actionContextAccessor, nameof(actionContextAccessor));
             EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
+            EnsureArg.IsNotNull(endpointAddressScheme, nameof(endpointAddressScheme));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlHelperFactory = urlHelperFactory;
@@ -71,6 +75,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             _actionContextAccessor = actionContextAccessor;
             _bundleHttpContextAccessor = bundleHttpContextAccessor;
             _linkGenerator = linkGenerator;
+            _endpointAddressScheme = endpointAddressScheme;
         }
 
         /// <inheritdoc />
@@ -395,6 +400,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     pathBase += "/";
                 }
 
+                if (_fhirRequestContextAccessor.RequestContext.Partition != null && IsPartitionRoute(routeName))
+                {
+                    routeValues = new RouteValueDictionary(routeValues)
+                    {
+                        [PartitionRoute.PartitionId] = _fhirRequestContextAccessor.RequestContext.Partition.Id,
+                    };
+                    if (address != null)
+                    {
+                        address = new RouteValuesAddress { RouteName = routeName, ExplicitValues = routeValues, AmbientValues = address.AmbientValues };
+                    }
+                }
+
                 uriString = address == null ?
                     _linkGenerator.GetUriByRouteValues(
                         httpContext,
@@ -414,6 +431,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             }
 
             return uriString == null ? null : new Uri(uriString);
+        }
+
+        // Partition-independent routes (e.g., the SMART proxy) have no partitionId parameter; supplying one would add it to the query string.
+        private bool IsPartitionRoute(string routeName)
+        {
+            return _endpointAddressScheme
+                .FindEndpoints(new RouteValuesAddress { RouteName = routeName })
+                .OfType<RouteEndpoint>()
+                .Any(endpoint => endpoint.RoutePattern.GetParameter(PartitionRoute.PartitionId) != null);
         }
     }
 }

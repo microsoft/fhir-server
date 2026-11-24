@@ -8,7 +8,9 @@ using System.Numerics;
 using System.Threading.Tasks;
 using Medino;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -44,6 +46,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         public SqlConnectionWrapperFactory SqlConnectionWrapperFactory => _sqlFixture.SqlConnectionWrapperFactory;
 
         public SqlRetryService SqlRetryService => _sqlFixture.SqlRetryService;
+
+        public RequestContextAccessor<IFhirRequestContext> FhirRequestContextAccessor => _sqlFixture.FhirRequestContextAccessor;
 
         public SchemaInformation SchemaInformation => _sqlFixture.SchemaInformation;
 

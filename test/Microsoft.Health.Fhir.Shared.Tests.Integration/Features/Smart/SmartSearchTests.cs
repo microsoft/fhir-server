@@ -28,6 +28,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -2758,6 +2759,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
 
             var fhirRequestContext = Substitute.For<IFhirRequestContext>();
             fhirRequestContext.AccessControlContext.Returns(accessControlContext);
+            fhirRequestContext.Partition.Returns((IPartitionInfo)null);
 
             contextAccessor.RequestContext.Returns(fhirRequestContext);
         }

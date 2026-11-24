@@ -20,6 +20,7 @@ using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Api.Features.Partitions;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -38,6 +39,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [TypeFilter(typeof(AadSmartOnFhirProxyFeatureFilterAttribute))]
     [Route("AadSmartOnFhirProxy")]
     [AllowAnonymous]
+    [PartitionIndependent]
     public class AadSmartOnFhirProxyController : Controller
     {
         private readonly bool _isAadV2;

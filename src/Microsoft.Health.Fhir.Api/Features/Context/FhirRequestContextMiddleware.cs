@@ -4,12 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
-using System.Net;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
-using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features;
@@ -49,7 +46,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             CorrelationIdProvider correlationIdProvider)
         {
             HttpRequest request = context.Request;
-
             string baseUriInString = UriHelper.BuildAbsolute(
                 request.Scheme,
                 request.Host,

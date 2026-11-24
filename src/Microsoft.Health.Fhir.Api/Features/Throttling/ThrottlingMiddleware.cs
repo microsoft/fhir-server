@@ -17,6 +17,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Logging;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -152,7 +153,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                     return;
                 }
 
-                if (_excludedEndpoints.Contains((context.Request.Method, context.Request.Path.Value)))
+                if (_excludedEndpoints.Contains((context.Request.Method, PartitionRoute.GetFhirPath(context.Request).Value)))
                 {
                     // Endpoint is exempt from concurrent request limits.
                     await _next(context);

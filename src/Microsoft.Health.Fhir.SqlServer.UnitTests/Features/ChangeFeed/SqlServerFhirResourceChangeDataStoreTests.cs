@@ -4,13 +4,21 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Data;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Registration;
+using Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
@@ -18,6 +26,7 @@ using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
@@ -100,7 +109,31 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
             }
         }
 
-        public SqlServerFhirResourceChangeDataStore GetResourcChangeDataStoreWithGivenConnectionString(string connectionString)
+        [Theory]
+        [InlineData(19, "FetchResourceChanges")]
+        [InlineData(20, "FetchResourceChanges_2")]
+        [InlineData(24, "FetchResourceChanges_3")]
+        public void GivenPartition_WhenPopulatingChangeFeedCommand_ThenSchemaSpecificProcedureUsesPartitionDatabase(int schemaVersion, string procedureName)
+        {
+            // Arrange
+            using var request = new SqlPartitionTestRequest("partition-a", "database-a");
+            var store = GetResourcChangeDataStoreWithGivenConnectionString(LocalConnectionString, request.Accessor, schemaVersion);
+            using var command = new SqlCommand();
+            using var wrapper = new SqlCommandWrapper(command);
+
+            // Act
+            typeof(SqlServerFhirResourceChangeDataStore)
+                .GetMethod("PopulateFetchResourceChangesCommand", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(store, [wrapper, 1L, DateTime.UnixEpoch, (short)10]);
+
+            // Assert
+            Assert.Equal("[database-a].[dbo].[" + procedureName + "]", command.CommandText);
+            Assert.Equal(CommandType.StoredProcedure, command.CommandType);
+            Assert.Equal(1L, command.Parameters["@startId"].Value);
+            Assert.Equal((short)10, command.Parameters["@pageSize"].Value);
+        }
+
+        public SqlServerFhirResourceChangeDataStore GetResourcChangeDataStoreWithGivenConnectionString(string connectionString, RequestContextAccessor<IFhirRequestContext> requestContextAccessor = null, int schemaVersion = SchemaVersionConstants.Max)
         {
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
@@ -108,10 +141,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
             var sqlConnectionBuilder = new DefaultSqlConnectionBuilder(config, sqlRetryLogicBaseProvider);
             var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), sqlConnectionBuilder, sqlRetryLogicBaseProvider, config);
 
-            var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
-            schemaInformation.Current = SchemaVersionConstants.Max;
+            var schemaInformation = new SchemaInformation(Math.Min(schemaVersion, SchemaVersionConstants.Min), SchemaVersionConstants.Max);
+            schemaInformation.Current = schemaVersion;
+            requestContextAccessor ??= Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
-            return new SqlServerFhirResourceChangeDataStore(sqlConnectionWrapperFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, schemaInformation);
+            return new SqlServerFhirResourceChangeDataStore(
+                sqlConnectionWrapperFactory,
+                NullLogger<SqlServerFhirResourceChangeDataStore>.Instance,
+                schemaInformation,
+                requestContextAccessor);
         }
     }
 }

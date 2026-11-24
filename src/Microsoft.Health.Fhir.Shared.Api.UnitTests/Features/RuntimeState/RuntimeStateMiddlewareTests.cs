@@ -10,8 +10,10 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Logging;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.RuntimeState;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -109,6 +111,30 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.RuntimeState
 
             Assert.DoesNotContain("patient-id", issue.GetRawText());
             Assert.DoesNotContain("Smith", issue.GetRawText());
+        }
+
+        [Theory]
+        [InlineData("/metadata", true)]
+        [InlineData("/Patient/$export", true)]
+        [InlineData("/Group/group-id/$export", true)]
+        [InlineData("/_operations/export/job-id", true)]
+        [InlineData("/Patient/patient-id", false)]
+        public async Task GivenDeprecatedService_WhenRequestIsPartitioned_ThenRuntimeRulesUseFhirPath(string path, bool allowed)
+        {
+            bool nextInvoked = false;
+            RuntimeStateMiddleware middleware = CreateMiddleware(FhirRuntimeState.Deprecated, _ =>
+            {
+                nextInvoked = true;
+                return Task.CompletedTask;
+            });
+            DefaultHttpContext context = CreateContext(HttpMethods.Get, "/partition/partition-a" + path);
+            context.Request.RouteValues["partitionId"] = "partition-a";
+
+            await middleware.Invoke(context);
+
+            Assert.Equal(allowed, nextInvoked);
+            Assert.Equal(allowed ? StatusCodes.Status200OK : StatusCodes.Status410Gone, context.Response.StatusCode);
+            Assert.Equal("/partition/partition-a" + path, context.Request.Path);
         }
 
         [Fact]

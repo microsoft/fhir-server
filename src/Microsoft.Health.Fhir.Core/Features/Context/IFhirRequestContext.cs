@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
@@ -13,6 +14,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
     public interface IFhirRequestContext : IRequestContext, ICloneable
     {
         string ResourceType { get; set; }
+
+        /// <summary>
+        /// Gets or sets the configured partition identifier, or null for a partition-independent request.
+        /// </summary>
+        IPartitionInfo Partition { get; set; }
 
         /// <summary>
         /// A list of issues that will be returned inside a resulting search bundle

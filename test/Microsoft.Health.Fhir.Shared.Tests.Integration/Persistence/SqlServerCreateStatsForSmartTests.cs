@@ -12,6 +12,7 @@ using Hl7.Fhir.Rest;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -344,6 +345,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var mockFhirRequestContext = Substitute.For<IFhirRequestContext>();
             mockFhirRequestContext.AccessControlContext.Returns(accessControlContext);
+            mockFhirRequestContext.Partition.Returns((IPartitionInfo)null);
 
             contextAccessor.RequestContext.Returns(mockFhirRequestContext);
         }

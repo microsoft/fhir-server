@@ -52,7 +52,6 @@ namespace Microsoft.AspNetCore.Builder
             app.UseHttpsRedirection();
             app.UseStaticFiles();
 
-            app.UseRouting();
             useDevelopmentIdentityProvider?.Invoke(app);
             useHttpLoggingMiddleware?.Invoke(app);
 

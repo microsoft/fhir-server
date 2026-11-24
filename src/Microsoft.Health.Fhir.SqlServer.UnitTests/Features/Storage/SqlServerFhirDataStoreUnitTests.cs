@@ -33,6 +33,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
+using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
@@ -447,7 +448,45 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             Assert.Empty(rows);
         }
 
-        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null)
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(false, true)]
+        [InlineData(true, false)]
+        [InlineData(true, true)]
+        public async Task GivenPartition_WhenMergingResources_ThenProcedureIsQualifiedBeforeExecution(bool includeSearchParameters, bool enlistInTransaction)
+        {
+            // Arrange
+            using var request = new SqlPartitionTestRequest("partition-a", "database-a");
+            var retryService = Substitute.For<ISqlRetryService>();
+            string procedureName = null;
+            retryService.ExecuteSql(
+                Arg.Any<SqlCommand>(),
+                Arg.Any<Func<SqlCommand, CancellationToken, Task>>(),
+                Arg.Any<ILogger>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>(),
+                Arg.Any<bool>(),
+                Arg.Any<string>()).Returns(call =>
+                {
+                    procedureName = call.Arg<SqlCommand>().CommandText;
+                    return Task.CompletedTask;
+                });
+            var store = CreateSqlServerFhirDataStore(retryService, requestContextAccessor: request.Accessor);
+            var statuses = includeSearchParameters
+                ? new[] { new ResourceSearchParameterStatus { Uri = new Uri("http://hl7.org/fhir/SearchParameter/Patient-name"), Status = SearchParameterStatus.Enabled } }
+                : [];
+
+            // Act
+            await store.MergeResourcesWrapperAsync(1, true, [], enlistInTransaction, 0, statuses, CancellationToken.None);
+
+            // Assert
+            Assert.Equal(
+                includeSearchParameters ? "[database-a].[dbo].[MergeResourcesAndSearchParams]" : "[database-a].[dbo].[MergeResources]",
+                procedureName);
+        }
+
+        private static SqlServerFhirDataStore CreateSqlServerFhirDataStore(ISqlRetryService sqlRetryService, SqlTransactionHandler sqlTransactionHandler = null, RequestContextAccessor<IFhirRequestContext> requestContextAccessor = null)
         {
             sqlTransactionHandler ??= new SqlTransactionHandler();
 
@@ -493,6 +532,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 .GetField("_highestInitializedVersion", BindingFlags.NonPublic | BindingFlags.Instance)
                 .SetValue(model, schemaInfo.Current);
 
+            typeof(SqlServerFhirModel)
+                .GetField("_searchParamUriToId", BindingFlags.NonPublic | BindingFlags.Instance)
+                .SetValue(model, new Dictionary<Uri, short>
+                {
+                    [SearchParameterNames.IdUri] = 1,
+                    [SearchParameterNames.LastUpdatedUri] = 2,
+                });
+
             var storeClient = new SqlStoreClient(sqlRetryService, NullLogger<SqlStoreClient>.Instance, schemaInfo);
 
             CoreFeatureConfiguration coreFeatureConfiguration = new CoreFeatureConfiguration();
@@ -521,7 +568,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 NullLogger<SqlServerFhirDataStore>.Instance,
                 schemaInfo,
                 ModelInfoProvider.Instance,
-                Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
+                requestContextAccessor ?? Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
                 Substitute.For<IImportErrorSerializer>(),
                 storeClient);
 

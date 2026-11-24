@@ -167,14 +167,23 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         }
 
         [Theory]
-        [InlineData((int)ThrottlingLimitDefault.Gen1)]
-        [InlineData((int)ThrottlingLimitDefault.Gen2)]
-        public async Task GivenRequestToExcludedEndpoint_WhenAlreadyThrottled_Succeeds(int numberOfConcurrentRequests)
+        [InlineData((int)ThrottlingLimitDefault.Gen1, false)]
+        [InlineData((int)ThrottlingLimitDefault.Gen2, false)]
+        [InlineData((int)ThrottlingLimitDefault.Gen1, true)]
+        [InlineData((int)ThrottlingLimitDefault.Gen2, true)]
+        public async Task GivenRequestToExcludedEndpoint_WhenAlreadyThrottled_Succeeds(int numberOfConcurrentRequests, bool partitioned)
         {
             _throttlingConfiguration.ConcurrentRequestLimit = numberOfConcurrentRequests;
+            _throttlingConfiguration.ExcludedEndpoints.Add(new ExcludedEndpoint { Method = "get", Path = "/Patient" });
             var mapping = SetupPreexistingRequests(numberOfConcurrentRequests + 1);
 
             _httpContext.Request.Path = "/health/check";
+            if (partitioned)
+            {
+                _httpContext.Request.Path = "/partition/partition-a/Patient";
+                _httpContext.Request.RouteValues["partitionId"] = "partition-a";
+            }
+
             _httpContext.Request.Method = HttpMethod.Get.ToString();
             var task = _middleware.Value.Invoke(_httpContext);
             _cts.Cancel();

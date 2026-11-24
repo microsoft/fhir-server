@@ -4,14 +4,21 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Castle.Core.Logging;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Context;
+using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -123,6 +130,138 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             // Verify baseUri was initialized by the external request
             Assert.NotNull(instanceConfiguration.BaseUri);
             Assert.Equal(new Uri("https://api.example.com/stu3/"), instanceConfiguration.BaseUri);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenPartitionRouteAndExistingPathBase_WhenMiddlewareCompletes_ThenPathsAreUnchanged(bool throwInNext)
+        {
+            var manager = CreatePartitionManager("partition-a");
+            HttpContext httpContext = CreateHttpContext();
+            httpContext.Request.Host = new HostString("api.example.com");
+            httpContext.Request.Path = new PathString("/partition/partition-a/Patient");
+            httpContext.Request.RouteValues[PartitionRoute.PartitionId] = "partition-a";
+            httpContext.SetEndpoint(new Endpoint(null, EndpointMetadataCollection.Empty, "partition"));
+            var accessor = new FhirRequestContextAccessor();
+            var instanceConfiguration = new FhirServerInstanceConfiguration();
+            IFhirRequestContext capturedContext = null;
+            var afterAuthentication = new FhirRequestContextAfterAuthenticationMiddleware(
+                context =>
+                {
+                    capturedContext = accessor.RequestContext;
+                    Assert.Equal("/partition/partition-a/Patient", context.Request.Path.Value);
+                    Assert.Equal("/stu3", context.Request.PathBase.Value);
+                    if (throwInNext)
+                    {
+                        throw new InvalidOperationException("Downstream failure");
+                    }
+
+                    return Task.CompletedTask;
+                },
+                manager,
+                Options.Create(new SecurityConfiguration { Enabled = false }),
+                Substitute.For<ILogger<FhirRequestContextAfterAuthenticationMiddleware>>());
+            var middleware = new FhirRequestContextMiddleware(
+                context => afterAuthentication.Invoke(context, accessor),
+                Substitute.For<ILogger<FhirRequestContextMiddleware>>());
+
+            if (throwInNext)
+            {
+                await Assert.ThrowsAsync<InvalidOperationException>(() => middleware.Invoke(httpContext, accessor, instanceConfiguration, () => "request-id"));
+            }
+            else
+            {
+                await middleware.Invoke(httpContext, accessor, instanceConfiguration, () => "request-id");
+            }
+
+            Assert.NotNull(capturedContext);
+            Assert.Equal("partition-a", capturedContext.Partition.Id);
+            Assert.Equal(new Uri("https://api.example.com/stu3/partition/partition-a/Patient?code=123"), capturedContext.Uri);
+            Assert.Equal(new Uri("https://api.example.com/stu3/partition/partition-a/"), capturedContext.BaseUri);
+            Assert.Equal(new Uri("https://api.example.com/stu3/"), instanceConfiguration.BaseUri);
+            Assert.Equal("/partition/partition-a/Patient", httpContext.Request.Path.Value);
+            Assert.Equal("/stu3", httpContext.Request.PathBase.Value);
+        }
+
+        [Theory]
+        [InlineData("/partition/partition-a/Patient")]
+        [InlineData("/partition/unknown/Patient")]
+        public async Task GivenPartitionPrefix_WhenAuthenticationHasNotRun_ThenPathsAndPartitionAreUnchanged(string path)
+        {
+            HttpContext httpContext = CreateHttpContext();
+            httpContext.Request.Path = new PathString(path);
+            var accessor = new FhirRequestContextAccessor();
+            bool nextCalled = false;
+            var middleware = new FhirRequestContextMiddleware(
+                context =>
+                {
+                    nextCalled = true;
+                    Assert.Null(accessor.RequestContext.Partition);
+                    Assert.Equal(path, context.Request.Path.Value);
+                    Assert.Equal("/stu3", context.Request.PathBase.Value);
+                    return Task.CompletedTask;
+                },
+                Substitute.For<ILogger<FhirRequestContextMiddleware>>());
+
+            await middleware.Invoke(httpContext, accessor, new FhirServerInstanceConfiguration(), () => "request-id");
+
+            Assert.True(nextCalled);
+            Assert.Equal(path, httpContext.Request.Path.Value);
+            Assert.Equal("/stu3", httpContext.Request.PathBase.Value);
+        }
+
+        [Fact]
+        public void GivenPartitionContext_WhenCloning_ThenPartitionIdIsPreserved()
+        {
+            var context = new FhirRequestContext("GET", "https://localhost/partition/partition-a/Patient", "https://localhost/partition/partition-a/", "request-id", new HeaderDictionary(), new HeaderDictionary())
+            {
+                Partition = Substitute.For<IPartitionInfo>(),
+                Principal = new ClaimsPrincipal(),
+            };
+
+            context.Partition.Id.Returns("partition-a");
+
+            var clone = Assert.IsType<FhirRequestContext>(context.Clone());
+
+            Assert.Equal("partition-a", clone.Partition.Id);
+            Assert.NotSame(context, clone);
+        }
+
+        [Fact]
+        public void GivenBaseUriFinalizedAfterRouting_WhenCloning_ThenResolvedBaseUriIsPreserved()
+        {
+            var context = new FhirRequestContext("GET", "https://localhost/partition/partition-a/Patient", "https://localhost/", "request-id", new HeaderDictionary(), new HeaderDictionary())
+            {
+                Principal = new ClaimsPrincipal(),
+            };
+            Assert.Equal(new Uri("https://localhost/"), context.BaseUri);
+            context.BaseUri = new Uri("https://localhost/partition/partition-a/");
+
+            var clone = Assert.IsType<FhirRequestContext>(context.Clone());
+
+            Assert.Equal(new Uri("https://localhost/partition/partition-a/"), clone.BaseUri);
+        }
+
+        private static IPartitionManager CreatePartitionManager(params string[] ids)
+        {
+            var manager = Substitute.For<IPartitionManager>();
+            manager.IsEnabled.Returns(ids.Length > 0);
+            manager.TryGetPartition(Arg.Any<string>(), out Arg.Any<IPartitionInfo>()).Returns(callInfo =>
+            {
+                var partitionId = callInfo.Arg<string>();
+                if (ids.Contains(partitionId))
+                {
+                    var partition = Substitute.For<IPartitionInfo>();
+                    partition.Id.Returns(partitionId);
+                    callInfo[1] = partition;
+                    return true;
+                }
+
+                callInfo[1] = null;
+                return false;
+            });
+            return manager;
         }
 
         private async Task<IFhirRequestContext> SetupAsync(HttpContext httpContext)

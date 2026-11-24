@@ -5,12 +5,22 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
@@ -28,6 +38,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         private readonly IOptions<SqlServerDataStoreConfiguration> _sqlServerDataStoreConfiguration;
         private readonly IOptions<CoreFeatureConfiguration> _coreFeatureConfiguration;
 
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
+
         public SqlRetryServiceUnitTests()
         {
             _sqlConnectionBuilder = Substitute.For<ISqlConnectionBuilder>();
@@ -36,6 +48,55 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 CommandTimeout = TimeSpan.FromSeconds(300),
             });
             _coreFeatureConfiguration = Options.Create(new CoreFeatureConfiguration());
+            _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+        }
+
+        [Theory]
+        [InlineData("database-a", "dbo.GetResources", "[database-a].[dbo].[GetResources]")]
+        [InlineData("database.b", "dbo.MergeResources", "[database.b].[dbo].[MergeResources]")]
+        [InlineData("database]; SELECT 1;--", "dbo.EnqueueJobs", "[database]]; SELECT 1;--].[dbo].[EnqueueJobs]")]
+        [InlineData("database-a", "CustomQuery_123", "[database-a].[dbo].[CustomQuery_123]")]
+        [InlineData("database-a", "[dbo].[Procedure.with]]bracket]", "[database-a].[dbo].[Procedure.with]]bracket]")]
+        [InlineData(null, "dbo.GetResources", "dbo.GetResources")]
+        public async Task GivenPartitionContext_WhenExecutingStoredProcedure_ThenCommandTargetsConfiguredDatabase(string databaseName, string procedureName, string expectedName)
+        {
+            // Arrange
+            var accessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            accessor.RequestContext.Returns(_ => null);
+            if (databaseName != null)
+            {
+                var context = Substitute.For<IFhirRequestContext>();
+                context.Partition.Returns(new SqlPartitionInfo { Id = "partition-a", Database = databaseName });
+                accessor.RequestContext.Returns(context);
+            }
+
+            var service = new SqlRetryService(
+                _sqlConnectionBuilder,
+                _sqlServerDataStoreConfiguration,
+                Options.Create(new SqlRetryServiceOptions { MaxRetries = 1 }),
+                new SqlRetryServiceDelegateOptions(),
+                _coreFeatureConfiguration,
+                accessor);
+            var stop = new OperationCanceledException("Stop before opening the connection.");
+            _sqlConnectionBuilder.GetSqlConnectionAsync(Arg.Any<bool>(), Arg.Any<string>())
+                .Returns(Task.FromException<SqlConnection>(stop));
+            using var command = new SqlCommand(procedureName) { CommandType = CommandType.StoredProcedure, CommandTimeout = 70 };
+            command.Parameters.AddWithValue("@Id", "resource-id");
+
+            // Act
+            var exception = await Assert.ThrowsAsync<OperationCanceledException>(() => service.ExecuteSql(
+                command,
+                (_, _) => Task.CompletedTask,
+                NullLogger.Instance,
+                null,
+                CancellationToken.None));
+
+            // Assert
+            Assert.Same(stop, exception);
+            Assert.Equal(expectedName, command.CommandText);
+            Assert.Equal(CommandType.StoredProcedure, command.CommandType);
+            Assert.Equal("resource-id", command.Parameters["@Id"].Value);
+            Assert.Equal(70, command.CommandTimeout);
         }
 
         [Fact]
@@ -51,7 +112,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 _sqlServerDataStoreConfiguration,
                 options,
                 delegateOptions,
-                _coreFeatureConfiguration));
+                _coreFeatureConfiguration,
+                _fhirRequestContextAccessor));
         }
 
         [Fact]
@@ -66,7 +128,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 _sqlServerDataStoreConfiguration,
                 null,
                 delegateOptions,
-                _coreFeatureConfiguration));
+                _coreFeatureConfiguration,
+                _fhirRequestContextAccessor));
         }
 
         [Fact]
@@ -84,7 +147,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 _sqlServerDataStoreConfiguration,
                 options,
                 delegateOptions,
-                _coreFeatureConfiguration);
+                _coreFeatureConfiguration,
+                _fhirRequestContextAccessor);
 
             // Assert
             var transientErrors = GetPrivateFieldValue<HashSet<int>>(service, "_transientErrors");
@@ -106,7 +170,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 _sqlServerDataStoreConfiguration,
                 options,
                 delegateOptions,
-                _coreFeatureConfiguration);
+                _coreFeatureConfiguration,
+                _fhirRequestContextAccessor);
 
             // Assert
             var transientErrors = GetPrivateFieldValue<HashSet<int>>(service, "_transientErrors");
@@ -130,7 +195,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 _sqlServerDataStoreConfiguration,
                 options,
                 delegateOptions,
-                _coreFeatureConfiguration);
+                _coreFeatureConfiguration,
+                _fhirRequestContextAccessor);
 
             // Assert
             var transientErrors = GetPrivateFieldValue<HashSet<int>>(service, "_transientErrors");
@@ -180,7 +246,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 _sqlServerDataStoreConfiguration,
                 options,
                 delegateOptions,
-                _coreFeatureConfiguration);
+                _coreFeatureConfiguration,
+                _fhirRequestContextAccessor);
 
             var sqlEx = CreateSqlException(99999, "Custom transient error");
 
@@ -203,7 +270,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 _sqlServerDataStoreConfiguration,
                 options,
                 new SqlRetryServiceDelegateOptions(),
-                _coreFeatureConfiguration);
+                _coreFeatureConfiguration,
+                _fhirRequestContextAccessor);
             var capacityException = CreateSqlException(capacityErrorCode, "Capacity error");
             var transientException = CreateSqlException(1205, "Transaction was deadlocked");
             Func<SqlException, bool> shouldNotRetry = ex => ex.Number == capacityErrorCode;
@@ -228,7 +296,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 _sqlServerDataStoreConfiguration,
                 options,
                 delegateOptions,
-                _coreFeatureConfiguration);
+                _coreFeatureConfiguration,
+                _fhirRequestContextAccessor);
 
             var sqlEx = CreateSqlException(121, "an error occurred during the pre-login handshake");
 
@@ -253,7 +322,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 _sqlServerDataStoreConfiguration,
                 options,
                 delegateOptions,
-                _coreFeatureConfiguration);
+                _coreFeatureConfiguration,
+                _fhirRequestContextAccessor);
 
             var sqlEx = CreateSqlException(121, "an error occurred during the pre-login handshake");
 
@@ -278,7 +348,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 _sqlServerDataStoreConfiguration,
                 options,
                 delegateOptions,
-                _coreFeatureConfiguration);
+                _coreFeatureConfiguration,
+                _fhirRequestContextAccessor);
 
             var ex = new InvalidOperationException("CustomRetriable error");
 
@@ -303,7 +374,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 _sqlServerDataStoreConfiguration,
                 options,
                 delegateOptions,
-                _coreFeatureConfiguration);
+                _coreFeatureConfiguration,
+                _fhirRequestContextAccessor);
 
             var sqlEx = CreateSqlException(121, "an error occurred during the pre-login handshake");
 
@@ -325,7 +397,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 _sqlServerDataStoreConfiguration,
                 options,
                 delegateOptions,
-                _coreFeatureConfiguration);
+                _coreFeatureConfiguration,
+                _fhirRequestContextAccessor);
 
             var ex = new ArgumentNullException("test");
 
@@ -347,7 +420,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 _sqlServerDataStoreConfiguration,
                 options,
                 delegateOptions,
-                _coreFeatureConfiguration);
+                _coreFeatureConfiguration,
+                _fhirRequestContextAccessor);
 
             var sqlEx = CreateSqlException(1205, "Transaction was deadlocked");
 
@@ -369,6 +443,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             // Act
             var service = SqlRetryService.GetInstance(
                 _sqlConnectionBuilder,
+                _fhirRequestContextAccessor,
                 expectedCommandTimeout,
                 expectedMaxRetries,
                 expectedRetryDelay);
@@ -388,7 +463,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         public void GetInstance_WithDefaultParameters_ShouldSetDefaultValues()
         {
             // Act
-            var service = SqlRetryService.GetInstance(_sqlConnectionBuilder);
+            var service = SqlRetryService.GetInstance(_sqlConnectionBuilder, _fhirRequestContextAccessor);
 
             // Assert
             Assert.NotNull(service);
@@ -405,7 +480,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         public void GetInstance_WithNullConnectionBuilder_ShouldThrowArgumentNullException()
         {
             // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => SqlRetryService.GetInstance(null));
+            Assert.Throws<ArgumentNullException>(() => SqlRetryService.GetInstance(null, _fhirRequestContextAccessor));
         }
 
         private static T GetPrivateFieldValue<T>(object obj, string fieldName)

@@ -458,7 +458,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 httpContextAccessor,
                 actionContextAccessor,
                 bundleHttpContextAccessor,
-                linkGenerator);
+                linkGenerator,
+                Substitute.For<IEndpointAddressScheme<RouteValuesAddress>>());
         }
     }
 }

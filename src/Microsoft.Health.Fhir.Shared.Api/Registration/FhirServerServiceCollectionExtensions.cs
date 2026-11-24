@@ -12,6 +12,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -32,12 +33,14 @@ using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Cors;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Logging.Metrics.Handlers;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
 using Polly;
 
@@ -77,6 +80,14 @@ namespace Microsoft.Extensions.DependencyInjection
                 });
 
             mvcBuilderAction?.Invoke(builder);
+
+            services.AddOptions<MvcOptions>().Configure<IPartitionManager>((options, partitions) =>
+            {
+                if (partitions.IsEnabled)
+                {
+                    options.Conventions.Add(new PartitionRouteConvention());
+                }
+            });
 
             var fhirServerConfiguration = new FhirServerConfiguration();
 
@@ -296,8 +307,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
                     // Add FHIR runtime middleware, that runs validations on top of the state of the FHIR service.
                     app.UseFhirRuntimeState(_fhirServerConfiguration);
-
-                    app.UseMiddleware<SearchPostReroutingMiddleware>();
 
                     app.UseInitialImportLock();
 

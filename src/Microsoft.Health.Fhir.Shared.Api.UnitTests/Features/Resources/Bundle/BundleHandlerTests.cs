@@ -34,6 +34,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources;
@@ -1826,6 +1827,55 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             Assert.Equal(2, capturedHeaders.Count);
             Assert.All(capturedHeaders, value => Assert.Equal(headerValue, (string)value));
+        }
+
+        [Theory]
+        [InlineData(BundleType.Batch, BundleProcessingLogic.Sequential)]
+        [InlineData(BundleType.Batch, BundleProcessingLogic.Parallel)]
+        [InlineData(BundleType.Transaction, BundleProcessingLogic.Sequential)]
+        [InlineData(BundleType.Transaction, BundleProcessingLogic.Parallel)]
+        public async Task GivenPartitionBundle_WhenProcessingEntries_ThenEntriesInheritTheOuterPartition(BundleType bundleType, BundleProcessingLogic processingLogic)
+        {
+            _bundleConfiguration.BatchDefaultProcessingLogic = processingLogic;
+            _bundleConfiguration.TransactionDefaultProcessingLogic = processingLogic;
+
+            _fhirRequestContext.Partition = Substitute.For<IPartitionInfo>();
+            _fhirRequestContext.Partition.Id.Returns("partition-a");
+
+            _fhirRequestContext.BaseUri = new Uri("https://localhost/fhir/partition/partition-a/");
+            _httpContext.Request.PathBase = new PathString("/fhir");
+            _httpContext.Request.Path = new PathString("/partition/partition-a/");
+            _httpContext.Request.RouteValues["partitionId"] = "partition-a";
+            var handler = CreateBundleHandler();
+            var capturedPartitionIds = new ConcurrentBag<string>();
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = bundleType,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "Patient/first" } },
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "Patient/second" } },
+                },
+            };
+            _router.When(router => router.RouteAsync(Arg.Any<RouteContext>())).Do(info =>
+            {
+                RouteContext route = info.Arg<RouteContext>();
+                Assert.Equal("/fhir", route.HttpContext.Request.PathBase);
+                Assert.StartsWith("/partition/partition-a/Patient/", route.HttpContext.Request.Path.Value, StringComparison.Ordinal);
+                route.Handler = context =>
+                {
+                    capturedPartitionIds.Add(_fhirRequestContextAccessor.RequestContext.Partition.Id);
+                    context.Response.StatusCode = StatusCodes.Status200OK;
+                    return Task.CompletedTask;
+                };
+            });
+
+            var response = await handler.HandleAsync(new BundleRequest(bundle.ToResourceElement()), CancellationToken.None);
+
+            Assert.Equal(2, capturedPartitionIds.Count);
+            Assert.All(capturedPartitionIds, partitionId => Assert.Equal("partition-a", partitionId));
+            Assert.All(response.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>().Entry, entry => Assert.Equal("200", entry.Response.Status));
+            Assert.Equal("partition-a", _fhirRequestContextAccessor.RequestContext.Partition.Id);
         }
 
         private static BundleRequest CreateBundleRequest(int entryCount)
