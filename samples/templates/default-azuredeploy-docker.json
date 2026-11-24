@@ -352,9 +352,9 @@
         },
         "embeddingModelVersion": {
             "type": "string",
-            "defaultValue": "1",
+            "defaultValue": "",
             "metadata": {
-                "description": "Model version for a new embedding deployment, for example '1' for text-embedding-3-small or text-embedding-3-large and '2' for text-embedding-ada-002."
+                "description": "Model version for a new embedding deployment. If empty, version 2 is used for text-embedding-ada-002 and version 1 for text-embedding-3-small or text-embedding-3-large."
             }
         },
         "embeddingDeploymentSkuName": {
@@ -445,6 +445,7 @@
         "foundryLocation": "[if(empty(parameters('foundryLocation')), resourceGroup().location, parameters('foundryLocation'))]",
         "foundryAccountResourceId": "[resourceId(variables('foundrySubscriptionId'), variables('foundryResourceGroup'), 'Microsoft.CognitiveServices/accounts', variables('foundryAccountName'))]",
         "embeddingDeploymentName": "[if(empty(parameters('embeddingDeploymentName')), parameters('embeddingModelName'), parameters('embeddingDeploymentName'))]",
+        "effectiveEmbeddingModelVersion": "[if(empty(parameters('embeddingModelVersion')), if(equals(parameters('embeddingModelName'), 'text-embedding-ada-002'), '2', '1'), parameters('embeddingModelVersion'))]",
         "embeddingDeploymentResourceId": "[resourceId(variables('foundrySubscriptionId'), variables('foundryResourceGroup'), 'Microsoft.CognitiveServices/accounts/deployments', variables('foundryAccountName'), variables('embeddingDeploymentName'))]",
         "foundryNestedDeploymentName": "[take(concat('foundryVectorSearch-', variables('serviceName')), 64)]",
         "foundryNestedDeploymentResourceId": "[resourceId(variables('foundrySubscriptionId'), variables('foundryResourceGroup'), 'Microsoft.Resources/deployments', variables('foundryNestedDeploymentName'))]",
@@ -816,7 +817,7 @@
                         "value": "[parameters('embeddingModelName')]"
                     },
                     "modelVersion": {
-                        "value": "[parameters('embeddingModelVersion')]"
+                        "value": "[variables('effectiveEmbeddingModelVersion')]"
                     },
                     "deploymentSkuName": {
                         "value": "[parameters('embeddingDeploymentSkuName')]"

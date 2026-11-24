@@ -98,7 +98,7 @@ they are ignored for Cosmos DB. Set `enableReindex` to `true` so new SearchParam
 | `foundryRestrictNetworkAccess` | `true` | Whether a new account accepts traffic only from allowed IP addresses. |
 | `foundryAdditionalAllowedIpAddresses` | `[]` | Extra IPv4 addresses or CIDR ranges a new account accepts, such as an administrator's address. |
 | `embeddingDeploymentName` | The model name | Model deployment to create or use. |
-| `embeddingModelName`, `embeddingModelVersion` | `text-embedding-3-small`, `1` | Model for a new deployment. |
+| `embeddingModelName`, `embeddingModelVersion` | `text-embedding-3-small`; version inferred | Model for a new deployment. If version is empty, the template uses `2` for `text-embedding-ada-002` and `1` for the embedding-3 models. |
 | `embeddingDeploymentSkuName`, `embeddingDeploymentCapacity` | `GlobalStandard`, `120` | Deployment type and rate limit, in thousands of tokens per minute, for a new deployment. |
 
 ### New account
@@ -125,18 +125,32 @@ deploying, make sure that:
 - The embedding deployment named by `embeddingDeploymentName` exists. Its model must meet the
   [requirements](#requirements). `embeddingModelName` only supplies the default deployment name, and the
   other `embedding*` parameters are ignored.
+- The deployment is pinned to `NoAutoUpgrade`. The template does not change an existing deployment's
+  upgrade policy. If you intentionally change its model or version, redeploy the template to refresh
+  the model identity in app settings, then run `$reindex` successfully so existing resources are
+  embedded with the new model.
 - The deploying identity can create role assignments on the account, for example as Owner or User Access
   Administrator.
 - If the account is in another resource group or subscription, the deploying identity can also create
   deployments (`Microsoft.Resources/deployments/write`) in that resource group, for example as Contributor.
 
-If the account restricts network access, allow the web app's outbound addresses after deploying:
+For an existing account that allows public network access from selected networks, allow the web app's
+outbound addresses after deploying:
 
 ```bash
-for ip in $(az webapp show --subscription <fhir-subscription-id> -g <fhir-resource-group> -n <serviceName> --query possibleOutboundIpAddresses -o tsv | tr ',' ' '); do
+set -euo pipefail
+ips=$(az webapp show --subscription <fhir-subscription-id> -g <fhir-resource-group> -n <serviceName> --query possibleOutboundIpAddresses -o tsv)
+if [[ -z "$ips" ]]; then
+  echo "No App Service outbound IP addresses were returned." >&2
+  exit 1
+fi
+for ip in $(printf '%s' "$ips" | tr ',' ' '); do
   az cognitiveservices account network-rule add --subscription <foundry-subscription-id> -g <foundry-resource-group> -n <foundry-account> --ip-address "$ip"
 done
 ```
+
+For an account with public network access disabled, public IP rules are not sufficient. Configure App
+Service VNet integration, routing to the Foundry private endpoint, and private DNS resolution instead.
 
 With either option, the role assignment can take several minutes to propagate. Until it does, embedding
 requests fail with an authorization error.
@@ -194,6 +208,10 @@ indexes the narrative of a Composition and every nested section:
 Create the SearchParameter, then run `$reindex` to index existing Compositions and make the parameter
 searchable:
 
+Wait for the reindex operation to complete successfully before searching. For FHIR R5, add
+`"processingMode": "other"` to the sample SearchParameter before posting it; R5 requires this field
+when an expression is present. Do not include this R5-only field when posting to pre-R5 servers.
+
 ```http
 POST /SearchParameter
 Content-Type: application/fhir+json
@@ -203,6 +221,7 @@ Content-Type: application/fhir+json
 
 ```http
 GET /Composition?narrative-semantic=shortness%20of%20breath
+Prefer: handling=strict
 ```
 
 ## Indexing and recovery
