@@ -1020,13 +1020,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     specialCaseTableName = new VLatest.ResourceTable();
                 }
 
+                // A chain CTE exposes the chain target as T2/Sid2, so predicates following it must bind there.
+                int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
+                bool joinOnChainTarget = _firstChainAfterUnionVisited || _chainTableExpressionIndexes.Contains(predecessorIndex);
+
                 StringBuilder.Append("SELECT T1, Sid1, ")
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
                     .Append("FROM ").AppendLine(specialCaseTableName)
-                    .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()))
-                    .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(_firstChainAfterUnionVisited ? "T2" : "T1")
-                    .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine(_firstChainAfterUnionVisited ? "Sid2" : "Sid1");
+                    .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(predecessorIndex))
+                    .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(joinOnChainTarget ? "T2" : "T1")
+                    .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine(joinOnChainTarget ? "Sid2" : "Sid1");
 
                 // once we have visited a table after the union all, the remained of the inner joins
                 // should be on T1 and Sid1
