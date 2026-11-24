@@ -10,6 +10,7 @@ using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
@@ -163,7 +164,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                 .Returns(defaultRoles);
 
             var authorizationConfiguration = new AuthorizationConfiguration();
-            var roleLoader = new RoleLoader(authorizationConfiguration, hostEnvironment);
+            var roleLoader = new RoleLoader(authorizationConfiguration, new RoleCache(hostEnvironment, NullLogger<RoleCache>.Instance));
             await roleLoader.StartAsync(CancellationToken.None);
             return authorizationConfiguration;
         }

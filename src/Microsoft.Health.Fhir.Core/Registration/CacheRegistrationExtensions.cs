@@ -15,9 +15,8 @@ namespace Microsoft.Extensions.DependencyInjection
     /// Registers caches built on <see cref="GlobalCache{T}"/> and <see cref="PartitionCache{T}"/>.
     /// </summary>
     /// <remarks>
-    /// Each call also adds the cache to the startup preload. The preloading hosted service is added on the first call.
-    /// Hosted services start in registration order, so register caches after anything they need at startup
-    /// (e.g. schema initialization).
+    /// Each call also adds the cache to the startup preload, which runs after all hosted services have started,
+    /// so registration order doesn't matter.
     /// </remarks>
     public static class CacheRegistrationExtensions
     {

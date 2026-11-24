@@ -22,9 +22,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Caching)]
-    public class CacheInitializerTests
+    public sealed class CacheInitializerTests : IDisposable
     {
         private readonly IPartitionManager _partitionManager = Substitute.For<IPartitionManager>();
+        private readonly CancellationTokenSource _applicationStarted = new();
+        private readonly IHostApplicationLifetime _lifetime = Substitute.For<IHostApplicationLifetime>();
+
+        public CacheInitializerTests()
+        {
+            _lifetime.ApplicationStarted.Returns(_applicationStarted.Token);
+        }
+
+        public void Dispose() => _applicationStarted.Dispose();
+
+        [Fact]
+        public async Task GivenHostedServicesStarted_WhenTheAppHasNotStartedYet_ThenNothingIsLoaded()
+        {
+            _partitionManager.IsEnabled.Returns(false);
+            using ServiceProvider provider = BuildProvider(out FirstCache first, out _, out AppCache app);
+            CacheInitializer initializer = GetInitializer(provider);
+
+            await initializer.StartAsync(CancellationToken.None);
+
+            Assert.Empty(first.Loads);
+            Assert.Equal(0, app.Loads);
+        }
 
         [Fact]
         public async Task GivenPartitioningIsEnabled_WhenStarted_ThenEveryCacheIsLoadedForEveryPartition()
@@ -88,6 +110,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
 
             var services = new ServiceCollection();
             services.AddSingleton(_partitionManager);
+            services.AddSingleton(_lifetime);
             services.AddSingleton<ILogger<CacheInitializer>>(NullLogger<CacheInitializer>.Instance);
             services.AddSingleton(first);
             services.AddSingleton(second);
@@ -99,8 +122,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
             return services.BuildServiceProvider();
         }
 
-        private static Task StartAsync(IServiceProvider provider) =>
-            provider.GetServices<IHostedService>().OfType<CacheInitializer>().Single().StartAsync(CancellationToken.None);
+        private static CacheInitializer GetInitializer(IServiceProvider provider) =>
+            provider.GetServices<IHostedService>().OfType<CacheInitializer>().Single();
+
+        // Runs the initializer the way the host does: StartAsync, then the app-started signal, then waits for the preload.
+        private async Task StartAsync(IServiceProvider provider)
+        {
+            CacheInitializer initializer = GetInitializer(provider);
+            await initializer.StartAsync(CancellationToken.None);
+            await _applicationStarted.CancelAsync();
+            await initializer.Preloading;
+        }
 
         private static IPartitionInfo CreatePartition(string id)
         {

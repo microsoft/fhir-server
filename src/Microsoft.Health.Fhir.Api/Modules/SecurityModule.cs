@@ -63,6 +63,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
                 if (_securityConfiguration.Authorization.Enabled)
                 {
+                    services.AddGlobalCache<RoleCache, RoleSet>();
                     services.Add<RoleLoader>().Transient().AsImplementedInterfaces();
                     services.AddSingleton(_securityConfiguration.Authorization);
 

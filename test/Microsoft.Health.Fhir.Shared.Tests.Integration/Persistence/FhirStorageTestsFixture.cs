@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public ScopedCache<CustomQueryProcedures> CustomQueries => _fixture.GetRequiredService<ScopedCache<CustomQueryProcedures>>();
 
-        public FakeTimeProvider CustomQueryTimeProvider => _fixture.GetRequiredService<FakeTimeProvider>();
+        public FakeTimeProvider CacheTimeProvider => _fixture.GetRequiredService<FakeTimeProvider>();
 
         public GetResourceHandler GetResourceHandler { get; set; }
 

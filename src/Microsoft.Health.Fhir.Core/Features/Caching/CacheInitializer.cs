@@ -16,32 +16,69 @@ using Microsoft.Health.Fhir.Core.Features.Partitions;
 namespace Microsoft.Health.Fhir.Core.Features.Caching
 {
     /// <summary>
-    /// Loads every registered cache at startup, so the first requests read memory: app-wide caches once, then
-    /// partition caches for every partition.
+    /// Loads every registered cache once the app has started: app-wide caches once, then partition caches for
+    /// every partition.
     /// </summary>
     /// <remarks>
-    /// A failed preload is logged and does not stop startup; that cache loads on its first use instead.
+    /// Preloading starts in the background on <see cref="IHostApplicationLifetime.ApplicationStarted"/>, after every
+    /// hosted service has started (including schema initialization), so it doesn't depend on registration order. This
+    /// works with both the generic host and the web host the server uses, which never calls
+    /// <c>IHostedLifecycleService.StartedAsync</c>. A cache read before its preload loads on that read. A failed preload
+    /// is logged and doesn't stop startup; that cache loads on first use.
     /// </remarks>
-    internal sealed class CacheInitializer : IHostedService
+    internal sealed class CacheInitializer : IHostedService, IDisposable
     {
         private readonly IReadOnlyList<CachePreload> _preloads;
         private readonly IPartitionManager _partitionManager;
         private readonly IServiceProvider _serviceProvider;
+        private readonly IHostApplicationLifetime _lifetime;
         private readonly ILogger<CacheInitializer> _logger;
+        private readonly CancellationTokenSource _stopping = new();
+        private CancellationTokenRegistration _startedRegistration;
+        private Task _preloading = Task.CompletedTask;
 
         public CacheInitializer(
             IEnumerable<CachePreload> preloads,
             IPartitionManager partitionManager,
             IServiceProvider serviceProvider,
+            IHostApplicationLifetime lifetime,
             ILogger<CacheInitializer> logger)
         {
             _preloads = EnsureArg.IsNotNull(preloads, nameof(preloads)).ToList();
             _partitionManager = EnsureArg.IsNotNull(partitionManager, nameof(partitionManager));
             _serviceProvider = EnsureArg.IsNotNull(serviceProvider, nameof(serviceProvider));
+            _lifetime = EnsureArg.IsNotNull(lifetime, nameof(lifetime));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public async Task StartAsync(CancellationToken cancellationToken)
+        internal Task Preloading => _preloading;
+
+        public Task StartAsync(CancellationToken cancellationToken)
+        {
+            _startedRegistration = _lifetime.ApplicationStarted.Register(() => _preloading = Task.Run(() => PreloadAllAsync(_stopping.Token)));
+            return Task.CompletedTask;
+        }
+
+        public async Task StopAsync(CancellationToken cancellationToken)
+        {
+            await _stopping.CancelAsync();
+            try
+            {
+                await _preloading.WaitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Shutting down; unfinished preloads don't matter.
+            }
+        }
+
+        public void Dispose()
+        {
+            _startedRegistration.Dispose();
+            _stopping.Dispose();
+        }
+
+        internal async Task PreloadAllAsync(CancellationToken cancellationToken)
         {
             foreach (CachePreload preload in _preloads.Where(p => !p.IsPartitioned))
             {
@@ -58,10 +95,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
             }
         }
 
-        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
         private async Task PreloadAsync(CachePreload preload, IPartitionInfo partition, CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 await preload.LoadAsync(_serviceProvider, partition, cancellationToken);

@@ -98,6 +98,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly IFhirDataStore _fhirDataStore;
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
         private readonly ScopedCache<CustomQueryProcedures> _customQueries;
+        private readonly ScopedCache<DatabaseParameters> _databaseParameters;
 
         private static readonly string[] NewLineSeparators = ["\r\n", "\n"];
         private static readonly Regex WhitespacePattern = new Regex(@"\s+", RegexOptions.Compiled);
@@ -147,10 +148,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private static int _queryStoreConsecutiveFailures;
         private static long _queryStoreCircuitOpenUntilTicks;
 
-        private static CachedParameter<SqlServerSearchService> _longRunningQueryDetails;
-        private static CachedParameter<SqlServerSearchService> _longRunningThreshold;
-        private static CachedParameter<SqlServerSearchService> _referenceResourceTypeFilteredStats;
-
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
             IFhirDataStore fhirDataStore,
@@ -171,6 +168,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             ISqlQueryHashCalculator queryHashCalculator,
             IQueryPlanReuseChecker queryPlanReuseChecker,
             ScopedCache<CustomQueryProcedures> customQueries,
+            ScopedCache<DatabaseParameters> databaseParameters,
             IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore, logger)
@@ -203,13 +201,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _queryHashCalculator = queryHashCalculator;
             _queryPlanReuseChecker = queryPlanReuseChecker;
             _customQueries = EnsureArg.IsNotNull(customQueries, nameof(customQueries));
+            _databaseParameters = EnsureArg.IsNotNull(databaseParameters, nameof(databaseParameters));
             _logger = logger;
 
             _schemaInformation = schemaInformation;
             _requestContextAccessor = requestContextAccessor;
             _compressedRawResourceConverter = compressedRawResourceConverter;
-
-            InitializeProcessingFlags(logger);
         }
 
         internal bool StoredProcedureLayerIsEnabled { get; set; } = true;
@@ -234,28 +231,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private static string GetCustomQuery(CustomQueryProcedures customQueries, string queryHash) =>
             customQueries != null && customQueries.TryGetProcedureName(queryHash, out string procedureName) ? procedureName : null;
 
-        private static void InitializeProcessingFlags(ILogger<SqlServerSearchService> logger)
-        {
-            lock (_locker)
-            {
-                if (_longRunningQueryDetails == null)
-                {
-                    _longRunningQueryDetails = new CachedParameter<SqlServerSearchService>(LongRunningQueryDetailsParameterId, 1, logger);
-                }
-
-                if (_longRunningThreshold == null)
-                {
-                    _longRunningThreshold = new CachedParameter<SqlServerSearchService>(LongRunningQueryDetailsThresholdId, LongRunningThresholdMillisecondsDefault, logger);
-                }
-
-                if (_referenceResourceTypeFilteredStats == null)
-                {
-                    // Default 0 (disabled): the 3-column reference-type filtered stat is only created
-                    // when an operator adds a row to the Parameters table with this Id enabled.
-                    _referenceResourceTypeFilteredStats = new CachedParameter<SqlServerSearchService>(ReferenceResourceTypeFilteredStatsParameterId, 0, logger);
-                }
-            }
-        }
+        private static bool IsLongRunning(DatabaseParameters parameters, long elapsedMilliseconds) =>
+            elapsedMilliseconds > parameters.GetNumber(LongRunningQueryDetailsThresholdId, LongRunningThresholdMillisecondsDefault)
+            && parameters.IsEnabled(LongRunningQueryDetailsParameterId, defaultValue: true);
 
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
@@ -560,6 +538,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SearchResult searchResult = null;
             string databaseName = _requestContextAccessor.RequestContext.GetDatabase();
             CustomQueryProcedures customQueries = await GetCustomQueriesAsync(cancellationToken);
+            DatabaseParameters databaseParameters = await _databaseParameters.GetAsync(cancellationToken);
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
                 {
@@ -888,7 +867,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         {
                             executionStopwatch.Stop();
 
-                            if (executionStopwatch.ElapsedMilliseconds > _longRunningThreshold.GetValue(_sqlRetryService) && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
+                            if (IsLongRunning(databaseParameters, executionStopwatch.ElapsedMilliseconds))
                             {
                                 // Capture query text and command type BEFORE the connection closes
                                 string queryTextSnapshot = sqlCommand.CommandText;
@@ -1921,22 +1900,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 }
             }
 
-            await _resourceSearchParamStats.Create(expression, _sqlRetryService, _logger, (SqlServerFhirModel)_model, cancel);
+            DatabaseParameters databaseParameters = await _databaseParameters.GetAsync(cancel);
+            bool referenceResourceTypeFilteredStatsEnabled = databaseParameters.IsEnabled(ReferenceResourceTypeFilteredStatsParameterId, defaultValue: false);
+            await _resourceSearchParamStats.Create(expression, _sqlRetryService, _logger, (SqlServerFhirModel)_model, referenceResourceTypeFilteredStatsEnabled, cancel);
         }
 
         internal static ICollection<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)> GetStatsFromCache()
         {
             return _resourceSearchParamStats?.GetStatsFromCache()
                 ?? Array.Empty<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)>();
-        }
-
-        /// <summary>
-        /// Forces the next read of the reference-resource-type filtered statistics feature flag to bypass the
-        /// in-memory cache and re-query the Parameters table. Intended for integration tests that toggle the flag.
-        /// </summary>
-        internal static void ResetReferenceResourceTypeFilteredStatsCache()
-        {
-            _referenceResourceTypeFilteredStats?.Reset();
         }
 
         internal async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId, short? ReferenceResourceTypeId)>> GetStatsFromDatabase(CancellationToken cancel)
@@ -2089,6 +2061,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SearchResult searchResult = null;
             string databaseName = _requestContextAccessor.RequestContext.GetDatabase();
             CustomQueryProcedures customQueries = await GetCustomQueriesAsync(cancellationToken);
+            DatabaseParameters databaseParameters = await _databaseParameters.GetAsync(cancellationToken);
 
             await _sqlRetryService.ExecuteSql(
                 async (connection, cancellationToken, sqlException) =>
@@ -2275,7 +2248,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         {
                             executionStopwatch.Stop();
 
-                            if (executionStopwatch.ElapsedMilliseconds > _longRunningThreshold.GetValue(_sqlRetryService) && _longRunningQueryDetails.IsEnabled(_sqlRetryService))
+                            if (IsLongRunning(databaseParameters, executionStopwatch.ElapsedMilliseconds))
                             {
                                 // Capture query text and command type BEFORE the connection closes
                                 string queryTextSnapshot = sqlCommand.CommandText;
@@ -2652,6 +2625,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 ISqlRetryService sqlRetryService,
                 ILogger<SqlServerSearchService> logger,
                 SqlServerFhirModel model,
+                bool referenceResourceTypeFilteredStatsEnabled,
                 CancellationToken cancel)
             {
                 // Iterate over top-level table expressions
@@ -2713,7 +2687,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         foreach (var column in columns)
                         {
-                            await Create(table, column, resourceTypeId, searchParamId, referenceResourceTypeId, sqlRetryService, logger, cancel);
+                            // The 3-column reference-type filtered stat (which additionally filters on ReferenceResourceTypeId)
+                            // is gated behind a feature flag that is OFF by default. When disabled, fall back to the broader
+                            // 2-column filtered stat (ResourceTypeId + SearchParamId) so reference searches still get a stat.
+                            short? statReferenceResourceTypeId = referenceResourceTypeFilteredStatsEnabled ? referenceResourceTypeId : null;
+                            await Create(table, column, resourceTypeId, searchParamId, statReferenceResourceTypeId, sqlRetryService, logger, cancel);
                         }
                     }
                 }
@@ -3048,14 +3026,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             private async Task Create(string tableName, string columnName, short resourceTypeId, short searchParamId, short? referenceResourceTypeId, ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, CancellationToken cancel)
             {
-                // The 3-column reference-type filtered stat (which additionally filters on ReferenceResourceTypeId)
-                // is gated behind a feature flag that is OFF by default. When disabled, fall back to the broader
-                // 2-column filtered stat (ResourceTypeId + SearchParamId) so reference searches still get a stat.
-                if (referenceResourceTypeId.HasValue && !_referenceResourceTypeFilteredStats.IsEnabled(sqlRetryService))
-                {
-                    referenceResourceTypeId = null;
-                }
-
                 if (_stats.ContainsKey((tableName, columnName, resourceTypeId, searchParamId, referenceResourceTypeId)))
                 {
                     logger.LogInformation("ResourceSearchParamStats.FoundInCache Table={Table} Column={Column} Type={ResourceType} Param={SearchParam} RefType={ReferenceResourceType}", tableName, columnName, resourceTypeId, searchParamId, referenceResourceTypeId);

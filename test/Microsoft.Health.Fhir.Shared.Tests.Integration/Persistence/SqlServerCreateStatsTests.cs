@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
@@ -239,8 +240,8 @@ IF @number IS NOT NULL
             cmd.Parameters.AddWithValue("@number", enabled ? (object)1 : DBNull.Value);
             await cmd.ExecuteNonQueryAsync(CancellationToken.None);
 
-            // Force the cached feature-flag value to be re-read from the Parameters table on the next stats call.
-            SqlServerSearchService.ResetReferenceResourceTypeFilteredStatsCache();
+            // Expire the cached Parameters values so the next stats call re-reads the flag.
+            _fixture.CacheTimeProvider.Advance(DatabaseParameterCache.Expiry);
         }
     }
 }

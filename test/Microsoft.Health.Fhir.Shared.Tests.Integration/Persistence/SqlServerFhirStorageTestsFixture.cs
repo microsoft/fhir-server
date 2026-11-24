@@ -146,9 +146,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal ISqlQueryHashCalculator SqlQueryHashCalculator { get; private set; }
 
-        internal FakeTimeProvider CustomQueryTimeProvider { get; } = new FakeTimeProvider();
+        internal FakeTimeProvider CacheTimeProvider { get; } = new FakeTimeProvider();
 
         internal ScopedCache<CustomQueryProcedures> CustomQueries { get; private set; }
+
+        internal ScopedCache<DatabaseParameters> Parameters { get; private set; }
 
         internal RequestContextAccessor<IFhirRequestContext> FhirRequestContextAccessor => _fhirRequestContextAccessor;
 
@@ -197,6 +199,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, SqlConnectionBuilder, sqlRetryLogicBaseProvider, SqlServerDataStoreConfiguration);
             _fhirRequestContextAccessor.RequestContext.Partition.Returns(new SqlPartitionInfo { Id = "application", Database = _databaseName });
             SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()), _fhirRequestContextAccessor);
+            Parameters = new ScopedCache<DatabaseParameters>(
+                new DatabaseParameterCache(SqlConnectionBuilder, NullLogger<DatabaseParameterCache>.Instance, CacheTimeProvider),
+                _fhirRequestContextAccessor);
 
             var sqlServerFhirModel = new SqlServerFhirModel(
                 SchemaInformation,
@@ -275,7 +280,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ModelInfoProvider.Instance,
                 _fhirRequestContextAccessor,
                 importErrorSerializer,
-                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, SchemaInformation));
+                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, SchemaInformation),
+                Parameters);
 
             // Create operation data store with real SqlQueueClient for reindex tests
             _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(sqlQueueClient, NullLoggerFactory.Instance);
@@ -318,7 +324,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SqlQueryHashCalculator = new TestSqlHashCalculator();
             CustomQueries = new ScopedCache<CustomQueryProcedures>(
-                new CustomQueryCache(SqlConnectionBuilder, NullLogger<CustomQueryCache>.Instance, CustomQueryTimeProvider),
+                new CustomQueryCache(SqlConnectionBuilder, NullLogger<CustomQueryCache>.Instance, CacheTimeProvider),
                 _fhirRequestContextAccessor);
 
             _searchService = new SqlServerSearchService(
@@ -341,6 +347,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlQueryHashCalculator,
                 queryPlanReuseChecker,
                 CustomQueries,
+                Parameters,
                 _options,
                 NullLogger<SqlServerSearchService>.Instance);
 
@@ -480,7 +487,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             if (serviceType == typeof(FakeTimeProvider))
             {
-                return CustomQueryTimeProvider;
+                return CacheTimeProvider;
             }
 
             if (serviceType == typeof(FhirSqlServerConfiguration))

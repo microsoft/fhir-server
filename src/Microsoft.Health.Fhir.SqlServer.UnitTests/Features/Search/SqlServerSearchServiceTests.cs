@@ -74,6 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private readonly IQueryPlanReuseChecker _queryPlanReuseChecker;
         private readonly ScopedCache<CustomQueryProcedures> _customQueries;
+        private readonly ScopedCache<DatabaseParameters> _databaseParameters;
         private readonly SqlServerSearchService _searchService;
         private readonly CoreFeatureConfiguration _coreFeatureConfiguration = new CoreFeatureConfiguration();
 
@@ -91,6 +92,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             _queryPlanReuseChecker = Substitute.For<IQueryPlanReuseChecker>();
             _customQueries = new ScopedCache<CustomQueryProcedures>(
                 TestPartitionCache<CustomQueryProcedures>.Returning(CustomQueryProcedures.Create([])),
+                _requestContextAccessor);
+            _databaseParameters = new ScopedCache<DatabaseParameters>(
+                TestPartitionCache<DatabaseParameters>.Returning(DatabaseParameters.Empty),
                 _requestContextAccessor);
 
             var config = new SqlServerDataStoreConfiguration
@@ -137,6 +141,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
                 _customQueries,
+                _databaseParameters,
                 Options.Create(_coreFeatureConfiguration),
                 NullLogger<SqlServerSearchService>.Instance);
         }
@@ -628,6 +633,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                 _queryHashCalculator,
                 _queryPlanReuseChecker,
                 _customQueries,
+                _databaseParameters,
                 Options.Create(_coreFeatureConfiguration),
                 NullLogger<SqlServerSearchService>.Instance);
         }
@@ -718,6 +724,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     _customQueries,
+                    _databaseParameters,
                     Options.Create(new CoreFeatureConfiguration()),
                     NullLogger<SqlServerSearchService>.Instance);
             });
@@ -769,6 +776,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     _customQueries,
+                    _databaseParameters,
                     Options.Create(new CoreFeatureConfiguration()),
                     NullLogger<SqlServerSearchService>.Instance);
             });
@@ -820,6 +828,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                     _queryHashCalculator,
                     _queryPlanReuseChecker,
                     _customQueries,
+                    _databaseParameters,
                     Options.Create(new CoreFeatureConfiguration()),
                     NullLogger<SqlServerSearchService>.Instance);
             });

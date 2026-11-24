@@ -129,6 +129,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsImplementedInterfaces();
 
             services.AddPartitionCache<CustomQueryCache, CustomQueryProcedures>();
+            services.AddPartitionCache<DatabaseParameterCache, DatabaseParameters>();
 
             AddSqlServerTableRowParameterGenerators(services);
 

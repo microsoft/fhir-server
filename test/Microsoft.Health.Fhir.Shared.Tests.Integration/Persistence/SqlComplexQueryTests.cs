@@ -264,7 +264,7 @@ END CATCH
             Assert.False(await CheckIfSprocUsed(spName));
 
             // Once the cached list expires, the next search reloads it and uses the sproc.
-            _fixture.CustomQueryTimeProvider.Advance(CustomQueryCache.Expiry);
+            _fixture.CacheTimeProvider.Advance(CustomQueryCache.Expiry);
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
 
             Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
@@ -283,7 +283,7 @@ END CATCH
 #pragma warning disable xUnit1031 // Do not use blocking task operations in test method
             _fixture.SqlHelper.ExecuteSqlCmd($"DROP PROCEDURE dbo.[{spName}]").Wait();
 #pragma warning restore xUnit1031
-            _fixture.CustomQueryTimeProvider.Advance(CustomQueryCache.Expiry);
+            _fixture.CacheTimeProvider.Advance(CustomQueryCache.Expiry);
         }
 
         private async Task<bool> CheckIfSprocUsed(string name)
