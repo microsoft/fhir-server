@@ -15,9 +15,8 @@ ALTER TABLE dbo.DateTimeSearchParam SET ( LOCK_ESCALATION = AUTO )
 CREATE CLUSTERED INDEX IXC_DateTimeSearchParam
 ON dbo.DateTimeSearchParam
 (
-    ResourceTypeId,
-    ResourceSurrogateId,
-    SearchParamId
+    SearchParamId,
+    ResourceSurrogateId
 )
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 

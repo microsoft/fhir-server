@@ -16,9 +16,9 @@ ALTER TABLE dbo.VectorSearchParam SET ( LOCK_ESCALATION = AUTO )
 ALTER TABLE dbo.VectorSearchParam ADD CONSTRAINT PKC_VectorSearchParam_ResourceTypeId_ResourceSurrogateId_SearchParamId_EmbeddingModelId_ChunkOrdinal
 PRIMARY KEY CLUSTERED
 (
+    SearchParamId,
     ResourceTypeId,
     ResourceSurrogateId,
-    SearchParamId,
     EmbeddingModelId,
     ChunkOrdinal
 )

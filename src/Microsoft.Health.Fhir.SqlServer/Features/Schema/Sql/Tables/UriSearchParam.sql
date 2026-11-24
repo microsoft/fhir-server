@@ -11,9 +11,8 @@ ALTER TABLE dbo.UriSearchParam SET ( LOCK_ESCALATION = AUTO )
 CREATE CLUSTERED INDEX IXC_UriSearchParam
 ON dbo.UriSearchParam
 (
-    ResourceTypeId,
-    ResourceSurrogateId,
-    SearchParamId
+    SearchParamId,
+    ResourceSurrogateId
 )
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)

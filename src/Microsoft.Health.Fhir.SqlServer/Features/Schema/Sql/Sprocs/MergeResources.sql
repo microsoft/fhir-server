@@ -128,35 +128,35 @@ BEGIN TRY
       -- Cleanup search parameters for historical versions
       DELETE FROM dbo.ResourceWriteClaim WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.ReferenceSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE A FROM @PreviousSurrogateIds P CROSS JOIN (SELECT SearchParamId FROM dbo.SearchParam WHERE TargetTable = 'ReferenceSearchParam') S JOIN dbo.ReferenceSearchParam A ON A.SearchParamId = S.SearchParamId AND A.ResourceTypeId = P.TypeId AND A.ResourceSurrogateId = P.SurrogateId
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.TokenSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE A FROM @PreviousSurrogateIds P CROSS JOIN (SELECT SearchParamId FROM dbo.SearchParam WHERE TargetTable = 'TokenSearchParam') S JOIN dbo.TokenSearchParam A ON A.SearchParamId = S.SearchParamId AND A.ResourceTypeId = P.TypeId AND A.ResourceSurrogateId = P.SurrogateId
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.TokenText WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE A FROM @PreviousSurrogateIds P CROSS JOIN (SELECT SearchParamId FROM dbo.SearchParam WHERE TargetTable = 'TokenSearchParam') S JOIN dbo.TokenText A ON A.SearchParamId = S.SearchParamId AND A.ResourceTypeId = P.TypeId AND A.ResourceSurrogateId = P.SurrogateId
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.StringSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE A FROM @PreviousSurrogateIds P CROSS JOIN (SELECT SearchParamId FROM dbo.SearchParam WHERE TargetTable = 'StringSearchParam') S JOIN dbo.StringSearchParam A ON A.SearchParamId = S.SearchParamId AND A.ResourceTypeId = P.TypeId AND A.ResourceSurrogateId = P.SurrogateId
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.UriSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE A FROM @PreviousSurrogateIds P CROSS JOIN (SELECT SearchParamId FROM dbo.SearchParam WHERE TargetTable = 'UriSearchParam') S JOIN dbo.UriSearchParam A ON A.SearchParamId = S.SearchParamId AND A.ResourceTypeId = P.TypeId AND A.ResourceSurrogateId = P.SurrogateId
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.NumberSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE A FROM @PreviousSurrogateIds P CROSS JOIN (SELECT SearchParamId FROM dbo.SearchParam WHERE TargetTable = 'NumberSearchParam') S JOIN dbo.NumberSearchParam A ON A.SearchParamId = S.SearchParamId AND A.ResourceTypeId = P.TypeId AND A.ResourceSurrogateId = P.SurrogateId
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.QuantitySearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE A FROM @PreviousSurrogateIds P CROSS JOIN (SELECT SearchParamId FROM dbo.SearchParam WHERE TargetTable = 'QuantitySearchParam') S JOIN dbo.QuantitySearchParam A ON A.SearchParamId = S.SearchParamId AND A.ResourceTypeId = P.TypeId AND A.ResourceSurrogateId = P.SurrogateId
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.DateTimeSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE A FROM @PreviousSurrogateIds P CROSS JOIN (SELECT SearchParamId FROM dbo.SearchParam WHERE TargetTable = 'DateTimeSearchParam') S JOIN dbo.DateTimeSearchParam A ON A.SearchParamId = S.SearchParamId AND A.ResourceTypeId = P.TypeId AND A.ResourceSurrogateId = P.SurrogateId
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.VectorSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE A FROM @PreviousSurrogateIds P CROSS JOIN (SELECT SearchParamId FROM dbo.SearchParam WHERE TargetTable = 'VectorSearchParam') S JOIN dbo.VectorSearchParam A ON A.SearchParamId = S.SearchParamId AND A.ResourceTypeId = P.TypeId AND A.ResourceSurrogateId = P.SurrogateId
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.ReferenceTokenCompositeSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE A FROM @PreviousSurrogateIds P CROSS JOIN (SELECT SearchParamId FROM dbo.SearchParam WHERE TargetTable = 'ReferenceTokenCompositeSearchParam') S JOIN dbo.ReferenceTokenCompositeSearchParam A ON A.SearchParamId = S.SearchParamId AND A.ResourceTypeId = P.TypeId AND A.ResourceSurrogateId = P.SurrogateId
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.TokenTokenCompositeSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE A FROM @PreviousSurrogateIds P CROSS JOIN (SELECT SearchParamId FROM dbo.SearchParam WHERE TargetTable = 'TokenTokenCompositeSearchParam') S JOIN dbo.TokenTokenCompositeSearchParam A ON A.SearchParamId = S.SearchParamId AND A.ResourceTypeId = P.TypeId AND A.ResourceSurrogateId = P.SurrogateId
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.TokenDateTimeCompositeSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE A FROM @PreviousSurrogateIds P CROSS JOIN (SELECT SearchParamId FROM dbo.SearchParam WHERE TargetTable = 'TokenDateTimeCompositeSearchParam') S JOIN dbo.TokenDateTimeCompositeSearchParam A ON A.SearchParamId = S.SearchParamId AND A.ResourceTypeId = P.TypeId AND A.ResourceSurrogateId = P.SurrogateId
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.TokenQuantityCompositeSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE A FROM @PreviousSurrogateIds P CROSS JOIN (SELECT SearchParamId FROM dbo.SearchParam WHERE TargetTable = 'TokenQuantityCompositeSearchParam') S JOIN dbo.TokenQuantityCompositeSearchParam A ON A.SearchParamId = S.SearchParamId AND A.ResourceTypeId = P.TypeId AND A.ResourceSurrogateId = P.SurrogateId
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.TokenStringCompositeSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE A FROM @PreviousSurrogateIds P CROSS JOIN (SELECT SearchParamId FROM dbo.SearchParam WHERE TargetTable = 'TokenStringCompositeSearchParam') S JOIN dbo.TokenStringCompositeSearchParam A ON A.SearchParamId = S.SearchParamId AND A.ResourceTypeId = P.TypeId AND A.ResourceSurrogateId = P.SurrogateId
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.TokenNumberNumberCompositeSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE A FROM @PreviousSurrogateIds P CROSS JOIN (SELECT SearchParamId FROM dbo.SearchParam WHERE TargetTable = 'TokenNumberNumberCompositeSearchParam') S JOIN dbo.TokenNumberNumberCompositeSearchParam A ON A.SearchParamId = S.SearchParamId AND A.ResourceTypeId = P.TypeId AND A.ResourceSurrogateId = P.SurrogateId
       SET @AffectedRows += @@rowcount
 
       --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Start=@st,@Rows=@AffectedRows,@Text='Old rows'

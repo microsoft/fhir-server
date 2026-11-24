@@ -17,9 +17,8 @@ ALTER TABLE dbo.ReferenceTokenCompositeSearchParam SET ( LOCK_ESCALATION = AUTO 
 CREATE CLUSTERED INDEX IXC_ReferenceTokenCompositeSearchParam
 ON dbo.ReferenceTokenCompositeSearchParam
 (
-    ResourceTypeId,
-    ResourceSurrogateId,
-    SearchParamId
+    SearchParamId,
+    ResourceSurrogateId
 )
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
