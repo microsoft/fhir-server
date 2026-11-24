@@ -29,7 +29,7 @@
     <!--Please include the CGA id if possible-->
     <PackageVersion Include="Medino.Extensions.DependencyInjection" Version="3.0.9" />
     <!-- GHSA-73j8-2gch-69rq, pulled in transitively via OpenIddict.Abstractions -> Microsoft.IdentityModel.Tokens -->
-    <PackageVersion Include="Microsoft.Bcl.Memory" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.Bcl.Memory" Version="11.0.0" />
     <!-- GHSA-g94r-2vxg-569j, pulled in transitively via Azure.Monitor.OpenTelemetry.AspNetCore. Kept on the same
          version as the other OpenTelemetry core packages; see OpenTelemetryPackageVersion. -->
     <PackageVersion Include="OpenTelemetry.Api" Version="$(OpenTelemetryPackageVersion)" />
