@@ -129,7 +129,7 @@
     <PackageVersion Include="Microsoft.Identity.Web" Version="4.18.0" />
     <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="4.0.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.404" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="11.0.100" />
     <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="170.5.96" />
     <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="172.87.0" />
     <PackageVersion Include="Newtonsoft.Json.Schema" Version="4.0.2" />
