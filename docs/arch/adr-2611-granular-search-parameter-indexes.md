@@ -6,16 +6,20 @@
 
 ## Context
 
-Search-parameter tables currently use shared secondary indexes across multiple search parameters.
-This ADR evaluates replacing those indexes with per-parameter filtered indexes.
-The granular indexes remain partitioned by `ResourceTypeId` on the existing partition scheme.
-Each index filters by `SearchParamId` without restricting the index to a single resource type.
+Each of search-param tables (sometimes also referred to as "index" to increase confusion) has clustered "primary" 
+index and one or many shared (used across all relevant search params) secondary indexes. Size of each secondary is 
+close to the size of the clustered index. Only small number of search params is actually used by SQL Server query 
+optimizer. 
 
-Data space can be reclaimed by disabling granular indexes with no observed read activity. If the customer 
-explicitly consented to use this space saving feature and has run a comprehensive workload, we can look at SQL Server index usage data in `sys.dm_db_index_usage_stats` to identify 
-indexes with no observed read activity and disable them. Exact workflow supporting this process is a subject for future discussion. 
+If we create per-parameter filtered indexes, and disable not used ones, we can significantly (close to 2x) reduce total 
+"index" size. The goal of this ADR is to evaluate this strategy.
 
-This reclaiming strategy can reduce total search-index storage by up to 2x.
+For now we assume that granular secondary indexes remain partitioned by `ResourceTypeId` (no filters on resource type) 
+and each index is filtered by `SearchParamId`.
+
+If the customer explicitly consented to use this space saving feature and has run a comprehensive workload, we can look 
+at SQL Server index usage data in `sys.dm_db_index_usage_stats` to identify indexes with no observed read activity and 
+disable them. Exact workflow supporting this process is a subject for future discussion. 
 
 The granular indexes must support all current searches with no exceptions.
 
@@ -41,56 +45,61 @@ share this limit. Disabling an unused granular index can reclaim data space but 
 an index slot.
 
 `DateTimeSearchParam` uses four granular indexes per eligible parameter. With four disabled
-shared templates retained and no other nonclustered indexes, the table can accommodate at most
-248 built-in and custom parameters combined: round down `(999 - 4) / 4`. The current FHIR codebase
-includes 106 eligible built-in parameters targeting `DateTimeSearchParam`, which would require 424
-granular indexes and leave room for 142 custom date parameters.
+shared indexes (used as templates) retained, the table can accommodate at most 248 built-in and custom 
+parameters combined: round down `(999 - 4) / 4`. The current FHIR codebase includes 106 eligible built-in 
+parameters targeting `DateTimeSearchParam`. If we pre-create all possible granular indexes, this would require 424
+granular slots and leave room for 142 custom date parameters.
 
 For `TokenSearchParam`, provisioning 565 built-in parameters uses 565 granular indexes plus
-one retained template, leaving room for 433 custom token parameters. For `StringSearchParam`,
-provisioning 135 built-in parameters uses 270 granular indexes plus two retained templates,
+one retained template, leaving room for 433 custom token parameters. 
+
+For `StringSearchParam`, provisioning 135 built-in parameters uses 270 granular indexes plus two retained templates,
 leaving room for 363 custom string parameters at two indexes each. Actual capacity depends on
 the number of built-in parameters provisioned on each table.
 
 Having more indexes available can increase query compilation time as the optimizer considers
-candidate plans and index combinations. The increase may be less than one second, but even that
-can be unacceptable for some customers. It means that this feature can be released only as disabled
-by default, and can be enabled only for specific scenarios or customers.
+candidate plans and index combinations (see data below).
 
 ## Options
 
-1. **Create indexes on write** - Create a filtered index when a search parameter is first written.
-   This avoids building indexes for unused parameters, but building one against an already populated
-   table can require scanning existing rows. Avoiding that cost depends on changing the clustered
-   indexes to lead with `SearchParamId`. This approach exposes SQL Server bug when SQL does not preserve 
-   physical order of rows for multiple filtered resource types, and runs separate sort operation (expensive). 
-   It also leaves a parameter without its index until the write-triggered creation has completed; searches before
-   that write need to look at existing indexes before submitting a query. If no indexes, query should assume no 
-   matching data exist and preserve query semantics. For example, search for resources with address=XYZ should 
-   return no records, while search for address:missing=true, should return all records.
+1. **Pre-create filtered indexes** - Create a separate index for each eligible search parameter,
+   filtered by `SearchParamId` on empty database. This method is simple to implement, but requires a large number 
+   of indexes to be created and maintained, even for parameters that are never used. It also increases the time required 
+   for query compilation, as the optimizer has to consider more indexes when generating execution plans. It also reduces 
+   the number of available index slots for future custom parameters. (Not chosen)
+
+2. **Create indexes on write (synchronously)** - Create a filtered index when a search parameter is first written.
+   This avoids building indexes for unused parameters. In order to built index in "zero" time, clustered indexes must 
+   be rebuilt with `SearchParamId` as first key, otherwise table will be scanned. This approach exposes SQL Server bug 
+   when SQL does not preserve physical sort order of rows for multiple filtered resource types, and adds separate sort 
+   operation (expensive). This approach has less limitations than pre-creating all indexes. (Not chosen)
    
-2. **Pre-create filtered indexes** - Create a separate index for each eligible search parameter,
-   filtered by `SearchParamId`, before or independently of writes. Keep the existing resource-type
-   partitioning and derive index definitions from the disabled shared-index templates. 
+3. **Create indexes on write (asynchronously)** - Same as above, but instead of changing clustered indexes, create the index asynchronously 
+   by logging into the `JobQueue` table, and letting special process (similar to background task) handle index creation. 
+   This leaves a parameter without its index until the write-triggered creation has completed; searches before
+   that write need to look at existing indexes before submitting a query. If no indexes (including being created), 
+   query should assume no matching data exist and preserve query semantics. For example, search for resources with address=XYZ should 
+   return no records, while search for address:missing=true, should return all records. If matching index is being created, query can 
+   return "not ready" or resort to a table scan. (Current choice)
+
+## Food for thought
+
+| Mesurement | Curent | Pre-create all | Create-on-write sync | Create-on-write async |
+| --- | --- | --- | --- | --- |
+| Number of secondary indexes (TokenSearchParam) | 1 | 535 | 57 | 57 |
+| SQL CPU on Ingest (PRMS 80), % | 55 | 68 | 62 | 62 |
+| Compilation (/?_type=Patient&_id=xyz&_tag=example), msec | 24 | 235 | 47 | 47 |
+| Compilation (/?_type=Patient,Practitioner&_id=xyz&_tag=example), msec | 35 | 407 | 97 | 97 |
+| Creation of granular index on TokenSearchParam (not existing data), minutes per 1TB |  | 0 | 0 | 10 |
 
 ## Current approach
 
-Use the pre-create approach for this experiment. Provision filtered secondary indexes for all
-eligible known search parameters, including parameters whose tables currently have no rows.
-Retain the existing shared-index templates as the source for key columns, included columns, uniqueness,
-and compression. `TokenText` remains on its existing indexing path.
-
-This approach provides an index for each searchable parameter regardless of when its first row is
-written and avoids making index creation part of the write path. The create-on-write alternative
-remains possible, but requires the `SearchParamId`-leading clustered-index redesign and separate
-validation before adoption.
+Use the "Create indexes on write (asynchronously)" approach for this experiment. 
 
 ## Consequences
 
 - Each parameter-specific index contains only rows for that parameter, targeting less storage and
   smaller per-index maintenance operations; the actual reduction and workload impact require
   measurement.
-- Indexes are provisioned even for parameters with no current data, so we are getting closer 
-  to SQL Server's per-table nonclustered-index limit.
 - Query plans and representative write, rebuild, and storage measurements are needed to validate
-  the intended benefits. FHIR query semantics remain unchanged.
+  the intended benefits. FHIR query semantics must remain unchanged.
