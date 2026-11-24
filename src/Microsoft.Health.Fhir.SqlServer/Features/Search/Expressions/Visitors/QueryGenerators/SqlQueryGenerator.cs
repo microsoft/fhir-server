@@ -1054,11 +1054,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
             else
             {
+                int predecessorIndex;
+                if (!_unionVisited)
+                {
+                    predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
+                }
+                else if (searchParamTableExpression.Kind == SearchParamTableExpressionKind.Concatenation)
+                {
+                    // CTE indexes no longer line up with table expressions after a union; reuse the first half's input.
+                    predecessorIndex = _lastChainAfterUnionPredecessorIndex;
+                }
+                else
+                {
+                    predecessorIndex = _tableExpressionCounter - 1;
+                    _lastChainAfterUnionPredecessorIndex = predecessorIndex;
+                    _lastChainAfterUnionJoinOnTarget = true;
+                }
+
                 StringBuilder.Append("SELECT T1, Sid1, ")
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table)
-                    .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()))
+                    .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(predecessorIndex))
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append("T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine("Sid2");
             }
@@ -1357,7 +1374,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (searchParamTableExpression.ChainLevel > 1)
             {
-                StringBuilder.Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()))
+                int predecessorIndex = _unionVisited ? _tableExpressionCounter - 1 : FindRestrictingPredecessorTableExpressionIndex();
+                StringBuilder.Append(_joinShift).Append("JOIN ").Append(TableExpressionName(predecessorIndex))
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias).Append(" = ").Append("T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias).Append(" = ").AppendLine("Sid2");
             }

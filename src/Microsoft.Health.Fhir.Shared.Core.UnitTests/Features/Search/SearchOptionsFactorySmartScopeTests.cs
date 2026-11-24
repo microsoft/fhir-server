@@ -786,6 +786,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GivenDistinctFilteredScopesWhoseJoinedFiltersLookIdentical_WhenCreatedWithAChain_ThenBothAreKeptAndRequestIsDenied(bool singleParameterFirst)
+        {
+            // A decoded value containing '&' and '=' must not make one grant look like a different multi-parameter grant.
+            var singleParameter = new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams(("category", $"encounter-diagnosis&{AvailableParameterCode}=y")));
+            var twoParameters = new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams(("category", "encounter-diagnosis"), (AvailableParameterCode, "y")));
+
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
+                singleParameterFirst ? singleParameter : twoParameters,
+                singleParameterFirst ? twoParameters : singleParameter);
+
+            Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false));
+        }
+
         [Fact]
         public void GivenAnUnavailableFilteredScopeAndAUsableAlternative_WhenCreatedWithAChain_ThenTheUnavailableScopeIsWithdrawn()
         {

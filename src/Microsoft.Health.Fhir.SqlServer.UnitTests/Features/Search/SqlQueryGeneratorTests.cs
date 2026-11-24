@@ -1625,6 +1625,77 @@ public class SqlQueryGeneratorTests : IClassFixture<ModelInfoProviderFixture>
         });
     }
 
+    [Fact]
+    public void GivenSmartScopeUnionFollowedByNestedChain_WhenInnermostNumericPredicateIsSplit_ThenBothBranchesJoinTheInnermostChain()
+    {
+        // Arrange - Observation?subject:Patient._has:RiskAssessment:subject:probability=0.5 after a SMART union.
+        var statusUrl = new Uri("http://hl7.org/fhir/SearchParameter/Observation-status");
+        var subjectUrl = new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject");
+        var riskSubjectUrl = new Uri("http://hl7.org/fhir/SearchParameter/RiskAssessment-subject");
+        var probabilityUrl = new Uri("http://hl7.org/fhir/SearchParameter/RiskAssessment-probability");
+        var status = new SearchParameterInfo("status", "status", SearchParamType.Token, statusUrl, null, "Observation.status", ["Observation"]);
+        var subject = new SearchParameterInfo("subject", "subject", SearchParamType.Reference, subjectUrl, null, "Observation.subject", ["Patient"]);
+        var riskSubject = new SearchParameterInfo("subject", "subject", SearchParamType.Reference, riskSubjectUrl, null, "RiskAssessment.subject", ["Patient"]);
+        var probability = new SearchParameterInfo("probability", "probability", SearchParamType.Number, probabilityUrl, null, "RiskAssessment.prediction.probability", ["RiskAssessment"]);
+
+        var individualAnd = Expression.And(Expression.SearchParameter(status, Expression.StringEquals(FieldName.TokenCode, null, "final", false)));
+        individualAnd.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+        var scopeAnd = Expression.And(individualAnd);
+        scopeAnd.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+        var smartUnion = Expression.Union(UnionOperator.All, [scopeAnd]);
+        smartUnion.IsSmartV2UnionExpressionForScopesSearchParameters = true;
+
+        SqlRootExpression sqlExpression = new(
+            [
+                new SearchParamTableExpression(TokenQueryGenerator.Instance, Expression.And(smartUnion), SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(
+                    ChainLinkQueryGenerator.Instance,
+                    new SqlChainLinkExpression(["Observation"], subject, ["Patient"], false),
+                    SearchParamTableExpressionKind.Chain,
+                    chainLevel: 1),
+                new SearchParamTableExpression(
+                    ChainLinkQueryGenerator.Instance,
+                    new SqlChainLinkExpression(["RiskAssessment"], riskSubject, ["Patient"], true),
+                    SearchParamTableExpressionKind.Chain,
+                    chainLevel: 2),
+                new SearchParamTableExpression(
+                    NumberQueryGenerator.Instance,
+                    Expression.SearchParameter(probability, Expression.Equals(FieldName.Number, null, 0.5m)),
+                    SearchParamTableExpressionKind.Normal,
+                    chainLevel: 2),
+                new SearchParamTableExpression(
+                    NumberQueryGenerator.Instance,
+                    Expression.SearchParameter(probability, Expression.LessThanOrEqual(SqlFieldName.NumberLow, null, 0.5m)),
+                    SearchParamTableExpressionKind.Concatenation,
+                    chainLevel: 2),
+            ],
+            []);
+
+        ConfigureResourceTypeIds();
+        _fhirModel.GetSearchParamId(statusUrl).Returns((short)40);
+        _fhirModel.GetSearchParamId(subjectUrl).Returns((short)41);
+        _fhirModel.GetSearchParamId(riskSubjectUrl).Returns((short)44);
+        _fhirModel.GetSearchParamId(probabilityUrl).Returns((short)43);
+
+        // Act
+        _queryGenerator.VisitSqlRoot(sqlExpression, new SearchOptions { Sort = [], CountOnly = true, ResourceVersionTypes = ResourceVersionType.Latest });
+
+        // Assert - both numeric branches must restrict the innermost chain CTE's target, not each other.
+        string generatedSql = _strBuilder.ToString();
+        MatchCollection chainCtes = Regex.Matches(generatedSql, @"(cte\d+) AS\s*\(\s*SELECT[^()]*?FROM dbo\.ReferenceSearchParam", RegexOptions.Singleline);
+        Assert.Equal(2, chainCtes.Count);
+        string innermostChainCte = chainCtes[1].Groups[1].Value;
+
+        MatchCollection numberJoins = Regex.Matches(generatedSql, @"FROM dbo\.NumberSearchParam\s+JOIN (cte\d+) ON ResourceTypeId = (\w+) AND ResourceSurrogateId = (\w+)");
+        Assert.Equal(2, numberJoins.Count);
+        Assert.All(numberJoins, m =>
+        {
+            Assert.Equal(innermostChainCte, m.Groups[1].Value);
+            Assert.Equal("T2", m.Groups[2].Value);
+            Assert.Equal("Sid2", m.Groups[3].Value);
+        });
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

@@ -1414,10 +1414,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             // Identical grants are the same alternative and must not be treated as distinct ones that need merging.
-            scopeParameters = scopeParameters
-                .GroupBy(p => string.Join("&", p.Select(param => param.Item1 + "=" + param.Item2).OrderBy(s => s, StringComparer.Ordinal)), StringComparer.Ordinal)
-                .Select(g => g.First())
-                .ToList();
+            // Compare the parameter pairs themselves: decoded values may contain '&' or '=', so a joined string is ambiguous.
+            var distinctSorted = new List<List<Tuple<string, string>>>();
+            var distinctParameters = new List<List<Tuple<string, string>>>();
+            foreach (List<Tuple<string, string>> parameters in scopeParameters)
+            {
+                List<Tuple<string, string>> sorted = parameters
+                    .OrderBy(p => p.Item1, StringComparer.Ordinal)
+                    .ThenBy(p => p.Item2, StringComparer.Ordinal)
+                    .ToList();
+
+                if (!distinctSorted.Any(d => d.SequenceEqual(sorted)))
+                {
+                    distinctSorted.Add(sorted);
+                    distinctParameters.Add(parameters);
+                }
+            }
+
+            scopeParameters = distinctParameters;
 
             if (scopeParameters.Count == 1)
             {
