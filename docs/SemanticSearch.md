@@ -127,9 +127,10 @@ deploying, make sure that:
   other `embedding*` parameters are ignored.
 - The deployment is pinned to `NoAutoUpgrade`. The template does not change an existing deployment's
   upgrade policy. Changing the model or version of a deployment already in use is not a supported
-  migration: app settings would use the new model identity, but existing resources remain indexed
-  under the old identity. A plain `$reindex` does not rebuild vectors for already-enabled
-  SearchParameters.
+  migration. The app settings record the model name and version at deployment time. If Foundry changes
+  the model before those settings are refreshed, new embeddings can be recorded under the old identity.
+  After the settings are refreshed, existing resources remain indexed under the old identity, and a
+  plain `$reindex` does not rebuild vectors for already-enabled SearchParameters.
 - The deploying identity can create role assignments on the account, for example as Owner or User Access
   Administrator.
 - If the account is in another resource group or subscription, the deploying identity can also create
@@ -143,6 +144,10 @@ set -euo pipefail
 ips=$(az webapp show --subscription <fhir-subscription-id> -g <fhir-resource-group> -n <serviceName> --query possibleOutboundIpAddresses -o tsv)
 if [[ -z "$ips" ]]; then
   echo "No App Service outbound IP addresses were returned." >&2
+  exit 1
+fi
+if [[ "$ips" == *$'\n'* || "$ips" == *, ]]; then
+  echo "The App Service outbound IP list is not a single comma-separated list." >&2
   exit 1
 fi
 IFS=, read -r -a addresses <<< "$ips"
