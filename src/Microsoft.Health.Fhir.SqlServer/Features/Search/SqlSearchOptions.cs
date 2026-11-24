@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// Set when a SMART compartment membership context was attached to the root expression for this
         /// search. The SQL query generator re-checks this flag so that a rewrite step that reconstructs the
         /// root expression (dropping the attached context) fails loudly instead of silently generating
-        /// include CTEs without compartment authorization.
+        /// include, chained or _has CTEs without compartment authorization.
         /// </summary>
         public bool IsSmartCompartmentSearch { get; internal set; }
 

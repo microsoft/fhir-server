@@ -417,11 +417,38 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
+        public void GivenIncludeTableExpression_WhenRequiresSmartCompartmentMembership_ThenReturnsTrue()
+        {
+            Assert.True(CreateWithKind(SearchParamTableExpressionKind.Include).RequiresSmartCompartmentMembership);
+        }
+
+        [Fact]
+        public void GivenChainTableExpression_WhenRequiresSmartCompartmentMembership_ThenReturnsTrue()
+        {
+            Assert.True(CreateWithKind(SearchParamTableExpressionKind.Chain).RequiresSmartCompartmentMembership);
+        }
+
+        [Fact]
+        public void GivenOnlyNonTraversalTableExpressions_WhenRequiresSmartCompartmentMembership_ThenReturnsFalse()
+        {
+            Assert.False(CreateWithKind(SearchParamTableExpressionKind.All).RequiresSmartCompartmentMembership);
+            Assert.False(CreateWithKind(SearchParamTableExpressionKind.Top).RequiresSmartCompartmentMembership);
+            Assert.False(SqlRootExpression.WithResourceTableExpressions().RequiresSmartCompartmentMembership);
+        }
+
+        [Fact]
         public void GivenNullVisitor_WhenAcceptVisitor_ThenThrowsArgumentNullException()
         {
             var expression = SqlRootExpression.WithSearchParamTableExpressions();
 
             Assert.Throws<ArgumentNullException>(() => expression.AcceptVisitor<object, object>(null, null));
+        }
+
+        private static SqlRootExpression CreateWithKind(SearchParamTableExpressionKind kind)
+        {
+            return SqlRootExpression.WithSearchParamTableExpressions(
+                new SearchParamTableExpression(TokenQueryGenerator.Instance, null, SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(TokenQueryGenerator.Instance, null, kind));
         }
     }
 }

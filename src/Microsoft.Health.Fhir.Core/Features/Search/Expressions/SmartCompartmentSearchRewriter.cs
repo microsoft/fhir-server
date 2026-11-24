@@ -77,14 +77,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             // Some resource types have conditional visibility within the compartment (neither plainly universal nor
             // a plain formal member). GetConditionalCompartmentRules is the single source of truth for those rules;
             // it is consumed here to build the union legs and by SmartCompartmentMembershipContextFactory to build
-            // the SQL include/revinclude candidate predicate, so the two paths cannot drift.
+            // the SQL include/revinclude and chained/_has candidate predicate, so the two paths cannot drift.
             IReadOnlyList<SmartCompartmentConditionalRule> conditionalRules = GetConditionalCompartmentRules(compartmentType);
 
             // Finally we add in the "universal" resources, which are resources that are not compartment specific.
             // Any type governed by a conditional rule is excluded here and contributed by the conditional legs below
             // instead. GetSharedResourceTypes is the single source of truth for this subtraction; it is also
             // consumed by SmartCompartmentMembershipContextFactory so the compartment union and the SQL
-            // include/revinclude candidate predicate cannot drift.
+            // include/revinclude and chained/_has candidate predicate cannot drift.
             var universalResourceTypes = GetSharedResourceTypes(conditionalRules).ToList();
 
             // In case FilteredResourceTypes is specified and not the default, we need to filter down the universalResourceTypes to only those specified
@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <summary>
         /// Builds the declarative conditional-visibility rules for the given compartment. This is the single source
         /// of truth for resource types whose compartment visibility is conditional; it is consumed both by the
-        /// compartment union (<see cref="VisitSmartCompartment"/>) and by the SQL include/revinclude candidate
+        /// compartment union (<see cref="VisitSmartCompartment"/>) and by the SQL include/revinclude and chained/_has candidate
         /// authorization predicate (via SmartCompartmentMembershipContextFactory), so the two paths cannot drift.
         /// </summary>
         /// <param name="compartmentType">The compartment root resource type (for example, Patient or Practitioner).</param>
@@ -234,7 +234,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// Computes the resource types that are unconditionally shared within a SMART compartment:
         /// <see cref="UniversalResourceTypes"/> minus any type governed by a conditional-visibility rule.
         /// Single source of truth for this subtraction — consumed both by the compartment union
-        /// (<see cref="VisitSmartCompartment"/>) and by the SQL include/revinclude candidate authorization
+        /// (<see cref="VisitSmartCompartment"/>) and by the SQL include/revinclude and chained/_has candidate authorization
         /// predicate (via SmartCompartmentMembershipContextFactory), so the two paths cannot drift.
         /// </summary>
         /// <param name="conditionalRules">The conditional-visibility rules in effect for the compartment.</param>

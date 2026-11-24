@@ -10,6 +10,8 @@ using System.Linq;
 using System.Text;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -73,6 +75,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private readonly bool _enableChainSourceDeduplication;
         private readonly HashSet<int> _chainTableExpressionIndexes = new();
         private readonly List<(int position, bool insideHash)> _queryShapePositions = [];
+        private readonly ILogger _logger;
 
         public SqlQueryGenerator(
             IndentedStringBuilder sb,
@@ -83,7 +86,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             bool reuseQueryPlans,
             bool isAsyncOperation,
             SqlException sqlException = null,
-            bool enableChainSourceDeduplication = false)
+            bool enableChainSourceDeduplication = false,
+            ILogger logger = null)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
@@ -99,6 +103,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _reuseQueryPlans = reuseQueryPlans;
             _isAsyncOperation = isAsyncOperation;
             _enableChainSourceDeduplication = enableChainSourceDeduplication;
+            _logger = logger ?? NullLogger.Instance;
 
             if (sqlException?.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
             {
@@ -144,15 +149,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             // (see SqlServerSearchService.AttachSmartCompartmentMembership), it must still be present on the
             // root expression that reaches SQL generation. SmartCompartmentMembership is carried outside the
             // visitable expression tree, so a rewrite step that reconstructs SqlRootExpression after the attach
-            // would silently drop it — and the include CTEs would be generated without compartment
+            // would silently drop it — and the include and chain CTEs would be generated without compartment
             // authorization. Refuse to generate that SQL. This cannot affect non-SMART or system-scope
             // searches: IsSmartCompartmentSearch is only set when a membership context was actually attached.
             if (context is SqlSearchOptions { IsSmartCompartmentSearch: true }
                 && expression.SmartCompartmentMembership == null
-                && expression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include))
+                && expression.RequiresSmartCompartmentMembership)
             {
+                _logger.LogError("SMART compartment membership context was dropped between AttachSmartCompartmentMembership and SQL generation; refusing to generate _include/_revinclude or chained/_has SQL.");
+
                 throw new InvalidOperationException(
-                    "SMART compartment membership context was dropped before SQL generation; refusing to generate _include/_revinclude SQL without compartment authorization.");
+                    "SMART compartment membership context was dropped before SQL generation; refusing to generate _include/_revinclude or chained/_has SQL without compartment authorization.");
             }
 
             var visitedInclude = false;
@@ -1377,6 +1384,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     delimited.BeginDelimitedElement();
                     chainedExpression.ExpressionOnSource.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext(chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias));
                 }
+
+                // The root compartment filter only restricts the returned resources. Each chain link introduces a new
+                // resource (the reference source for _has, the reference target for a forward chain) whose search
+                // predicates would otherwise be evaluated across every compartment, turning the outer result into an
+                // oracle over out-of-compartment data. Authorize that resource exactly as _include/_revinclude do.
+                if (_rootExpression.SmartCompartmentMembership != null)
+                {
+                    AppendSmartCompartmentCandidatePredicate(
+                        delimited.BeginDelimitedElement(),
+                        chainedExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias,
+                        candidateIsResourceTable: !chainedExpression.Reversed);
+                }
             }
         }
 
@@ -1820,7 +1839,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // Conditional-visibility legs (for example the SMART Device limits). Each rule authorizes a candidate
                 // of a given resource type that either references the compartment root (own device) or has no
                 // reference at all (unassigned device). Candidates that satisfy neither (for example a device
-                // assigned to a different patient) are excluded, closing the _include/_revinclude leak. This loop is
+                // assigned to a different patient) are excluded, closing the _include/_revinclude and chained/_has leaks. This loop is
                 // generic: the rules are data supplied by SmartCompartmentSearchRewriter.GetConditionalCompartmentRules,
                 // so no resource-type-specific logic lives here.
                 for (int conditionalIndex = 0; conditionalIndex < membership.ConditionalRules.Length; conditionalIndex++)

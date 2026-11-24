@@ -414,6 +414,47 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
             Assert.Equal(cts.Token, exception.CancellationToken);
         }
 
+        // The guard must fail closed only when a compartment-bound caller reaches other resources (include or chain)
+        // without a compartment authorization context; plain searches and non-compartment callers must proceed.
+        [Theory]
+        [InlineData("include", true, "Patient")]
+        [InlineData("chain", true, "Patient")]
+        [InlineData("none", false, "Patient")]
+        [InlineData("include", false, null)]
+        public async Task GivenCompartmentBoundCallerWithoutCompartmentScope_WhenSearchIsRun_ThenGuardFailsClosedOnlyForChainOrInclude(string shape, bool shouldThrow, string compartmentResourceType)
+        {
+            // Arrange
+            var fhirRequestContext = Substitute.For<IFhirRequestContext>();
+            fhirRequestContext.Properties.Returns(new Dictionary<string, object>());
+            fhirRequestContext.AccessControlContext.Returns(new AccessControlContext { CompartmentResourceType = compartmentResourceType });
+            _requestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+            var searchService = CreateSearchService(CreateConcreteModel(_sqlRetryService));
+            var options = CreateIncludesCountOptions(CreateGuardTestExpression(shape));
+
+            if (shouldThrow)
+            {
+                // Act
+                await Assert.ThrowsAsync<InvalidOperationException>(() => searchService.SearchAsync(options, CancellationToken.None));
+
+                // Assert
+                await _sqlRetryService.DidNotReceiveWithAnyArgs().ExecuteSql(
+                    Arg.Any<Func<SqlConnection, CancellationToken, SqlException, Task>>(),
+                    Arg.Any<ILogger>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<Func<SqlException, bool>>());
+            }
+            else
+            {
+                // Act
+                Exception exception = await Record.ExceptionAsync(() => searchService.SearchAsync(options, CancellationToken.None));
+
+                // Assert
+                Assert.IsNotType<InvalidOperationException>(exception);
+            }
+        }
+
         private static SqlServerFhirModel CreateConcreteModel(ISqlRetryService sqlRetryService)
         {
             var schemaInfo = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max)
@@ -536,6 +577,33 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search
                         SearchParameterInfo.ResourceTypeSearchParameter,
                         Expression.Equals(FieldName.TokenCode, null, "Patient")),
                 }.Concat(includes).ToArray());
+        }
+
+        private static Expression CreateGuardTestExpression(string shape)
+        {
+            switch (shape)
+            {
+                case "include":
+                    return CreateIncludesExpression(CreateInclude("Patient", "Observation", reversed: false, iterate: false));
+                case "chain":
+                    var reference = new SearchParameterInfo("subject", "subject", SearchParamType.Reference, new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"), null, null, ["Patient"]);
+                    return Expression.And(
+                        Expression.SearchParameter(
+                            SearchParameterInfo.ResourceTypeSearchParameter,
+                            Expression.Equals(FieldName.TokenCode, null, "Patient")),
+                        Expression.Chained(
+                            ["Observation"],
+                            reference,
+                            ["Patient"],
+                            true,
+                            Expression.SearchParameter(
+                                SearchParameterInfo.ResourceTypeSearchParameter,
+                                Expression.Equals(FieldName.TokenCode, null, "Observation"))));
+                case "none":
+                    return CreateIncludesExpression();
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(shape), shape, null);
+            }
         }
 
         private static SqlException CreateSqlException(int number, string message)

@@ -49,3 +49,17 @@ Compartment authorization and SMART V2 scope authorization remain independent in
 - One visible behavior change: patient-scoped callers now correctly receive in-compartment resources whose membership is established through `clinical-patient` (for example Immunization), which the previous fixture masked. One integration count assertion was updated accordingly.
 - Adds a correlated `EXISTS` per include candidate. The worst case is a `_revinclude` with very high inbound-reference fan-out where most candidates are unauthorized; this needs plan measurement at production scale, and join hints should not be added without that evidence.
 - **SQL only.** Cosmos is deliberately untouched. Iterative includes still return a truncation warning rather than a `$includes` link; making them pageable is a separate design. Applying the same candidate-driven strategy to SMART V2 scope unions is a possible follow-up.
+
+## Amendment (2026-08): chained and `_has` searches
+
+**Context.** Chained (`subject:Patient.name=…`) and reverse-chained (`_has:Observation:subject:code=…`) searches reach resources other than the matched resource in the same way includes do: each link is a reference join generated as a chain CTE. Only the outermost resource was compartment-restricted, so a patient-scoped caller could use a link's filter as an oracle — learning whether some out-of-compartment resource with a given value exists and is linked to an in-compartment resource — without that resource ever being returned.
+
+**Decision.** The candidate authorization predicate from this ADR is applied to every chain and `_has` link, including nested links. The resource reached by the link must pass the same membership test as an include candidate (compartment root, universally shared type, or a formal compartment membership parameter pointing at the root). For a forward chain the reached resource is the chain target; for `_has` it is the referencing (source) resource. A link matches only through reached resources that are members: for example `Observation?focus:Patient.name=…` never matches through a different patient, while `Practitioner?_has:Observation:performer:…` from a patient token matches only through Observations in the patient's compartment. The rule source, descriptor and fail-closed guards are shared with includes: `SqlRootExpression.RequiresSmartCompartmentMembership` is true for include **and** chain table expressions, so a compartment-bound request that would generate either kind of CTE without a membership descriptor is refused (logged as critical, then failed) before any SQL runs.
+
+**`$member-match`.** `$member-match` resolves the member through a reverse chain on `Coverage.beneficiary` that is intentionally not compartment-scoped. Under SMART fine-grained access control it is therefore always forbidden; the former opt-in `EnableSmartMemberMatchRestriction` setting was removed so the restriction can no longer be disabled.
+
+**Consequences.**
+
+- Chained and `_has` filters can no longer observe resources outside the caller's compartment. Results for in-compartment links are unchanged.
+- One additional correlated `EXISTS` per chain link for compartment-bound callers only; non-SMART and system-scope searches generate the same SQL as before.
+- Cosmos chained and `_has` searches remain unscoped, consistent with the SQL-only scope of this ADR.

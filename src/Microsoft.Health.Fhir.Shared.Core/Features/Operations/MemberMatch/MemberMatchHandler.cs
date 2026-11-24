@@ -7,10 +7,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Medino;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -25,13 +23,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
         private readonly IMemberMatchService _memberMatchService;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
-        private readonly CoreFeatureConfiguration _coreFeatures;
 
         public MemberMatchHandler(
             IAuthorizationService<DataActions> authorizationService,
             IMemberMatchService memberMatchService,
-            RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
-            IOptions<CoreFeatureConfiguration> coreFeatures)
+            RequestContextAccessor<IFhirRequestContext> requestContextAccessor)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(memberMatchService, nameof(memberMatchService));
@@ -39,7 +35,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             _memberMatchService = memberMatchService;
             _authorizationService = authorizationService;
             _requestContextAccessor = requestContextAccessor;
-            _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
         }
 
         public async Task<MemberMatchResponse> HandleAsync(MemberMatchRequest request, CancellationToken cancellationToken)
@@ -48,8 +43,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
 
             await _authorizationService.CheckAccess(DataActions.Read, true, cancellationToken);
 
-            if (_coreFeatures.EnableSmartMemberMatchRestriction &&
-                _requestContextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+            // $member-match runs an internal reverse-chained search that is not compartment-scoped, so it
+            // is never allowed when SMART fine-grained access control applies.
+            if (_requestContextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
             {
                 throw new UnauthorizedFhirActionException();
             }

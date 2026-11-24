@@ -372,6 +372,41 @@
         {
             "resource": {
                 "resourceType": "DiagnosticReport",
+                "id": "smart-leak-parent-report-outside-result",
+                "meta": {
+                    "tag": [
+                        {
+                            "system": "testTag",
+                            "code": "smart-leak"
+                        }
+                    ]
+                },
+                "status": "final",
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "4548-4"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/smart-leak-parent"
+                },
+                "result": [
+                    {
+                        "reference": "Observation/smart-leak-child-obs-with-outside-focus"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "DiagnosticReport/smart-leak-parent-report-outside-result"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "DiagnosticReport",
                 "id": "smart-leak-child-report",
                 "meta": {
                     "tag": [
