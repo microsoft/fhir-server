@@ -16,7 +16,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
     /// </summary>
     /// <remarks>
     /// Registered as scoped so it is only used where a request context exists. Code without a request
-    /// (startup, timers) calls <see cref="PartitionCache{T}"/> with an explicit partition.
+    /// (refresh timers, jobs) calls <see cref="PartitionCache{T}"/> with a partition ID, or sets a background
+    /// request context with the partition first.
     /// </remarks>
     /// <typeparam name="T">The cached value type.</typeparam>
     public sealed class ScopedCache<T>
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
         /// Gets the value for the current partition.
         /// </summary>
         /// <returns>The cached value.</returns>
-        public T Get() => _cache.Get(_requestContextAccessor.RequestContext?.Partition);
+        public T Get() => _cache.Get(_requestContextAccessor.RequestContext?.Partition?.Id);
 
         /// <summary>
         /// Gets the value for the current partition.
@@ -47,6 +48,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The cached value.</returns>
         public ValueTask<T> GetAsync(CancellationToken cancellationToken = default) =>
-            _cache.GetAsync(_requestContextAccessor.RequestContext?.Partition, cancellationToken);
+            _cache.GetAsync(_requestContextAccessor.RequestContext?.Partition?.Id, cancellationToken);
     }
 }

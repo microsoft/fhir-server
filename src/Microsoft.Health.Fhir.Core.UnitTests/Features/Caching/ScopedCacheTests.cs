@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
     [Trait(Traits.Category, Categories.Caching)]
     public class ScopedCacheTests
     {
-        private readonly TestPartitionCache<string> _cache = new((partition, _, _) => new ValueTask<string>(partition?.Id ?? "default"));
+        private readonly TestPartitionCache<string> _cache = new((partitionId, _, _) => new ValueTask<string>(partitionId ?? "default"));
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
         [Fact]

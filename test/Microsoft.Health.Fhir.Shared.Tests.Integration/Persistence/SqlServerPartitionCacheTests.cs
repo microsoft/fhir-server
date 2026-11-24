@@ -1,9 +1,10 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -33,6 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly string _alphaDatabase = NewDatabaseName("alpha");
         private readonly string _betaDatabase = NewDatabaseName("beta");
         private ISqlConnectionBuilder _connectionBuilder;
+        private SqlPartitionManager _partitionManager;
 
         public async ValueTask InitializeAsync()
         {
@@ -43,6 +45,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _connectionBuilder = new DefaultSqlConnectionBuilder(
                 Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = GetConnectionString(_applicationDatabase) }),
                 SqlConfigurableRetryFactory.CreateNoneRetryProvider());
+
+            _partitionManager = new SqlPartitionManager(Options.Create(new DatabasePartitioningOptions
+            {
+                Partitions = new Dictionary<string, PartitionOptions>
+                {
+                    ["alpha"] = new() { Database = _alphaDatabase },
+                    ["beta"] = new() { Database = _betaDatabase },
+                },
+            }));
         }
 
         public async ValueTask DisposeAsync()
@@ -57,10 +68,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenProceduresInEachPartitionDatabase_WhenLoaded_ThenEachPartitionSeesOnlyItsOwnProcedures()
         {
-            var cache = new CustomQueryCache(_connectionBuilder, NullLogger<CustomQueryCache>.Instance);
+            var cache = new CustomQueryCache(_connectionBuilder, _partitionManager, NullLogger<CustomQueryCache>.Instance);
 
-            CustomQueryProcedures alpha = await cache.GetAsync(Partition("alpha", _alphaDatabase));
-            CustomQueryProcedures beta = cache.Get(Partition("beta", _betaDatabase));
+            CustomQueryProcedures alpha = await cache.GetAsync("alpha");
+            CustomQueryProcedures beta = cache.Get("beta");
             CustomQueryProcedures application = await cache.GetAsync(null);
 
             Assert.True(alpha.TryGetProcedureName("alpha", out _));
@@ -72,15 +83,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             Assert.True(application.TryGetProcedureName("app", out _));
             Assert.False(application.TryGetProcedureName("alpha", out _));
+
+            await Assert.ThrowsAsync<ArgumentException>(async () => await cache.GetAsync("not-configured"));
         }
 
         [Fact]
         public async Task GivenParametersInEachPartitionDatabase_WhenLoaded_ThenEachPartitionSeesOnlyItsOwnValues()
         {
-            var cache = new DatabaseParameterCache(_connectionBuilder, NullLogger<DatabaseParameterCache>.Instance);
+            var cache = new DatabaseParameterCache(_connectionBuilder, _partitionManager, NullLogger<DatabaseParameterCache>.Instance);
 
-            DatabaseParameters alpha = await cache.GetAsync(Partition("alpha", _alphaDatabase));
-            DatabaseParameters beta = cache.Get(Partition("beta", _betaDatabase));
+            DatabaseParameters alpha = await cache.GetAsync("alpha");
+            DatabaseParameters beta = cache.Get("beta");
             DatabaseParameters application = await cache.GetAsync(null);
 
             Assert.Equal(1, alpha.GetNumber(ParameterId, defaultValue: -1));
@@ -89,8 +102,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // The application database has no dbo.Parameters table, so every parameter takes its default.
             Assert.Equal(-1, application.GetNumber(ParameterId, defaultValue: -1));
         }
-
-        private static SqlPartitionInfo Partition(string id, string database) => new() { Id = id, Database = database };
 
         private static string NewDatabaseName(string partition) => $"PartitionCache_{partition}_{Guid.NewGuid():N}";
 

@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -10,7 +10,6 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Caching;
-using Microsoft.Health.Fhir.Core.Features.Partitions;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
 {
@@ -20,10 +19,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
     /// <typeparam name="T">The cached value type.</typeparam>
     public class TestPartitionCache<T> : PartitionCache<T>
     {
-        private readonly Func<IPartitionInfo, bool, CancellationToken, ValueTask<T>> _load;
+        private readonly Func<string, bool, CancellationToken, ValueTask<T>> _load;
 
         public TestPartitionCache(
-            Func<IPartitionInfo, bool, CancellationToken, ValueTask<T>> load,
+            Func<string, bool, CancellationToken, ValueTask<T>> load,
             TimeSpan? expiry = null,
             TimeProvider timeProvider = null,
             ILogger logger = null)
@@ -36,10 +35,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
 
         public static TestPartitionCache<T> Returning(T value) => new((_, _, _) => new ValueTask<T>(value));
 
-        protected override ValueTask<T> GetRemoteDataAsync(IPartitionInfo partition, bool async, CancellationToken cancellationToken)
+        protected override ValueTask<T> GetRemoteDataAsync(string partitionId, bool async, CancellationToken cancellationToken)
         {
-            Loads.Enqueue((partition?.Id, async));
-            return _load(partition, async, cancellationToken);
+            Loads.Enqueue((partitionId, async));
+            return _load(partitionId, async, cancellationToken);
         }
     }
 }

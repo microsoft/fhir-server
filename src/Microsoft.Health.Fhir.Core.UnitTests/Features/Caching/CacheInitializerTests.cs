@@ -1,9 +1,10 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,7 +12,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Caching;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -27,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
         private readonly IPartitionManager _partitionManager = Substitute.For<IPartitionManager>();
         private readonly CancellationTokenSource _applicationStarted = new();
         private readonly IHostApplicationLifetime _lifetime = Substitute.For<IHostApplicationLifetime>();
+        private readonly FhirRequestContextAccessor _requestContextAccessor = new();
 
         public CacheInitializerTests()
         {
@@ -62,6 +66,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
             Assert.Equal(["a", "b"], second.Loads.Select(l => l.PartitionId));
             Assert.All(first.Loads, load => Assert.True(load.Async));
             Assert.Equal(1, app.Loads);
+        }
+
+        [Fact]
+        public async Task GivenPartitions_WhenStarted_ThenEachPartitionIsLoadedUnderABackgroundRequestContextThatIsRestoredAfterwards()
+        {
+            _partitionManager.IsEnabled.Returns(true);
+            IPartitionInfo[] partitions = [CreatePartition("a"), CreatePartition("b")];
+            _partitionManager.GetPartitions().Returns(partitions);
+            using ServiceProvider provider = BuildProvider(out _, out SecondCache second, out _);
+
+            await StartAsync(provider);
+
+            Assert.Equal(["a", "b"], second.Contexts.Select(c => c.Partition.Id));
+            Assert.All(second.Contexts, context => Assert.True(context.IsBackgroundTask));
+            Assert.Null(_requestContextAccessor.RequestContext);
         }
 
         [Fact]
@@ -105,12 +124,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
         private ServiceProvider BuildProvider(out FirstCache first, out SecondCache second, out AppCache app, bool firstFails = false)
         {
             first = new FirstCache(firstFails);
-            second = new SecondCache();
+            second = new SecondCache(() => _requestContextAccessor.RequestContext);
             app = new AppCache();
 
             var services = new ServiceCollection();
             services.AddSingleton(_partitionManager);
             services.AddSingleton(_lifetime);
+            services.AddSingleton<RequestContextAccessor<IFhirRequestContext>>(_requestContextAccessor);
             services.AddSingleton<ILogger<CacheInitializer>>(NullLogger<CacheInitializer>.Instance);
             services.AddSingleton(first);
             services.AddSingleton(second);
@@ -119,7 +139,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
             services.AddPartitionCache<SecondCache, string>();
             services.AddGlobalCache<AppCache, Guid>();
 
-            return services.BuildServiceProvider();
+            return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
         }
 
         private static CacheInitializer GetInitializer(IServiceProvider provider) =>
@@ -151,9 +171,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
 
         private sealed class SecondCache : TestPartitionCache<string>
         {
-            public SecondCache()
+            private readonly Func<IFhirRequestContext> _getContext;
+
+            public SecondCache(Func<IFhirRequestContext> getContext)
                 : base((_, _, _) => new ValueTask<string>("value"))
             {
+                _getContext = getContext;
+            }
+
+            public ConcurrentQueue<IFhirRequestContext> Contexts { get; } = new();
+
+            protected override ValueTask<string> GetRemoteDataAsync(string partitionId, bool async, CancellationToken cancellationToken)
+            {
+                Contexts.Enqueue(_getContext());
+                return base.GetRemoteDataAsync(partitionId, async, cancellationToken);
             }
         }
 

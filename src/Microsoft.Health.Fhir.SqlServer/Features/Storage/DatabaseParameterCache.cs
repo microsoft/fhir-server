@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -25,19 +25,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private readonly ILogger<DatabaseParameterCache> _logger;
 
-        public DatabaseParameterCache(ISqlConnectionBuilder connectionBuilder, ILogger<DatabaseParameterCache> logger, TimeProvider timeProvider = null)
-            : base(connectionBuilder, logger, Expiry, timeProvider)
+        public DatabaseParameterCache(ISqlConnectionBuilder connectionBuilder, IPartitionManager partitionManager, ILogger<DatabaseParameterCache> logger, TimeProvider timeProvider = null)
+            : base(connectionBuilder, partitionManager, logger, Expiry, timeProvider)
         {
             _logger = logger;
         }
 
         // A failed read uses the defaults until the next reload, as before: these are optional settings, so they must not fail requests.
         [SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "The async: false branch must run synchronously.")]
-        protected override async ValueTask<DatabaseParameters> GetRemoteDataAsync(IPartitionInfo partition, bool async, CancellationToken cancellationToken)
+        protected override async ValueTask<DatabaseParameters> GetRemoteDataAsync(string partitionId, bool async, CancellationToken cancellationToken)
         {
             try
             {
-                using SqlConnection connection = await OpenConnectionAsync(partition, async, cancellationToken);
+                using SqlConnection connection = await OpenConnectionAsync(partitionId, async, cancellationToken);
                 using var command = new SqlCommand("IF object_id('dbo.Parameters') IS NOT NULL SELECT Id, Number FROM dbo.Parameters WHERE Number IS NOT NULL", connection);
                 using SqlDataReader reader = async ? await command.ExecuteReaderAsync(cancellationToken) : command.ExecuteReader();
 
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
-                _logger.LogWarning(ex, "Failed to read dbo.Parameters for partition '{PartitionId}'. Using defaults until the next reload.", partition?.Id);
+                _logger.LogWarning(ex, "Failed to read dbo.Parameters for partition '{PartitionId}'. Using defaults until the next reload.", partitionId);
                 return DatabaseParameters.Empty;
             }
         }

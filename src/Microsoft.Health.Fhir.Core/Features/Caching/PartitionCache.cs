@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -9,18 +9,17 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core.Features.Partitions;
 
 namespace Microsoft.Health.Fhir.Core.Features.Caching
 {
     /// <summary>
-    /// Holds one value of <typeparamref name="T"/> per partition. Subclasses implement only how the value is loaded.
+    /// Holds one value of <typeparamref name="T"/> per partition, keyed by partition ID. Subclasses implement only
+    /// how the value is loaded.
     /// </summary>
     /// <remarks>
-    /// A <see langword="null"/> partition is the unpartitioned value, matching
-    /// <see cref="Context.IFhirRequestContext.Partition"/>. Each partition loads at most once at a time; other
-    /// callers wait for that load. When a refresh fails and a previous value exists, the previous value is
-    /// kept for another expiry interval before the next attempt. A failed first load is not cached.
+    /// A <see langword="null"/> partition ID is the unpartitioned value. Each partition loads at most once at a time;
+    /// other callers wait for that load. When a refresh fails, the previous value is returned and the next read tries
+    /// again. A failed first load is not cached.
     /// </remarks>
     /// <typeparam name="T">The cached value type. Each cache uses its own type, which is also its DI key.</typeparam>
     public abstract class PartitionCache<T>
@@ -51,28 +50,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
         /// <summary>
         /// Gets the value for a partition, loading it with synchronous calls if it is missing or expired.
         /// </summary>
-        /// <param name="partition">The partition, or <see langword="null"/> for the unpartitioned value.</param>
+        /// <param name="partitionId">The partition ID, or <see langword="null"/> for the unpartitioned value.</param>
         /// <returns>The cached value.</returns>
-        public T Get(IPartitionInfo partition)
+        public T Get(string partitionId)
         {
-            CacheSlot<T> slot = GetSlot(partition);
+            CacheSlot<T> slot = GetSlot(partitionId);
             return slot.TryGetCurrent(out T value)
                 ? value
-                : slot.Load((async, cancellationToken) => GetRemoteDataAsync(partition, async, cancellationToken), ex => LogRefreshFailed(ex, partition));
+                : slot.Load((async, cancellationToken) => GetRemoteDataAsync(partitionId, async, cancellationToken), ex => LogRefreshFailed(ex, partitionId));
         }
 
         /// <summary>
         /// Gets the value for a partition, loading it asynchronously if it is missing or expired.
         /// </summary>
-        /// <param name="partition">The partition, or <see langword="null"/> for the unpartitioned value.</param>
+        /// <param name="partitionId">The partition ID, or <see langword="null"/> for the unpartitioned value.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The cached value.</returns>
-        public ValueTask<T> GetAsync(IPartitionInfo partition, CancellationToken cancellationToken = default)
+        public ValueTask<T> GetAsync(string partitionId, CancellationToken cancellationToken = default)
         {
-            CacheSlot<T> slot = GetSlot(partition);
+            CacheSlot<T> slot = GetSlot(partitionId);
             return slot.TryGetCurrent(out T value)
                 ? new ValueTask<T>(value)
-                : slot.LoadAsync((async, ct) => GetRemoteDataAsync(partition, async, ct), ex => LogRefreshFailed(ex, partition), cancellationToken);
+                : slot.LoadAsync((async, ct) => GetRemoteDataAsync(partitionId, async, ct), ex => LogRefreshFailed(ex, partitionId), cancellationToken);
         }
 
         /// <summary>
@@ -82,16 +81,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
         /// When <paramref name="async"/> is <see langword="false"/>, the implementation must use only synchronous
         /// calls so the returned task is already complete; <see cref="Get"/> never blocks on an incomplete task.
         /// </remarks>
-        /// <param name="partition">The partition, or <see langword="null"/> for the unpartitioned value.</param>
+        /// <param name="partitionId">The partition ID, or <see langword="null"/> for the unpartitioned value.</param>
         /// <param name="async">Whether to use asynchronous calls.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The loaded value.</returns>
-        protected abstract ValueTask<T> GetRemoteDataAsync(IPartitionInfo partition, bool async, CancellationToken cancellationToken);
+        protected abstract ValueTask<T> GetRemoteDataAsync(string partitionId, bool async, CancellationToken cancellationToken);
 
-        private CacheSlot<T> GetSlot(IPartitionInfo partition) =>
-            _slots.GetOrAdd(partition?.Id ?? string.Empty, _ => new CacheSlot<T>(_expiry, _timeProvider));
+        private CacheSlot<T> GetSlot(string partitionId) =>
+            _slots.GetOrAdd(partitionId ?? string.Empty, _ => new CacheSlot<T>(_expiry, _timeProvider));
 
-        private void LogRefreshFailed(Exception exception, IPartitionInfo partition) =>
-            _logger.LogWarning(exception, "Refreshing {Cache} for partition '{PartitionId}' failed. Using the previous value until the next refresh.", GetType().Name, partition?.Id);
+        private void LogRefreshFailed(Exception exception, string partitionId) =>
+            _logger.LogWarning(exception, "Refreshing {Cache} for partition '{PartitionId}' failed. Using the previous value; the next read tries again.", GetType().Name, partitionId);
     }
 }

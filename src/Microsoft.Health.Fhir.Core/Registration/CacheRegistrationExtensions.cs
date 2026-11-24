@@ -44,7 +44,7 @@ namespace Microsoft.Extensions.DependencyInjection
             return services.AddPreload(new CachePreload(
                 typeof(TCache).Name,
                 IsPartitioned: false,
-                async (sp, _, cancellationToken) => await sp.GetRequiredService<GlobalCache<T>>().GetAsync(cancellationToken)));
+                async (sp, cancellationToken) => await sp.GetRequiredService<GlobalCache<T>>().GetAsync(cancellationToken)));
         }
 
         /// <summary>
@@ -72,7 +72,7 @@ namespace Microsoft.Extensions.DependencyInjection
             return services.AddPreload(new CachePreload(
                 typeof(TCache).Name,
                 IsPartitioned: true,
-                async (sp, partition, cancellationToken) => await sp.GetRequiredService<PartitionCache<T>>().GetAsync(partition, cancellationToken)));
+                async (scopedProvider, cancellationToken) => await scopedProvider.GetRequiredService<ScopedCache<T>>().GetAsync(cancellationToken)));
         }
 
         private static IServiceCollection AddPreload(this IServiceCollection services, CachePreload preload)

@@ -198,9 +198,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             SqlTransactionHandler = new SqlTransactionHandler();
             SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, SqlConnectionBuilder, sqlRetryLogicBaseProvider, SqlServerDataStoreConfiguration);
             _fhirRequestContextAccessor.RequestContext.Partition.Returns(new SqlPartitionInfo { Id = "application", Database = _databaseName });
+
+            // The caches resolve the request's partition ID to its database, so the fixture's own partition must be configured too.
+            var partitionManager = new SqlPartitionManager(Options.Create(new DatabasePartitioningOptions
+            {
+                Partitions = new Dictionary<string, PartitionOptions>(_partitionConfiguration.Partitions) { ["application"] = new() { Database = _databaseName } },
+            }));
             SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()), _fhirRequestContextAccessor);
             Parameters = new ScopedCache<DatabaseParameters>(
-                new DatabaseParameterCache(SqlConnectionBuilder, NullLogger<DatabaseParameterCache>.Instance, CacheTimeProvider),
+                new DatabaseParameterCache(SqlConnectionBuilder, partitionManager, NullLogger<DatabaseParameterCache>.Instance, CacheTimeProvider),
                 _fhirRequestContextAccessor);
 
             var sqlServerFhirModel = new SqlServerFhirModel(
@@ -324,7 +330,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SqlQueryHashCalculator = new TestSqlHashCalculator();
             CustomQueries = new ScopedCache<CustomQueryProcedures>(
-                new CustomQueryCache(SqlConnectionBuilder, NullLogger<CustomQueryCache>.Instance, CacheTimeProvider),
+                new CustomQueryCache(SqlConnectionBuilder, partitionManager, NullLogger<CustomQueryCache>.Instance, CacheTimeProvider),
                 _fhirRequestContextAccessor);
 
             _searchService = new SqlServerSearchService(

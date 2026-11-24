@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -16,9 +16,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
     /// (built-in and FHIR service data). Subclasses implement only how the value is loaded.
     /// </summary>
     /// <remarks>
-    /// Loads at most once at a time; other callers wait for that load. When a refresh fails and a previous value
-    /// exists, the previous value is kept for another expiry interval before the next attempt. A failed first load
-    /// is not cached.
+    /// Loads at most once at a time; other callers wait for that load. When a refresh fails, the previous value is
+    /// returned and the next read tries again. A failed first load is not cached.
     /// </remarks>
     /// <typeparam name="T">The cached value type. Each cache uses its own type, which is also its DI key.</typeparam>
     public abstract class GlobalCache<T>
@@ -65,6 +64,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
         protected abstract ValueTask<T> GetRemoteDataAsync(bool async, CancellationToken cancellationToken);
 
         private void LogRefreshFailed(Exception exception) =>
-            _logger.LogWarning(exception, "Refreshing {Cache} failed. Using the previous value until the next refresh.", GetType().Name);
+            _logger.LogWarning(exception, "Refreshing {Cache} failed. Using the previous value; the next read tries again.", GetType().Name);
     }
 }

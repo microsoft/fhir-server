@@ -89,8 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
             }
             catch (Exception ex) when (previous != null && !cancellationToken.IsCancellationRequested)
             {
-                // Keep the previous value for another interval so waiting readers don't each retry the failing load.
-                Volatile.Write(ref _entry, previous with { LoadedAt = _timeProvider.GetUtcNow() });
+                // Keep serving the previous value; it stays expired, so the next read tries the load again.
                 onRefreshFailed(ex);
                 return previous.Value;
             }

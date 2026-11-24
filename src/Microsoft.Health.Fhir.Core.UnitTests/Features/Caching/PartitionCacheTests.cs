@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -8,10 +8,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Time.Testing;
-using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
-using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
@@ -20,13 +18,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
     [Trait(Traits.Category, Categories.Caching)]
     public class PartitionCacheTests
     {
-        private static readonly IPartitionInfo PartitionA = CreatePartition("a");
-        private static readonly IPartitionInfo PartitionB = CreatePartition("b");
+        private const string PartitionA = "a";
+        private const string PartitionB = "b";
 
         [Fact]
         public async Task GivenTwoPartitions_WhenRead_ThenEachPartitionGetsItsOwnValue()
         {
-            var cache = new TestPartitionCache<string>((partition, _, _) => new ValueTask<string>($"value-{partition?.Id ?? "default"}"));
+            var cache = new TestPartitionCache<string>((partitionId, _, _) => new ValueTask<string>($"value-{partitionId ?? "default"}"));
 
             Assert.Equal("value-a", await cache.GetAsync(PartitionA));
             Assert.Equal("value-b", await cache.GetAsync(PartitionB));
@@ -73,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
         }
 
         [Fact]
-        public async Task GivenAPreviousValue_WhenARefreshFails_ThenThePreviousValueIsKeptUntilTheNextExpiry()
+        public async Task GivenAPreviousValue_WhenARefreshFails_ThenThePreviousValueIsReturnedAndTheNextReadTriesAgain()
         {
             var time = new FakeTimeProvider();
             int calls = 0;
@@ -86,11 +84,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
             time.Advance(TimeSpan.FromSeconds(60));
 
             Assert.Equal(1, await cache.GetAsync(PartitionA));
-            Assert.Equal(1, await cache.GetAsync(PartitionA));
-            Assert.Equal(2, cache.Loads.Count);
-
-            time.Advance(TimeSpan.FromSeconds(60));
             Assert.Equal(3, await cache.GetAsync(PartitionA));
+            Assert.Equal(3, cache.Loads.Count);
         }
 
         [Fact]
@@ -120,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
         public async Task GivenOnePartitionIsLoading_WhenAnotherPartitionIsRead_ThenItIsNotBlocked()
         {
             var releaseA = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var cache = new TestPartitionCache<string>((partition, _, _) => partition.Id == "a" ? new ValueTask<string>(releaseA.Task) : new ValueTask<string>("b"));
+            var cache = new TestPartitionCache<string>((partitionId, _, _) => partitionId == "a" ? new ValueTask<string>(releaseA.Task) : new ValueTask<string>("b"));
 
             Task<string> readA = cache.GetAsync(PartitionA).AsTask();
 
@@ -129,13 +124,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
 
             releaseA.SetResult("a");
             Assert.Equal("a", await readA);
-        }
-
-        private static IPartitionInfo CreatePartition(string id)
-        {
-            IPartitionInfo partition = Substitute.For<IPartitionInfo>();
-            partition.Id.Returns(id);
-            return partition;
         }
     }
 }

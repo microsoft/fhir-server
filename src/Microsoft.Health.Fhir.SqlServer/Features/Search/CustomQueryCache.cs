@@ -1,4 +1,4 @@
-// -------------------------------------------------------------------------------------------------
+﻿// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -27,18 +27,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// Initializes a new instance of the <see cref="CustomQueryCache"/> class.
         /// </summary>
         /// <param name="connectionBuilder">Builds SQL connections.</param>
+        /// <param name="partitionManager">Resolves a partition ID to its database.</param>
         /// <param name="logger">The logger.</param>
         /// <param name="timeProvider">The time provider; defaults to <see cref="TimeProvider.System"/>.</param>
-        public CustomQueryCache(ISqlConnectionBuilder connectionBuilder, ILogger<CustomQueryCache> logger, TimeProvider timeProvider = null)
-            : base(connectionBuilder, logger, Expiry, timeProvider)
+        public CustomQueryCache(ISqlConnectionBuilder connectionBuilder, IPartitionManager partitionManager, ILogger<CustomQueryCache> logger, TimeProvider timeProvider = null)
+            : base(connectionBuilder, partitionManager, logger, Expiry, timeProvider)
         {
         }
 
         /// <inheritdoc />
         [SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "The async: false branch must run synchronously.")]
-        protected override async ValueTask<CustomQueryProcedures> GetRemoteDataAsync(IPartitionInfo partition, bool async, CancellationToken cancellationToken)
+        protected override async ValueTask<CustomQueryProcedures> GetRemoteDataAsync(string partitionId, bool async, CancellationToken cancellationToken)
         {
-            using SqlConnection connection = await OpenConnectionAsync(partition, async, cancellationToken);
+            using SqlConnection connection = await OpenConnectionAsync(partitionId, async, cancellationToken);
             using var command = new SqlCommand("SELECT name FROM sys.objects WHERE type = 'p' AND name LIKE 'CustomQuery[_]%'", connection);
             using SqlDataReader reader = async ? await command.ExecuteReaderAsync(cancellationToken) : command.ExecuteReader();
 
