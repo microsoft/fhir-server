@@ -135,7 +135,7 @@
     <PackageVersion Include="Newtonsoft.Json.Schema" Version="4.0.2" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="11.0.0" />
     <PackageVersion Include="OpenIddict.Abstractions" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="OpenIddict.AspNetCore" Version="$(OpenIddictPackageVersion)" />
     <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="$(OpenIddictPackageVersion)" />
