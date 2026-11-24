@@ -126,9 +126,10 @@ deploying, make sure that:
   [requirements](#requirements). `embeddingModelName` only supplies the default deployment name, and the
   other `embedding*` parameters are ignored.
 - The deployment is pinned to `NoAutoUpgrade`. The template does not change an existing deployment's
-  upgrade policy. If you intentionally change its model or version, redeploy the template to refresh
-  the model identity in app settings, then run `$reindex` successfully so existing resources are
-  embedded with the new model.
+  upgrade policy. Changing the model or version of a deployment already in use is not a supported
+  migration: app settings would use the new model identity, but existing resources remain indexed
+  under the old identity. A plain `$reindex` does not rebuild vectors for already-enabled
+  SearchParameters.
 - The deploying identity can create role assignments on the account, for example as Owner or User Access
   Administrator.
 - If the account is in another resource group or subscription, the deploying identity can also create
@@ -144,7 +145,16 @@ if [[ -z "$ips" ]]; then
   echo "No App Service outbound IP addresses were returned." >&2
   exit 1
 fi
-for ip in $(printf '%s' "$ips" | tr ',' ' '); do
+IFS=, read -r -a addresses <<< "$ips"
+if (( ${#addresses[@]} == 0 )); then
+  echo "No usable App Service outbound IP addresses were returned." >&2
+  exit 1
+fi
+for ip in "${addresses[@]}"; do
+  if [[ -z "$ip" ]]; then
+    echo "The App Service outbound IP list contains an empty address." >&2
+    exit 1
+  fi
   az cognitiveservices account network-rule add --subscription <foundry-subscription-id> -g <foundry-resource-group> -n <foundry-account> --ip-address "$ip"
 done
 ```
@@ -206,11 +216,10 @@ indexes the narrative of a Composition and every nested section:
   sections and `maxInputTokens` (8,000) applies to each narrative block rather than to the whole document.
 
 Create the SearchParameter, then run `$reindex` to index existing Compositions and make the parameter
-searchable:
-
-Wait for the reindex operation to complete successfully before searching. For FHIR R5, add
-`"processingMode": "other"` to the sample SearchParameter before posting it; R5 requires this field
-when an expression is present. Do not include this R5-only field when posting to pre-R5 servers.
+searchable. For FHIR R5, add `"processingMode": "other"` to the sample before posting it; R5 invariant
+`spd-1` requires this field when an expression is present. `other` indicates the server applies vector
+embedding rather than ordinary element matching. Do not include this R5-only field when posting to
+pre-R5 servers.
 
 ```http
 POST /SearchParameter
@@ -218,6 +227,17 @@ Content-Type: application/fhir+json
 
 <contents of composition-narrative-semantic.json>
 ```
+
+```http
+POST /$reindex
+Content-Type: application/fhir+json
+
+{"resourceType":"Parameters","parameter":[]}
+```
+
+Poll the URL in the response's `Content-Location` header until the reindex operation completes
+successfully. `Prefer: handling=strict` makes the search below return HTTP 400 if the parameter is not
+yet searchable, rather than ignoring it and returning unranked results.
 
 ```http
 GET /Composition?narrative-semantic=shortness%20of%20breath
