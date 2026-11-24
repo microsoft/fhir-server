@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string PartiallyIndexedParamsHeaderName = "x-ms-use-partial-indices";
         public const string EnableChainSearch = "x-ms-enable-chained-search";
         public const string ProfileValidation = "x-ms-profile-validation";
+        public const string RecursiveValidation = "x-ms-recursive-validation";
         public const string CustomAuditHeaderPrefix = "X-MS-AZUREFHIR-AUDIT-";
         public const string FhirUserHeader = "x-ms-fhiruser";
         public const string QueryLatencyOverEfficiency = "x-ms-query-latency-over-efficiency";
