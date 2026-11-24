@@ -78,6 +78,69 @@ are approximate. `_summary=count` and explicit sorts remain exact. The server ne
 and re-checks for it every five minutes. See [SQL vector index compatibility](SqlVectorIndexCompatibility.md#opt-in-approximate-search)
 for detection, the contract and operations.
 
+## Deploying with the sample template
+
+[`samples/templates/default-azuredeploy-docker.json`](../samples/templates/default-azuredeploy-docker.json)
+can connect a SQL deployment to Azure Foundry. Set `vectorSearchFoundryNewOrExisting` to `new` or
+`existing`; the default, `none`, leaves the feature disabled. The template then grants the web app's
+system-assigned managed identity the Cognitive Services OpenAI User role on the account and sets the
+`FhirServer__CoreFeatures__VectorSearch__*` app settings. The endpoint, model name, and model version are
+read from the deployed account and model deployment, and `SendDimensionsParameter` is set to `true` only
+for `text-embedding-3-large`. These parameters apply only when `solutionType` is `FhirServerSqlServer`;
+they are ignored for Cosmos DB. Set `enableReindex` to `true` so new SearchParameters can be backfilled.
+
+| Parameter | Default | Purpose |
+|-----------|---------|---------|
+| `vectorSearchFoundryNewOrExisting` | `none` | `none`, `new`, or `existing`. |
+| `foundryAccountName` | `<serviceName>-foundry` | Account to create or use. A new account also uses it as its custom subdomain. |
+| `foundrySubscriptionId`, `foundryResourceGroup` | The deployment's | Location of the account. The resource group must already exist. |
+| `foundryLocation` | The resource group's region | Region for a new account. It must offer the model and deployment type. |
+| `foundryRestrictNetworkAccess` | `true` | Whether a new account accepts traffic only from allowed IP addresses. |
+| `foundryAdditionalAllowedIpAddresses` | `[]` | Extra IPv4 addresses or CIDR ranges a new account accepts, such as an administrator's address. |
+| `embeddingDeploymentName` | The model name | Model deployment to create or use. |
+| `embeddingModelName`, `embeddingModelVersion` | `text-embedding-3-small`, `1` | Model for a new deployment. |
+| `embeddingDeploymentSkuName`, `embeddingDeploymentCapacity` | `GlobalStandard`, `120` | Deployment type and rate limit, in thousands of tokens per minute, for a new deployment. |
+
+### New account
+
+`new` creates an `AIServices` account (S0) that accepts only Microsoft Entra ID authentication, plus an
+embedding deployment with automatic model-version upgrades disabled, because the model version is recorded
+with every stored vector. By default, the account firewall denies all traffic except from the web app's
+possible outbound IP addresses and `foundryAdditionalAllowedIpAddresses`. The firewall applies to every
+data-plane caller, so the Foundry portal playground and your own scripts cannot reach the deployment unless
+you add your address. Set `foundryRestrictNetworkAccess` to `false` to accept traffic from all public
+networks.
+
+The allowed addresses are captured when the template runs. If the web app's outbound addresses change, for
+example after moving to a different App Service pricing tier, redeploy the template or update the firewall.
+
+### Existing account
+
+`existing` only assigns the role and reads the endpoint and model from the existing account. It does not
+modify the account, because an ARM deployment of the account would replace its configuration. Before
+deploying, make sure that:
+
+- `foundryAccountName` names the account; the `<serviceName>-foundry` default rarely matches an existing one.
+- The account has a custom subdomain, which Microsoft Entra ID authentication requires.
+- The embedding deployment named by `embeddingDeploymentName` exists. Its model must meet the
+  [requirements](#requirements). `embeddingModelName` only supplies the default deployment name, and the
+  other `embedding*` parameters are ignored.
+- The deploying identity can create role assignments on the account, for example as Owner or User Access
+  Administrator.
+- If the account is in another resource group or subscription, the deploying identity can also create
+  deployments (`Microsoft.Resources/deployments/write`) in that resource group, for example as Contributor.
+
+If the account restricts network access, allow the web app's outbound addresses after deploying:
+
+```bash
+for ip in $(az webapp show --subscription <fhir-subscription-id> -g <fhir-resource-group> -n <serviceName> --query possibleOutboundIpAddresses -o tsv | tr ',' ' '); do
+  az cognitiveservices account network-rule add --subscription <foundry-subscription-id> -g <foundry-resource-group> -n <foundry-account> --ip-address "$ip"
+done
+```
+
+With either option, the role assignment can take several minutes to propagate. Until it does, embedding
+requests fail with an authorization error.
+
 ## SearchParameter extension
 
 The extension URL is
@@ -104,6 +167,43 @@ package reports a not-supported issue) unless semantic search is enabled and the
 `special`, FHIR publication status `active`, at least one base resource type, an expression, and valid
 effective chunk settings. The same check runs on update, so a vector SearchParameter cannot be moved to
 another publication status; delete it instead. The Cosmos DB data store rejects these SearchParameters.
+
+### Example: Composition narrative
+
+[`samples/search-parameters/composition-narrative-semantic.json`](../samples/search-parameters/composition-narrative-semantic.json)
+indexes the narrative of a Composition and every nested section:
+
+```text
+(Composition.text.`div` | Composition.repeat(section).text.`div`)
+    .select(toString().replaceMatches('<[^>]*>', ' ')
+        .replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&')
+        .replaceMatches('\\s+', ' ').trim())
+```
+
+- `div` must be escaped with backticks because it is the FHIRPath integer-division keyword. FHIR's own
+  `dom-6` invariant writes `` text.`div` `` for the same reason. The Firely engine accepts an unescaped
+  `text.div`, but the Ignixa engine rejects it as a syntax error. A SearchParameter whose expression fails to
+  compile is logged as a warning and indexes nothing, so it would silently never match.
+- Narrative is `xhtml`, which has no search value of its own. `toString()` converts it to a string, the first
+  regular expression removes the markup, and the `replace` calls decode the entities that XML serialization
+  produces. Decoding `&amp;` last keeps escaped text such as `&amp;lt;` literal. Other entities are left
+  unchanged.
+- `perValueRow` embeds the document narrative and each section narrative separately, so a passage never spans
+  sections and `maxInputTokens` (8,000) applies to each narrative block rather than to the whole document.
+
+Create the SearchParameter, then run `$reindex` to index existing Compositions and make the parameter
+searchable:
+
+```http
+POST /SearchParameter
+Content-Type: application/fhir+json
+
+<contents of composition-narrative-semantic.json>
+```
+
+```http
+GET /Composition?narrative-semantic=shortness%20of%20breath
+```
 
 ## Indexing and recovery
 

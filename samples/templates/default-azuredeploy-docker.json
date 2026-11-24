@@ -275,6 +275,107 @@
             "metadata": {
                 "description": "Set to true if the Network Security Perimeter already exists. If false, a new NSP will be created."
             }
+        },
+        "vectorSearchFoundryNewOrExisting": {
+            "type": "string",
+            "defaultValue": "none",
+            "allowedValues": [
+                "none",
+                "new",
+                "existing"
+            ],
+            "metadata": {
+                "description": "Enables SQL semantic (vector) search backed by an Azure Foundry embedding deployment. 'none' leaves the feature disabled. 'new' creates a Foundry account and embedding deployment. 'existing' uses an account and deployment that already exist. Applies only when solutionType is FhirServerSqlServer."
+            }
+        },
+        "foundryAccountName": {
+            "type": "string",
+            "defaultValue": "",
+            "maxLength": 64,
+            "metadata": {
+                "description": "Name of the Foundry account to create or use. A new account also uses this name as its custom subdomain. If empty, '<serviceName>-foundry' is used."
+            }
+        },
+        "foundrySubscriptionId": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Subscription containing the Foundry account. If empty, the deployment subscription is used."
+            }
+        },
+        "foundryResourceGroup": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Existing resource group containing the Foundry account. If empty, the deployment resource group is used."
+            }
+        },
+        "foundryLocation": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Region for a new Foundry account. If empty, the deployment resource group's region is used. The region must offer the selected embedding model and deployment SKU."
+            }
+        },
+        "foundryRestrictNetworkAccess": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "When true, a new Foundry account denies public traffic except from the web app's outbound IP addresses and foundryAdditionalAllowedIpAddresses. Ignored for an existing account."
+            }
+        },
+        "foundryAdditionalAllowedIpAddresses": {
+            "type": "array",
+            "defaultValue": [],
+            "metadata": {
+                "description": "Additional IPv4 addresses or CIDR ranges allowed through a new Foundry account's firewall, for example an administrator's address. Empty by default, so only the web app can reach the account."
+            }
+        },
+        "embeddingDeploymentName": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Name of the embedding model deployment to create or use. If empty, embeddingModelName is used."
+            }
+        },
+        "embeddingModelName": {
+            "type": "string",
+            "defaultValue": "text-embedding-3-small",
+            "allowedValues": [
+                "text-embedding-3-small",
+                "text-embedding-3-large",
+                "text-embedding-ada-002"
+            ],
+            "metadata": {
+                "description": "Embedding model for a new deployment. The model name and version of an existing deployment are read from the deployment."
+            }
+        },
+        "embeddingModelVersion": {
+            "type": "string",
+            "defaultValue": "1",
+            "metadata": {
+                "description": "Model version for a new embedding deployment, for example '1' for text-embedding-3-small or text-embedding-3-large and '2' for text-embedding-ada-002."
+            }
+        },
+        "embeddingDeploymentSkuName": {
+            "type": "string",
+            "defaultValue": "GlobalStandard",
+            "allowedValues": [
+                "GlobalStandard",
+                "DataZoneStandard",
+                "Standard"
+            ],
+            "metadata": {
+                "description": "Deployment type for a new embedding deployment."
+            }
+        },
+        "embeddingDeploymentCapacity": {
+            "type": "int",
+            "defaultValue": 120,
+            "minValue": 1,
+            "metadata": {
+                "description": "Rate limit for a new embedding deployment, in thousands of tokens per minute. It must fit within the subscription's quota for the model and deployment type."
+            }
         }
     },
     "variables": {
@@ -336,7 +437,18 @@
         "sqlSkuTier": "[if(variables('isSqlHyperscaleTier'), 'Hyperscale', 'Standard')]",
         "keyVaultRoleName": "[concat('Key Vault Secrets Officer-', variables('keyVaultName'))]",
         "imageRepositoryName": "[if(contains(parameters('registryName'),'mcr.'), concat(toLower(parameters('fhirVersion')), '-fhir-server'), concat(toLower(parameters('fhirVersion')), '_fhir-server'))]",
-        "networkSecurityPerimeterName": "[parameters('networkSecurityPerimeterName')]"
+        "networkSecurityPerimeterName": "[parameters('networkSecurityPerimeterName')]",
+        "vectorSearchEnabled": "[and(equals(parameters('solutionType'), 'FhirServerSqlServer'), not(equals(parameters('vectorSearchFoundryNewOrExisting'), 'none')))]",
+        "foundryAccountName": "[if(empty(parameters('foundryAccountName')), concat(take(variables('serviceName'), 56), '-foundry'), toLower(parameters('foundryAccountName')))]",
+        "foundrySubscriptionId": "[if(empty(parameters('foundrySubscriptionId')), subscription().subscriptionId, parameters('foundrySubscriptionId'))]",
+        "foundryResourceGroup": "[if(empty(parameters('foundryResourceGroup')), resourceGroup().name, parameters('foundryResourceGroup'))]",
+        "foundryLocation": "[if(empty(parameters('foundryLocation')), resourceGroup().location, parameters('foundryLocation'))]",
+        "foundryAccountResourceId": "[resourceId(variables('foundrySubscriptionId'), variables('foundryResourceGroup'), 'Microsoft.CognitiveServices/accounts', variables('foundryAccountName'))]",
+        "embeddingDeploymentName": "[if(empty(parameters('embeddingDeploymentName')), parameters('embeddingModelName'), parameters('embeddingDeploymentName'))]",
+        "embeddingDeploymentResourceId": "[resourceId(variables('foundrySubscriptionId'), variables('foundryResourceGroup'), 'Microsoft.CognitiveServices/accounts/deployments', variables('foundryAccountName'), variables('embeddingDeploymentName'))]",
+        "foundryNestedDeploymentName": "[take(concat('foundryVectorSearch-', variables('serviceName')), 64)]",
+        "foundryNestedDeploymentResourceId": "[resourceId(variables('foundrySubscriptionId'), variables('foundryResourceGroup'), 'Microsoft.Resources/deployments', variables('foundryNestedDeploymentName'))]",
+        "cognitiveServicesApiVersion": "2024-10-01"
     },
     "resources": [
         {
@@ -420,9 +532,10 @@
                     "dependsOn": [
                         "[variables('appServiceResourceId')]",
                         "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName')))]",
-                        "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), resourceId('Microsoft.KeyVault/vaults/secrets', variables('keyVaultName'), 'CosmosDb--Host'), resourceId('Microsoft.KeyVault/vaults/secrets', variables('keyVaultName'), 'SqlServer--ConnectionString'))]"
+                        "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), resourceId('Microsoft.KeyVault/vaults/secrets', variables('keyVaultName'), 'CosmosDb--Host'), resourceId('Microsoft.KeyVault/vaults/secrets', variables('keyVaultName'), 'SqlServer--ConnectionString'))]",
+                        "[variables('foundryNestedDeploymentResourceId')]"
                     ],
-                    "properties": "[union(variables('combinedFhirServerConfigProperties'), json(concat('{ \"FhirServer__ResourceManager__DataStoreResourceId\": \"', if(equals(parameters('solutionType'),'FhirServerCosmosDB'), resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName')), resourceId('Microsoft.Sql/servers/', variables('sqlServerDerivedName'))), '\", ', if(variables('deployAppInsights'), concat('\"Telemetry__Provider\": \"', parameters('telemetryProviderType'), '\",', '\"Telemetry__ConnectionString\": \"', reference(resourceId('Microsoft.Insights/components', variables('appInsightsName'))).ConnectionString, '\",', '\"APPLICATIONINSIGHTS_CONNECTION_STRING\": \"', reference(resourceId('Microsoft.Insights/components', variables('appInsightsName'))).ConnectionString, '\",'), ''), '\"WEBSITE_WARMUP_PATH\": \"/health/check\",', '\"WEBSITE_WARMUP_STATUSES\": \"200\",', '\"WEBSITES_CONTAINER_START_TIME_LIMIT\": \"600\"', '}')))]"
+                    "properties": "[union(variables('combinedFhirServerConfigProperties'), json(concat('{ \"FhirServer__ResourceManager__DataStoreResourceId\": \"', if(equals(parameters('solutionType'),'FhirServerCosmosDB'), resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName')), resourceId('Microsoft.Sql/servers/', variables('sqlServerDerivedName'))), '\", ', if(variables('deployAppInsights'), concat('\"Telemetry__Provider\": \"', parameters('telemetryProviderType'), '\",', '\"Telemetry__ConnectionString\": \"', reference(resourceId('Microsoft.Insights/components', variables('appInsightsName'))).ConnectionString, '\",', '\"APPLICATIONINSIGHTS_CONNECTION_STRING\": \"', reference(resourceId('Microsoft.Insights/components', variables('appInsightsName'))).ConnectionString, '\",'), ''), '\"WEBSITE_WARMUP_PATH\": \"/health/check\",', '\"WEBSITE_WARMUP_STATUSES\": \"200\",', '\"WEBSITES_CONTAINER_START_TIME_LIMIT\": \"600\"', '}')), if(variables('vectorSearchEnabled'), createObject('FhirServer__CoreFeatures__VectorSearch__Enabled', 'true', 'FhirServer__CoreFeatures__VectorSearch__Embedding__Endpoint', reference(variables('foundryAccountResourceId'), variables('cognitiveServicesApiVersion')).endpoint, 'FhirServer__CoreFeatures__VectorSearch__Embedding__DeploymentName', variables('embeddingDeploymentName'), 'FhirServer__CoreFeatures__VectorSearch__Embedding__ModelName', reference(variables('embeddingDeploymentResourceId'), variables('cognitiveServicesApiVersion')).model.name, 'FhirServer__CoreFeatures__VectorSearch__Embedding__ModelVersion', reference(variables('embeddingDeploymentResourceId'), variables('cognitiveServicesApiVersion')).model.version, 'FhirServer__CoreFeatures__VectorSearch__Embedding__SendDimensionsParameter', if(equals(reference(variables('embeddingDeploymentResourceId'), variables('cognitiveServicesApiVersion')).model.name, 'text-embedding-3-large'), 'true', 'false')), createObject()))]"
                 },
                 {
                     "apiVersion": "2018-11-01",
@@ -666,6 +779,181 @@
             ],
             "metadata": {
                 "description": "FireWall Rule setup"
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2022-09-01",
+            "name": "[variables('foundryNestedDeploymentName')]",
+            "subscriptionId": "[variables('foundrySubscriptionId')]",
+            "resourceGroup": "[variables('foundryResourceGroup')]",
+            "condition": "[variables('vectorSearchEnabled')]",
+            "properties": {
+                "expressionEvaluationOptions": {
+                    "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                    "createAccount": {
+                        "value": "[equals(parameters('vectorSearchFoundryNewOrExisting'), 'new')]"
+                    },
+                    "accountName": {
+                        "value": "[variables('foundryAccountName')]"
+                    },
+                    "location": {
+                        "value": "[variables('foundryLocation')]"
+                    },
+                    "restrictNetworkAccess": {
+                        "value": "[parameters('foundryRestrictNetworkAccess')]"
+                    },
+                    "allowedIpAddresses": {
+                        "value": "[union(split(reference(variables('appServiceResourceId'), '2018-11-01').possibleOutboundIpAddresses, ','), parameters('foundryAdditionalAllowedIpAddresses'))]"
+                    },
+                    "deploymentName": {
+                        "value": "[variables('embeddingDeploymentName')]"
+                    },
+                    "modelName": {
+                        "value": "[parameters('embeddingModelName')]"
+                    },
+                    "modelVersion": {
+                        "value": "[parameters('embeddingModelVersion')]"
+                    },
+                    "deploymentSkuName": {
+                        "value": "[parameters('embeddingDeploymentSkuName')]"
+                    },
+                    "deploymentCapacity": {
+                        "value": "[parameters('embeddingDeploymentCapacity')]"
+                    },
+                    "principalId": {
+                        "value": "[reference(variables('appServiceResourceId'), '2018-11-01', 'Full').identity.principalId]"
+                    }
+                },
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "createAccount": {
+                            "type": "bool",
+                            "metadata": {
+                                "description": "Whether to create the Foundry account and embedding deployment, or use existing ones."
+                            }
+                        },
+                        "accountName": {
+                            "type": "string"
+                        },
+                        "location": {
+                            "type": "string"
+                        },
+                        "restrictNetworkAccess": {
+                            "type": "bool"
+                        },
+                        "allowedIpAddresses": {
+                            "type": "array",
+                            "metadata": {
+                                "description": "Web app outbound IP addresses plus any additional addresses allowed through a new account's firewall."
+                            }
+                        },
+                        "deploymentName": {
+                            "type": "string"
+                        },
+                        "modelName": {
+                            "type": "string"
+                        },
+                        "modelVersion": {
+                            "type": "string"
+                        },
+                        "deploymentSkuName": {
+                            "type": "string"
+                        },
+                        "deploymentCapacity": {
+                            "type": "int"
+                        },
+                        "principalId": {
+                            "type": "string",
+                            "metadata": {
+                                "description": "Object ID of the web app's system-assigned managed identity."
+                            }
+                        }
+                    },
+                    "variables": {
+                        "cognitiveServicesOpenAIUserRoleId": "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd"
+                    },
+                    "resources": [
+                        {
+                            "comments": "Foundry account that authenticates only with Microsoft Entra ID and, by default, accepts traffic only from the web app's outbound IP addresses.",
+                            "condition": "[parameters('createAccount')]",
+                            "type": "Microsoft.CognitiveServices/accounts",
+                            "apiVersion": "2024-10-01",
+                            "name": "[parameters('accountName')]",
+                            "location": "[parameters('location')]",
+                            "kind": "AIServices",
+                            "sku": {
+                                "name": "S0"
+                            },
+                            "properties": {
+                                "customSubDomainName": "[parameters('accountName')]",
+                                "disableLocalAuth": true,
+                                "publicNetworkAccess": "Enabled",
+                                "networkAcls": {
+                                    "defaultAction": "[if(parameters('restrictNetworkAccess'), 'Deny', 'Allow')]",
+                                    "virtualNetworkRules": [],
+                                    "copy": [
+                                        {
+                                            "name": "ipRules",
+                                            "count": "[if(parameters('restrictNetworkAccess'), length(parameters('allowedIpAddresses')), 0)]",
+                                            "input": {
+                                                "value": "[parameters('allowedIpAddresses')[copyIndex('ipRules')]]"
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "comments": "Embedding model deployment. Automatic version upgrades are disabled because the model version is recorded with every stored vector.",
+                            "condition": "[parameters('createAccount')]",
+                            "type": "Microsoft.CognitiveServices/accounts/deployments",
+                            "apiVersion": "2024-10-01",
+                            "name": "[concat(parameters('accountName'), '/', parameters('deploymentName'))]",
+                            "dependsOn": [
+                                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]"
+                            ],
+                            "sku": {
+                                "name": "[parameters('deploymentSkuName')]",
+                                "capacity": "[parameters('deploymentCapacity')]"
+                            },
+                            "properties": {
+                                "model": {
+                                    "format": "OpenAI",
+                                    "name": "[parameters('modelName')]",
+                                    "version": "[parameters('modelVersion')]"
+                                },
+                                "versionUpgradeOption": "NoAutoUpgrade"
+                            }
+                        },
+                        {
+                            "comments": "Grants the web app's managed identity the Cognitive Services OpenAI User role, which allows embedding requests.",
+                            "type": "Microsoft.CognitiveServices/accounts/providers/roleAssignments",
+                            "apiVersion": "2022-04-01",
+                            "name": "[concat(parameters('accountName'), '/Microsoft.Authorization/', guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), parameters('principalId'), variables('cognitiveServicesOpenAIUserRoleId')))]",
+                            "dependsOn": [
+                                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]",
+                                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', parameters('accountName'), parameters('deploymentName'))]"
+                            ],
+                            "properties": {
+                                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesOpenAIUserRoleId'))]",
+                                "principalId": "[parameters('principalId')]",
+                                "principalType": "ServicePrincipal"
+                            }
+                        }
+                    ]
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', variables('serviceName'))]"
+            ],
+            "metadata": {
+                "description": "Foundry account, embedding deployment, and role assignment for SQL semantic search"
             }
         },
         {

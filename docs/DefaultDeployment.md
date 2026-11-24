@@ -54,6 +54,8 @@ Set-FhirServerUserAppRoleAssignments -UserPrincipalName myuser@mydomain.com -Api
 
 We recommend starting with the SQL deployment as it offers the most features. However deployments in cosmos are still available. You can find all of our templates [here](https://github.com/microsoft/fhir-server/tree/main/samples/templates). 
 
+To enable SQL semantic (vector) search backed by Azure Foundry, see [Deploying with the sample template](SemanticSearch.md#deploying-with-the-sample-template).
+
 Note that when you deploy from our templates, it is set to deploy with $export enabled. As part of the export setup, a storage account is automatically created along with roles. The creation of this storage account and roles requires that you have contributor access at the subscription level. If the person deploying does not have contributor access at the subscription level, the deployment will fail. To deploy successfully in this scenario, you can deploy with export set to false. If you need to use export, it can be configured to true after deployment by someone with contributor access at the subscription level. It takes a few more steps as someone will need to create and link the storage account (it won’t automatically get created) but from there it will work exactly as if you had set it to true at provisioning.
 
 To deploy the backend SQL Server, Azure Web App, and FHIR server code, use the buttons below to deploy through the Azure Portal. If you would like to protect the FHIR API with token authorization, you will need to supply application registration details as described above.
