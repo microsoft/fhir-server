@@ -25,8 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
     /// <typeparam name="T">The cached value type. Each cache uses its own type, which is also its DI key.</typeparam>
     public abstract class PartitionCache<T>
     {
-        private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.Ordinal);
-        private readonly ConcurrentDictionary<string, SemaphoreSlim> _loadLocks = new(StringComparer.Ordinal);
+        private readonly ConcurrentDictionary<string, CacheSlot<T>> _slots = new(StringComparer.Ordinal);
         private readonly ILogger _logger;
         private readonly TimeSpan? _expiry;
         private readonly TimeProvider _timeProvider;
@@ -56,24 +55,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
         /// <returns>The cached value.</returns>
         public T Get(IPartitionInfo partition)
         {
-            string key = GetKey(partition);
-            if (TryGetCurrent(key, out T value))
-            {
-                return value;
-            }
-
-            SemaphoreSlim loadLock = GetLoadLock(key);
-            loadLock.Wait();
-            try
-            {
-                return TryGetCurrent(key, out value)
-                    ? value
-                    : LoadAsync(partition, key, async: false, CancellationToken.None).EnsureCompleted();
-            }
-            finally
-            {
-                loadLock.Release();
-            }
+            CacheSlot<T> slot = GetSlot(partition);
+            return slot.TryGetCurrent(out T value)
+                ? value
+                : slot.Load((async, cancellationToken) => GetRemoteDataAsync(partition, async, cancellationToken), ex => LogRefreshFailed(ex, partition));
         }
 
         /// <summary>
@@ -82,26 +67,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
         /// <param name="partition">The partition, or <see langword="null"/> for the unpartitioned value.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The cached value.</returns>
-        public async ValueTask<T> GetAsync(IPartitionInfo partition, CancellationToken cancellationToken = default)
+        public ValueTask<T> GetAsync(IPartitionInfo partition, CancellationToken cancellationToken = default)
         {
-            string key = GetKey(partition);
-            if (TryGetCurrent(key, out T value))
-            {
-                return value;
-            }
-
-            SemaphoreSlim loadLock = GetLoadLock(key);
-            await loadLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-            try
-            {
-                return TryGetCurrent(key, out value)
-                    ? value
-                    : await LoadAsync(partition, key, async: true, cancellationToken).ConfigureAwait(false);
-            }
-            finally
-            {
-                loadLock.Release();
-            }
+            CacheSlot<T> slot = GetSlot(partition);
+            return slot.TryGetCurrent(out T value)
+                ? new ValueTask<T>(value)
+                : slot.LoadAsync((async, ct) => GetRemoteDataAsync(partition, async, ct), ex => LogRefreshFailed(ex, partition), cancellationToken);
         }
 
         /// <summary>
@@ -117,41 +88,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
         /// <returns>The loaded value.</returns>
         protected abstract ValueTask<T> GetRemoteDataAsync(IPartitionInfo partition, bool async, CancellationToken cancellationToken);
 
-        private static string GetKey(IPartitionInfo partition) => partition?.Id ?? string.Empty;
+        private CacheSlot<T> GetSlot(IPartitionInfo partition) =>
+            _slots.GetOrAdd(partition?.Id ?? string.Empty, _ => new CacheSlot<T>(_expiry, _timeProvider));
 
-        private bool TryGetCurrent(string key, out T value)
-        {
-            if (_entries.TryGetValue(key, out Entry entry) && !IsExpired(entry))
-            {
-                value = entry.Value;
-                return true;
-            }
-
-            value = default;
-            return false;
-        }
-
-        private bool IsExpired(Entry entry) => _expiry.HasValue && _timeProvider.GetUtcNow() - entry.LoadedAt >= _expiry.Value;
-
-        private SemaphoreSlim GetLoadLock(string key) => _loadLocks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
-
-        private async ValueTask<T> LoadAsync(IPartitionInfo partition, string key, bool async, CancellationToken cancellationToken)
-        {
-            try
-            {
-                T value = await GetRemoteDataAsync(partition, async, cancellationToken).ConfigureAwait(false);
-                _entries[key] = new Entry(value, _timeProvider.GetUtcNow());
-                return value;
-            }
-            catch (Exception ex) when (!cancellationToken.IsCancellationRequested && _entries.TryGetValue(key, out Entry previous))
-            {
-                // Keep the previous value for another interval so waiting readers don't each retry the failing load.
-                _entries[key] = previous with { LoadedAt = _timeProvider.GetUtcNow() };
-                _logger.LogWarning(ex, "Refreshing {Cache} for partition '{PartitionId}' failed. Using the previous value until the next refresh.", GetType().Name, partition?.Id);
-                return previous.Value;
-            }
-        }
-
-        private sealed record Entry(T Value, DateTimeOffset LoadedAt);
+        private void LogRefreshFailed(Exception exception, IPartitionInfo partition) =>
+            _logger.LogWarning(exception, "Refreshing {Cache} for partition '{PartitionId}' failed. Using the previous value until the next refresh.", GetType().Name, partition?.Id);
     }
 }

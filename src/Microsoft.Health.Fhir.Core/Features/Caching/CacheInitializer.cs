@@ -16,20 +16,21 @@ using Microsoft.Health.Fhir.Core.Features.Partitions;
 namespace Microsoft.Health.Fhir.Core.Features.Caching
 {
     /// <summary>
-    /// Loads every registered partition cache for every partition at startup, so the first requests read memory.
+    /// Loads every registered cache at startup, so the first requests read memory: app-wide caches once, then
+    /// partition caches for every partition.
     /// </summary>
     /// <remarks>
     /// A failed preload is logged and does not stop startup; that cache loads on its first use instead.
     /// </remarks>
     internal sealed class CacheInitializer : IHostedService
     {
-        private readonly IReadOnlyList<PartitionCachePreload> _preloads;
+        private readonly IReadOnlyList<CachePreload> _preloads;
         private readonly IPartitionManager _partitionManager;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<CacheInitializer> _logger;
 
         public CacheInitializer(
-            IEnumerable<PartitionCachePreload> preloads,
+            IEnumerable<CachePreload> preloads,
             IPartitionManager partitionManager,
             IServiceProvider serviceProvider,
             ILogger<CacheInitializer> logger)
@@ -42,23 +43,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
+            foreach (CachePreload preload in _preloads.Where(p => !p.IsPartitioned))
+            {
+                await PreloadAsync(preload, partition: null, cancellationToken);
+            }
+
             IEnumerable<IPartitionInfo> partitions = _partitionManager.IsEnabled ? _partitionManager.GetPartitions() : [null];
             foreach (IPartitionInfo partition in partitions)
             {
-                foreach (PartitionCachePreload preload in _preloads)
+                foreach (CachePreload preload in _preloads.Where(p => p.IsPartitioned))
                 {
-                    try
-                    {
-                        await preload.LoadAsync(_serviceProvider, partition, cancellationToken);
-                    }
-                    catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
-                    {
-                        _logger.LogWarning(ex, "Preloading {Cache} for partition '{PartitionId}' failed. It will load on first use.", preload.Name, partition?.Id);
-                    }
+                    await PreloadAsync(preload, partition, cancellationToken);
                 }
             }
         }
 
         public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        private async Task PreloadAsync(CachePreload preload, IPartitionInfo partition, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await preload.LoadAsync(_serviceProvider, partition, cancellationToken);
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex, "Preloading {Cache} for partition '{PartitionId}' failed. It will load on first use.", preload.Name, partition?.Id);
+            }
+        }
     }
 }

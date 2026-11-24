@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Caching
     /// A <see cref="PartitionCache{T}"/> loaded from each partition's SQL database.
     /// </summary>
     /// <typeparam name="T">The cached value type.</typeparam>
-    public abstract class SqlPartitionCache<T> : PartitionCache<T>
+    internal abstract class SqlPartitionCache<T> : PartitionCache<T>
     {
         private readonly ISqlConnectionBuilder _connectionBuilder;
 

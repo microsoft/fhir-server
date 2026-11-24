@@ -11,9 +11,10 @@ using Microsoft.Health.Fhir.Core.Features.Partitions;
 namespace Microsoft.Health.Fhir.Core.Features.Caching
 {
     /// <summary>
-    /// A registered partition cache that <see cref="CacheInitializer"/> loads at startup.
+    /// A registered cache that <see cref="CacheInitializer"/> loads at startup.
     /// </summary>
     /// <param name="Name">The cache name used in logs.</param>
-    /// <param name="LoadAsync">Loads the cache for one partition.</param>
-    internal sealed record PartitionCachePreload(string Name, Func<IServiceProvider, IPartitionInfo, CancellationToken, Task> LoadAsync);
+    /// <param name="IsPartitioned">Whether the cache is loaded once per partition rather than once per app.</param>
+    /// <param name="LoadAsync">Loads the cache; the partition is <see langword="null"/> for app-wide caches.</param>
+    internal sealed record CachePreload(string Name, bool IsPartitioned, Func<IServiceProvider, IPartitionInfo, CancellationToken, Task> LoadAsync);
 }

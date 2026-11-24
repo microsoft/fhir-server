@@ -32,32 +32,34 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
             _partitionManager.IsEnabled.Returns(true);
             IPartitionInfo[] partitions = [CreatePartition("a"), CreatePartition("b")];
             _partitionManager.GetPartitions().Returns(partitions);
-            using ServiceProvider provider = BuildProvider(out FirstCache first, out SecondCache second);
+            using ServiceProvider provider = BuildProvider(out FirstCache first, out SecondCache second, out AppCache app);
 
             await StartAsync(provider);
 
             Assert.Equal(["a", "b"], first.Loads.Select(l => l.PartitionId));
             Assert.Equal(["a", "b"], second.Loads.Select(l => l.PartitionId));
             Assert.All(first.Loads, load => Assert.True(load.Async));
+            Assert.Equal(1, app.Loads);
         }
 
         [Fact]
         public async Task GivenPartitioningIsDisabled_WhenStarted_ThenEveryCacheIsLoadedOnceWithoutAPartition()
         {
             _partitionManager.IsEnabled.Returns(false);
-            using ServiceProvider provider = BuildProvider(out FirstCache first, out SecondCache second);
+            using ServiceProvider provider = BuildProvider(out FirstCache first, out SecondCache second, out AppCache app);
 
             await StartAsync(provider);
 
             Assert.Equal([(null, true)], first.Loads);
             Assert.Equal([(null, true)], second.Loads);
+            Assert.Equal(1, app.Loads);
         }
 
         [Fact]
         public async Task GivenACacheFailsToLoad_WhenStarted_ThenStartupContinuesAndTheOtherCachesLoad()
         {
             _partitionManager.IsEnabled.Returns(false);
-            using ServiceProvider provider = BuildProvider(out FirstCache first, out SecondCache second, firstFails: true);
+            using ServiceProvider provider = BuildProvider(out FirstCache first, out SecondCache second, out _, firstFails: true);
 
             await StartAsync(provider);
 
@@ -71,23 +73,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
             var services = new ServiceCollection();
             services.AddPartitionCache<FirstCache, int>();
             services.AddPartitionCache<FirstCache, int>();
+            services.AddGlobalCache<AppCache, Guid>();
+            services.AddGlobalCache<AppCache, Guid>();
 
-            Assert.Single(services, d => d.ServiceType == typeof(PartitionCachePreload));
+            Assert.Equal(2, services.Count(d => d.ServiceType == typeof(CachePreload)));
             Assert.Single(services, d => d.ServiceType == typeof(IHostedService));
         }
 
-        private ServiceProvider BuildProvider(out FirstCache first, out SecondCache second, bool firstFails = false)
+        private ServiceProvider BuildProvider(out FirstCache first, out SecondCache second, out AppCache app, bool firstFails = false)
         {
             first = new FirstCache(firstFails);
             second = new SecondCache();
+            app = new AppCache();
 
             var services = new ServiceCollection();
             services.AddSingleton(_partitionManager);
             services.AddSingleton<ILogger<CacheInitializer>>(NullLogger<CacheInitializer>.Instance);
             services.AddSingleton(first);
             services.AddSingleton(second);
+            services.AddSingleton(app);
             services.AddPartitionCache<FirstCache, int>();
             services.AddPartitionCache<SecondCache, string>();
+            services.AddGlobalCache<AppCache, Guid>();
 
             return services.BuildServiceProvider();
         }
@@ -115,6 +122,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
             public SecondCache()
                 : base((_, _, _) => new ValueTask<string>("value"))
             {
+            }
+        }
+
+        private sealed class AppCache : GlobalCache<Guid>
+        {
+            public AppCache()
+                : base(NullLogger.Instance)
+            {
+            }
+
+            public int Loads { get; private set; }
+
+            protected override ValueTask<Guid> GetRemoteDataAsync(bool async, CancellationToken cancellationToken)
+            {
+                Loads++;
+                return new ValueTask<Guid>(Guid.NewGuid());
             }
         }
     }
