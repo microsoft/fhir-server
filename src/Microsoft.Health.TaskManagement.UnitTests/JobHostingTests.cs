@@ -493,7 +493,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
         }
 
         [Fact]
-        public async Task GivenActivitySamplingDropsTheSpan_WhenJobCompletes_ThenActivityStatusStaysUnset()
+        public async Task GivenActivitySamplingDropsTheSpan_WhenJobCompletes_ThenNoActivityIsStopped()
         {
             Activity stoppedActivity = null;
             using var listener = new ActivityListener
@@ -506,7 +506,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
             await ExecuteHostedJobAsync("success");
 
-            Assert.Equal(ActivityStatusCode.Unset, stoppedActivity?.Status ?? ActivityStatusCode.Unset);
+            Assert.Null(stoppedActivity);
         }
 
         private async Task ExecuteHostedJobAsync(string outcome)
