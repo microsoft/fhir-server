@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -469,6 +470,64 @@ namespace Microsoft.Health.JobManagement.UnitTests
             Assert.Equal(expectedStatus, jobInfo.Status);
             Assert.Equal(0, disposeCountSeenOnResume);
             Assert.Equal(1, factory.Handle.DisposeCount);
+        }
+
+        [Theory]
+        [InlineData("success", ActivityStatusCode.Ok)]
+        [InlineData("failure", ActivityStatusCode.Error)]
+        [InlineData("cancellation", ActivityStatusCode.Error)]
+        public async Task GivenJobResult_WhenActivityEnds_ThenActivityStatusMatchesJobResult(string outcome, ActivityStatusCode expectedStatus)
+        {
+            ActivityStatusCode status = ActivityStatusCode.Unset;
+            using var listener = new ActivityListener
+            {
+                ShouldListenTo = source => source.Name == nameof(JobHosting),
+                Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+                ActivityStopped = activity => status = activity.Status,
+            };
+            ActivitySource.AddActivityListener(listener);
+
+            await ExecuteHostedJobAsync(outcome);
+
+            Assert.Equal(expectedStatus, status);
+        }
+
+        [Fact]
+        public async Task GivenActivitySamplingDropsTheSpan_WhenJobCompletes_ThenActivityStatusStaysUnset()
+        {
+            Activity stoppedActivity = null;
+            using var listener = new ActivityListener
+            {
+                ShouldListenTo = source => source.Name == nameof(JobHosting),
+                Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.None,
+                ActivityStopped = activity => stoppedActivity = activity,
+            };
+            ActivitySource.AddActivityListener(listener);
+
+            await ExecuteHostedJobAsync("success");
+
+            Assert.Equal(ActivityStatusCode.Unset, stoppedActivity?.Status ?? ActivityStatusCode.Unset);
+        }
+
+        private async Task ExecuteHostedJobAsync(string outcome)
+        {
+            var queueClient = new TestQueueClient();
+            JobInfo jobInfo = (await queueClient.EnqueueAsync(0, ["job"], null, false, CancellationToken.None)).Single();
+            var factory = new TestJobFactory(_ => new TestJob(_ => outcome switch
+            {
+                "success" => Task.FromResult("Done"),
+                "failure" => throw new InvalidOperationException("Job failed."),
+                "cancellation" => throw new OperationCanceledException("Job cancelled."),
+                _ => throw new ArgumentOutOfRangeException(nameof(outcome)),
+            }));
+            var jobHosting = new JobHosting(queueClient, factory, new TestJobMetricFactory(), _logger)
+            {
+                JobHeartbeatIntervalInSeconds = 60,
+            };
+
+            var executeJob = typeof(JobHosting).GetMethod("ExecuteJobWithActivityAsync", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Task execution = Assert.IsAssignableFrom<Task>(executeJob.Invoke(jobHosting, new object[] { jobInfo }));
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
         }
 
         private sealed class CountingJobFactory : IJobFactory

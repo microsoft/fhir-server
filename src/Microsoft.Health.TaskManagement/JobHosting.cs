@@ -171,6 +171,18 @@ namespace Microsoft.Health.JobManagement
 
                 _logger.LogJobInformation(nextJob, "Job dequeued.");
                 await ExecuteJobAsync(nextJob);
+
+                switch (nextJob.Status)
+                {
+                    case JobStatus.Completed:
+                        activity?.SetStatus(ActivityStatusCode.Ok);
+                        break;
+                    case JobStatus.Failed:
+                    case JobStatus.Cancelled:
+                    case JobStatus.CancelledByUser:
+                        activity?.SetStatus(ActivityStatusCode.Error);
+                        break;
+                }
             }
         }
 
