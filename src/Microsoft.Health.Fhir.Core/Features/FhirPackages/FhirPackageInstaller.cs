@@ -48,44 +48,85 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
         }
 
         /// <inheritdoc />
+        public async Task ValidateAsync(FhirPackage package, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(package, nameof(package));
+            await ValidateHandlersAsync(package, GetHandledEntries(package), cancellationToken);
+        }
+
+        /// <inheritdoc />
         public async Task<FhirPackageInstallResult> InstallAsync(FhirPackage package, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(package, nameof(package));
 
-            var handled = new SortedDictionary<string, List<FhirPackageEntry>>(StringComparer.Ordinal);
             var ignored = new SortedDictionary<string, int>(StringComparer.Ordinal);
-
-            foreach (FhirPackageEntry entry in package.ResourceEntries)
+            SortedDictionary<string, List<FhirPackageEntry>> handled = GetHandledEntries(package);
+            foreach (FhirPackageEntry entry in package.ResourceEntries.Where(entry => entry.ResourceType == null || !_handlers.ContainsKey(entry.ResourceType)))
             {
-                if (entry.ResourceType != null && _handlers.ContainsKey(entry.ResourceType))
-                {
-                    if (!handled.TryGetValue(entry.ResourceType, out List<FhirPackageEntry> entries))
-                    {
-                        entries = new List<FhirPackageEntry>();
-                        handled.Add(entry.ResourceType, entries);
-                    }
-
-                    entries.Add(entry);
-                }
-                else
-                {
-                    CountIgnored(entry);
-                }
+                CountIgnored(entry, ignored);
             }
 
             foreach (FhirPackageEntry entry in package.IgnoredEntries)
             {
-                CountIgnored(entry);
+                CountIgnored(entry, ignored);
             }
 
+            List<IFhirPackageInstallPlan> plans = await ValidateHandlersAsync(package, handled, cancellationToken);
+
+            // Phase 2: write. Nothing has been written yet, so cancellation is still clean here.
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var installed = new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+            foreach (IFhirPackageInstallPlan plan in plans)
+            {
+                await plan.ApplyAsync(cancellationToken);
+                installed[plan.ResourceType] = plan.CanonicalUrls;
+            }
+
+            _logger.LogInformation(
+                "Installed FHIR package {PackageId} version {Version}: {InstalledCount} resource(s) installed, {IgnoredCount} ignored.",
+                package.Descriptor.PackageId,
+                package.Descriptor.Version,
+                installed.Values.Sum(x => x.Count),
+                ignored.Values.Sum());
+
+            return new FhirPackageInstallResult(package, installed, ignored, _handlers.Keys.ToArray());
+        }
+
+        private SortedDictionary<string, List<FhirPackageEntry>> GetHandledEntries(FhirPackage package)
+        {
+            var handled = new SortedDictionary<string, List<FhirPackageEntry>>(StringComparer.Ordinal);
+            foreach (FhirPackageEntry entry in package.ResourceEntries)
+            {
+                if (entry.ResourceType == null || !_handlers.TryGetValue(entry.ResourceType, out _))
+                {
+                    continue;
+                }
+
+                if (!handled.TryGetValue(entry.ResourceType, out List<FhirPackageEntry> entries))
+                {
+                    entries = new List<FhirPackageEntry>();
+                    handled.Add(entry.ResourceType, entries);
+                }
+
+                entries.Add(entry);
+            }
+
+            return handled;
+        }
+
+        private async Task<List<IFhirPackageInstallPlan>> ValidateHandlersAsync(
+            FhirPackage package,
+            SortedDictionary<string, List<FhirPackageEntry>> handled,
+            CancellationToken cancellationToken)
+        {
             if (handled.Count == 0)
             {
                 throw new FhirPackageException(
                     OperationOutcomeConstants.IssueType.Invalid,
-                    string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageNoInstallableResources, package.Descriptor.PackageId, package.Descriptor.Version, InstalledTypes()));
+                    string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageNoInstallableResources, package.Descriptor.PackageId, package.Descriptor.Version, string.Join(", ", _handlers.Keys.OrderBy(x => x, StringComparer.Ordinal))));
             }
 
-            // Phase 1: validate everything before anything is written.
             var plans = new List<IFhirPackageInstallPlan>();
             var issues = new List<OperationOutcomeIssue>();
             foreach (KeyValuePair<string, List<FhirPackageEntry>> group in handled)
@@ -111,35 +152,16 @@ namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
                 throw new FhirPackageException(issues);
             }
 
-            // Phase 2: write. Nothing has been written yet, so cancellation is still clean here.
-            cancellationToken.ThrowIfCancellationRequested();
+            return plans;
+        }
 
-            var installed = new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
-            foreach (IFhirPackageInstallPlan plan in plans)
+        private static void CountIgnored(FhirPackageEntry entry, SortedDictionary<string, int> ignored)
+        {
+            // Non-resource JSON such as .index.json is package metadata, not ignored content.
+            if (entry.ResourceType != null)
             {
-                await plan.ApplyAsync(cancellationToken);
-                installed[plan.ResourceType] = plan.CanonicalUrls;
+                ignored[entry.ResourceType] = ignored.GetValueOrDefault(entry.ResourceType) + 1;
             }
-
-            _logger.LogInformation(
-                "Installed FHIR package {PackageId} version {Version}: {InstalledCount} resource(s) installed, {IgnoredCount} ignored.",
-                package.Descriptor.PackageId,
-                package.Descriptor.Version,
-                installed.Values.Sum(x => x.Count),
-                ignored.Values.Sum());
-
-            return new FhirPackageInstallResult(package, installed, ignored, _handlers.Keys.ToArray());
-
-            void CountIgnored(FhirPackageEntry entry)
-            {
-                // Non-resource JSON such as .index.json is package metadata, not ignored content.
-                if (entry.ResourceType != null)
-                {
-                    ignored[entry.ResourceType] = ignored.GetValueOrDefault(entry.ResourceType) + 1;
-                }
-            }
-
-            string InstalledTypes() => string.Join(", ", _handlers.Keys.OrderBy(x => x, StringComparer.Ordinal));
         }
     }
 }

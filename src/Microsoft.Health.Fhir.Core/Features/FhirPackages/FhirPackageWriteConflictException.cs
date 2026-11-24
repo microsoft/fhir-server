@@ -10,12 +10,13 @@ using Microsoft.Health.Fhir.Core.Models;
 namespace Microsoft.Health.Fhir.Core.Features.FhirPackages
 {
     /// <summary>
-    /// A package's SearchParameters were not written because the write conflicted with other state. Nothing was written.
+    /// A package's SearchParameters conflict with the persisted state or could not yet be verified.
     /// </summary>
     /// <remarks>
     /// When <see cref="IsRetryable"/> is <c>true</c> the conflict was transient, such as a concurrent SearchParameter
     /// change or a running reindex job, and the installation can be retried. Otherwise the conflict is with persisted
-    /// state, such as a different version of the package already being installed, and retrying won't help.
+    /// state, such as a different SearchParameter definition, and retrying won't help. A writer attempt is atomic;
+    /// verification can also report a conflict while recovering a previously committed attempt.
     /// </remarks>
     public sealed class FhirPackageWriteConflictException : FhirException
     {

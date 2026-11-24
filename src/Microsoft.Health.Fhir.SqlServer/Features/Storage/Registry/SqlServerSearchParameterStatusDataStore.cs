@@ -67,6 +67,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             await _sqlRetryService.TryLogEvent(process, status, text, startDate, cancellationToken);
         }
 
+        public async Task TryLogCacheUpdateProof(string process, string text, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await using var cmd = new SqlCommand { CommandType = CommandType.StoredProcedure, CommandText = "dbo.LogEvent" };
+                cmd.Parameters.AddWithValue("@Process", process);
+                cmd.Parameters.AddWithValue("@Status", "Warn");
+                cmd.Parameters.AddWithValue("@Text", text);
+                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Unable to write the SearchParameter cache update proof to the service-local event log.");
+            }
+        }
+
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken, DateTimeOffset? startLastUpdated = null)
         {
             using var cmd = new SqlCommand();
@@ -174,12 +190,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             }
         }
 
-        public async Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken)
+        public async Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken, string updateProcess = null)
         {
             using var cmd = new SqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.GetSearchParamCacheUpdateEvents";
-            cmd.Parameters.AddWithValue("@UpdateProcess", SearchParamCacheUpdateProcess);
+            cmd.Parameters.AddWithValue("@UpdateProcess", updateProcess ?? SearchParamCacheUpdateProcess);
             cmd.Parameters.AddWithValue("@UpdateEventsSince", updateEventsSince);
             cmd.Parameters.AddWithValue("@ActiveHostsSince", activeHostsSince);
 
@@ -214,11 +230,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 }
             }
 
-            var maxLastUpdated = updatedHosts.Values.Max(_ => _);
+            var maxLastUpdated = updatedHosts.Values.OrderBy(value => value, StringComparer.Ordinal).LastOrDefault();
             var convergedHosts = updatedHosts.Where(_ => _.Value == maxLastUpdated).Select(_ => _.Key).ToList();
             var isConsistent = convergedHosts.Count > 0 && convergedHosts.Count == activeHosts.Count;
             await TryLogEvent("CheckCacheConsistency", "Warn", $"isConsistent={isConsistent} ActiveHosts={activeHosts.Count} ConvergedHosts={convergedHosts.Count}", null, cancellationToken);
-            return new CacheConsistencyResult { IsConsistent = isConsistent, ActiveHosts = activeHosts.Count, ConvergedHosts = convergedHosts.Count };
+            return new CacheConsistencyResult { IsConsistent = isConsistent, ActiveHosts = activeHosts.Count, ConvergedHosts = convergedHosts.Count, SearchParameterVersion = maxLastUpdated };
         }
     }
 }

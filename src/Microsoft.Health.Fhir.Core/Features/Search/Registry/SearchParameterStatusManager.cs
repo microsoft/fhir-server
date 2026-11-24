@@ -246,14 +246,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             return tempStatus;
         }
 
-        public async Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken)
+        public async Task<CacheConsistencyResult> CheckCacheConsistencyAsync(DateTime updateEventsSince, DateTime activeHostsSince, CancellationToken cancellationToken, string updateProcess = null)
         {
-            return await _searchParameterStatusDataStore.CheckCacheConsistencyAsync(updateEventsSince, activeHostsSince, cancellationToken);
+            return await _searchParameterStatusDataStore.CheckCacheConsistencyAsync(updateEventsSince, activeHostsSince, cancellationToken, updateProcess);
         }
 
         public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
         {
             await _searchParameterStatusDataStore.TryLogEvent(process, status, text, startDate, cancellationToken);
+        }
+
+        public async Task TryLogCacheUpdateProof(string process, string text, CancellationToken cancellationToken)
+        {
+            await _searchParameterStatusDataStore.TryLogCacheUpdateProof(process, text, cancellationToken);
         }
 
         private struct TempStatus

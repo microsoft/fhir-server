@@ -33,13 +33,13 @@ using Microsoft.Health.SqlServer.Features.Client;
 namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
 {
     /// <summary>
-    /// Writes a package's SearchParameters directly as <c>Enabled</c> on a store that contains no data, together with the
-    /// applied-package record, in one SQL transaction. Never starts a reindex.
+    /// Writes a package's SearchParameters directly as <c>Enabled</c> on a store that contains no data, in one SQL
+    /// transaction. Never starts a reindex.
     /// </summary>
     /// <remarks>
     /// The transaction asserts the empty-store precondition, then reuses <c>dbo.MergeResourcesAndSearchParams</c>, which
-    /// rejects the write if a reindex job is active or the SearchParameter reference set changed since validation, and
-    /// finally adds the applied-package record. Either everything commits or nothing does.
+    /// rejects the write if a reindex job is active or the SearchParameter reference set changed since validation.
+    /// Either every SearchParameter commits or none does.
     /// <para>
     /// Known limitation: custom SearchParameters on the SearchParameter resource type aren't supported. The empty-store
     /// check ignores SearchParameter resources, so a package parameter whose base covers SearchParameter (directly or via
@@ -59,7 +59,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
         private readonly ITransactionHandler _transactionHandler;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ISqlServerFhirModel _model;
-        private readonly IFhirSpecificationPackageRecordStore _recordStore;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterOperations _searchParameterOperations;
@@ -73,7 +72,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
         /// <param name="transactionHandler">Starts the transaction that the whole write enlists in.</param>
         /// <param name="sqlConnectionWrapperFactory">Provides the connection enlisted in the write transaction for the empty-store check.</param>
         /// <param name="model">Resolves the SearchParameter resource type id.</param>
-        /// <param name="recordStore">Reads and writes the applied-package record.</param>
         /// <param name="resourceWrapperFactory">Builds the stored form of each SearchParameter.</param>
         /// <param name="modelInfoProvider">Provides the structure definitions used to stamp server-assigned metadata.</param>
         /// <param name="searchParameterOperations">Refreshes this instance's SearchParameter cache after the write.</param>
@@ -84,7 +82,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
             ITransactionHandler transactionHandler,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ISqlServerFhirModel model,
-            IFhirSpecificationPackageRecordStore recordStore,
             IResourceWrapperFactory resourceWrapperFactory,
             IModelInfoProvider modelInfoProvider,
             ISearchParameterOperations searchParameterOperations,
@@ -95,7 +92,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
             _transactionHandler = EnsureArg.IsNotNull(transactionHandler, nameof(transactionHandler));
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             _model = EnsureArg.IsNotNull(model, nameof(model));
-            _recordStore = EnsureArg.IsNotNull(recordStore, nameof(recordStore));
             _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _searchParameterOperations = EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
@@ -112,44 +108,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
             EnsureArg.IsNotNull(searchParameters, nameof(searchParameters));
 
             FhirPackageDescriptor descriptor = package.Descriptor;
-            var record = new FhirSpecificationPackageRecord(
-                descriptor.PackageId,
-                descriptor.Version,
-                descriptor.Integrity,
-                searchParameters.Select(x => x.Instance.Children("url").FirstOrDefault()?.Value as string).ToList());
-
-            if (!await IsAlreadyInstalledAsync(record, cancellationToken))
+            var canonicalUrls = searchParameters.Select(x => x.Instance.Children("url").FirstOrDefault()?.Value as string).ToList();
+            IFhirRequestContext originalContext = _requestContextAccessor.RequestContext;
+            if (originalContext == null)
             {
-                IFhirRequestContext originalContext = _requestContextAccessor.RequestContext;
-                if (originalContext == null)
-                {
-                    _requestContextAccessor.RequestContext = CreateBackgroundContext();
-                }
-
-                try
-                {
-                    if (await WriteInTransactionAsync(record, searchParameters, referenceSetLastUpdated, cancellationToken))
-                    {
-                        _logger.LogInformation(
-                            "Installed {Count} SearchParameter(s) from FHIR package {PackageId} version {Version} as Enabled without reindex.",
-                            searchParameters.Count,
-                            descriptor.PackageId,
-                            descriptor.Version);
-                    }
-                }
-                finally
-                {
-                    _requestContextAccessor.RequestContext = originalContext;
-                }
+                _requestContextAccessor.RequestContext = CreateBackgroundContext();
             }
 
-            // Refresh even when another writer installed the package, so this instance can search by its parameters now.
+            try
+            {
+                await WriteInTransactionAsync(descriptor, canonicalUrls, searchParameters, referenceSetLastUpdated, cancellationToken);
+                _logger.LogInformation(
+                    "Installed {Count} SearchParameter(s) from FHIR package {PackageId} version {Version} as Enabled without reindex.",
+                    searchParameters.Count,
+                    descriptor.PackageId,
+                    descriptor.Version);
+            }
+            finally
+            {
+                _requestContextAccessor.RequestContext = originalContext;
+            }
+
             // Other instances pick up the new parameters through their periodic SearchParameter refresh.
             await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
         }
 
-        /// <returns><c>true</c> if this call committed the write; <c>false</c> if another writer installed the same package first.</returns>
-        private async Task<bool> WriteInTransactionAsync(FhirSpecificationPackageRecord record, IReadOnlyList<ResourceElement> searchParameters, DateTimeOffset referenceSetLastUpdated, CancellationToken cancellationToken)
+        private async Task WriteInTransactionAsync(FhirPackageDescriptor descriptor, List<string> canonicalUrls, IReadOnlyList<ResourceElement> searchParameters, DateTimeOffset referenceSetLastUpdated, CancellationToken cancellationToken)
         {
             try
             {
@@ -157,26 +141,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
 
                 if (await ContainsDataAsync(cancellationToken))
                 {
-                    throw new FhirPackageStoreNotEmptyException(record.PackageId, record.Version);
+                    throw new FhirPackageStoreNotEmptyException(descriptor.PackageId, descriptor.Version);
                 }
 
                 // createOnly protects resource ids, not canonical URLs, so an existing SearchParameter with another id
                 // and the same URL must be rejected here rather than silently gaining a second definition.
-                string existingUrl = await FindExistingUrlAsync(record.CanonicalUrls, cancellationToken);
+                string existingUrl = await FindExistingUrlAsync(canonicalUrls, cancellationToken);
                 if (existingUrl != null)
                 {
-                    if (await IsAlreadyInstalledAsync(record, cancellationToken))
-                    {
-                        return false;
-                    }
-
                     throw new FhirPackageWriteConflictException(
-                        string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterResourceConflict, record.PackageId, record.Version, existingUrl),
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterResourceConflict, descriptor.PackageId, descriptor.Version, existingUrl),
                         isRetryable: false);
                 }
 
                 List<ResourceWrapperOperation> operations = searchParameters
-                    .Select((resource, i) => CreateOperation(resource, record.CanonicalUrls[i], referenceSetLastUpdated))
+                    .Select((resource, i) => CreateOperation(resource, canonicalUrls[i], referenceSetLastUpdated))
                     .ToList();
 
                 MergeOutcome outcome = await _fhirDataStore.MergeAsync(operations, new MergeOptions(enlistTransaction: true, isBundleTransaction: true), cancellationToken);
@@ -184,51 +163,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
                 List<Exception> failures = outcome.Results.Values.Where(x => !x.IsOperationSuccessful).Select(x => (Exception)x.Exception).ToList();
                 if (failures.Count > 0)
                 {
-                    // Nothing was persisted: a bundle-transaction merge validates every resource before it writes any.
-                    if (await IsAlreadyInstalledAsync(record, cancellationToken))
-                    {
-                        return false;
-                    }
-
                     throw new FhirPackageWriteConflictException(
-                        string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterResourceConflict, record.PackageId, record.Version, string.Join(" ", failures.Select(x => x.Message))),
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageSearchParameterResourceConflict, descriptor.PackageId, descriptor.Version, string.Join(" ", failures.Select(x => x.Message))),
                         isRetryable: false,
                         new AggregateException(failures));
                 }
 
-                await _recordStore.AddAsync(record, cancellationToken);
-
                 transaction.Complete();
-                return true;
             }
             catch (FhirPackageStoreNotEmptyException)
             {
-                // Another writer may have installed this package before data arrived; that is the goal state, not a failure.
-                if (await IsAlreadyInstalledAsync(record, cancellationToken))
-                {
-                    return false;
-                }
-
                 _logger.LogWarning(
-                    "FHIR package {PackageId} version {Version} was not installed because the data store contains resources.",
-                    record.PackageId,
-                    record.Version);
+                    "FHIR package {PackageId} version {Version} could not add missing SearchParameters because the data store contains resources.",
+                    descriptor.PackageId,
+                    descriptor.Version);
 
                 throw;
             }
             catch (Exception ex) when (IsConcurrencyConflict(ex))
             {
-                // The transaction has rolled back. If the conflict was another writer installing this same package, the
-                // goal state is reached.
-                if (await IsAlreadyInstalledAsync(record, cancellationToken))
-                {
-                    return false;
-                }
-
-                _logger.LogWarning(ex, "FHIR package {PackageId} version {Version} conflicted with a concurrent SearchParameter change or reindex.", record.PackageId, record.Version);
+                _logger.LogWarning(ex, "FHIR package {PackageId} version {Version} encountered a SearchParameter conflict or transient SQL error.", descriptor.PackageId, descriptor.Version);
 
                 throw new FhirPackageWriteConflictException(
-                    string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageWriteConflictRetryable, record.PackageId, record.Version, ex.Message),
+                    string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageWriteConflictRetryable, descriptor.PackageId, descriptor.Version, ex.Message),
                     isRetryable: true,
                     ex);
             }
@@ -338,39 +295,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
             return await cmd.ExecuteScalarAsync(cancellationToken) as string;
         }
 
-        /// <returns><c>true</c> if the same content is already installed.</returns>
-        /// <exception cref="FhirPackageWriteConflictException">A different version or integrity of the package is installed, or the lookup hit a transient SQL error.</exception>
-        private async Task<bool> IsAlreadyInstalledAsync(FhirSpecificationPackageRecord record, CancellationToken cancellationToken)
-        {
-            FhirSpecificationPackageRecord installed;
-            try
-            {
-                installed = await _recordStore.GetAsync(record.PackageId, cancellationToken);
-            }
-            catch (Exception ex) when (IsTransientSqlError(ex))
-            {
-                throw new FhirPackageWriteConflictException(
-                    string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageWriteConflictRetryable, record.PackageId, record.Version, ex.Message),
-                    isRetryable: true,
-                    ex);
-            }
-
-            if (installed == null)
-            {
-                return false;
-            }
-
-            if (installed.IsSameContentAs(record))
-            {
-                _logger.LogInformation("FHIR package {PackageId} version {Version} is already installed.", record.PackageId, record.Version);
-                return true;
-            }
-
-            throw new FhirPackageWriteConflictException(
-                string.Format(CultureInfo.InvariantCulture, Core.Resources.FhirPackageInstalledWithDifferentContent, installed.PackageId, installed.Version, installed.Integrity, record.Version, record.Integrity),
-                isRetryable: false);
-        }
-
         private static bool IsConcurrencyConflict(Exception ex)
         {
             return ex is JobConflictException
@@ -381,8 +305,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.FhirPackages
 
         private static bool IsTransientSqlError(Exception ex)
         {
-            // Transient error numbers, transport and availability failures, and execution timeouts (error -2). The rollback
-            // leaves nothing written, so the caller can retry.
+            // A retry can verify persisted resources even when the outcome of a commit is unknown.
             return ex is SqlException sqlEx && (sqlEx.IsSqlTransientException() || sqlEx.IsRetriable() || sqlEx.IsExecutionTimeout());
         }
 

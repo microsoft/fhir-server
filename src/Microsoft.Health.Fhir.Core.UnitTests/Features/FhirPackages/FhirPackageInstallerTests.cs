@@ -102,6 +102,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.FhirPackages
         }
 
         [Fact]
+        public async Task GivenAValidPackage_WhenValidating_ThenEveryHandledEntryIsValidatedWithoutApplyingThePlan()
+        {
+            // Arrange
+            IFhirPackageInstallPlan plan = CreatePlan(SearchParameterType, "http://example.org/sp/a", "http://example.org/sp/b");
+            IFhirPackageResourceHandler handler = CreateHandler(SearchParameterType, plan);
+            var package = new FhirPackage(
+                Descriptor,
+                new[]
+                {
+                    Entry("package/SearchParameter-a.json", SearchParameterType),
+                    Entry("package/SearchParameter-b.json", SearchParameterType),
+                });
+            FhirPackageInstaller installer = CreateInstaller(handler);
+
+            // Act
+            await installer.ValidateAsync(package, CancellationToken.None);
+
+            // Assert
+            await handler.Received(1).ValidateAsync(
+                Arg.Is<IReadOnlyList<FhirPackageEntry>>(entries => entries.Count == 2),
+                package,
+                Arg.Any<CancellationToken>());
+            await plan.DidNotReceive().ApplyAsync(Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
         public async Task GivenNoInstallableResources_WhenInstalling_ThenThePackageIsRejectedWithoutCallingHandlers()
         {
             // Arrange

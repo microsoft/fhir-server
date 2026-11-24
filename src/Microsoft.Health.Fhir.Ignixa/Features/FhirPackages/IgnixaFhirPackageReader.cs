@@ -28,8 +28,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.FhirPackages
     /// </summary>
     /// <remarks>
     /// Package reading has no Firely equivalent, so this is meant to be registered regardless of <c>CoreFeatures.FhirSdkProvider</c>
-    /// (see ADR-2607). It isn't registered for DI yet; that lands with the writer (AB#206132). No Ignixa type crosses the
-    /// <see cref="IFhirPackageReader"/> seam.
+    /// (see ADR-2607). No Ignixa type crosses the <see cref="IFhirPackageReader"/> seam.
     /// </remarks>
     public sealed class IgnixaFhirPackageReader : IFhirPackageReader
     {
@@ -96,8 +95,8 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.FhirPackages
         }
 
         /// <summary>
-        /// Applies the checks that follow extraction. Every input path, including the acquired-package adapter
-        /// that AB#206133 adds, goes through this method so the paths can't disagree.
+        /// Applies the checks that follow extraction. Every input path, including the acquired-package adapter,
+        /// goes through this method so the paths can't disagree.
         /// </summary>
         /// <param name="extraction">A completed strict extraction.</param>
         /// <param name="descriptor">The package the caller expects; its integrity must already have been verified.</param>
@@ -178,7 +177,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.FhirPackages
             return expandedBytes > compressedBytes * maxRatio;
         }
 
-        private static PackageExtractionLimits CreateExtractionLimits(FhirPackageReaderOptions options)
+        internal static PackageExtractionLimits CreateExtractionLimits(FhirPackageReaderOptions options)
         {
             try
             {
@@ -233,7 +232,7 @@ namespace Microsoft.Health.Fhir.Ignixa.Features.FhirPackages
             path.StartsWith(PackageRootPrefix, StringComparison.Ordinal) &&
             path.IndexOf("/", PackageRootPrefix.Length, StringComparison.Ordinal) < 0;
 
-        private static FhirPackageException ToFhirPackageException(PackageExtractionDiagnostic diagnostic)
+        internal static FhirPackageException ToFhirPackageException(PackageExtractionDiagnostic diagnostic)
         {
             string issueType = diagnostic.Code switch
             {

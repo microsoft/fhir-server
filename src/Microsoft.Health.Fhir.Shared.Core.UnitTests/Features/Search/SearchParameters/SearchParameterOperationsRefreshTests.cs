@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.ElementModel;
@@ -12,6 +13,8 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Medino;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -39,30 +42,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchParameters
 
         private readonly ISearchParameterStatusDataStore _statusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
         private readonly ISearchParameterDefinitionManager _definitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+        private readonly ISearchParameterSupportResolver _supportResolver = Substitute.For<ISearchParameterSupportResolver>();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
+        private readonly SearchParameterStatusManager _statusManager;
         private readonly SearchParameterOperations _operations;
 
         public SearchParameterOperationsRefreshTests()
         {
-            var supportResolver = Substitute.For<ISearchParameterSupportResolver>();
             _definitionManager.AllSearchParameters.Returns(Array.Empty<SearchParameterInfo>());
+            _definitionManager.SearchParameterHashMap.Returns(new Dictionary<string, string>());
 
-            var statusManager = new SearchParameterStatusManager(
+            _statusManager = new SearchParameterStatusManager(
                 _statusDataStore,
                 _definitionManager,
-                supportResolver,
+                _supportResolver,
                 Substitute.For<IMediator>(),
                 NullLogger<SearchParameterStatusManager>.Instance);
 
-            _operations = new SearchParameterOperations(
-                statusManager,
-                _definitionManager,
-                ModelInfoProvider.Instance,
-                supportResolver,
-                Substitute.For<IDataStoreSearchParameterValidator>(),
-                _searchService.CreateMockScopeProvider(),
-                Substitute.For<IFhirDataStore>().CreateMockScopeProvider(),
-                NullLogger<SearchParameterOperations>.Instance);
+            _operations = CreateOperations(packageInstallEnabled: false);
         }
 
         [Fact]
@@ -151,6 +148,126 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchParameters
             await _statusDataStore.Received(1).GetSearchParameterStatuses(Arg.Any<CancellationToken>(), Arg.Any<DateTimeOffset?>());
             _definitionManager.DidNotReceive().AddNewSearchParameters(Arg.Any<IReadOnlyCollection<ITypedElement>>());
             _statusDataStore.Received(1).SyncStatuses(Arg.Is<IReadOnlyCollection<ResourceSearchParameterStatus>>(s => s.Single() == disabled));
+        }
+
+        [Theory]
+        [InlineData(false, true, true, false)]
+        [InlineData(true, false, true, false)]
+        [InlineData(true, true, false, false)]
+        [InlineData(true, true, true, true)]
+        public async Task GivenPackageInstallSettings_WhenRefreshing_ThenOnlyEnabledSqlBackgroundRefreshesPublishProofs(
+            bool packageInstallEnabled,
+            bool backgroundRefresh,
+            bool sqlStore,
+            bool publishesProof)
+        {
+            // Arrange
+            _statusDataStore.SearchParamCacheUpdateProcessName.Returns(sqlStore ? "SearchParamCacheUpdate" : null);
+            _statusDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>(), Arg.Any<DateTimeOffset?>())
+                .Returns(new[] { CreateStatus("http://test/SearchParameter/disabled", SearchParameterStatus.Disabled, SortParameterStatus.Disabled) });
+            using var operations = CreateOperations(packageInstallEnabled);
+            string proof = FirstReadLastUpdated.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss.fffffff", CultureInfo.InvariantCulture)
+                + "|" + SearchParameterCacheFingerprint.Calculate(_definitionManager);
+
+            // Act
+            await operations.GetAndApplySearchParameterUpdates(CancellationToken.None, zeroWaitForSemaphore: backgroundRefresh);
+
+            // Assert
+            await _statusDataStore.Received(publishesProof ? 1 : 0).TryLogCacheUpdateProof(
+                SearchParameterCacheFingerprint.UpdateProcessName,
+                proof,
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenAMissingDefinition_WhenTheWatermarkAdvances_ThenThePublishedProofDiffersFromACompleteCache()
+        {
+            // Arrange
+            const string url = "http://test/SearchParameter/missing";
+            _statusDataStore.SearchParamCacheUpdateProcessName.Returns("SearchParamCacheUpdate");
+            _statusDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>(), Arg.Any<DateTimeOffset?>())
+                .Returns(new[] { CreateStatus(url, SearchParameterStatus.Enabled, SortParameterStatus.Disabled) });
+            SetupSearchResults(Array.Empty<SearchParameter>());
+            using var operations = CreateOperations(packageInstallEnabled: true);
+
+            var completeCache = Substitute.For<ISearchParameterDefinitionManager>();
+            completeCache.AllSearchParameters.Returns(new[]
+            {
+                new SearchParameterInfo("missing", "missing", Microsoft.Health.Fhir.ValueSets.SearchParamType.Token, new Uri(url), expression: "Patient.identifier"),
+            });
+            completeCache.SearchParameterHashMap.Returns(new Dictionary<string, string>());
+            string missingFingerprint = SearchParameterCacheFingerprint.Calculate(_definitionManager);
+            string completeFingerprint = SearchParameterCacheFingerprint.Calculate(completeCache);
+            string watermark = FirstReadLastUpdated.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss.fffffff", CultureInfo.InvariantCulture);
+
+            // Act
+            await operations.GetAndApplySearchParameterUpdates(CancellationToken.None, zeroWaitForSemaphore: true);
+
+            // Assert
+            Assert.Equal(FirstReadLastUpdated, operations.SearchParamLastUpdated);
+            Assert.NotEqual(completeFingerprint, missingFingerprint);
+            await _statusDataStore.Received(1).TryLogCacheUpdateProof(
+                SearchParameterCacheFingerprint.UpdateProcessName,
+                $"{watermark}|{missingFingerprint}",
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public void GivenEquivalentCachesInDifferentOrders_WhenCalculatingFingerprints_ThenOnlyActualDifferencesChangeTheProof()
+        {
+            // Arrange
+            var first = Substitute.For<ISearchParameterDefinitionManager>();
+            var second = Substitute.For<ISearchParameterDefinitionManager>();
+            var firstA = FingerprintParameter("a", new[] { "Patient", "Observation" });
+            var secondA = FingerprintParameter("a", new[] { "Observation", "Patient" });
+            var firstB = FingerprintParameter("b", new[] { "Patient" });
+            var secondB = FingerprintParameter("b", new[] { "Patient" });
+            first.AllSearchParameters.Returns(new[] { firstA, firstB });
+            second.AllSearchParameters.Returns(new[] { secondB, secondA });
+            first.SearchParameterHashMap.Returns(new Dictionary<string, string> { ["Patient"] = "p", ["Observation"] = "o" });
+            second.SearchParameterHashMap.Returns(new Dictionary<string, string> { ["Observation"] = "o", ["Patient"] = "p" });
+
+            // Act
+            string fingerprint = SearchParameterCacheFingerprint.Calculate(first);
+
+            // Assert
+            Assert.Equal(fingerprint, SearchParameterCacheFingerprint.Calculate(second));
+            second.AllSearchParameters.Returns(new[] { secondA });
+            Assert.NotEqual(fingerprint, SearchParameterCacheFingerprint.Calculate(second));
+            second.AllSearchParameters.Returns(new[] { secondB, secondA });
+            secondB.SearchParameterStatus = SearchParameterStatus.Disabled;
+            Assert.NotEqual(fingerprint, SearchParameterCacheFingerprint.Calculate(second));
+            secondB.SearchParameterStatus = firstB.SearchParameterStatus;
+            second.SearchParameterHashMap.Returns(new Dictionary<string, string> { ["Patient"] = "different", ["Observation"] = "o" });
+            Assert.NotEqual(fingerprint, SearchParameterCacheFingerprint.Calculate(second));
+        }
+
+        private static SearchParameterInfo FingerprintParameter(string name, string[] bases) =>
+            new SearchParameterInfo(
+                name,
+                name,
+                Microsoft.Health.Fhir.ValueSets.SearchParamType.Token,
+                new Uri($"http://test/SearchParameter/{name}"),
+                expression: "Patient.identifier",
+                baseResourceTypes: bases)
+            {
+                SearchParameterStatus = SearchParameterStatus.Enabled,
+            };
+
+        private SearchParameterOperations CreateOperations(bool packageInstallEnabled)
+        {
+            var configuration = new OperationsConfiguration();
+            configuration.FhirPackageInstall.Enabled = packageInstallEnabled;
+            return new SearchParameterOperations(
+                _statusManager,
+                _definitionManager,
+                ModelInfoProvider.Instance,
+                _supportResolver,
+                Substitute.For<IDataStoreSearchParameterValidator>(),
+                _searchService.CreateMockScopeProvider(),
+                Substitute.For<IFhirDataStore>().CreateMockScopeProvider(),
+                Options.Create(configuration),
+                NullLogger<SearchParameterOperations>.Instance);
         }
 
         private void SetupSearchResults(IReadOnlyCollection<SearchParameter> searchParameters)

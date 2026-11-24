@@ -909,19 +909,22 @@
     <value>Include result was truncated. Iterative include results cannot be paged though, please narrow your search.</value>
   </data>
   <data name="FhirPackageStoreNotEmpty" xml:space="preserve">
-    <value>The FHIR package '{0}' version '{1}' was not installed because the data store already contains resources. Package SearchParameters can only be applied to a new service before any data is written. To add these SearchParameters to a service that has data, create each SearchParameter and then run $reindex.</value>
+    <value>The FHIR package '{0}' version '{1}' cannot add missing SearchParameters because the data store already contains resources. Package SearchParameters can only be applied to a new service before any data is written. To add these SearchParameters to a service that has data, create each SearchParameter and then run $reindex.</value>
   </data>
   <data name="FhirPackageWriteConflictRetryable" xml:space="preserve">
-    <value>The FHIR package '{0}' version '{1}' was not installed because a concurrent SearchParameter change or a running reindex job conflicted with it. Nothing was written. Retry the installation. Details: {2}</value>
-  </data>
-  <data name="FhirPackageInstalledWithDifferentContent" xml:space="preserve">
-    <value>The FHIR package '{0}' is already installed at version '{1}' with integrity '{2}'. It can't be installed at version '{3}' with integrity '{4}' because package upgrades are not supported.</value>
+    <value>The FHIR package '{0}' version '{1}' could not be fully installed because of a concurrent SearchParameter change, a running reindex job, or a transient SQL error. Retry the installation to verify any committed SearchParameters. Details: {2}</value>
   </data>
   <data name="FhirPackageSearchParameterResourceConflict" xml:space="preserve">
-    <value>The FHIR package '{0}' version '{1}' was not installed because a SearchParameter resource it would create already exists and is not owned by this package. Nothing was written. Details: {2}</value>
+    <value>The FHIR package '{0}' version '{1}' could not be fully installed because a conflicting SearchParameter resource or status already exists. This write attempt made no changes. Details: {2}</value>
+  </data>
+  <data name="FhirPackageExistingSearchParameterConflict" xml:space="preserve">
+    <value>The existing SearchParameter '{0}' cannot satisfy the package: {1}</value>
+  </data>
+  <data name="FhirPackageSearchParameterCacheNotReady" xml:space="preserve">
+    <value>The SearchParameter '{0}' is not yet available and enabled in the local cache. Retry the package installation.</value>
   </data>
   <data name="FhirPackageRejected" xml:space="preserve">
-    <value>The FHIR package was rejected. Nothing from the package was installed.</value>
+    <value>The FHIR package was rejected.</value>
   </data>
   <data name="FhirPackageNoInstallableResources" xml:space="preserve">
     <value>The FHIR package &apos;{0}&apos; version &apos;{1}&apos; contains no resources that can be installed. Only {2} resources at the package root are installed.</value>

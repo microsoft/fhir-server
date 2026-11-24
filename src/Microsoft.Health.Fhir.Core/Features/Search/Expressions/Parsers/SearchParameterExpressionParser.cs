@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Search.SemanticSearch;
@@ -92,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     (SearchParamType.Reference, referenceSearchValueParser.Parse),
                     (SearchParamType.String, StringSearchValue.Parse),
                     (SearchParamType.Token, TokenSearchValue.Parse),
-                    (SearchParamType.Uri, str => UriSearchValue.Parse(str, false, ModelInfoProvider.Instance)),
+                    (SearchParamType.Uri, str => UriSearchValue.Parse(str.UnescapeSearchParameterValue(), false, ModelInfoProvider.Instance)),
                 }
                 .ToDictionary(entry => entry.type, entry => CreateParserWithErrorHandling(entry.parser));
         }
