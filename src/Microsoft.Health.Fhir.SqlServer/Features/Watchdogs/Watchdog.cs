@@ -20,6 +20,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     internal abstract class Watchdog<T>
         where T : Watchdog<T>
     {
+        // Source and operation name. fhir-paas must AddSource this name and sample it RecordOnly; Drop makes StartActivity return null.
+        private static readonly ActivitySource _activitySource = new ActivitySource(nameof(Watchdog<T>));
+
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<T> _logger;
         private readonly WatchdogLease<T> _watchdogLease;
@@ -78,28 +81,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         protected abstract Task RunWorkAsync(CancellationToken cancellationToken);
 
-        private async Task OnNextTickAsync(CancellationToken cancellationToken)
+        protected async Task OnNextTickAsync(CancellationToken cancellationToken)
         {
-            if (!_watchdogLease.IsLeaseHolder)
+            // Operation name matches the source name, same as JobHosting. No listener means this is a no-op.
+            using (_activitySource.StartActivity(_activitySource.Name, ActivityKind.Server))
             {
-                _logger.LogDebug($"{Name}.OnNextTickAsync: Skipping because watchdog is not a lease holder.");
-                return;
+                if (!_watchdogLease.IsLeaseHolder)
+                {
+                    _logger.LogDebug($"{Name}.OnNextTickAsync: Skipping because watchdog is not a lease holder.");
+                    return;
+                }
+
+                _supportsLastRunTime = await SupportsLastRunTimeAsync(cancellationToken);
+
+                if (!await IsRunDueAsync(cancellationToken))
+                {
+                    _logger.LogDebug($"{Name}.OnNextTickAsync: Skipping because the most recent run is newer than the watchdog period.");
+                    return;
+                }
+
+                var stopwatch = Stopwatch.StartNew();
+
+                await RunWorkAsync(cancellationToken);
+                await UpdateLastRunTimeAsync(cancellationToken);
+
+                _logger.LogInformation($"{Name}.OnNextTickAsync ran in milliseconds={stopwatch.ElapsedMilliseconds}");
             }
-
-            _supportsLastRunTime = await SupportsLastRunTimeAsync(cancellationToken);
-
-            if (!await IsRunDueAsync(cancellationToken))
-            {
-                _logger.LogDebug($"{Name}.OnNextTickAsync: Skipping because the most recent run is newer than the watchdog period.");
-                return;
-            }
-
-            var stopwatch = Stopwatch.StartNew();
-
-            await RunWorkAsync(cancellationToken);
-            await UpdateLastRunTimeAsync(cancellationToken);
-
-            _logger.LogInformation($"{Name}.OnNextTickAsync ran in milliseconds={stopwatch.ElapsedMilliseconds}");
         }
 
         internal static bool ShouldRun(DateTime utcNow, DateTime lastRunTime, TimeSpan period)
