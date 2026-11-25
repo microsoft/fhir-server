@@ -736,13 +736,60 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             SearchOptionsFactory factory = CreateFactory(
                 new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
                 new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams(("category", "encounter-diagnosis"))),
-                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams(("category", "problem-list-item"))));
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams(("category", "problem-list-item"))));
 
             SearchOptions options = factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false);
 
             var inner = Assert.IsType<MultiaryExpression>(FindChain(options.Expression).Expression);
             Assert.Contains(inner.Expressions, e => e.ToString() == "code=x");
             Assert.Contains(inner.Expressions, e => e.ToString() == "category=encounter-diagnosis,problem-list-item");
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GivenAFilteredWildcardScopeAndAnUnfilteredTypedScope_WhenCreatedWithAChain_ThenTheWildcardFilterIsStillApplied(bool wildcardFirst)
+        {
+            // ADR-2609: a wildcard scope filter is mandatory, so an unfiltered typed grant must not bypass it.
+            var wildcard = new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams((AvailableParameterCode, "loinc-1")));
+            var typed = new ScopeRestriction("Condition", DataActions.Read, "patient");
+
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
+                wildcardFirst ? wildcard : typed,
+                wildcardFirst ? typed : wildcard);
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false);
+
+            Assert.Contains($"{AvailableParameterCode}=loinc-1", FindChain(options.Expression).Expression.ToString(), StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenAnUnavailableWildcardScopeFilterAndAnUnfilteredTypedScope_WhenCreatedWithAChain_ThenRequestIsDenied()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
+                new ScopeRestriction("Condition", DataActions.Read, "patient"),
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams((UnavailableParameterCode, "patient-B"))));
+
+            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
+                () => factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false));
+            Assert.Contains(UnavailableParameterCode, exception.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void GivenAFilteredWildcardScopeAndAFilteredTypedScope_WhenCreatedWithAChain_ThenOnlyTheWildcardFilterIsApplied()
+        {
+            SearchOptionsFactory factory = CreateFactory(
+                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
+                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams(("category", "encounter-diagnosis"))),
+                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams((AvailableParameterCode, "loinc-1"))));
+
+            SearchOptions options = factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false);
+
+            string chainCriteria = FindChain(options.Expression).Expression.ToString();
+            Assert.Contains($"{AvailableParameterCode}=loinc-1", chainCriteria, StringComparison.Ordinal);
+            Assert.DoesNotContain("category=", chainCriteria, StringComparison.Ordinal);
         }
 
         [Theory]
