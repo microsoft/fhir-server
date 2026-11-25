@@ -73,8 +73,7 @@ candidate plans and index combinations (see data below).
    In order to built index in "zero" time, clustered indexes must 
    be rebuilt with `SearchParamId` as first key, otherwise table will be scanned. This approach exposes SQL Server bug 
    when SQL does not preserve physical sort order of rows for multiple filtered resource types, and adds separate sort 
-   operation (expensive). Also, creation of granular index on `ReferenceSearchParam` was still scanning clustered index 
-   (reason unknown). Note that resource updates use delete logic in `MergeResources`, they have to do extra join to `SearchParam`, 
+   operation (expensive). Note that resource updates use delete logic in `MergeResources`, they have to do extra join to `SearchParam`, 
    which can increase CPU cost. Writes with these clustered indexes (even when resource is created, no deletes mentioned 
    before) consume more database CPU (see below). (Not chosen)
    
