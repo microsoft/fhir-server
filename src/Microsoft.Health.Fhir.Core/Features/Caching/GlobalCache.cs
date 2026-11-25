@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
         protected GlobalCache(ILogger logger, TimeSpan? expiry = null, TimeProvider timeProvider = null)
         {
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
-            _slot = new CacheSlot<T>(GetRemoteDataAsync, LogRefreshFailed, expiry, timeProvider ?? TimeProvider.System);
+            _slot = new CacheSlot<T>(LoadAsync, LogRefreshFailed, expiry, timeProvider ?? TimeProvider.System);
         }
 
         /// <summary>
@@ -61,6 +61,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The loaded value.</returns>
         protected abstract ValueTask<T> GetRemoteDataAsync(bool async, CancellationToken cancellationToken);
+
+        // Non-virtual, so the constructor binds the slot to this method rather than to the virtual loader.
+        private ValueTask<T> LoadAsync(bool async, CancellationToken cancellationToken) => GetRemoteDataAsync(async, cancellationToken);
 
         // The logger's category is the cache type, so the message doesn't repeat it.
         private void LogRefreshFailed(Exception exception) =>
