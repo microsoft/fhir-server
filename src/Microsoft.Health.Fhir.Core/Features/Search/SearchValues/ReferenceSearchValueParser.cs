@@ -204,10 +204,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                         : null;
                 }
 
+                // Reject traversal above the starting directory before Uri removes the evidence of it. Uri clamps such a
+                // reference at the root, so ../Patient/b would otherwise become a local Patient/b.
+                int depth = 0;
+
+                foreach (string segment in path.Split('/'))
+                {
+                    string decoded = segment.Replace("%2e", ".", StringComparison.OrdinalIgnoreCase);
+
+                    if (decoded == "..")
+                    {
+                        if (depth == 0)
+                        {
+                            return null;
+                        }
+
+                        depth--;
+                    }
+                    else if (decoded != ".")
+                    {
+                        depth++;
+                    }
+                }
+
                 // Resolve a relative reference against a placeholder base so Uri applies the RFC 3986 dot-segment removal.
-                // The base has one path segment so that a reference climbing above its start can be told apart: Uri clamps it
-                // at the root, which would otherwise turn ../Patient/b into a local Patient/b.
-                var placeholderBase = new Uri("http://placeholder/x/");
+                var placeholderBase = new Uri("http://placeholder/");
                 var resolved = new Uri(placeholderBase, path);
 
                 if (resolved.Host != placeholderBase.Host || resolved.Scheme != placeholderBase.Scheme)
@@ -219,13 +240,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 string resolvedPath = resolved.AbsolutePath;
                 bool rooted = path[0] == '/';
 
-                if (!rooted && !resolvedPath.StartsWith(placeholderBase.AbsolutePath, StringComparison.Ordinal))
-                {
-                    // The reference climbs above where it started, so it points outside the service.
-                    return null;
-                }
-
-                return $"{(rooted ? resolvedPath : resolvedPath[placeholderBase.AbsolutePath.Length..])}{suffix}";
+                return $"{(rooted ? resolvedPath : resolvedPath[1..])}{suffix}";
             }
             catch (UriFormatException)
             {
