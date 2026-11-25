@@ -18,7 +18,7 @@
 
 ## Quality and boundaries
 
-- Apply the [FHIR security review guidelines](.github/instructions/fhir-security.instructions.md) across affected trust boundaries. Trace authorization through decoding, rewriting, path selection, and derived effects, not only endpoint checks.
+- Apply the [FHIR security core rules](.github/instructions/fhir-security.instructions.md) and the path-specific `security-*.instructions.md` files beside them across affected trust boundaries. Trace authorization through decoding, rewriting, path selection, and derived effects, not only endpoint checks.
 - On stateful/async paths, examine cancellation, lifetime, concurrent ownership, ordering, partial writes, retries, idempotency, and recovery. Flag hidden failures and success-shaped fallbacks; do not prescribe blanket catches or redundant guards. Authorization at real boundaries is not redundant.
 - For every SQL change, inspect table schemas and indexes against predicates, joins, grouping, and ordering. Assess likely data volume and execution frequency even without a database; label the assessment static and runtime performance unverified. Follow AGENTS.md's measurement requirements for performance claims.
 - Check schema upgrades, mixed-version deployment, and rollback. Fresh-install success does not prove upgrade safety. Failures must be observable without exposing sensitive data.

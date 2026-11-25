@@ -3,47 +3,48 @@ applyTo: "**"
 excludeAgent: "cloud-agent"
 ---
 
-# FHIR Security Review Guidelines
+# FHIR Security Review: Core Rules
 
-Supplement `AGENTS.md` and `REVIEW.md`. Trace the principal, input, control, resource, and outcome. Historical reports are leads, not proof of a defect in this revision. Apply relevant checks to changed boundaries, not a mandatory checklist for every PR.
+These rules apply to every pull request. The other `security-*.instructions.md` files in this directory add rules for the paths they match. `AGENTS.md` and `REVIEW.md` still apply.
 
-## Authority, identity, and scope
+## The invariant
 
-- Check authentication and authorization separately. Inspect token signature, signing-key, issuer, audience, and lifetime validation, including defaults and disabling switches. Respect anonymous endpoints and distinguish development fixtures from production.
-- Derive authority from validated identity and trusted server context, not headers, route values, resource IDs, or query parameters supplied by the caller. Missing required patient, scope, or identity context must not broaden access.
-- Preserve RBAC, operation-specific `DataActions`, and SMART permissions in both directions. Resource access is not server-wide authority; an operation permission such as `Reindex` does not itself authorize every implicit read or returned representation. Check the API's required read/search authority without inventing an every-write-requires-read rule.
-- Bind references, `fhirUser`, and launch context to the correct service base, resource type, ID, and compartment kind; include version when relevant. Use documented canonicalization and aliases, not naive string equality or type/ID truncation. A validly signed foreign-service identity is not automatically a local patient.
-- Preserve type, action, scope kind, modifiers, and predicates through scope parsing and combination. Decoding must not turn an encoded value into new separators or constraints; preserve documented union/intersection semantics. Unsupported, missing, or malformed constraints must not silently disappear and widen access.
+Every code path that reads, returns, counts, changes, or deletes a resource for a caller must enforce that caller's `DataActions`, SMART scope restrictions, and compartment (`AccessControlContext`). A check at the controller or request handler does not cover data that the code reaches later by another route.
 
-## Authorization survives transformations
+## Flag these changes
 
-- Check parity between ordinary and alternate execution paths: optimization, query hints, internal range searches, and provider-specific branches must preserve applicable filters. Public input must not select privileged internal behavior merely by claiming to be a trusted hint, header, or token.
-- Trace restrictions through `_include`, `_revinclude`, chaining, `_has`, `$everything`, counts, and nested expression branches. Verify the final query and materialized targets after untyped-reference rewriting, expansion, and filtering, not only the original parsed input. Cover existence inference and preserve documented shared-resource exceptions.
-- Re-establish current-caller resource-type, scope, and compartment checks on every continuation and included-resource page. Cached or signed state is not authorization; malformed or client-crafted state must not select a bypass. Preserve service/storage isolation without inventing a tenancy model.
-- Check instance, type, and system history and version reads against the applicable authorization contract for the requested versions. Returning or testing the current resource is not a substitute for checking the historical version.
-- Treat search/compartment definitions, caches, and indexes used by authorization as policy inputs. Disabling, shadowing, or widening a definition, or rebuilding an index, must not silently widen access. Verify trusted provenance and the documented unavailable/stale-state behavior, not merely that a definition exists.
-- Check whether index precision, truncation, collation, or normalization loses distinctions required by authorization. Approximate FHIR search candidates are not automatically authorized results: establish that the final decision preserves the intended predicate, using a final check where needed. Documentation alone does not justify broader access; not every normalization is a defect.
+1. **Data access outside the authorizing handler.** A new call to `ISearchService`, `IFhirDataStore`, `IDeletionService`, or `IBulkUpdateService` from a resolver, service, behavior, or job that acts on caller input. Ask where the caller's authority for that lookup or write is checked.
+2. **Admission checks used as authorization.** `CheckAccess(DataActions.All)` compared with `DataActions.None` only proves the caller has some permission. Each operation behind it needs its own action check.
+3. **Checks on the route type only.** The code authorizes the resource type in the route and then touches other types through `_include`, `_revinclude`, references, bundle entries, or cascades. Each touched type needs the action being performed on it.
+4. **Wildcards that skip a filter.** A branch that skips work when the scope is `KnownResourceTypes.All` or `*`. A wildcard answers which types are allowed. It does not answer which patient's data is allowed, so the compartment filter must still apply.
+5. **Absent context read as unrestricted.** `AccessControlContext?.ApplyFineGrainedAccessControl == true` is false when the context is missing. Confirm a caller-originated request cannot arrive without it. When the active scope kind requires a claim, such as the selected patient for `patient/` scopes or `fhirUser` for `user/` scopes, a missing or malformed claim must refuse the request. Do not require claims the scope kind does not use: `system/` scopes carry no user identity.
+6. **Trust taken from the request.** Authority must come from the validated token and server state. A query parameter, header, route value, body field, or continuation token must not select internal behavior or claim to be trusted. `IsBackgroundTask` must only be set by server code.
+7. **Enforcement behind a switch.** A new or changed flag that relaxes enforcement, such as `EnableSmart*Restriction`, `ErrorOnMissingFhirUserClaim`, or `EnableSmartWithoutAuth`. The shipped default must enforce, and the disabled path must be deliberate.
+8. **A feature that cannot enforce SMART restrictions.** A new operation or search feature that returns or changes data must apply `AccessControlContext` or refuse SMART-restricted callers. It must not run unrestricted.
+9. **One provider or version only.** A check added to SQL Server and not to Cosmos DB, or to one of STU3, R4, and R5, where the other also supports the feature.
+10. **Failures turned into success.** A `catch` or fallback that turns an authorization failure into an empty result, a default value, or a broader query.
 
-## Derived effects and background work
+## Do not flag
 
-- Conditional references and conditional operations can perform implicit searches. Check the caller's authority for those lookups and their effects; zero/one/multiple-match responses, resolved IDs, counts, links, and errors can disclose otherwise unreadable data.
-- Follow bundles, header-triggered resources, and other secondary writes to their own resource/action checks. Updates and patches must preserve protected identity fields such as `resourceType` and `id`; validation before a rewrite must still hold for the resulting resource.
-- For reindex, export, import, and bulk jobs, inspect creation, execution, status, cancellation, and results. Carry the submitting caller's authorized scope through trusted persisted state, queues, and retries; worker privilege and job IDs do not authorize callers. Issue signed result URLs only after applicable authorization and treat them as credentials. Preserve policy-permitted shared access, not an invented creator-only rule.
-- Check additional protected-resource permissions, such as `EditProfileDefinitions`, for direct and include/revinclude-selected bulk targets. The submitter's decision must survive execution; honor the documented permit, skip/count, or reject behavior rather than blanket denial or reporting skipped resources as successful.
-- Respect compatibility switches and deployment modes; check defaults and disabled paths. A stricter optional mode or an authorization-disabled fixture does not establish default protection. Do not infer external controls or production reachability without evidence.
+- Code behind a handler that already authorized the same action on the same resource type. Do not ask for a second check of the same thing.
+- Work with no caller: startup, definition and conformance loading, reindex workers, and other system jobs. An unrestricted `IsBackgroundTask` context is correct there.
+- Missing null checks, `try`/`catch` blocks, or validation for states the contract excludes. `AGENTS.md` asks for the contract to be enforced once, at the earliest point.
+- A missing best practice, a guessed deployment, or a past advisory, without a traced path in this revision.
 
-## Inputs, outputs, and resource limits
+## Inputs, outputs, and limits
 
-- Keep untrusted values separate from SQL, shell, and other executable syntax. Validate dynamic identifiers and operators; parameterized values do not secure arbitrary query structure.
-- For outbound imports, references, or callbacks, inspect destination policy at connection time, including redirects and name resolution. Check the allowed recipient/audience before forwarding service or managed-identity credentials. Do not assume deployment egress restrictions.
-- For proxy and OAuth redirects, validate the final decoded destination and trusted origin context before forwarding authorization codes or tokens. Encoding or caller-supplied forwarding headers must not turn an untrusted destination into a trusted one.
-- Check file/archive path containment and bounded expansion. Inspect parsers, regexes, FHIRPath, nested searches, bundles, and jobs for bounded size, depth, time, total work, and cancellation.
-- Keep patient data, credentials, bearer tokens, connection strings, and signed URLs out of logs, errors, traces, and test artifacts. Check encoding where narratives or resource content reach an interpreting consumer.
-- For build, dependency, and deployment changes, inspect provenance, permissions, secrets, and weakened scan/test controls. Never recommend running untrusted PR code with privileged credentials or treating model output as authorization.
+- Keep untrusted values out of SQL, shell, and other executable syntax. Validate dynamic identifiers and operators. Parameterized values do not make a caller-chosen query structure safe.
+- For outbound calls (import sources, references, callbacks, OAuth redirects), check the final decoded destination at connection time, including redirects. Check the recipient before the server sends its own credentials.
+- For file and archive handling, check path containment after normalization and bound the expanded size.
+- Bound the size, depth, time, and total work of parsers, regular expressions, FHIRPath, nested searches, bundles, and jobs.
+- Keep patient data, tokens, connection strings, and signed URLs out of logs, errors, traces, and test artifacts.
+- Encode narrative and resource content where it reaches a consumer that interprets it, such as HTML.
+- For build, dependency, and workflow changes, check provenance, permissions, secrets, and any weakened scan or test step.
 
-## Evidence for enforcement
+## Writing the finding
 
-- Use synthetic two-principal or two-patient cases with an authorized-success control and denied counterpart. Assert response bodies, headers, counts, links, errors, and persisted effects as relevant, not just HTTP status.
-- For touched boundaries, seek an ordinary-path control, an affected alternate path, and a relevant transformed-input case (for example encoded delimiters, foreign-base references, changed definitions, precision boundaries, or crafted continuation). Exercise later pages and requested historical versions when affected; do not demand a full cross-product.
-- Verify tests reach real authorization, not mocked handlers or disabled-auth fixtures. Identify defaults, feature flags, deployment mode, SQL/Cosmos providers, and STU3/R4/R5 versions actually exercised; do not generalize one configuration to all.
-- Require a concrete boundary and unauthorized outcome for a security finding. State missing runtime/deployment evidence explicitly. Recommend only bounded, isolated checks with synthetic data, not live-service probes or real patient records.
+- State the caller and the scope or role they hold, the request they send, and what they get that they should not. If you cannot trace that, ask a question instead of asserting a vulnerability.
+- Suggest the smallest fix that uses an existing mechanism: `CheckAccess` with the specific action, a helper in `AuthorizationServiceExtensions`, `ExpressionAccessControl`, or refusing the caller in the create handler. Do not propose a new layer or a duplicate check.
+- Ask for one test that fails without the fix. Use two principals or two patients: one request that must succeed and one that must be refused. Denying everyone does not pass.
+- Tests with mocked authorization or security disabled do not prove enforcement. Say which provider, FHIR version, and configuration the tests exercise.
+- Recommend only bounded, isolated checks with synthetic data. Never suggest probing a live service, using real patient records, running untrusted pull request code with privileged credentials, or treating model output as authorization.
