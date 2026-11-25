@@ -216,6 +216,149 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenPerformerScopedObservationWithDotSegmentReference_WhenReading_ThenOtherPatientsObservationIsNotDisclosed()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            var writer = _fixture.TestFhirClient.CreateClientForClientApplication(TestApplications.AdminUser);
+            var resources = new List<Resource>();
+
+            try
+            {
+                await SeedDotSegmentObservationsAsync(writer, resources);
+
+                using HttpClient reader = await CreateSmartClientAsync(
+                    TestApplications.SmartUserClient,
+                    $"system/Observation.rs?performer={Uri.EscapeDataString("Patient/refdot-a")}");
+                var parser = new FhirJsonParser();
+
+                using HttpResponseMessage allowedRead = await reader.GetAsync("Observation/refdot-allowed");
+                using HttpResponseMessage privateRead = await reader.GetAsync("Observation/refdot-private");
+                using HttpResponseMessage unrelatedRead = await reader.GetAsync("Observation/refdot-unrelated");
+                using HttpResponseMessage patientBRead = await reader.GetAsync("Patient/refdot-b");
+
+                Assert.Equal(HttpStatusCode.OK, allowedRead.StatusCode);
+                Assert.Equal("SYNTH_REFDOT_ALLOWED", Assert.IsType<FhirString>(parser.Parse<Observation>(await allowedRead.Content.ReadAsStringAsync()).Value).Value);
+                Assert.Equal(HttpStatusCode.NotFound, unrelatedRead.StatusCode);
+                Assert.Equal(HttpStatusCode.Forbidden, patientBRead.StatusCode);
+
+                // The performer reference resolves to Patient B, so it must not satisfy the Patient A scope.
+                Assert.Equal(HttpStatusCode.NotFound, privateRead.StatusCode);
+                Assert.DoesNotContain("SYNTH_REFDOT_PRIVATE", await privateRead.Content.ReadAsStringAsync());
+
+                using var anonymous = new HttpClient(_fixture.TestFhirServer.CreateMessageHandler())
+                {
+                    BaseAddress = _fixture.TestFhirServer.BaseAddress,
+                };
+                using HttpResponseMessage anonymousRead = await anonymous.GetAsync("Observation/refdot-private");
+                Assert.Equal(HttpStatusCode.Unauthorized, anonymousRead.StatusCode);
+            }
+            finally
+            {
+                foreach (Resource resource in resources.AsEnumerable().Reverse())
+                {
+                    await writer.HardDeleteAsync(resource);
+                }
+            }
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenPerformerScopedObservationWithDotSegmentReference_WhenSearching_ThenUnfilteredSearchDoesNotDiscloseOtherPatientsObservation()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            var writer = _fixture.TestFhirClient.CreateClientForClientApplication(TestApplications.AdminUser);
+            var resources = new List<Resource>();
+
+            try
+            {
+                await SeedDotSegmentObservationsAsync(writer, resources);
+
+                using HttpClient reader = await CreateSmartClientAsync(
+                    TestApplications.SmartUserClient,
+                    $"system/Observation.rs?performer={Uri.EscapeDataString("Patient/refdot-a")}");
+
+                using HttpResponseMessage search = await reader.GetAsync("Observation?_count=10");
+
+                Assert.Equal(HttpStatusCode.OK, search.StatusCode);
+                string searchBody = await search.Content.ReadAsStringAsync();
+                Assert.Contains("SYNTH_REFDOT_ALLOWED", searchBody);
+                Assert.DoesNotContain("SYNTH_REFDOT_UNRELATED", searchBody);
+                Assert.DoesNotContain("SYNTH_REFDOT_PRIVATE", searchBody);
+            }
+            finally
+            {
+                foreach (Resource resource in resources.AsEnumerable().Reverse())
+                {
+                    await writer.HardDeleteAsync(resource);
+                }
+            }
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenPerformerScopedObservationWithDotSegmentReference_WhenReadingAsTheResolvedPatientsReader_ThenObservationIsReturned()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            var writer = _fixture.TestFhirClient.CreateClientForClientApplication(TestApplications.AdminUser);
+            var resources = new List<Resource>();
+
+            try
+            {
+                await SeedDotSegmentObservationsAsync(writer, resources);
+
+                using HttpClient reader = await CreateSmartClientAsync(
+                    TestApplications.SmartUserClient,
+                    $"system/Observation.rs?performer={Uri.EscapeDataString("Patient/refdot-b")}");
+
+                using HttpResponseMessage allowedRead = await reader.GetAsync("Observation/refdot-allowed");
+                using HttpResponseMessage privateRead = await reader.GetAsync("Observation/refdot-private");
+                using HttpResponseMessage unrelatedRead = await reader.GetAsync("Observation/refdot-unrelated");
+
+                Assert.Equal(HttpStatusCode.NotFound, allowedRead.StatusCode);
+                Assert.Equal(HttpStatusCode.OK, privateRead.StatusCode);
+                Assert.Equal(HttpStatusCode.OK, unrelatedRead.StatusCode);
+            }
+            finally
+            {
+                foreach (Resource resource in resources.AsEnumerable().Reverse())
+                {
+                    await writer.HardDeleteAsync(resource);
+                }
+            }
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenObservationWithDotSegmentPerformerReference_WhenSearchingWithoutSmartScopes_ThenItIsFoundByTheResolvedPatient()
+        {
+            var writer = _fixture.TestFhirClient.CreateClientForClientApplication(TestApplications.AdminUser);
+            var resources = new List<Resource>();
+
+            try
+            {
+                await SeedDotSegmentObservationsAsync(writer, resources);
+
+                using var forB = await writer.SearchAsync("Observation?performer=Patient%2Frefdot-b");
+                using var forA = await writer.SearchAsync("Observation?performer=Patient%2Frefdot-a");
+
+                Assert.Equal(
+                    new[] { "refdot-private", "refdot-unrelated" },
+                    forB.Resource.Entry.Select(e => e.Resource.Id).OrderBy(id => id));
+                Assert.Equal(
+                    new[] { "refdot-allowed" },
+                    forA.Resource.Entry.Select(e => e.Resource.Id).OrderBy(id => id));
+            }
+            finally
+            {
+                foreach (Resource resource in resources.AsEnumerable().Reverse())
+                {
+                    await writer.HardDeleteAsync(resource);
+                }
+            }
+        }
+
         [Theory]
         [InlineData(false, false, false, false)]
         [InlineData(false, true, false, false)]
@@ -359,6 +502,36 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             if (failures.Count > 1)
             {
                 throw new AggregateException("Test and/or resource cleanup failed.", failures);
+            }
+        }
+
+        private static async Task SeedDotSegmentObservationsAsync(TestFhirClient writer, List<Resource> resources)
+        {
+            foreach (string patientId in new[] { "refdot-a", "refdot-b" })
+            {
+                using var patient = await writer.UpdateAsync(new Patient { Id = patientId });
+                resources.Add(patient.Resource);
+            }
+
+            (string Id, string Subject, string Performer, string Marker)[] observations =
+            [
+                ("refdot-allowed", "Patient/refdot-a", "Patient/refdot-a", "SYNTH_REFDOT_ALLOWED"),
+                ("refdot-private", "Patient/refdot-b", "Patient/refdot-a/../refdot-b", "SYNTH_REFDOT_PRIVATE"),
+                ("refdot-unrelated", "Patient/refdot-b", "Patient/refdot-b", "SYNTH_REFDOT_UNRELATED"),
+            ];
+
+            foreach (var (id, subject, performer, marker) in observations)
+            {
+                using var observation = await writer.UpdateAsync(new Observation
+                {
+                    Id = id,
+                    Status = ObservationStatus.Final,
+                    Code = new CodeableConcept("http://loinc.org", "1234-5"),
+                    Subject = new ResourceReference(subject),
+                    Performer = new List<ResourceReference> { new ResourceReference(performer) },
+                    Value = new FhirString(marker),
+                });
+                resources.Add(observation.Resource);
             }
         }
 

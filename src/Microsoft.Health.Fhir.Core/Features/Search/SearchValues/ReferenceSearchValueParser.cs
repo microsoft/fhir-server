@@ -73,7 +73,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         {
             EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
 
-            Match match = ReferenceRegex.Match(s);
+            // The regex drops everything after the matched Type/id, so Patient/a/../b would be indexed as Patient/a even though
+            // RFC 3986 resolves it to Patient/b, which is what any client following the reference reads. Dot segments are
+            // resolved first so that the index matches the reference.
+            // A reference that cannot be normalized to a Type/id is kept as its original string, never resolved to another resource.
+            string candidate = NormalizeDotSegments(s);
+            Match match = candidate == null ? Match.Empty : ReferenceRegex.Match(candidate);
 
             if (match.Success)
             {
@@ -112,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
                 try
                 {
-                    baseUri = new Uri(s.Substring(0, resourceTypeStartIndex), UriKind.RelativeOrAbsolute);
+                    baseUri = new Uri(candidate.Substring(0, resourceTypeStartIndex), UriKind.RelativeOrAbsolute);
 
                     // Get the base URI from request context first, then fall back to global instance configuration
                     // This ensures background operations like reindexing can access the base URI when there's no active HTTP context
@@ -165,6 +170,77 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 OverlongResourceIdLength = isOverlongBareId ? s.Length : null,
                 MaxResourceIdLength = isOverlongBareId ? _resourceIdPolicy.MaxLength : null,
             };
+        }
+
+        /// <summary>
+        /// Resolves "." and ".." path segments as described in RFC 3986 section 5.2.4. Only the path is changed; a query or fragment is kept as is.
+        /// Segments are separated by "/" only, and percent-encoded dots are treated like plain dots.
+        /// </summary>
+        /// <param name="value">The reference.</param>
+        /// <returns>
+        /// The reference with dot segments resolved, or <paramref name="value"/> itself when it has none.
+        /// <c>null</c> when the value is not an http(s) URL or a relative reference that <see cref="Uri"/> can resolve.
+        /// </returns>
+        private static string NormalizeDotSegments(string value)
+        {
+            EnsureArg.IsNotNull(value, nameof(value));
+
+            int suffixStart = value.AsSpan().IndexOfAny('?', '#');
+            string path = suffixStart < 0 ? value : value[..suffixStart];
+            string suffix = suffixStart < 0 ? string.Empty : value[suffixStart..];
+
+            if (!ContainsDotSegment(path))
+            {
+                return value;
+            }
+
+            try
+            {
+                if (Uri.TryCreate(path, UriKind.Absolute, out Uri absolute))
+                {
+                    // Only http(s) URLs are resolved; any other absolute URI with dot segments is not a reference we can trust.
+                    return SupportedSchemes.Contains(absolute.Scheme, StringComparer.OrdinalIgnoreCase)
+                        ? $"{absolute.GetLeftPart(UriPartial.Authority)}{absolute.AbsolutePath}{suffix}"
+                        : null;
+                }
+
+                // Resolve a relative reference against a placeholder base so Uri applies the RFC 3986 dot-segment removal.
+                var placeholderBase = new Uri("http://placeholder/");
+                var resolved = new Uri(placeholderBase, path);
+
+                if (resolved.Host != placeholderBase.Host || resolved.Scheme != placeholderBase.Scheme)
+                {
+                    // A scheme-relative ("//host/...") or scheme-like ("a:b") value escaped the placeholder base.
+                    return null;
+                }
+
+                string resolvedPath = resolved.AbsolutePath;
+                bool rooted = path[0] == '/';
+
+                return $"{(rooted ? resolvedPath : resolvedPath[1..])}{suffix}";
+            }
+            catch (UriFormatException)
+            {
+                return null;
+            }
+        }
+
+        private static bool ContainsDotSegment(string value)
+        {
+            EnsureArg.IsNotNull(value, nameof(value));
+
+            foreach (string segment in value.Split('/'))
+            {
+                // Percent-encoded dots are equivalent to plain dots (RFC 3986 section 6.2.2.2).
+                string decoded = segment.Replace("%2e", ".", StringComparison.OrdinalIgnoreCase);
+
+                if (decoded is "." or "..")
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

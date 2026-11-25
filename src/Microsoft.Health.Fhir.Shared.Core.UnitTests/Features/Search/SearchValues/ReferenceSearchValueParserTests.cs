@@ -81,6 +81,74 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.Equal(resourceId, value.ResourceId);
         }
 
+        [Theory]
+        [InlineData("Patient/refdot-a/../refdot-b", null, "refdot-b")]
+        [InlineData("Patient/./refdot-b", null, "refdot-b")]
+        [InlineData("../Patient/refdot-b", null, "refdot-b")]
+        [InlineData("Patient/refdot-a/%2e%2e/refdot-b", null, "refdot-b")]
+        [InlineData("Patient/refdot-a/%2E%2e/refdot-b", null, "refdot-b")]
+        [InlineData("Observation/o1/../../Patient/refdot-b", null, "refdot-b")]
+        [InlineData("Patient/refdot-a/../refdot-b?q=/../z", null, "refdot-b")]
+        [InlineData("Patient/refdot-a/../refdot-b#/../z", null, "refdot-b")]
+        [InlineData("https://localhost/stu3/Patient/refdot-a/../refdot-b", null, "refdot-b")]
+        [InlineData("https://external-server.com/fhir/Patient/refdot-a/../refdot-b", "https://external-server.com/fhir/", "refdot-b")]
+        [InlineData("https://external-server.com/fhir/../Patient/refdot-b", "https://external-server.com/", "refdot-b")]
+        public void GivenAReferenceWithDotSegments_WhenParsing_ThenItIsResolvedToTheReferencedResource(string reference, string baseUri, string resourceId)
+        {
+            ReferenceSearchValue value = _referenceSearchValueParser.Parse(reference);
+
+            Assert.Equal("Patient", value.ResourceType);
+            Assert.Equal(resourceId, value.ResourceId);
+            Assert.Equal(baseUri == null ? null : new Uri(baseUri), value.BaseUri);
+        }
+
+        [Theory]
+        [InlineData("Patient/..")]
+        [InlineData("Patient/.")]
+        [InlineData("Patient/refdot-a/..")]
+        [InlineData("Patient/../../refdot-b")]
+        [InlineData("https://external-server.com/..")]
+        public void GivenAReferenceWithDotSegmentsThatCannotBeResolvedToAResource_WhenParsing_ThenItIsKeptAsTheOriginalString(string reference)
+        {
+            ReferenceSearchValue value = _referenceSearchValueParser.Parse(reference);
+
+            Assert.Null(value.ResourceType);
+            Assert.Null(value.BaseUri);
+            Assert.Equal(reference, value.ResourceId);
+        }
+
+        [Theory]
+        [InlineData("Patient/refdot-a?x=1")]
+        [InlineData("Patient/refdot-a#frag")]
+        [InlineData("Patient/refdot-a/_history/2")]
+        public void GivenAReferenceWithAQueryFragmentOrVersion_WhenParsing_ThenItIsResolvedToTheResource(string reference)
+        {
+            ReferenceSearchValue value = _referenceSearchValueParser.Parse(reference);
+
+            Assert.Equal("Patient", value.ResourceType);
+            Assert.Equal("refdot-a", value.ResourceId);
+        }
+
+        [Fact]
+        public void GivenAnInternalAbsoluteReferenceWithDotSegments_WhenParsing_ThenItIsResolvedAsInternal()
+        {
+            ReferenceSearchValue value = _referenceSearchValueParser.Parse("https://localhost/stu3/Patient/refdot-a/../refdot-b");
+
+            Assert.Equal(ReferenceKind.Internal, value.Kind);
+        }
+
+        [Theory]
+        [InlineData("Patient/refdot.a", "refdot.a")]
+        [InlineData("Patient/1.2.3", "1.2.3")]
+        [InlineData("Patient/a..b", "a..b")]
+        public void GivenAReferenceWithDotsInsideTheId_WhenParsing_ThenItIsStillResolved(string reference, string resourceId)
+        {
+            ReferenceSearchValue value = _referenceSearchValueParser.Parse(reference);
+
+            Assert.Equal("Patient", value.ResourceType);
+            Assert.Equal(resourceId, value.ResourceId);
+        }
+
         [Fact]
         public void GivenAValidReferenceWhenRequestContextIsNull_WhenParsing_ThenFallsBackToInstanceConfigurationAsInternal()
         {
