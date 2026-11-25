@@ -1372,9 +1372,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.AppendLine();
             }
 
+            // The union adds CTEs that have no matching table expression, so after it the chain restricts the CTE emitted just before it.
+            int? chainPredecessorIndex = _unionVisited ? _tableExpressionCounter - 1 : null;
+
             if (searchParamTableExpression.ChainLevel > 1)
             {
-                int predecessorIndex = _unionVisited ? _tableExpressionCounter - 1 : FindRestrictingPredecessorTableExpressionIndex();
+                int predecessorIndex = chainPredecessorIndex ?? FindRestrictingPredecessorTableExpressionIndex();
                 StringBuilder.Append(_joinShift).Append("JOIN ").Append(TableExpressionName(predecessorIndex))
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias).Append(" = ").Append("T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias).Append(" = ").AppendLine("Sid2");
@@ -1383,7 +1386,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             // since we are in chain table expression, we know the Table is the ReferenceSearchParam table
             else if (UseAppendWithJoin())
             {
-                AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
+                AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias, chainPredecessorIndex);
             }
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
@@ -1408,7 +1411,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 if (searchParamTableExpression.ChainLevel == 1 && !UseAppendWithJoin())
                 {
                     // if > 1, the intersection is handled by the JOIN
-                    AppendIntersectionWithPredecessor(delimited, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
+                    AppendIntersectionWithPredecessor(delimited, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias, chainPredecessorIndex);
                 }
 
                 if (chainedExpression.ExpressionOnTarget != null && !expressionOnTargetHandledBySecondJoin)
@@ -2385,9 +2388,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
         }
 
-        private void AppendIntersectionWithPredecessor(IndentedStringBuilder.DelimitedScope delimited, SearchParamTableExpression searchParamTableExpression, string tableAlias = null)
+        private void AppendIntersectionWithPredecessor(IndentedStringBuilder.DelimitedScope delimited, SearchParamTableExpression searchParamTableExpression, string tableAlias = null, int? predecessorIndexOverride = null)
         {
-            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
+            int predecessorIndex = predecessorIndexOverride ?? FindRestrictingPredecessorTableExpressionIndex();
 
             if (predecessorIndex >= 0)
             {
@@ -2402,9 +2405,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
         }
 
-        private void AppendIntersectionWithPredecessorUsingInnerJoin(IndentedStringBuilder sb, SearchParamTableExpression searchParamTableExpression, string tableAlias = null)
+        private void AppendIntersectionWithPredecessorUsingInnerJoin(IndentedStringBuilder sb, SearchParamTableExpression searchParamTableExpression, string tableAlias = null, int? predecessorIndexOverride = null)
         {
-            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
+            int predecessorIndex = predecessorIndexOverride ?? FindRestrictingPredecessorTableExpressionIndex();
 
             if (predecessorIndex >= 0)
             {

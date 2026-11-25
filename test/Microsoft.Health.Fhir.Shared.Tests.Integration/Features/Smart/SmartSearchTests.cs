@@ -334,6 +334,70 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             }
         }
 
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenSmartV2ScopeUnionAndSplitNumericChainScope_WhenRevChainedSearchWithId_ThenOnlyTheRequestedPatientIsReturned()
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Two Patient scopes produce a union; the ge RiskAssessment scope is split into two numeric branches on the chain target.
+            // Both patients satisfy every scope and the _has value, so only the _id restriction separates them.
+            string method = Guid.NewGuid().ToString("N");
+            string[] patientIds = { Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N") };
+            string[] riskAssessmentIds = { Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N") };
+
+            for (int i = 0; i < patientIds.Length; i++)
+            {
+                await _smartFixture.UpsertResource(new Patient { Id = patientIds[i], Gender = AdministrativeGender.Male });
+                await _smartFixture.UpsertResource(new RiskAssessment
+                {
+                    Id = riskAssessmentIds[i],
+                    Status = ObservationStatus.Final,
+                    Subject = new ResourceReference($"Patient/{patientIds[i]}"),
+                    Method = new CodeableConcept("http://example.org/method", method),
+                    Prediction = new List<RiskAssessment.PredictionComponent> { new RiskAssessment.PredictionComponent { Probability = new FhirDecimal(0.7m) } },
+                });
+            }
+
+            try
+            {
+                ConfigureFhirRequestContext(
+                    _contextAccessor,
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "system", CreateSearchParams(("gender", "male"))),
+                        new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "system", CreateSearchParams(("gender", "female"))),
+                        new ScopeRestriction("RiskAssessment", Core.Features.Security.DataActions.Search, "system", CreateSearchParams(("probability", "ge0.5"))),
+                    },
+                    applyFineGrainedAccessControlWithSearchParameters: true);
+
+                var query = new List<Tuple<string, string>>
+                {
+                    Tuple.Create("_id", patientIds[0]),
+                    Tuple.Create("_has:RiskAssessment:subject:method", method),
+                };
+
+                SearchResult results = await _searchService.Value.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
+
+                Assert.Equal(new[] { patientIds[0] }, results.Results.Select(r => r.Resource.ResourceId).ToArray());
+            }
+            finally
+            {
+                foreach (string id in riskAssessmentIds)
+                {
+                    await _fixture.DataStore.HardDeleteAsync(new ResourceKey(KnownResourceTypes.RiskAssessment, id), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None);
+                }
+
+                foreach (string id in patientIds)
+                {
+                    await _fixture.DataStore.HardDeleteAsync(new ResourceKey(KnownResourceTypes.Patient, id), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None);
+                }
+            }
+        }
+
         private async Task<(string LocalA, string ExternalA, string OtherServerA, string LocalB)> CreatePatientIdCollisionObservationsAsync(string patientA, string patientB)
         {
             // Three Observations about "Patient A" on different servers, and one about the local Patient B.
