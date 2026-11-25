@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Api.OpenIddict.Configuration
     {
         public const string Audience = "fhir-api";
         internal const string LastModifiedClaim = "client_modified";
-        internal const string ClientIdClaim = "appid";
+        internal const string ClientIdClaim = "client_id";
 
         public bool Enabled { get; set; }
 

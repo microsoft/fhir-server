@@ -3,9 +3,34 @@
 
 trigger: none
 
+parameters:
+# legacy: today's stages. tier1: the Tier 1 stages (build/stages/tier1.yml); the deployed stages run only when the
+# run's scope is full (docs/arch/adr-2611-tiered-pr-validation.md).
+- name: validationMode
+  displayName: 'Validation mode'
+  type: string
+  default: 'legacy'
+  values:
+  - 'legacy'
+  - 'tier1'
+# Scope of a manual tier1 run: auto classifies it (full); lean or full sets it. PR runs ignore it.
+- name: tier1Scope
+  displayName: 'Tier 1 scope (manual runs)'
+  type: string
+  default: 'auto'
+  values:
+  - 'auto'
+  - 'lean'
+  - 'full'
+
 variables:
 - template: pr-variables.yml
 - template: build-variables.yml
+# prName (the PR number in resource names) comes from definition variable PrName = $(System.PullRequest.PullRequestNumber),
+# which is empty outside a PR build; a manual run of refs/pull/<n>/merge takes it from the branch.
+- ${{ if and(ne(variables['Build.Reason'], 'PullRequest'), startsWith(variables['Build.SourceBranch'], 'refs/pull/'), endsWith(variables['Build.SourceBranch'], '/merge')) }}:
+  - name: prName
+    value: ${{ split(variables['Build.SourceBranch'], '/')[2] }}
 
 stages:
 - stage: UpdateVersion
@@ -49,33 +74,44 @@ stages:
     - script: dotnet msbuild build/DependabotDiscovery -t:ValidateDependabotCoverage
       displayName: 'Validate Dependabot discovery project'
 
-- stage: BuildUnitTests
-  displayName: 'Build and run unit tests'
-  dependsOn:
-  - UpdateVersion
-  variables:
-    assemblySemVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemVer']]
-    assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
-    informationalVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.informationalVersion']]
-    majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
-    nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
-  jobs:
-  - job: Windows_dotnet11
-    pool:
-      name: '$(InternalPool)'
-      demands:
-        - ImageOverride -equals $(InternalWindowsImage)
-    steps:
-    - template: ./jobs/build.yml
-      parameters:
-        targetBuildFramework: $(defaultBuildFramework)
-        unitTest: false
-        codeCoverage: true
+- ${{ if eq(parameters.validationMode, 'tier1') }}:
+  - template: ./stages/tier1.yml
+    parameters:
+      scopeOverride: ${{ parameters.tier1Scope }}
+- ${{ else }}:
+  - stage: BuildUnitTests
+    displayName: 'Build and run unit tests'
+    dependsOn:
+    - UpdateVersion
+    variables:
+      assemblySemVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemVer']]
+      assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
+      informationalVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.informationalVersion']]
+      majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
+      nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
+    jobs:
+    - job: Windows_dotnet11
+      pool:
+        name: '$(InternalPool)'
+        demands:
+          - ImageOverride -equals $(InternalWindowsImage)
+      steps:
+      - template: ./jobs/build.yml
+        parameters:
+          targetBuildFramework: $(defaultBuildFramework)
+          unitTest: false
+          codeCoverage: true
 
+# In tier1 mode the stages below that no other stage below precedes (BuildArtifacts, DockerBuild, provisionEnvironment)
+# run only when Classify's scope is full; every other stage below depends on one of them, so it is skipped with them.
 - stage: BuildArtifacts
   displayName: 'Build artifacts'
   dependsOn:
   - UpdateVersion
+  - ${{ if eq(parameters.validationMode, 'tier1') }}:
+    - Classify
+  ${{ if eq(parameters.validationMode, 'tier1') }}:
+    condition: and(succeeded(), eq(dependencies.Classify.outputs['ClassifyPr.scope.ValidationScope'], 'full'))
   variables:
     assemblySemVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemVer']]
     assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
@@ -115,6 +151,10 @@ stages:
   displayName: 'Build images'
   dependsOn:
   - UpdateVersion
+  - ${{ if eq(parameters.validationMode, 'tier1') }}:
+    - Classify
+  ${{ if eq(parameters.validationMode, 'tier1') }}:
+    condition: and(succeeded(), eq(dependencies.Classify.outputs['ClassifyPr.scope.ValidationScope'], 'full'))
   variables:
     assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
   jobs:
@@ -139,7 +179,12 @@ stages:
 
 - stage: provisionEnvironment
   displayName: Provision Environment
-  dependsOn: []
+  ${{ if eq(parameters.validationMode, 'tier1') }}:
+    dependsOn:
+    - Classify
+    condition: and(succeeded(), eq(dependencies.Classify.outputs['ClassifyPr.scope.ValidationScope'], 'full'))
+  ${{ else }}:
+    dependsOn: []
   jobs:
   - job: provision
     displayName: 'Create Resource Group'

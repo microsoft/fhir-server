@@ -1,0 +1,66 @@
+# Classifies the run's validation scope (build/scripts/Get-PrValidationScope.ps1 has the rules) and publishes it as
+# output variable ValidationScope (lean | full) of step scope in job ClassifyPr; reference it from another stage as
+# dependencies.Classify.outputs['ClassifyPr.scope.ValidationScope'].
+# A PR's draft state and labels come from one GitHub API call. Failing to read them leaves the draft state unknown,
+# which is full; any other failure is full too, except for a fork PR, which stays lean.
+# This is routing, not a security boundary: the PR supplies this file. The approval check on the privileged service
+# connection is the gate (ADR-2611).
+parameters:
+# auto classifies; lean or full sets the scope, but only when Build.Reason is Manual.
+- name: scopeOverride
+  type: string
+  default: 'auto'
+
+jobs:
+- job: ClassifyPr
+  displayName: 'Classify PR validation scope'
+  timeoutInMinutes: 5
+  pool:
+    name: '$(InternalPool)'
+    demands:
+      - ImageOverride -equals $(InternalLinuxImage)
+  steps:
+  - checkout: self
+    fetchDepth: 1
+    fetchTags: false
+
+  - pwsh: |
+      $ErrorActionPreference = 'Stop'
+      $isPullRequest = $env:BUILD_REASON -eq 'PullRequest'
+      # System.PullRequest.* is set only in a PR run.
+      $isFork = $isPullRequest -and $env:SYSTEM_PULLREQUEST_ISFORK -eq 'True'
+      try {
+        $isDraft = $null
+        $labels = @()
+        $unavailable = ''
+        if ($isPullRequest -and -not $isFork) {
+          try {
+            $number = $env:SYSTEM_PULLREQUEST_PULLREQUESTNUMBER
+            if ($number -notmatch '^\d+$') { throw "System.PullRequest.PullRequestNumber '$number' is not a number" }
+            $pr = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/fhir-server/pulls/$number" `
+              -Headers @{ Accept = 'application/vnd.github+json' } -TimeoutSec 30 -MaximumRetryCount 3 -RetryIntervalSec 5
+            $labels = @($pr.labels | ForEach-Object { $_.name })
+            if ($pr.draft -is [bool]) { $isDraft = $pr.draft }
+            Write-Host "Draft: $(if ($null -eq $isDraft) { 'unknown' } else { $isDraft }). Labels: $($labels -join ', ')"
+          }
+          catch {
+            $unavailable = $_.Exception.Message -replace '[\r\n]+', ' '
+            Write-Host "Could not read PR #$number from the GitHub API: $unavailable"
+          }
+        }
+
+        $result = & "$env:BUILD_SOURCESDIRECTORY/build/scripts/Get-PrValidationScope.ps1" -BuildReason $env:BUILD_REASON `
+          -ManualOverride $env:TIER1_SCOPE_OVERRIDE -IsFork $isFork -IsDraft $isDraft -Labels $labels -LabelsUnavailableReason $unavailable
+      }
+      catch {
+        $reason = "fail-closed: $($_.Exception.Message -replace '[\r\n]+', ' ')"
+        $result = [pscustomobject]@{ Scope = $(if ($isFork) { 'lean' } else { 'full' }); Reasons = @($reason); Warning = '' }
+      }
+
+      if ($result.Warning) { Write-Host "##vso[task.logissue type=warning]$($result.Warning)" }
+      Write-Host "Scope=$($result.Scope) Reasons=$($result.Reasons -join '; ')"
+      Write-Host "##vso[task.setvariable variable=ValidationScope;isOutput=true]$($result.Scope)"
+    name: scope
+    displayName: 'Classify validation scope'
+    env:
+      TIER1_SCOPE_OVERRIDE: ${{ parameters.scopeOverride }}

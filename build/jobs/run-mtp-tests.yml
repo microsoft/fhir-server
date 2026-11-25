@@ -1,0 +1,80 @@
+# Runs a Microsoft.Testing.Platform test application and publishes its results to Azure DevOps.
+parameters:
+# Path of the test assembly; found by file name under its directory.
+- name: testDll
+  type: string
+- name: filterArgs
+  type: object
+  default: []
+# Filter arguments known only at run time, as a JSON array (for example '$(ShardFilterArgsJson)'); they follow filterArgs.
+- name: runtimeFilterArgsJson
+  type: string
+  default: ''
+# PowerShell script that runs the test application instead of "dotnet <dll>": called as
+# & <launcher> -TestDll <dll> -Arguments <arguments>, it must exit with the test application's exit code.
+- name: launcher
+  type: string
+  default: ''
+- name: runName
+  type: string
+# Extra environment variables for the test process, such as connection strings.
+- name: env
+  type: object
+  default: {}
+- name: condition
+  type: string
+  default: succeeded()
+- name: timeoutInMinutes
+  type: number
+  default: 0
+
+steps:
+- pwsh: |
+    $ErrorActionPreference = 'Stop'
+    $testDll = '${{ parameters.testDll }}'
+    $dll = Get-ChildItem -Path (Split-Path -Parent $testDll) -Recurse -Filter (Split-Path -Leaf $testDll) | Select-Object -First 1
+    if (-not $dll) {
+      throw "Could not find $testDll"
+    }
+
+    $runtimeFilterArgs = if ($env:MTP_RUNTIME_FILTER_ARGS_JSON) { @($env:MTP_RUNTIME_FILTER_ARGS_JSON | ConvertFrom-Json) } else { @() }
+    $arguments = @($env:MTP_FILTER_ARGS_JSON | ConvertFrom-Json) + $runtimeFilterArgs + @(
+      '--retry-failed-tests', '3',
+      '--report-trx',
+      '--publish-azdo-test-results',
+      '--publish-azdo-run-name', $env:MTP_RUN_NAME)
+
+    if ($env:MTP_LAUNCHER) {
+      # The launcher logs the command it runs.
+      Write-Host "Running $($dll.FullName) through $env:MTP_LAUNCHER"
+      & $env:MTP_LAUNCHER -TestDll $dll.FullName -Arguments $arguments
+    }
+    else {
+      Write-Host "Running dotnet $($dll.FullName) $($arguments -join ' ')"
+      & dotnet $dll.FullName @arguments
+    }
+
+    $testExitCode = $LASTEXITCODE
+    if ($testExitCode -eq 0) {
+      exit 0
+    }
+
+    # Test dependency containers started by this job carry the job's label.
+    foreach ($container in @(& docker ps -aq --filter 'label=fhir-test-dependency=$(System.JobId)')) {
+      Write-Host "##[group]docker logs $container"
+      & docker logs --tail 300 $container
+      Write-Host '##[endgroup]'
+    }
+
+    Write-Host "##vso[task.logissue type=error]$env:MTP_RUN_NAME failed with exit code $testExitCode"
+    exit $testExitCode
+  displayName: 'Run ${{ parameters.runName }}'
+  condition: ${{ parameters.condition }}
+  timeoutInMinutes: ${{ parameters.timeoutInMinutes }}
+  env:
+    ${{ insert }}: ${{ parameters.env }}
+    MTP_FILTER_ARGS_JSON: ${{ convertToJson(parameters.filterArgs) }}
+    MTP_RUNTIME_FILTER_ARGS_JSON: ${{ parameters.runtimeFilterArgsJson }}
+    MTP_LAUNCHER: ${{ parameters.launcher }}
+    MTP_RUN_NAME: '${{ parameters.runName }}'
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)

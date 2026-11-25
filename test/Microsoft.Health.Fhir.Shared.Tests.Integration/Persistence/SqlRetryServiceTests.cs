@@ -384,6 +384,11 @@ END
                         // On Linux we get 0 error number for various connection problems so we check message string as well.
                         return true;
                     }
+                    else if (sqlEx.Message.Contains("severe error occurred", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // SQL Server on Linux (container) reports a killed session as "A severe error occurred on the current command".
+                        return true;
+                    }
                 }
             }
             else if (ex != null)

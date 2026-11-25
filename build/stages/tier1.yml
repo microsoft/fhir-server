@@ -1,0 +1,66 @@
+# Tier 1 of PR validation (docs/arch/adr-2611-tiered-pr-validation.md), included by pr-pipeline.yml when validationMode
+# is tier1. Needs no service connection, Key Vault or secret.
+#   BuildUnitTests  the unit tests in two shares by duration (build/test-shards/unit-tests.json), in every scope; it
+#                   replaces the single-job stage of the same name.
+#   Classify        the run's scope (jobs/classify-pr.yml); pr-pipeline.yml runs the deployed stages only when it is full.
+#   Tier1Build      the R4 E2E and integration test build; depends on nothing, so the artifact never waits for Classify.
+#   Tier1Tests      the R4 SQL E2E and integration shards, with SQL Server and Azurite in containers, and the source
+#                   scanners. Skipped when the scope is full: the deployed stages run the same tests and scans.
+parameters:
+# Scope of a manual run (jobs/classify-pr.yml).
+- name: scopeOverride
+  type: string
+  default: 'auto'
+
+stages:
+# The repository targets net11.0 only (Directory.Build.props). The framework is a literal: variables.defaultBuildFramework
+# is not available while templates expand.
+- stage: BuildUnitTests
+  displayName: 'Build and run unit tests'
+  dependsOn: []
+  jobs:
+  - template: ../jobs/unit-tests-shard.yml
+    parameters:
+      jobName: UnitTests_net11_A
+      targetFramework: 'net11.0'
+      moduleShard: '1/2'
+  - template: ../jobs/unit-tests-shard.yml
+    parameters:
+      jobName: UnitTests_net11_B
+      targetFramework: 'net11.0'
+      moduleShard: '2/2'
+
+- stage: Classify
+  displayName: 'Classify PR validation scope'
+  dependsOn: []
+  jobs:
+  - template: ../jobs/classify-pr.yml
+    parameters:
+      scopeOverride: ${{ parameters.scopeOverride }}
+
+- stage: Tier1Build
+  displayName: 'Tier 1 build (R4 test projects)'
+  dependsOn: []
+  jobs:
+  - template: ../jobs/tier1-build.yml
+    parameters:
+      version: R4
+
+# not(canceled()) rather than succeeded(): a failed Classify (no scope) still runs Tier 1. The legs claim agents once
+# Classify ends and wait for the Tier1Build artifact.
+- stage: Tier1Tests
+  displayName: 'Tier 1 tests (SQL Server and Azurite containers)'
+  dependsOn: Classify
+  condition: and(not(canceled()), ne(dependencies.Classify.outputs['ClassifyPr.scope.ValidationScope'], 'full'))
+  jobs:
+  - template: ../jobs/tier1-source-scan.yml
+  - template: ../jobs/e2e-inproc-shard.yml
+    parameters:
+      version: R4
+      # One per shard of build/test-shards/sql-e2e.json.
+      shards: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+  - template: ../jobs/sql-integration-container.yml
+    parameters:
+      version: R4
+      # One per shard of build/test-shards/sql-integration.json.
+      shards: [0, 1]

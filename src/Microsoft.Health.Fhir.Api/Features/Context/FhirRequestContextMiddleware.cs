@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features;
@@ -88,10 +89,31 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 
             // https://www.hl7.org/fhir/http.html#custom
             // If X-Request-Id header is present, then put it value into X-Correlation-Id header for response.
-            if (context.Request.Headers.TryGetValue(KnownHeaders.RequestId, out var requestId) && !string.IsNullOrEmpty(requestId))
+            context.Request.Headers.TryGetValue(KnownHeaders.RequestId, out StringValues requestId);
+
+            void SetResponseHeaders()
             {
-                context.Response.Headers[KnownHeaders.CorrelationId] = requestId;
+                IHeaderDictionary headers = context.Response.Headers;
+                if (!string.IsNullOrEmpty(requestId))
+                {
+                    headers[KnownHeaders.CorrelationId] = requestId;
+                }
+
+                headers[KnownHeaders.RequestId] = correlationId;
+                headers[XContentTypeOptions] = XContentTypeOptionsValue;
+                headers[XFrameOptions] = XFrameOptionsValue;
+                headers[ContentSecurityPolicy] = ContentSecurityPolicyValue;
             }
+
+            SetResponseHeaders();
+
+            // The exception handlers run inside this middleware and clear the response headers before writing an error
+            // OperationOutcome, so set them again just before the response starts: error responses must carry them too.
+            context.Response.OnStarting(() =>
+            {
+                SetResponseHeaders();
+                return Task.CompletedTask;
+            });
 
             var fhirRequestContext = new FhirRequestContext(
                 method: request.Method,
@@ -100,11 +122,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 correlationId: correlationId,
                 requestHeaders: context.Request.Headers,
                 responseHeaders: context.Response.Headers);
-
-            context.Response.Headers[KnownHeaders.RequestId] = correlationId;
-            context.Response.Headers[XContentTypeOptions] = XContentTypeOptionsValue;
-            context.Response.Headers[XFrameOptions] = XFrameOptionsValue;
-            context.Response.Headers[ContentSecurityPolicy] = ContentSecurityPolicyValue;
 
             using ActionTimer requestTimer = _logger.BeginTimedScope(nameof(FhirRequestContextMiddleware));
             fhirRequestContext.RequestTimer = requestTimer;
