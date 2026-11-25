@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features.Partitions;
@@ -16,15 +17,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Partitions
     public sealed class SqlPartitionManager : IPartitionManager
     {
         private readonly DatabasePartitioningOptions _options;
+        private readonly IPartitionInfo[] _partitions;
 
         /// <summary>Initializes the partition registry.</summary>
         public SqlPartitionManager(IOptions<DatabasePartitioningOptions> options)
         {
             _options = EnsureArg.IsNotNull(options?.Value, nameof(options));
+            _partitions = _options.Partitions.Select(p => new SqlPartitionInfo { Database = p.Value.Database, Id = p.Key }).ToArray<IPartitionInfo>();
         }
 
         /// <inheritdoc />
         public bool IsEnabled => _options.Partitions.Count > 0;
+
+        /// <inheritdoc />
+        public IReadOnlyCollection<IPartitionInfo> GetPartitions() => _partitions;
 
         /// <inheritdoc />
         public bool TryGetPartition(string partitionId, out IPartitionInfo partitionInfo)

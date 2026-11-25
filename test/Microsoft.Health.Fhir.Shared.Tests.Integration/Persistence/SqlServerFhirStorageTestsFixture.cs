@@ -17,9 +17,11 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Time.Testing;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Caching;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -144,6 +146,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal ISqlQueryHashCalculator SqlQueryHashCalculator { get; private set; }
 
+        internal FakeTimeProvider CacheTimeProvider { get; } = new FakeTimeProvider();
+
+        internal ScopedCache<CustomQueryProcedures> CustomQueries { get; private set; }
+
+        internal ScopedCache<DatabaseParameters> Parameters { get; private set; }
+
         internal RequestContextAccessor<IFhirRequestContext> FhirRequestContextAccessor => _fhirRequestContextAccessor;
 
         internal SqlPartitionInfo GetPartition(string id) => new() { Id = id, Database = _partitionConfiguration.Partitions[id].Database };
@@ -190,7 +198,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             SqlTransactionHandler = new SqlTransactionHandler();
             SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, SqlConnectionBuilder, sqlRetryLogicBaseProvider, SqlServerDataStoreConfiguration);
             _fhirRequestContextAccessor.RequestContext.Partition.Returns(new SqlPartitionInfo { Id = "application", Database = _databaseName });
+
+            // The caches resolve the request's partition ID to its database, so the fixture's own partition must be configured too.
+            var partitionManager = new SqlPartitionManager(Options.Create(new DatabasePartitioningOptions
+            {
+                Partitions = new Dictionary<string, PartitionOptions>(_partitionConfiguration.Partitions) { ["application"] = new() { Database = _databaseName } },
+            }));
             SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions(), Options.Create(new CoreFeatureConfiguration()), _fhirRequestContextAccessor);
+            Parameters = new ScopedCache<DatabaseParameters>(
+                new DatabaseParameterCache(SqlConnectionBuilder, partitionManager, NullLogger<DatabaseParameterCache>.Instance, CacheTimeProvider),
+                _fhirRequestContextAccessor);
 
             var sqlServerFhirModel = new SqlServerFhirModel(
                 SchemaInformation,
@@ -269,7 +286,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ModelInfoProvider.Instance,
                 _fhirRequestContextAccessor,
                 importErrorSerializer,
-                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, SchemaInformation));
+                new SqlStoreClient(SqlRetryService, NullLogger<SqlStoreClient>.Instance, SchemaInformation),
+                Parameters);
 
             // Create operation data store with real SqlQueueClient for reindex tests
             _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(sqlQueueClient, NullLoggerFactory.Instance);
@@ -311,6 +329,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var queryPlanReuseChecker = new QueryPlanReuseChecker(SqlRetryService, _fhirSqlConfiguration, NullLogger<QueryPlanReuseChecker>.Instance);
 
             SqlQueryHashCalculator = new TestSqlHashCalculator();
+            CustomQueries = new ScopedCache<CustomQueryProcedures>(
+                new CustomQueryCache(SqlConnectionBuilder, partitionManager, NullLogger<CustomQueryCache>.Instance, CacheTimeProvider),
+                _fhirRequestContextAccessor);
 
             _searchService = new SqlServerSearchService(
                 searchOptionsFactory,
@@ -331,6 +352,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new CompressedRawResourceConverter(),
                 SqlQueryHashCalculator,
                 queryPlanReuseChecker,
+                CustomQueries,
+                Parameters,
                 _options,
                 NullLogger<SqlServerSearchService>.Instance);
 
@@ -461,6 +484,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(TestSqlHashCalculator))
             {
                 return SqlQueryHashCalculator as TestSqlHashCalculator;
+            }
+
+            if (serviceType == typeof(ScopedCache<CustomQueryProcedures>))
+            {
+                return CustomQueries;
+            }
+
+            if (serviceType == typeof(FakeTimeProvider))
+            {
+                return CacheTimeProvider;
             }
 
             if (serviceType == typeof(FhirSqlServerConfiguration))

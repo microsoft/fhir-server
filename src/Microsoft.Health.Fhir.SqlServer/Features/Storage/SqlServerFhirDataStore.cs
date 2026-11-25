@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Caching;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -55,6 +56,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private const string InitialVersion = "1";
         internal const string MergeApplicationName = "MergeResources";
+        internal const string IgnoreInputLastUpdatedParameterId = "MergeResources.IgnoreInputLastUpdated.IsEnabled";
+        internal const string IgnoreInputVersionParameterId = "MergeResources.IgnoreInputVersion.IsEnabled";
+        internal const string RawResourceDedupingParameterId = "MergeResources.RawResourceDeduping.IsEnabled";
 
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly SqlServerFhirModel _model;
@@ -71,10 +75,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IImportErrorSerializer _importErrorSerializer;
-        private static CachedParameter<SqlServerFhirDataStore> _ignoreInputLastUpdated;
-        private static CachedParameter<SqlServerFhirDataStore> _ignoreInputVersion;
-        private static CachedParameter<SqlServerFhirDataStore> _rawResourceDeduping;
-        private static readonly object _flagLocker = new object();
+        private readonly ScopedCache<DatabaseParameters> _databaseParameters;
 
         public SqlServerFhirDataStore(
             SqlServerFhirModel model,
@@ -90,7 +91,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             IModelInfoProvider modelInfoProvider,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             IImportErrorSerializer importErrorSerializer,
-            SqlStoreClient storeClient)
+            SqlStoreClient storeClient,
+            ScopedCache<DatabaseParameters> databaseParameters)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -106,32 +108,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
+            _databaseParameters = EnsureArg.IsNotNull(databaseParameters, nameof(databaseParameters));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
-
-            if (_ignoreInputLastUpdated == null)
-            {
-                lock (_flagLocker)
-                {
-                    _ignoreInputLastUpdated ??= new CachedParameter<SqlServerFhirDataStore>("MergeResources.IgnoreInputLastUpdated.IsEnabled", 0, _logger);
-                }
-            }
-
-            if (_ignoreInputVersion == null)
-            {
-                lock (_flagLocker)
-                {
-                    _ignoreInputVersion ??= new CachedParameter<SqlServerFhirDataStore>("MergeResources.IgnoreInputVersion.IsEnabled", 0, _logger);
-                }
-            }
-
-            if (_rawResourceDeduping == null)
-            {
-                lock (_flagLocker)
-                {
-                    _rawResourceDeduping ??= new CachedParameter<SqlServerFhirDataStore>("MergeResources.RawResourceDeduping.IsEnabled", 1, _logger);
-                }
-            }
         }
 
         internal SqlStoreClient StoreClient => _sqlStoreClient;
@@ -263,6 +242,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return MergeOutcome.Empty;
             }
 
+            DatabaseParameters parameters = await _databaseParameters.GetAsync(cancellationToken);
             var singleTransaction = enlistInTransaction || !eventualConsistency;
 
             // Ignore input resource version to get latest version from the store.
@@ -392,7 +372,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (!resource.IsDeleted && !existingResource.IsDeleted)
                     {
                         // check if the new resource data is same as existing resource data
-                        if (ExistingRawResourceIsEqualToInput(resource.RawResource, existingResource.RawResource, resourceExt.KeepVersion))
+                        if (ExistingRawResourceIsEqualToInput(resource.RawResource, existingResource.RawResource, resourceExt.KeepVersion, parameters))
                         {
                             _logger.LogInformation("Update operation resulted in no changes for resource {ResourceType}/{ResourceId}.", resource.ResourceTypeName, resource.ResourceId);
 
@@ -427,7 +407,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
 
                 long surrId;
-                if (!keepLastUpdated || _ignoreInputLastUpdated.IsEnabled(_sqlRetryService))
+                if (!keepLastUpdated || parameters.IsEnabled(IgnoreInputLastUpdatedParameterId, defaultValue: false))
                 {
                     surrId = transactionId + index;
                     resource.LastModified = surrId.ToLastUpdated();
@@ -552,6 +532,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return (new List<string>(), 0);
             }
 
+            DatabaseParameters parameters = await _databaseParameters.GetAsync(cancellationToken);
             long? databaseMilliseconds = 0;
             (List<ImportResource> Loaded, List<ImportResource> Conflicts) results;
             var maxRetries = GetMaxRetries(resources, importMode);
@@ -628,7 +609,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 else if (importMode == ImportMode.IncrementalLoad)
                 {
-                    if (_ignoreInputVersion.IsEnabled(_sqlRetryService))
+                    if (parameters.IsEnabled(IgnoreInputVersionParameterId, defaultValue: false))
                     {
                         foreach (var resource in resources)
                         {
@@ -660,7 +641,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         if (matchedOnLastUpdated.TryGetValue(input.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true), out var existing))
                         {
                             if (((input.KeepVersion && input.ResourceWrapper.Version == existing.Matched.Version) || !input.KeepVersion)
-                                && ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false))
+                                && ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false, parameters))
                             {
                                 loaded.Add(input);
                             }
@@ -806,7 +787,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         var versionIdInt = int.Parse(existing.Key.VersionId);
                         if (versionIdInt == 0) // though this check was done above, racing conditions can stil lead to extra matches
                         {
-                            if (ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false))
+                            if (ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false, parameters))
                             {
                                 loaded.Add(input);
                             }
@@ -1124,9 +1105,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
         }
 
-        private bool ExistingRawResourceIsEqualToInput(RawResource input, RawResource existing, bool keepVersion)
+        private bool ExistingRawResourceIsEqualToInput(RawResource input, RawResource existing, bool keepVersion, DatabaseParameters parameters)
         {
-            if (!_rawResourceDeduping.IsEnabled(_sqlRetryService))
+            if (!parameters.IsEnabled(RawResourceDedupingParameterId, defaultValue: true))
             {
                 return false;
             }

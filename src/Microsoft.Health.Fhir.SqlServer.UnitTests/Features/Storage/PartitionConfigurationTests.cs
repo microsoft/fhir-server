@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -46,6 +47,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             AssertPartition(manager, "partition-b", "database-b");
             Assert.False(manager.TryGetPartition("PARTITION-A", out IPartitionInfo partition));
             Assert.Null(partition);
+            Assert.Equal(
+                [("partition-a", "database-a"), ("partition-b", "database-b")],
+                manager.GetPartitions().Select(p => (p.Id, p.GetDatabase())).OrderBy(p => p.Id));
         }
 
         [Fact]
@@ -59,6 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             // Assert
             Assert.False(manager.IsEnabled);
+            Assert.Empty(manager.GetPartitions());
             Assert.False(manager.TryGetPartition("partition-a", out IPartitionInfo partition));
             Assert.Null(partition);
         }

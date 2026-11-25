@@ -246,39 +246,30 @@ END CATCH
 
             Assert.SkipWhen(ModelInfoProvider.Instance.Version != FhirSpecification.R4, "This test is only valid for R4");
 
-            // set the wait time to 1 second
-            CustomQueries.WaitTime = 1;
-
             // use more unique call to avoid racing
             var query = new[] { Tuple.Create("birthdate", "gt1800-01-01"), Tuple.Create("birthdate", "lt2000-01-01"), Tuple.Create("address-city", "City"), Tuple.Create("address-state", "State") };
 
             // Query before adding an sproc to the database
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
-            Assert.Empty(CustomQueries.QueryStore);
             var hash = _fixture.SqlQueryHashCalculator.MostRecentSqlHash;
             var spName = "CustomQuery_" + hash;
+            Assert.False((await _fixture.CustomQueries.GetAsync()).TryGetProcedureName(hash, out _));
 
             // add the sproc
             _output.WriteLine("Adding new sproc to database.");
             AddSproc(spName);
 
-            // assert an sproc was not used
+            // The cached list is still current, so the sproc is not used yet.
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
             Assert.False(await CheckIfSprocUsed(spName));
 
-            // Query after adding an sproc to the database
-            var sw = Stopwatch.StartNew();
-            while (sw.Elapsed.TotalSeconds < 10) // previous single try after 1.1 sec delay was not reliable.
-            {
-                await Task.Delay(300);
-                await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
-                if (CustomQueries.QueryStore.Count > 0)
-                {
-                    break;
-                }
-            }
+            // Once the cached list expires, the next search reloads it and uses the sproc.
+            _fixture.CacheTimeProvider.Advance(CustomQueryCache.Expiry);
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
 
             Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
-            Assert.Single(CustomQueries.QueryStore);
+            Assert.True((await _fixture.CustomQueries.GetAsync()).TryGetProcedureName(hash, out string cachedName));
+            Assert.Equal(spName, cachedName);
 
             // Check if stored procedure was used
             Assert.True(await CheckIfSprocUsed(spName));
@@ -288,14 +279,11 @@ END CATCH
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
             Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
 
-            // restore state before this test
-            CustomQueries.WaitTime = 60;
-
-            // drop stored procedure and clear cache, so no other tests use this stored procedure.
+            // drop stored procedure and expire the cache, so no other tests use this stored procedure.
 #pragma warning disable xUnit1031 // Do not use blocking task operations in test method
             _fixture.SqlHelper.ExecuteSqlCmd($"DROP PROCEDURE dbo.[{spName}]").Wait();
 #pragma warning restore xUnit1031
-            CustomQueries.QueryStore.Clear();
+            _fixture.CacheTimeProvider.Advance(CustomQueryCache.Expiry);
         }
 
         private async Task<bool> CheckIfSprocUsed(string name)

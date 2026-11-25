@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -228,7 +229,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                 .Returns(new MemoryStream(Encoding.UTF8.GetBytes(JObject.FromObject(roles).ToString())));
 
             var authConfig = new AuthorizationConfiguration();
-            var roleLoader = new RoleLoader(authConfig, hostEnvironment);
+            var roleLoader = new RoleLoader(authConfig, new RoleCache(hostEnvironment, NullLogger<RoleCache>.Instance));
             await roleLoader.StartAsync(CancellationToken.None);
             return authConfig;
         }

@@ -27,6 +27,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string BundleOrchestrator = nameof(BundleOrchestrator);
 
+        public const string Caching = nameof(Caching);
+
         public const string CompartmentSearch = nameof(CompartmentSearch);
 
         public const string ConditionalOperations = nameof(ConditionalOperations);

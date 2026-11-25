@@ -19,6 +19,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Partitions
         bool IsEnabled { get; }
 
         /// <summary>
+        /// Gets every configured partition.
+        /// </summary>
+        /// <returns>The configured partitions, or an empty sequence when partitioning is disabled.</returns>
+        IReadOnlyCollection<IPartitionInfo> GetPartitions();
+
+        /// <summary>
         /// Attempts to get the partition associated with the specified identifier.
         /// </summary>
         /// <param name="partitionId">The identifier of the partition to get.</param>

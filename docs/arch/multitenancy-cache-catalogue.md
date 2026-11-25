@@ -56,7 +56,8 @@ Each phase is one PR. Phases are ordered by dependency, so each PR can merge on 
 
 | Phase | Caches | Why together |
 |---|---|---|
-| 1 | Cache classes + #3 App configuration caches, #4 Customer-managed key health, #13 Custom query procedures, #14 SQL statistics list, #15 `dbo.Parameters` values, #16 Skewed search parameters | Adds `GlobalCache<T>`, `PartitionCache<T>`, `ScopedCache<T>`, `SqlPartitionCache<T>` and the `CacheInitializer`, and moves the small, mostly independent caches. Low risk; sets the pattern. |
+| 1a | Cache classes + #13 Custom query procedures, #15 `dbo.Parameters` values (search and merge), roles from #3 | Adds `GlobalCache<T>`, `PartitionCache<T>`, `ScopedCache<T>`, `SqlPartitionCache<T>` and the `CacheInitializer`, with at least one real user of each. Low risk; sets the pattern. |
+| 1b | Rest of #3 App configuration caches (including authorization reading roles from `RoleCache`), #4 Customer-managed key health, #14 SQL statistics list, rest of #15, #16 Skewed search parameters | Moves the remaining small, mostly independent caches onto the agreed classes. #4 may need a shared-package change. |
 | 2 | #1 Spec search parameters, #2 Built-in reference data (except the FHIR spec package), #5 Custom and Microsoft default search parameters, #6 SQL ID maps, #7 Code system and unit IDs, #8 Schema version, #17 Change feed resource type names, #18 Search helper lookups | Tightly linked: they load together at startup, the search parameter refresh feeds the SQL ID maps, and the helper lookups are built from search parameters. Splits shared spec parameters from per-partition ones. Largest PR; can be split further if needed. #8 depends on the shared-package schema work. |
 | 3 | #9 Capability statement, #10 Metadata document, #11 Profiles, #12 Profile validator, FHIR spec package from #2 | Built on top of phase 2: the capability statement and metadata document use search parameters and profiles, and the validator uses profiles and the spec package. |
 
@@ -98,8 +99,8 @@ Caches are loaded at startup and refreshed in the background, so most reads are 
 - **Loads from:** App settings (`roles.json`), identity provider, Azure Container Registry.
 - **When:** Roles at startup; endpoints, keys and tokens on first use.
 - **Refresh:** Roles never; endpoints after 24 hours; keys and tokens on expiry.
-- **Code:** `RoleLoader`, `RoleBasedFhirAuthorizationService`, `OidcDiscoveryService`, `DefaultTokenIntrospectionService`, `ContainerRegistryTemplateProvider`, `DefaultTemplateProvider`, `AnonymizationConfigurationArtifactProvider`.
-- **Refactor effort:** Low – mostly singletons. Note: `AnonymizationConfigurationArtifactProvider` is transient today, so its token cache is not reused between calls.
+- **Code:** Roles: `RoleCache : GlobalCache<RoleSet>` (Core), loaded at startup by `RoleLoader` so invalid roles still fail startup, and, for now, read by `RoleBasedFhirAuthorizationService` through a copy in `AuthorizationConfiguration.Roles`, so the authorization code is unchanged. In 1b, authorization reads `RoleCache` directly and the copy is removed. Others: `OidcDiscoveryService`, `DefaultTokenIntrospectionService`, `ContainerRegistryTemplateProvider`, `DefaultTemplateProvider`, `AnonymizationConfigurationArtifactProvider`.
+- **Refactor effort:** Low – mostly singletons; roles loaded through `RoleCache`, readers move in 1b. Note: `AnonymizationConfigurationArtifactProvider` is transient today, so its token cache is not reused between calls. OIDC endpoints, signing keys and registry tokens are keyed by authority or registry, so they need a keyed form rather than one `GlobalCache<T>` value.
 
 ### 4. Customer-managed key health
 - **What it does:** Whether the customer-managed encryption key is healthy, so health checks do not hit the database every time.
@@ -182,11 +183,11 @@ Caches are loaded at startup and refreshed in the background, so most reads are 
 
 ### 13. Custom query procedures
 - **What it does:** Lets a search use a hand-tuned stored procedure (`CustomQuery_<hash>`) when one exists for its query hash.
-- **Loads from:** `sys.objects`.
-- **When:** First search.
+- **Loads from:** `sys.objects` in the partition's database.
+- **When:** Preloaded at startup for each partition; otherwise on first search.
 - **Refresh:** Expires after 60 seconds; reloaded on the next search.
-- **Code:** `CustomQueries` (static, SqlServer).
-- **Refactor effort:** Low – small static class.
+- **Code:** `CustomQueryCache : SqlPartitionCache<CustomQueryProcedures>` (SqlServer), read by `SqlServerSearchService` through `ScopedCache<CustomQueryProcedures>`. Moved; previously the static `CustomQueries`, which read `sys.objects` on the search connection and so always used the default database.
+- **Refactor effort:** Low – done.
 
 ### 14. SQL statistics list
 - **What it does:** Remembers which SQL statistics already exist on search tables so they are not created again.
@@ -201,8 +202,8 @@ Caches are loaded at startup and refreshed in the background, so most reads are 
 - **Loads from:** `dbo.Parameters`.
 - **When:** First use.
 - **Refresh:** Expires after 10 minutes. The event log connection string is never refreshed.
-- **Code:** `CachedParameter` (static fields in `SqlServerSearchService`, `SqlServerFhirDataStore`), `SqlRetryService` (static), `SqlServerParameterStore` (no callers in this repo).
-- **Refactor effort:** Low – mostly statics that need one copy per partition.
+- **Code:** Search and merge flags and thresholds: `DatabaseParameterCache : SqlPartitionCache<DatabaseParameters>` (SqlServer), one query per partition for all numeric parameters, read through `ScopedCache<DatabaseParameters>`. Moved; previously six static `CachedParameter` fields that read the default database (one query each, blocking with `.Result`). Still to move: `SqlRetryService` (static replica traffic ratio and event log connection string) and `SqlServerParameterStore` (no callers in this repo).
+- **Refactor effort:** Low – search and merge done; `SqlRetryService` left.
 
 ### 16. Skewed search parameters
 - **What it does:** Search parameters with very uneven data, for which SQL should not reuse a cached query plan.

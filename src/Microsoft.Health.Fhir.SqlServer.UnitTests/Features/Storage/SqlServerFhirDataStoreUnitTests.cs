@@ -17,6 +17,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Caching;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -29,6 +30,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Caching;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
@@ -554,6 +556,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
 
             var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, sqlConnectionBuilder, sqlRetryLogicBaseProvider, Options.Create(sqlServerDataStoreConfiguration));
 
+            requestContextAccessor ??= Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var dataStore = new SqlServerFhirDataStore(
                 model,
                 new SearchParameterToSearchValueTypeMap(),
@@ -568,9 +571,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
                 NullLogger<SqlServerFhirDataStore>.Instance,
                 schemaInfo,
                 ModelInfoProvider.Instance,
-                requestContextAccessor ?? Substitute.For<RequestContextAccessor<IFhirRequestContext>>(),
+                requestContextAccessor,
                 Substitute.For<IImportErrorSerializer>(),
-                storeClient);
+                storeClient,
+                new ScopedCache<DatabaseParameters>(TestPartitionCache<DatabaseParameters>.Returning(DatabaseParameters.Empty), requestContextAccessor));
 
             return dataStore;
         }

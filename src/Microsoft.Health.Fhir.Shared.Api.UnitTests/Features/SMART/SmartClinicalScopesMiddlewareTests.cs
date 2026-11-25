@@ -19,6 +19,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
@@ -1416,7 +1417,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             authConfig.ScopesClaim = new[] { "scope", "roles" };
 
-            var roleLoader = new RoleLoader(authConfig, hostEnvironment);
+            var roleLoader = new RoleLoader(authConfig, new RoleCache(hostEnvironment, NullLogger<RoleCache>.Instance));
             await roleLoader.StartAsync(CancellationToken.None);
             return authConfig;
         }
