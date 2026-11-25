@@ -33,8 +33,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return searchParamTableExpression;
             }
 
-            int chainLevel = 0;
-            if (((rewrittenPredicate as SearchParameterExpression)?.Expression as MultiaryExpression)?.MultiaryOperation == MultiaryOperator.Or)
+            // Rewriting a predicate must not move it off the chain resource it was bound to.
+            int chainLevel = searchParamTableExpression.ChainLevel;
+            if (chainLevel == 0 && ((rewrittenPredicate as SearchParameterExpression)?.Expression as MultiaryExpression)?.MultiaryOperation == MultiaryOperator.Or)
             {
                 chainLevel = 1;
             }

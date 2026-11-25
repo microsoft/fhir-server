@@ -106,11 +106,38 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         /// </summary>
         private void HandleAndExpression(ChainedExpression chainedExpression, List<SearchParamTableExpression> tableExpressions, int chainLevel, MultiaryExpression multiaryExpression)
         {
+            var handledExpressions = new List<(SearchParamTableExpressionQueryGenerator Handler, Expression Expression)>();
+            var resourceTableExpressions = new List<Expression>();
+
+            foreach (var expression in multiaryExpression.Expressions)
+            {
+                var handler = expression.AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory, null);
+
+                // Predicates on resource table columns (e.g. _id, _lastUpdated) have no search param table,
+                // so they are evaluated on the chain link's target, as in the single-expression case.
+                if (handler == null)
+                {
+                    resourceTableExpressions.Add(expression);
+                }
+                else
+                {
+                    handledExpressions.Add((handler, expression));
+                }
+            }
+
+            Expression expressionOnTarget = resourceTableExpressions.Count switch
+            {
+                0 => null,
+                1 => resourceTableExpressions[0],
+                _ => Expression.And(resourceTableExpressions),
+            };
+
             var chainLinkExpression = new SqlChainLinkExpression(
                 chainedExpression.ResourceTypes,
                 chainedExpression.ReferenceSearchParameter,
                 chainedExpression.TargetResourceTypes,
-                chainedExpression.Reversed);
+                chainedExpression.Reversed,
+                expressionOnTarget: expressionOnTarget);
 
             tableExpressions.Add(new SearchParamTableExpression(
                                   ChainLinkQueryGenerator.Instance,
@@ -118,9 +145,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                                   SearchParamTableExpressionKind.Chain,
                                   chainLevel));
 
-            foreach (var expression in multiaryExpression.Expressions)
+            foreach (var (handler, expression) in handledExpressions)
             {
-                var handler = expression.AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory, null);
                 tableExpressions.Add(
                     new SearchParamTableExpression(
                         handler,

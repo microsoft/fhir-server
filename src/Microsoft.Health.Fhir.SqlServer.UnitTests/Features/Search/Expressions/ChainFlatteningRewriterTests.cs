@@ -3,7 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -11,6 +13,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
@@ -18,12 +21,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
     /// <summary>
     /// Unit tests for ChainFlatteningRewriter.
-    /// These tests verify the rewriter's behavior using non-chain expressions to avoid ModelInfoProvider dependencies.
-    /// The ChainFlatteningRewriter is more comprehensively tested through integration tests where
-    /// the full FHIR stack (including ModelInfoProvider) is initialized.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
+    [Collection(ModelInfoProviderSerialCollection.Name)]
     public class ChainFlatteningRewriterTests
     {
         private readonly ChainFlatteningRewriter _rewriter;
@@ -187,6 +188,59 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             // Assert - Non-chain expressions should pass through unchanged
             Assert.Same(sqlRootExpression, result);
             Assert.Equal(SearchParamTableExpressionKind.Include, result.SearchParamTableExpressions[0].Kind);
+        }
+
+        [Fact]
+        public void GivenAChainWithAnAndOfResourceTableAndSearchParamTablePredicates_WhenVisited_ThenResourceTablePredicateIsAppliedOnTheChainTarget()
+        {
+            // Arrange
+            ModelInfoProvider.SetProvider(MockModelInfoProviderBuilder.Create(FhirSpecification.R4).Build());
+
+            var subjectParameter = new SearchParameterInfo(
+                name: "subject",
+                code: "subject",
+                searchParamType: SearchParamType.Reference,
+                url: new Uri("http://hl7.org/fhir/SearchParameter/Observation-subject"),
+                targetResourceTypes: new[] { KnownResourceTypes.Patient });
+            var idParameter = new SearchParameterInfo(
+                name: SearchParameterNames.Id,
+                code: SearchParameterNames.Id,
+                searchParamType: SearchParamType.Token,
+                url: SearchParameterNames.IdUri);
+            var nameParameter = new SearchParameterInfo(
+                name: "name",
+                code: "name",
+                searchParamType: SearchParamType.String,
+                url: new Uri("http://hl7.org/fhir/SearchParameter/Patient-name"));
+
+            Expression idExpression = Expression.SearchParameter(idParameter, Expression.StringEquals(FieldName.TokenCode, null, "p1", false));
+            Expression nameExpression = Expression.SearchParameter(nameParameter, Expression.StartsWith(FieldName.String, null, "smith", true));
+
+            var chainedExpression = new ChainedExpression(
+                new[] { KnownResourceTypes.Observation },
+                subjectParameter,
+                new[] { KnownResourceTypes.Patient },
+                false,
+                Expression.And(idExpression, nameExpression));
+
+            var sqlRootExpression = new SqlRootExpression(
+                new List<SearchParamTableExpression> { new SearchParamTableExpression(null, chainedExpression, SearchParamTableExpressionKind.Chain) },
+                new List<SearchParameterExpressionBase>());
+
+            // Act
+            var result = (SqlRootExpression)sqlRootExpression.AcceptVisitor(_rewriter, null);
+
+            // Assert
+            Assert.Equal(2, result.SearchParamTableExpressions.Count);
+
+            SearchParamTableExpression chainLink = result.SearchParamTableExpressions[0];
+            Assert.Equal(SearchParamTableExpressionKind.Chain, chainLink.Kind);
+            Assert.Same(idExpression, ((SqlChainLinkExpression)chainLink.Predicate).ExpressionOnTarget);
+
+            SearchParamTableExpression nameFilter = result.SearchParamTableExpressions[1];
+            Assert.Equal(SearchParamTableExpressionKind.Normal, nameFilter.Kind);
+            Assert.Same(nameExpression, nameFilter.Predicate);
+            Assert.Equal(1, nameFilter.ChainLevel);
         }
     }
 }

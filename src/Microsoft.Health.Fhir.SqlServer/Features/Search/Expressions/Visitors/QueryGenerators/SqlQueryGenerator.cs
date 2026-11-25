@@ -62,6 +62,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private bool _smartV2UnionVisited = false;
         private int _unionAggregateCTEIndex = -1; // the index of the CTE that aggregates all union results
         private bool _firstChainAfterUnionVisited = false;
+        private int _lastChainAfterUnionPredecessorIndex = -1;
+        private bool _lastChainAfterUnionJoinOnTarget = false;
         private HashSet<int> _cteToLimit = new HashSet<int>();
         private bool _hasIdentifier = false;
         private int _searchParamCount = 0;
@@ -1020,25 +1022,60 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     specialCaseTableName = new VLatest.ResourceTable();
                 }
 
+                // The union adds CTEs that have no matching table expression, so CTE indexes cannot be used to look up
+                // table expressions here. Join the CTE emitted just before this one; a concatenation is the second half of
+                // a split predicate and must restrict the same input, on the same columns, as the first half.
+                int predecessorIndex;
+                bool joinOnChainTarget;
+                if (searchParamTableExpression.Kind == SearchParamTableExpressionKind.Concatenation)
+                {
+                    predecessorIndex = _lastChainAfterUnionPredecessorIndex;
+                    joinOnChainTarget = _lastChainAfterUnionJoinOnTarget;
+                }
+                else
+                {
+                    // A chain CTE exposes the chain target as T2/Sid2, so predicates following it must bind there.
+                    predecessorIndex = _tableExpressionCounter - 1;
+                    joinOnChainTarget = _firstChainAfterUnionVisited || _chainTableExpressionIndexes.Contains(predecessorIndex);
+                    _lastChainAfterUnionPredecessorIndex = predecessorIndex;
+                    _lastChainAfterUnionJoinOnTarget = joinOnChainTarget;
+                }
+
                 StringBuilder.Append("SELECT T1, Sid1, ")
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
                     .Append("FROM ").AppendLine(specialCaseTableName)
-                    .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()))
-                    .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(_firstChainAfterUnionVisited ? "T2" : "T1")
-                    .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine(_firstChainAfterUnionVisited ? "Sid2" : "Sid1");
+                    .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(predecessorIndex))
+                    .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(joinOnChainTarget ? "T2" : "T1")
+                    .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine(joinOnChainTarget ? "Sid2" : "Sid1");
 
-                // once we have visited a table after the union all, the remained of the inner joins
-                // should be on T1 and Sid1
+                // Every CTE emitted here exposes the chain target as T2/Sid2, so the remaining inner joins bind on T2/Sid2.
                 _firstChainAfterUnionVisited = true;
             }
             else
             {
+                int predecessorIndex;
+                if (!_unionVisited)
+                {
+                    predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
+                }
+                else if (searchParamTableExpression.Kind == SearchParamTableExpressionKind.Concatenation)
+                {
+                    // CTE indexes no longer line up with table expressions after a union; reuse the first half's input.
+                    predecessorIndex = _lastChainAfterUnionPredecessorIndex;
+                }
+                else
+                {
+                    predecessorIndex = _tableExpressionCounter - 1;
+                    _lastChainAfterUnionPredecessorIndex = predecessorIndex;
+                    _lastChainAfterUnionJoinOnTarget = true;
+                }
+
                 StringBuilder.Append("SELECT T1, Sid1, ")
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table)
-                    .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()))
+                    .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(predecessorIndex))
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append("T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine("Sid2");
             }
@@ -1335,9 +1372,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.AppendLine();
             }
 
+            // The union adds CTEs that have no matching table expression, so after it the chain restricts the CTE emitted just before it.
+            int? chainPredecessorIndex = _unionVisited ? _tableExpressionCounter - 1 : null;
+
             if (searchParamTableExpression.ChainLevel > 1)
             {
-                StringBuilder.Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()))
+                int predecessorIndex = chainPredecessorIndex ?? FindRestrictingPredecessorTableExpressionIndex();
+                StringBuilder.Append(_joinShift).Append("JOIN ").Append(TableExpressionName(predecessorIndex))
                     .Append(" ON ").Append(VLatest.Resource.ResourceTypeId, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias).Append(" = ").Append("T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias).Append(" = ").AppendLine("Sid2");
             }
@@ -1345,7 +1386,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             // since we are in chain table expression, we know the Table is the ReferenceSearchParam table
             else if (UseAppendWithJoin())
             {
-                AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
+                AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias, chainPredecessorIndex);
             }
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
@@ -1370,7 +1411,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 if (searchParamTableExpression.ChainLevel == 1 && !UseAppendWithJoin())
                 {
                     // if > 1, the intersection is handled by the JOIN
-                    AppendIntersectionWithPredecessor(delimited, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
+                    AppendIntersectionWithPredecessor(delimited, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias, chainPredecessorIndex);
                 }
 
                 if (chainedExpression.ExpressionOnTarget != null && !expressionOnTargetHandledBySecondJoin)
@@ -2347,9 +2388,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
         }
 
-        private void AppendIntersectionWithPredecessor(IndentedStringBuilder.DelimitedScope delimited, SearchParamTableExpression searchParamTableExpression, string tableAlias = null)
+        private void AppendIntersectionWithPredecessor(IndentedStringBuilder.DelimitedScope delimited, SearchParamTableExpression searchParamTableExpression, string tableAlias = null, int? predecessorIndexOverride = null)
         {
-            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
+            int predecessorIndex = predecessorIndexOverride ?? FindRestrictingPredecessorTableExpressionIndex();
 
             if (predecessorIndex >= 0)
             {
@@ -2364,9 +2405,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
         }
 
-        private void AppendIntersectionWithPredecessorUsingInnerJoin(IndentedStringBuilder sb, SearchParamTableExpression searchParamTableExpression, string tableAlias = null)
+        private void AppendIntersectionWithPredecessorUsingInnerJoin(IndentedStringBuilder sb, SearchParamTableExpression searchParamTableExpression, string tableAlias = null, int? predecessorIndexOverride = null)
         {
-            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
+            int predecessorIndex = predecessorIndexOverride ?? FindRestrictingPredecessorTableExpressionIndex();
 
             if (predecessorIndex >= 0)
             {

@@ -113,6 +113,27 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions.
             Assert.Equal(componentIndex, overflowExpression!.ComponentIndex);
         }
 
+        [Theory]
+        [InlineData(StringOperator.Equals, 1)]
+        [InlineData(StringOperator.StartsWith, 1)]
+        [InlineData(StringOperator.Equals, 2)]
+        [InlineData(StringOperator.Contains, 1)]
+        public void GivenChainTargetStringPredicateWithLongValue_WhenRewritten_ThenChainLevelIsPreserved(StringOperator stringOperator, int chainLevel)
+        {
+            // Arrange
+            var stringExpression = new StringExpression(stringOperator, FieldName.String, null, new string('a', 257), ignoreCase: false);
+            var searchParamExpression = new SearchParameterExpression(StringSearchParam, stringExpression);
+            var sqlRoot = SqlRootExpression.WithSearchParamTableExpressions(
+                new SearchParamTableExpression(null, searchParamExpression, SearchParamTableExpressionKind.Normal, chainLevel));
+
+            // Act
+            var result = (SqlRootExpression)StringOverflowRewriter.Instance.VisitSqlRoot(sqlRoot, null);
+
+            // Assert
+            Assert.NotSame(sqlRoot, result);
+            Assert.Equal(chainLevel, result.SearchParamTableExpressions[0].ChainLevel);
+        }
+
         [Fact]
         public void GivenStringSearchParamWithBoundaryValue_WhenEqualsOperator_ThenReturnsUnchanged()
         {

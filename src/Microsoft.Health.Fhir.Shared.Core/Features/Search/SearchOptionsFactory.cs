@@ -30,6 +30,9 @@ using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expres
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
+    /// <summary>
+    /// Creates <see cref="SearchOptions"/> from search request parameters.
+    /// </summary>
     public class SearchOptionsFactory : ISearchOptionsFactory
     {
         private static readonly string SupportedTotalTypes = $"'{TotalType.Accurate}', '{TotalType.None}'".ToLower(CultureInfo.CurrentCulture);
@@ -621,6 +624,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     otherSearchErrors.Add(e.Issues.First().Diagnostics);
                     invalidSearchParameters.Add(Tuple.Create(KnownQueryParameterNames.NotReferenced, notReferencedSearch));
                 }
+            }
+
+            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+            {
+                SmartScopeChainFilter.Apply(searchExpressions, grantedScopes, _expressionParser, _searchParameterDefinitionManager);
             }
 
             if (searchExpressions.Count == 1)
@@ -1251,6 +1259,56 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return false;
         }
 
+        /// <summary>
+        /// Parses one scope search parameter for <paramref name="targetResourceType"/> and appends the resulting
+        /// predicates to <paramref name="parsedExpressions"/>. Returns false, with the offending parameter, when the
+        /// parameter is unsupported or is a semantic predicate, neither of which can be enforced as a scope constraint.
+        /// </summary>
+        internal static bool TryParseScopeParameter(
+            IExpressionParser expressionParser,
+            Tuple<string, string> param,
+            string targetResourceType,
+            List<Expression> parsedExpressions,
+            out string unenforceableParameter)
+        {
+            unenforceableParameter = null;
+
+            // Normalize each parameter through SearchParams before parsing for the target resource type.
+            var smartSearchParams = new SearchParams();
+            smartSearchParams.Add(param.Item1, param.Item2);
+            foreach (Tuple<string, string> q in smartSearchParams.Parameters)
+            {
+                Expression parsed;
+                try
+                {
+                    parsed = expressionParser.Parse(new[] { targetResourceType }, q.Item1, q.Item2)
+                        .AcceptVisitor(SmartScopeLocalReferenceRewriter.Instance, null);
+                }
+                catch (SearchParameterNotSupportedException)
+                {
+                    unenforceableParameter = q.Item1;
+                    return false;
+                }
+
+                // A semantic predicate ranks and thresholds rather than filters, and is evaluated only once over the
+                // primary matches, so it cannot be enforced as a scope constraint.
+                if (ContainsVectorSearch(parsed))
+                {
+                    unenforceableParameter = q.Item1;
+                    return false;
+                }
+
+                parsedExpressions.Add(parsed);
+            }
+
+            return true;
+        }
+
+        internal static bool HasScopeSearchParameters(ScopeRestriction restriction)
+        {
+            return restriction.SearchParameters != null && restriction.SearchParameters.Parameters.Any();
+        }
+
         private bool TryBuildSmartScopeExpression(
             ScopeRestriction restriction,
             string targetResourceType,
@@ -1271,32 +1329,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, targetResourceType, false)));
                 }
 
-                // Normalize each parameter through SearchParams before parsing for the target resource type.
-                var smartSearchParams = new SearchParams();
-                smartSearchParams.Add(param.Item1, param.Item2);
-                foreach (Tuple<string, string> q in smartSearchParams.Parameters)
+                if (!TryParseScopeParameter(_expressionParser, param, targetResourceType, fineGrainedSmartSearchExpressions, out unenforceableParameter))
                 {
-                    Expression parsed;
-                    try
-                    {
-                        parsed = _expressionParser.Parse(new[] { targetResourceType }, q.Item1, q.Item2)
-                            .AcceptVisitor(SmartScopeLocalReferenceRewriter.Instance, null);
-                    }
-                    catch (SearchParameterNotSupportedException)
-                    {
-                        unenforceableParameter = q.Item1;
-                        return false;
-                    }
-
-                    // A semantic predicate is evaluated once, over the primary matches, and cannot be re-evaluated for
-                    // resources reached through _include/_revinclude, so a scope constraint using one is unenforceable.
-                    if (ContainsVectorSearch(parsed))
-                    {
-                        unenforceableParameter = q.Item1;
-                        return false;
-                    }
-
-                    fineGrainedSmartSearchExpressions.Add(parsed);
+                    return false;
                 }
 
                 var individualAndExp = Expression.And(fineGrainedSmartSearchExpressions.ToArray());

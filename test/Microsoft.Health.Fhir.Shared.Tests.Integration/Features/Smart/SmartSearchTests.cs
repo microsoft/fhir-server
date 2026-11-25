@@ -334,6 +334,70 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             }
         }
 
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenSmartV2ScopeUnionAndSplitNumericChainScope_WhenRevChainedSearchWithId_ThenOnlyTheRequestedPatientIsReturned()
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // Two Patient scopes produce a union; the ge RiskAssessment scope is split into two numeric branches on the chain target.
+            // Both patients satisfy every scope and the _has value, so only the _id restriction separates them.
+            string method = Guid.NewGuid().ToString("N");
+            string[] patientIds = { Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N") };
+            string[] riskAssessmentIds = { Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N") };
+
+            for (int i = 0; i < patientIds.Length; i++)
+            {
+                await _smartFixture.UpsertResource(new Patient { Id = patientIds[i], Gender = AdministrativeGender.Male });
+                await _smartFixture.UpsertResource(new RiskAssessment
+                {
+                    Id = riskAssessmentIds[i],
+                    Status = ObservationStatus.Final,
+                    Subject = new ResourceReference($"Patient/{patientIds[i]}"),
+                    Method = new CodeableConcept("http://example.org/method", method),
+                    Prediction = new List<RiskAssessment.PredictionComponent> { new RiskAssessment.PredictionComponent { Probability = new FhirDecimal(0.7m) } },
+                });
+            }
+
+            try
+            {
+                ConfigureFhirRequestContext(
+                    _contextAccessor,
+                    new List<ScopeRestriction>
+                    {
+                        new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "system", CreateSearchParams(("gender", "male"))),
+                        new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "system", CreateSearchParams(("gender", "female"))),
+                        new ScopeRestriction("RiskAssessment", Core.Features.Security.DataActions.Search, "system", CreateSearchParams(("probability", "ge0.5"))),
+                    },
+                    applyFineGrainedAccessControlWithSearchParameters: true);
+
+                var query = new List<Tuple<string, string>>
+                {
+                    Tuple.Create("_id", patientIds[0]),
+                    Tuple.Create("_has:RiskAssessment:subject:method", method),
+                };
+
+                SearchResult results = await _searchService.Value.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
+
+                Assert.Equal(new[] { patientIds[0] }, results.Results.Select(r => r.Resource.ResourceId).ToArray());
+            }
+            finally
+            {
+                foreach (string id in riskAssessmentIds)
+                {
+                    await _fixture.DataStore.HardDeleteAsync(new ResourceKey(KnownResourceTypes.RiskAssessment, id), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None);
+                }
+
+                foreach (string id in patientIds)
+                {
+                    await _fixture.DataStore.HardDeleteAsync(new ResourceKey(KnownResourceTypes.Patient, id), keepCurrentVersion: false, allowPartialSuccess: false, CancellationToken.None);
+                }
+            }
+        }
+
         private async Task<(string LocalA, string ExternalA, string OtherServerA, string LocalB)> CreatePatientIdCollisionObservationsAsync(string patientA, string patientB)
         {
             // Three Observations about "Patient A" on different servers, and one about the local Patient B.
@@ -3078,6 +3142,90 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         }
 
         // SMART v2 Granular Scope Tests
+
+        [Theory]
+        [InlineData("http://loinc.org|4548-4", "final", "male", true)]
+        [InlineData("http://snomed.info/sct|429858000", "registered", "male", true)]
+        [InlineData("http://loinc.org|4548-4", "registered", "male", false)]
+        [InlineData("http://loinc.org|4548-4", "final", "female", false)]
+        public async Task GivenSmartV2GranularScopesOnBothSides_WhenRevChainedSearchFromPatient_ThenBothScopeFiltersAreAppliedToTheSameRecords(
+            string reportCode,
+            string reportStatus,
+            string patientGender,
+            bool patientExpected)
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // scopes = patient/Patient.s?gender={patientGender} patient/DiagnosticReport.s?status={reportStatus}
+            // The fixture has smart-diagnosticreport-A1 (final, LOINC) and smart-diagnosticreport-A2 (registered, SNOMED), so
+            // LOINC with registered is satisfied only by two different reports and must not match.
+            var scopeRestriction1 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("gender", patientGender)));
+            var scopeRestriction2 = new ScopeRestriction("DiagnosticReport", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("status", reportStatus)));
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction1, scopeRestriction2 }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var query = new List<Tuple<string, string>>
+            {
+                new Tuple<string, string>("_has:DiagnosticReport:subject:code", reportCode),
+            };
+
+            var results = await _searchService.Value.SearchAsync("Patient", query, CancellationToken.None);
+
+            if (patientExpected)
+            {
+                Assert.Collection(results.Results, r => Assert.Equal("smart-patient-A", r.Resource.ResourceId));
+            }
+            else
+            {
+                Assert.Empty(results.Results);
+            }
+        }
+
+        [Theory]
+        [InlineData("subject:Patient.name", "SMARTGivenName1", "http://loinc.org|4548-4", "male", "smart-observation-A1")]
+        [InlineData("subject:Patient.name", "SMARTGivenName1", "http://loinc.org|4548-4", "female", "")]
+        [InlineData("subject:Patient.name", "SMARTGivenName1", "http://loinc.org|0000-0", "male", "")]
+        [InlineData("subject:Patient.name", "NoSuchGivenName", "http://loinc.org|4548-4", "male", "")]
+        [InlineData("subject:Patient._id", "smart-patient-A", "http://loinc.org|4548-4", "male", "smart-observation-A1")]
+        [InlineData("subject:Patient._id", "smart-patient-A", "http://loinc.org|4548-4", "female", "")]
+        [InlineData("subject:Patient._id", "smart-patient-A", "http://loinc.org|0000-0", "male", "")]
+        [InlineData("subject:Patient._id", "smart-patient-does-not-exist", "http://loinc.org|4548-4", "male", "")]
+        public async Task GivenSmartV2GranularScopesOnBothSides_WhenChainedSearchFromObservation_ThenBothScopeFiltersAreApplied(
+            string chainParameter,
+            string chainValue,
+            string observationCode,
+            string patientGender,
+            string expectedObservationIds)
+        {
+            Assert.SkipWhen(
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4 &&
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
+                "This test is only valid for R4 and R4B");
+
+            // scopes = patient/Observation.s?code={observationCode} patient/Patient.s?gender={patientGender}
+            // Each control fails exactly one side: the far-side scope, the main-resource scope, or the chained query value.
+            // _id is a resource-table predicate, so the chain target combines it with the search-parameter scope filter.
+            var scopeRestriction1 = new ScopeRestriction("Observation", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("code", observationCode)));
+            var scopeRestriction2 = new ScopeRestriction("Patient", Core.Features.Security.DataActions.Search, "patient", CreateSearchParams(("gender", patientGender)));
+            ConfigureFhirRequestContext(_contextAccessor, new List<ScopeRestriction>() { scopeRestriction1, scopeRestriction2 }, true);
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
+            _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
+
+            var query = new List<Tuple<string, string>>
+            {
+                new Tuple<string, string>(chainParameter, chainValue),
+            };
+
+            var results = await _searchService.Value.SearchAsync("Observation", query, CancellationToken.None);
+
+            Assert.Equal(
+                expectedObservationIds.Split(',', StringSplitOptions.RemoveEmptyEntries),
+                results.Results.Select(r => r.Resource.ResourceId).OrderBy(id => id, StringComparer.Ordinal));
+        }
 
         [Fact]
         public async Task GivenSmartV2CreateScope_WhenCreatingPatient_ThenPatientIsCreated()
