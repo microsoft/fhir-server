@@ -69,10 +69,14 @@ candidate plans and index combinations (see data below).
    the number of available index slots for future custom parameters. (Not chosen)
 
 2. **Create indexes on write (synchronously)** - Create a filtered index when a search parameter is first written.
-   This avoids building indexes for unused parameters. In order to built index in "zero" time, clustered indexes must 
+   This avoids building indexes for unused parameters, therefore granular indexes use less index slots. 
+   In order to built index in "zero" time, clustered indexes must 
    be rebuilt with `SearchParamId` as first key, otherwise table will be scanned. This approach exposes SQL Server bug 
    when SQL does not preserve physical sort order of rows for multiple filtered resource types, and adds separate sort 
-   operation (expensive). This approach has less limitations than pre-creating all indexes. (Not chosen)
+   operation (expensive). Also, creation of granular index on `ReferenceSearchParam` was still scanning clustered index 
+   (reason unknown). Note that resource updates use delete logic in `MergeResources`, they have to do extra join to `SearchParam`, 
+   which can increase CPU cost. Writes with these clustered indexes (even when resource is created, no deletes mentioned 
+   before) consume more database CPU (see below). (Not chosen)
    
 3. **Create indexes on write (asynchronously)** - Same as above, but instead of changing clustered indexes, create the index asynchronously 
    by logging into the `JobQueue` table, and letting special process (similar to background task) handle index creation. 
@@ -87,7 +91,7 @@ candidate plans and index combinations (see data below).
 | Mesurement | Curent | Pre-create all | Create-on-write sync | Create-on-write async |
 | --- | --- | --- | --- | --- |
 | Number of secondary indexes (TokenSearchParam) | 1 | 535 | 57 | 57 |
-| SQL CPU on Ingest (PRMS 80), % | 55 | 68 | 62 | 62 |
+| SQL CPU on Ingest (PRMS 80), % | 55 | 68 | 75 | 62 |
 | Compilation (/?_type=Patient&_id=xyz&_tag=example), msec | 24 | 235 | 47 | 47 |
 | Compilation (/?_type=Patient,Practitioner&_id=xyz&_tag=example), msec | 35 | 407 | 97 | 97 |
 | Creation of granular index on TokenSearchParam (not existing data), minutes per 1TB |  | 0 | 0 | 10 |
