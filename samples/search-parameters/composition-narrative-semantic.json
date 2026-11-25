@@ -1,0 +1,35 @@
+{
+  "resourceType": "SearchParameter",
+  "id": "composition-narrative-semantic",
+  "url": "http://example.org/fhir/SearchParameter/composition-narrative-semantic",
+  "version": "1.0.0",
+  "name": "CompositionNarrativeSemantic",
+  "status": "active",
+  "experimental": true,
+  "description": "Semantic (vector) search over the human-readable narrative of a Composition and all of its nested sections. Markup is removed, the common XML entities are decoded, and whitespace is collapsed before embedding. Each narrative block is embedded as its own passage.",
+  "code": "narrative-semantic",
+  "base": [
+    "Composition"
+  ],
+  "type": "special",
+  "expression": "(Composition.text.`div` | Composition.repeat(section).text.`div`).select(toString().replaceMatches('<[^>]*>', ' ').replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&').replaceMatches('\\\\s+', ' ').trim())",
+  "extension": [
+    {
+      "url": "http://microsoft.com/fhir/StructureDefinition/vector-search-config",
+      "extension": [
+        {
+          "url": "extractionPolicy",
+          "valueCode": "perValueRow"
+        },
+        {
+          "url": "maxInputTokens",
+          "valueInteger": 8000
+        },
+        {
+          "url": "distanceMetric",
+          "valueCode": "cosine"
+        }
+      ]
+    }
+  ]
+}
