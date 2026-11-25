@@ -205,7 +205,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 }
 
                 // Resolve a relative reference against a placeholder base so Uri applies the RFC 3986 dot-segment removal.
-                var placeholderBase = new Uri("http://placeholder/");
+                // The base has one path segment so that a reference climbing above its start can be told apart: Uri clamps it
+                // at the root, which would otherwise turn ../Patient/b into a local Patient/b.
+                var placeholderBase = new Uri("http://placeholder/x/");
                 var resolved = new Uri(placeholderBase, path);
 
                 if (resolved.Host != placeholderBase.Host || resolved.Scheme != placeholderBase.Scheme)
@@ -217,7 +219,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 string resolvedPath = resolved.AbsolutePath;
                 bool rooted = path[0] == '/';
 
-                return $"{(rooted ? resolvedPath : resolvedPath[1..])}{suffix}";
+                if (!rooted && !resolvedPath.StartsWith(placeholderBase.AbsolutePath, StringComparison.Ordinal))
+                {
+                    // The reference climbs above where it started, so it points outside the service.
+                    return null;
+                }
+
+                return $"{(rooted ? resolvedPath : resolvedPath[placeholderBase.AbsolutePath.Length..])}{suffix}";
             }
             catch (UriFormatException)
             {

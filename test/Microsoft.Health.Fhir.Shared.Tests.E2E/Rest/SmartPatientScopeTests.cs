@@ -331,6 +331,49 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async Task GivenObservationWithDotSegmentReferenceEscapingItsStart_WhenSearchingOrReading_ThenItIsNotIndexedAsALocalPatient()
+        {
+            Assert.SkipWhen(!_fixture.IsUsingInProcTestServer, "Requires in-proc development identity provider to issue SMART scopes.");
+            var writer = _fixture.TestFhirClient.CreateClientForClientApplication(TestApplications.AdminUser);
+            var resources = new List<Resource>();
+
+            try
+            {
+                await SeedDotSegmentObservationsAsync(writer, resources);
+
+                using var escaping = await writer.UpdateAsync(new Observation
+                {
+                    Id = "refdot-escaping",
+                    Status = ObservationStatus.Final,
+                    Code = new CodeableConcept("http://loinc.org", "1234-5"),
+                    Subject = new ResourceReference("Patient/refdot-b"),
+                    Performer = new List<ResourceReference> { new ResourceReference("../Patient/refdot-b") },
+                    Value = new FhirString("SYNTH_REFDOT_ESCAPING"),
+                });
+                resources.Add(escaping.Resource);
+
+                using var forB = await writer.SearchAsync("Observation?performer=Patient%2Frefdot-b");
+
+                Assert.DoesNotContain(forB.Resource.Entry, e => e.Resource.Id == "refdot-escaping");
+
+                using HttpClient readerForB = await CreateSmartClientAsync(
+                    TestApplications.SmartUserClient,
+                    $"system/Observation.rs?performer={Uri.EscapeDataString("Patient/refdot-b")}");
+                using HttpResponseMessage escapingRead = await readerForB.GetAsync("Observation/refdot-escaping");
+
+                Assert.Equal(HttpStatusCode.NotFound, escapingRead.StatusCode);
+            }
+            finally
+            {
+                foreach (Resource resource in resources.AsEnumerable().Reverse())
+                {
+                    await writer.HardDeleteAsync(resource);
+                }
+            }
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async Task GivenObservationWithDotSegmentPerformerReference_WhenSearchingWithoutSmartScopes_ThenItIsFoundByTheResolvedPatient()
         {
             var writer = _fixture.TestFhirClient.CreateClientForClientApplication(TestApplications.AdminUser);

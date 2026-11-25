@@ -84,7 +84,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         [Theory]
         [InlineData("Patient/refdot-a/../refdot-b", null, "refdot-b")]
         [InlineData("Patient/./refdot-b", null, "refdot-b")]
-        [InlineData("../Patient/refdot-b", null, "refdot-b")]
         [InlineData("Patient/refdot-a/%2e%2e/refdot-b", null, "refdot-b")]
         [InlineData("Patient/refdot-a/%2E%2e/refdot-b", null, "refdot-b")]
         [InlineData("Observation/o1/../../Patient/refdot-b", null, "refdot-b")]
@@ -107,7 +106,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         [InlineData("Patient/.")]
         [InlineData("Patient/refdot-a/..")]
         [InlineData("Patient/../../refdot-b")]
+        [InlineData("../Patient/refdot-b")]
         [InlineData("https://external-server.com/..")]
+        [InlineData("ftp://external-server.com/Patient/refdot-a/../refdot-b")]
+        [InlineData("a:b/Patient/refdot-a/../refdot-b")]
+        [InlineData("https://external-server.com\\Patient/refdot-a/../refdot-b")]
+        [InlineData("//external-server.com/Patient/refdot-a/../refdot-b")]
+        [InlineData("/Patient/refdot-a/../refdot-b")]
         public void GivenAReferenceWithDotSegmentsThatCannotBeResolvedToAResource_WhenParsing_ThenItIsKeptAsTheOriginalString(string reference)
         {
             ReferenceSearchValue value = _referenceSearchValueParser.Parse(reference);
