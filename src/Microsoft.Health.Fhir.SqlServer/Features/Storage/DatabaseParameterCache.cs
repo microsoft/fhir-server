@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
@@ -32,19 +31,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         }
 
         // A failed read uses the defaults until the next reload, as before: these are optional settings, so they must not fail requests.
-        [SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "The async: false branch must run synchronously.")]
         protected override async ValueTask<DatabaseParameters> GetRemoteDataAsync(string partitionId, bool async, CancellationToken cancellationToken)
         {
             try
             {
-                using SqlConnection connection = await OpenConnectionAsync(partitionId, async, cancellationToken);
-                using var command = new SqlCommand("IF object_id('dbo.Parameters') IS NOT NULL SELECT Id, Number FROM dbo.Parameters WHERE Number IS NOT NULL", connection);
-                using SqlDataReader reader = async ? await command.ExecuteReaderAsync(cancellationToken) : command.ExecuteReader();
+                IReadOnlyList<(string Id, double Number)> rows = await QueryAsync(
+                    partitionId,
+                    names =>
+                    {
+                        string table = names.GetObjectName("dbo.Parameters");
+#pragma warning disable CA2100 // The only interpolated value is an object name quoted by SqlObjectNameFormatter.
+                        var command = new SqlCommand($"IF object_id(@Table) IS NOT NULL SELECT Id, Number FROM {table} WHERE Number IS NOT NULL");
+#pragma warning restore CA2100
+                        command.Parameters.AddWithValue("@Table", table);
+                        return command;
+                    },
+                    reader => (reader.GetString(0), Convert.ToDouble(reader.GetValue(1))),
+                    async,
+                    cancellationToken);
 
                 var numbers = new Dictionary<string, double>();
-                while (async ? await reader.ReadAsync(cancellationToken) : reader.Read())
+                foreach ((string id, double number) in rows)
                 {
-                    numbers.TryAdd(reader.GetString(0), Convert.ToDouble(reader.GetValue(1)));
+                    numbers.TryAdd(id, number);
                 }
 
                 return new DatabaseParameters(numbers);

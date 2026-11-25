@@ -50,10 +50,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <summary>
         /// Gets the table identifier with each component safely quoted when a database is configured.
         /// </summary>
-        public string GetTableName(Table table) =>
+        public string GetTableName(Table table) => GetObjectName(table.TableName);
+
+        /// <summary>
+        /// Gets a schema-qualified object name, such as <c>dbo.Parameters</c> or <c>sys.objects</c>, with each component
+        /// safely quoted and prefixed with the database when a database is configured.
+        /// </summary>
+        internal string GetObjectName(string schemaQualifiedName) =>
             _databasePrefix == null
-                ? table.TableName
-                : _databasePrefix + string.Join(".", table.TableName.Split('.').Select(QuoteIdentifier));
+                ? schemaQualifiedName
+                : _databasePrefix + string.Join(".", schemaQualifiedName.Split('.').Select(QuoteIdentifier));
 
         /// <summary>
         /// Gets a database-qualified procedure name, defaulting an omitted schema to dbo.

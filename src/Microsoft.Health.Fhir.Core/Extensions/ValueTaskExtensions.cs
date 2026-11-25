@@ -6,7 +6,7 @@
 using System;
 using System.Threading.Tasks;
 
-namespace Microsoft.Health.Fhir.Core.Features.Caching
+namespace Microsoft.Health.Fhir.Core.Extensions
 {
     internal static class ValueTaskExtensions
     {

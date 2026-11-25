@@ -34,22 +34,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
         protected GlobalCache(ILogger logger, TimeSpan? expiry = null, TimeProvider timeProvider = null)
         {
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
-            _slot = new CacheSlot<T>(expiry, timeProvider ?? TimeProvider.System);
+            _slot = new CacheSlot<T>(GetRemoteDataAsync, LogRefreshFailed, expiry, timeProvider ?? TimeProvider.System);
         }
 
         /// <summary>
         /// Gets the value, loading it with synchronous calls if it is missing or expired.
         /// </summary>
         /// <returns>The cached value.</returns>
-        public T Get() => _slot.TryGetCurrent(out T value) ? value : _slot.Load(GetRemoteDataAsync, LogRefreshFailed);
+        public T Get() => _slot.GetOrUpdate();
 
         /// <summary>
         /// Gets the value, loading it asynchronously if it is missing or expired.
         /// </summary>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The cached value.</returns>
-        public ValueTask<T> GetAsync(CancellationToken cancellationToken = default) =>
-            _slot.TryGetCurrent(out T value) ? new ValueTask<T>(value) : _slot.LoadAsync(GetRemoteDataAsync, LogRefreshFailed, cancellationToken);
+        public ValueTask<T> GetAsync(CancellationToken cancellationToken = default) => _slot.GetOrUpdateAsync(cancellationToken);
 
         /// <summary>
         /// Loads the value from its source.
@@ -63,7 +62,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
         /// <returns>The loaded value.</returns>
         protected abstract ValueTask<T> GetRemoteDataAsync(bool async, CancellationToken cancellationToken);
 
+        // The logger's category is the cache type, so the message doesn't repeat it.
         private void LogRefreshFailed(Exception exception) =>
-            _logger.LogWarning(exception, "Refreshing {Cache} failed. Using the previous value; the next read tries again.", GetType().Name);
+            _logger.LogWarning(exception, "Refreshing the cache failed. Using the previous value; the next read tries again.");
     }
 }

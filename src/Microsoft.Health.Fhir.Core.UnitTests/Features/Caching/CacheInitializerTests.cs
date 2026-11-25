@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
         [Fact]
         public async Task GivenHostedServicesStarted_WhenTheAppHasNotStartedYet_ThenNothingIsLoaded()
         {
-            _partitionManager.IsEnabled.Returns(false);
+            _partitionManager.GetPartitions().Returns(Array.Empty<IPartitionInfo>());
             using ServiceProvider provider = BuildProvider(out FirstCache first, out _, out AppCache app);
             CacheInitializer initializer = GetInitializer(provider);
 
@@ -55,7 +55,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
         [Fact]
         public async Task GivenPartitioningIsEnabled_WhenStarted_ThenEveryCacheIsLoadedForEveryPartition()
         {
-            _partitionManager.IsEnabled.Returns(true);
             IPartitionInfo[] partitions = [CreatePartition("a"), CreatePartition("b")];
             _partitionManager.GetPartitions().Returns(partitions);
             using ServiceProvider provider = BuildProvider(out FirstCache first, out SecondCache second, out AppCache app);
@@ -69,9 +68,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
         }
 
         [Fact]
-        public async Task GivenPartitions_WhenStarted_ThenEachPartitionIsLoadedUnderABackgroundRequestContextThatIsRestoredAfterwards()
+        public async Task GivenPartitions_WhenStarted_ThenEachPartitionIsLoadedUnderABackgroundRequestContextThatDoesNotLeak()
         {
-            _partitionManager.IsEnabled.Returns(true);
             IPartitionInfo[] partitions = [CreatePartition("a"), CreatePartition("b")];
             _partitionManager.GetPartitions().Returns(partitions);
             using ServiceProvider provider = BuildProvider(out _, out SecondCache second, out _);
@@ -86,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
         [Fact]
         public async Task GivenPartitioningIsDisabled_WhenStarted_ThenEveryCacheIsLoadedOnceWithoutAPartition()
         {
-            _partitionManager.IsEnabled.Returns(false);
+            _partitionManager.GetPartitions().Returns(Array.Empty<IPartitionInfo>());
             using ServiceProvider provider = BuildProvider(out FirstCache first, out SecondCache second, out AppCache app);
 
             await StartAsync(provider);
@@ -99,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Caching
         [Fact]
         public async Task GivenACacheFailsToLoad_WhenStarted_ThenStartupContinuesAndTheOtherCachesLoad()
         {
-            _partitionManager.IsEnabled.Returns(false);
+            _partitionManager.GetPartitions().Returns(Array.Empty<IPartitionInfo>());
             using ServiceProvider provider = BuildProvider(out FirstCache first, out SecondCache second, out _, firstFails: true);
 
             await StartAsync(provider);

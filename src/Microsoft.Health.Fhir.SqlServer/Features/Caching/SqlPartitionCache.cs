@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Caching;
 using Microsoft.Health.Fhir.Core.Features.Partitions;
 using Microsoft.Health.Fhir.SqlServer.Features.Partitions;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Caching
@@ -20,6 +22,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Caching
     /// <summary>
     /// A <see cref="PartitionCache{T}"/> loaded from each partition's SQL database.
     /// </summary>
+    /// <remarks>
+    /// Queries run on the shared connection string, like the rest of partition routing, so every partition uses the same
+    /// connection pool. Object names are qualified with the partition's database through <see cref="SqlObjectNameFormatter"/>.
+    /// </remarks>
     /// <typeparam name="T">The cached value type.</typeparam>
     internal abstract class SqlPartitionCache<T> : PartitionCache<T>
     {
@@ -42,39 +48,47 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Caching
         }
 
         /// <summary>
-        /// Opens a connection whose current database is the partition's database, so loaders use ordinary
-        /// one- and two-part names and can't read another partition's data by mistake.
+        /// Runs a query against a partition's database and reads every row.
         /// </summary>
+        /// <typeparam name="TRow">The row type.</typeparam>
         /// <param name="partitionId">The partition ID, or <see langword="null"/> for the database in the connection string.</param>
+        /// <param name="createCommand">Builds the command, taking object names from the formatter so they target the partition's database.</param>
+        /// <param name="readRow">Reads one row.</param>
         /// <param name="async">Whether to use asynchronous calls.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>An open connection. The caller disposes it.</returns>
+        /// <returns>The rows.</returns>
         [SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "The async: false branch must run synchronously.")]
-        protected async ValueTask<SqlConnection> OpenConnectionAsync(string partitionId, bool async, CancellationToken cancellationToken)
+        protected async ValueTask<IReadOnlyList<TRow>> QueryAsync<TRow>(
+            string partitionId,
+            Func<SqlObjectNameFormatter, SqlCommand> createCommand,
+            Func<SqlDataReader, TRow> readRow,
+            bool async,
+            CancellationToken cancellationToken)
         {
-            string database = GetDatabase(partitionId);
-            SqlConnection connection = async
-                ? await _connectionBuilder.GetSqlConnectionAsync(database, cancellationToken: cancellationToken)
-                : _connectionBuilder.GetSqlConnection(database);
+            using SqlCommand command = createCommand(new SqlObjectNameFormatter(GetDatabase(partitionId)));
+            using SqlConnection connection = async
+                ? await _connectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken)
+                : _connectionBuilder.GetSqlConnection();
 
-            try
+            if (async)
             {
-                if (async)
-                {
-                    await connection.OpenAsync(cancellationToken);
-                }
-                else
-                {
-                    connection.Open();
-                }
+                await connection.OpenAsync(cancellationToken);
+            }
+            else
+            {
+                connection.Open();
+            }
 
-                return connection;
-            }
-            catch
+            command.Connection = connection;
+            using SqlDataReader reader = async ? await command.ExecuteReaderAsync(cancellationToken) : command.ExecuteReader();
+
+            var rows = new List<TRow>();
+            while (async ? await reader.ReadAsync(cancellationToken) : reader.Read())
             {
-                connection.Dispose();
-                throw;
+                rows.Add(readRow(reader));
             }
+
+            return rows;
         }
 
         private string GetDatabase(string partitionId)

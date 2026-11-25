@@ -52,13 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
         /// </summary>
         /// <param name="partitionId">The partition ID, or <see langword="null"/> for the unpartitioned value.</param>
         /// <returns>The cached value.</returns>
-        public T Get(string partitionId)
-        {
-            CacheSlot<T> slot = GetSlot(partitionId);
-            return slot.TryGetCurrent(out T value)
-                ? value
-                : slot.Load((async, cancellationToken) => GetRemoteDataAsync(partitionId, async, cancellationToken), ex => LogRefreshFailed(ex, partitionId));
-        }
+        public T Get(string partitionId) => GetSlot(partitionId).GetOrUpdate();
 
         /// <summary>
         /// Gets the value for a partition, loading it asynchronously if it is missing or expired.
@@ -66,13 +60,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
         /// <param name="partitionId">The partition ID, or <see langword="null"/> for the unpartitioned value.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The cached value.</returns>
-        public ValueTask<T> GetAsync(string partitionId, CancellationToken cancellationToken = default)
-        {
-            CacheSlot<T> slot = GetSlot(partitionId);
-            return slot.TryGetCurrent(out T value)
-                ? new ValueTask<T>(value)
-                : slot.LoadAsync((async, ct) => GetRemoteDataAsync(partitionId, async, ct), ex => LogRefreshFailed(ex, partitionId), cancellationToken);
-        }
+        public ValueTask<T> GetAsync(string partitionId, CancellationToken cancellationToken = default) =>
+            GetSlot(partitionId).GetOrUpdateAsync(cancellationToken);
 
         /// <summary>
         /// Loads the value for a partition from its source.
@@ -88,9 +77,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
         protected abstract ValueTask<T> GetRemoteDataAsync(string partitionId, bool async, CancellationToken cancellationToken);
 
         private CacheSlot<T> GetSlot(string partitionId) =>
-            _slots.GetOrAdd(partitionId ?? string.Empty, _ => new CacheSlot<T>(_expiry, _timeProvider));
+            _slots.GetOrAdd(partitionId ?? string.Empty, static (_, state) => state.Cache.CreateSlot(state.PartitionId), (Cache: this, PartitionId: partitionId));
 
+        private CacheSlot<T> CreateSlot(string partitionId) =>
+            new(
+                (async, cancellationToken) => GetRemoteDataAsync(partitionId, async, cancellationToken),
+                ex => LogRefreshFailed(ex, partitionId),
+                _expiry,
+                _timeProvider);
+
+        // The logger's category is the cache type, so the message doesn't repeat it.
         private void LogRefreshFailed(Exception exception, string partitionId) =>
-            _logger.LogWarning(exception, "Refreshing {Cache} for partition '{PartitionId}' failed. Using the previous value; the next read tries again.", GetType().Name, partitionId);
+            _logger.LogWarning(exception, "Refreshing partition '{PartitionId}' failed. Using the previous value; the next read tries again.", partitionId);
     }
 }

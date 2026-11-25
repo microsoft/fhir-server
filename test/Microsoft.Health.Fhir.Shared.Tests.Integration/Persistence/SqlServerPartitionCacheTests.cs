@@ -21,13 +21,15 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     /// <summary>
-    /// Loads SQL partition caches from real partition databases through one application connection string.
+    /// Loads SQL partition caches from real partition databases through one application connection string, using
+    /// database-qualified names. Skipped when the server doesn't allow cross-database queries.
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Caching)]
     public class SqlServerPartitionCacheTests : IAsyncLifetime
     {
         private const string ParameterId = "Test.Partition.Value";
+        private const string CrossDatabaseQueriesUnavailable = "Cross-database queries aren't enabled on this SQL server.";
 
         private readonly string _serverConnectionString = EnvironmentVariables.GetEnvironmentVariable(KnownEnvironmentVariableNames.SqlServerConnectionString);
         private readonly string _applicationDatabase = NewDatabaseName("app");
@@ -35,10 +37,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly string _betaDatabase = NewDatabaseName("beta");
         private ISqlConnectionBuilder _connectionBuilder;
         private SqlPartitionManager _partitionManager;
+        private bool _crossDatabaseQueriesUnavailable;
 
         public async ValueTask InitializeAsync()
         {
             await CreateDatabaseAsync(_applicationDatabase, "CustomQuery_app", parameterValue: null);
+
+            try
+            {
+                await ExecuteAsync(null, $"SELECT TOP (0) name FROM [{_applicationDatabase}].sys.objects");
+            }
+            catch (SqlException)
+            {
+                _crossDatabaseQueriesUnavailable = true;
+                return;
+            }
+
             await CreateDatabaseAsync(_alphaDatabase, "CustomQuery_alpha", parameterValue: 1);
             await CreateDatabaseAsync(_betaDatabase, "CustomQuery_beta", parameterValue: 2);
 
@@ -69,6 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenProceduresInEachPartitionDatabase_WhenLoaded_ThenEachPartitionSeesOnlyItsOwnProcedures()
         {
+            Assert.SkipWhen(_crossDatabaseQueriesUnavailable, CrossDatabaseQueriesUnavailable);
             var cache = new CustomQueryCache(_connectionBuilder, _partitionManager, NullLogger<CustomQueryCache>.Instance);
 
             CustomQueryProcedures alpha = await cache.GetAsync("alpha");
@@ -91,6 +106,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenParametersInEachPartitionDatabase_WhenLoaded_ThenEachPartitionSeesOnlyItsOwnValues()
         {
+            Assert.SkipWhen(_crossDatabaseQueriesUnavailable, CrossDatabaseQueriesUnavailable);
             var cache = new DatabaseParameterCache(_connectionBuilder, _partitionManager, NullLogger<DatabaseParameterCache>.Instance);
 
             DatabaseParameters alpha = await cache.GetAsync("alpha");

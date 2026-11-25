@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
@@ -36,18 +35,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         /// <inheritdoc />
-        [SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "The async: false branch must run synchronously.")]
         protected override async ValueTask<CustomQueryProcedures> GetRemoteDataAsync(string partitionId, bool async, CancellationToken cancellationToken)
         {
-            using SqlConnection connection = await OpenConnectionAsync(partitionId, async, cancellationToken);
-            using var command = new SqlCommand("SELECT name FROM sys.objects WHERE type = 'p' AND name LIKE 'CustomQuery[_]%'", connection);
-            using SqlDataReader reader = async ? await command.ExecuteReaderAsync(cancellationToken) : command.ExecuteReader();
-
-            var procedureNames = new List<string>();
-            while (async ? await reader.ReadAsync(cancellationToken) : reader.Read())
-            {
-                procedureNames.Add(reader.GetString(0));
-            }
+            IReadOnlyList<string> procedureNames = await QueryAsync(
+                partitionId,
+#pragma warning disable CA2100 // The only interpolated value is an object name quoted by SqlObjectNameFormatter.
+                names => new SqlCommand($"SELECT name FROM {names.GetObjectName("sys.objects")} WHERE type = 'p' AND name LIKE 'CustomQuery[_]%'"),
+#pragma warning restore CA2100
+                reader => reader.GetString(0),
+                async,
+                cancellationToken);
 
             return CustomQueryProcedures.Create(procedureNames);
         }

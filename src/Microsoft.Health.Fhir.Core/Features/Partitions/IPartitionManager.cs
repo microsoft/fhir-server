@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Partitions
         /// Gets every configured partition.
         /// </summary>
         /// <returns>The configured partitions, or an empty sequence when partitioning is disabled.</returns>
-        IEnumerable<IPartitionInfo> GetPartitions();
+        IReadOnlyCollection<IPartitionInfo> GetPartitions();
 
         /// <summary>
         /// Attempts to get the partition associated with the specified identifier.

@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
     /// </remarks>
     internal sealed class CacheInitializer : IHostedService, IDisposable
     {
-        private readonly IReadOnlyList<CachePreload> _preloads;
+        private readonly CachePreload[] _preloads;
         private readonly IPartitionManager _partitionManager;
         private readonly IServiceProvider _serviceProvider;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
             IHostApplicationLifetime lifetime,
             ILogger<CacheInitializer> logger)
         {
-            _preloads = EnsureArg.IsNotNull(preloads, nameof(preloads)).ToList();
+            _preloads = EnsureArg.IsNotNull(preloads, nameof(preloads)).ToArray();
             _partitionManager = EnsureArg.IsNotNull(partitionManager, nameof(partitionManager));
             _serviceProvider = EnsureArg.IsNotNull(serviceProvider, nameof(serviceProvider));
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
@@ -93,8 +93,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
                 await PreloadAsync(preload, _serviceProvider, partitionId: null, cancellationToken);
             }
 
-            IEnumerable<IPartitionInfo> partitions = _partitionManager.IsEnabled ? _partitionManager.GetPartitions() : [null];
-            foreach (IPartitionInfo partition in partitions)
+            IReadOnlyCollection<IPartitionInfo> partitions = _partitionManager.GetPartitions();
+            foreach (IPartitionInfo partition in partitions.Count > 0 ? partitions : [null])
             {
                 await PreloadPartitionAsync(partition, cancellationToken);
             }
@@ -103,7 +103,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
         private async Task PreloadPartitionAsync(IPartitionInfo partition, CancellationToken cancellationToken)
         {
             await using AsyncServiceScope scope = _serviceProvider.CreateAsyncScope();
-            IFhirRequestContext previousContext = _requestContextAccessor.RequestContext;
+
+            // The request context is an AsyncLocal set inside this async method, so it reverts when the method returns.
             _requestContextAccessor.RequestContext = new FhirRequestContext(
                 method: nameof(CacheInitializer),
                 uriString: "https://localhost/",
@@ -116,16 +117,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Caching
                 Partition = partition,
             };
 
-            try
+            foreach (CachePreload preload in _preloads.Where(p => p.IsPartitioned))
             {
-                foreach (CachePreload preload in _preloads.Where(p => p.IsPartitioned))
-                {
-                    await PreloadAsync(preload, scope.ServiceProvider, partition?.Id, cancellationToken);
-                }
-            }
-            finally
-            {
-                _requestContextAccessor.RequestContext = previousContext;
+                await PreloadAsync(preload, scope.ServiceProvider, partition?.Id, cancellationToken);
             }
         }
 
