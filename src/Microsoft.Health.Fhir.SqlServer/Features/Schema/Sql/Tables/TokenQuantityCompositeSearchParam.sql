@@ -18,9 +18,8 @@ ALTER TABLE dbo.TokenQuantityCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
 CREATE CLUSTERED INDEX IXC_TokenQuantityCompositeSearchParam
 ON dbo.TokenQuantityCompositeSearchParam
 (
-    ResourceTypeId,
-    ResourceSurrogateId,
-    SearchParamId
+    SearchParamId,
+    ResourceSurrogateId
 )
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)

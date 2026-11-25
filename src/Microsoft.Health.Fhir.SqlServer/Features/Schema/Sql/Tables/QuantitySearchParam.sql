@@ -15,9 +15,8 @@ ALTER TABLE dbo.QuantitySearchParam SET ( LOCK_ESCALATION = AUTO )
 CREATE CLUSTERED INDEX IXC_QuantitySearchParam
 ON dbo.QuantitySearchParam
 (
-    ResourceTypeId,
-    ResourceSurrogateId,
-    SearchParamId
+    SearchParamId,
+    ResourceSurrogateId
 )
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 

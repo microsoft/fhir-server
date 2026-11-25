@@ -14,9 +14,8 @@ ALTER TABLE dbo.TokenText SET ( LOCK_ESCALATION = AUTO )
 CREATE CLUSTERED INDEX IXC_TokenText
 ON dbo.TokenText
 (
-    ResourceTypeId,
-    ResourceSurrogateId,
-    SearchParamId
+    SearchParamId,
+    ResourceSurrogateId
 )
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)

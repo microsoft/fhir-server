@@ -245,7 +245,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return;
             }
 
-            string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Uri = p.Url, IsPartiallySupported = p.IsPartiallySupported }));
+            var unsupportedUris = _schemaInformation.Current >= (int)SchemaVersion.V123
+                ? (await _filebasedSearchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken))
+                    .Where(s => s.Status == SearchParameterStatus.Unsupported).Select(s => s.Uri).ToHashSet()
+                : new HashSet<Uri>();
+            string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new
+            {
+                Uri = p.Url,
+                IsPartiallySupported = p.IsPartiallySupported,
+                TargetTable = unsupportedUris.Contains(p.Url) ? SearchParameterTargetTable.Unsupported : SearchParameterTargetTable.Get(p),
+            }));
             string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
             string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
             string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
@@ -458,6 +467,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.CommandText = "dbo.MergeSearchParams";
 
             new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(fileStatuses));
+            if (_schemaInformation.Current >= (int)SchemaVersion.V123)
+            {
+                var targets = fileStatuses.Where(s => s.Status == SearchParameterStatus.Unsupported)
+                    .Select(s => new { Uri = s.Uri.OriginalString, TargetTable = SearchParameterTargetTable.Unsupported });
+                cmd.Parameters.Add(new SqlParameter("@SearchParamTargets", SqlDbType.NVarChar, -1) { Value = JsonConvert.SerializeObject(targets) });
+            }
 
             try
             {
