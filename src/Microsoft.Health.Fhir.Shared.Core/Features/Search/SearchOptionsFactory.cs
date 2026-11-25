@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     /// <summary>
     /// Creates <see cref="SearchOptions"/> from search request parameters.
     /// </summary>
-    public partial class SearchOptionsFactory : ISearchOptionsFactory
+    public class SearchOptionsFactory : ISearchOptionsFactory
     {
         private static readonly string SupportedTotalTypes = $"'{TotalType.Accurate}', '{TotalType.None}'".ToLower(CultureInfo.CurrentCulture);
         private const DataActions SearchScopeDataActions = DataActions.Read | DataActions.Search;
@@ -626,7 +626,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
-            ApplySmartScopeFiltersToChainedExpressions(searchExpressions, grantedScopes);
+            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+            {
+                SmartScopeChainFilter.Apply(searchExpressions, grantedScopes, _expressionParser, _searchParameterDefinitionManager);
+            }
 
             if (searchExpressions.Count == 1)
             {
@@ -1261,7 +1264,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// predicates to <paramref name="parsedExpressions"/>. Returns false, with the offending parameter, when the
         /// parameter is unsupported or is a semantic predicate, neither of which can be enforced as a scope constraint.
         /// </summary>
-        private bool TryParseScopeParameter(
+        internal static bool TryParseScopeParameter(
+            IExpressionParser expressionParser,
             Tuple<string, string> param,
             string targetResourceType,
             List<Expression> parsedExpressions,
@@ -1277,7 +1281,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 Expression parsed;
                 try
                 {
-                    parsed = _expressionParser.Parse(new[] { targetResourceType }, q.Item1, q.Item2)
+                    parsed = expressionParser.Parse(new[] { targetResourceType }, q.Item1, q.Item2)
                         .AcceptVisitor(SmartScopeLocalReferenceRewriter.Instance, null);
                 }
                 catch (SearchParameterNotSupportedException)
@@ -1300,7 +1304,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return true;
         }
 
-        private static bool HasScopeSearchParameters(ScopeRestriction restriction)
+        internal static bool HasScopeSearchParameters(ScopeRestriction restriction)
         {
             return restriction.SearchParameters != null && restriction.SearchParameters.Parameters.Any();
         }
@@ -1325,7 +1329,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         Expression.SearchParameter(ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, targetResourceType, false)));
                 }
 
-                if (!TryParseScopeParameter(param, targetResourceType, fineGrainedSmartSearchExpressions, out unenforceableParameter))
+                if (!TryParseScopeParameter(_expressionParser, param, targetResourceType, fineGrainedSmartSearchExpressions, out unenforceableParameter))
                 {
                     return false;
                 }

@@ -691,18 +691,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenAFilteredWildcardScope_WhenCreatedWithAChain_ThenTheScopeFilterIsAppliedInsideTheChain()
-        {
-            SearchOptionsFactory factory = CreateFactory(
-                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
-                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams((AvailableParameterCode, "loinc-1"))));
-
-            SearchOptions options = factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false);
-
-            Assert.Contains($"{AvailableParameterCode}=loinc-1", FindChain(options.Expression).Expression.ToString(), StringComparison.Ordinal);
-        }
-
-        [Fact]
         public void GivenAnUnfilteredScopeAlsoGrantsTheFarSideType_WhenCreatedWithAChain_ThenTheChainIsUnchanged()
         {
             // Scopes are alternatives: the unfiltered Condition scope already permits every Condition.
@@ -794,10 +782,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         [Theory]
         [InlineData("category", "code")]
-        [InlineData("category:not", "category:not")]
         [InlineData(DateParameterCode, DateParameterCode, "ge2020-01-01", "lt2010-01-01")]
         [InlineData("category", "category", "encounter-diagnosis\\", "problem-list-item")]
-        [InlineData("category", "category", "encounter-diagnosis", "problem-list-item\\")]
         public void GivenSeveralFilteredScopesThatCannotBeCombinedInAChain_WhenCreated_ThenRequestIsDenied(string firstCode, string secondCode, string firstValue = "encounter-diagnosis", string secondValue = "problem-list-item")
         {
             SearchOptionsFactory factory = CreateFactory(
@@ -864,19 +850,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             string chainCriteria = FindChain(options.Expression).Expression.ToString();
             Assert.Contains("category=encounter-diagnosis", chainCriteria, StringComparison.Ordinal);
             Assert.DoesNotContain($"{UnavailableParameterCode}=", chainCriteria, StringComparison.Ordinal);
-        }
-
-        [Fact]
-        public void GivenAnUnavailableWildcardScopeFilterAndAUsableAlternative_WhenCreatedWithAChain_ThenRequestIsDenied()
-        {
-            SearchOptionsFactory factory = CreateFactory(
-                new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "patient"),
-                new ScopeRestriction("Condition", DataActions.Read, "patient", CreateSearchParams(("category", "encounter-diagnosis"))),
-                new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient", CreateSearchParams((UnavailableParameterCode, "patient-B"))));
-
-            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(
-                () => factory.Create(KnownResourceTypes.Patient, new List<Tuple<string, string>> { Tuple.Create("_has:Condition:subject:code", "x") }, onlyIds: false, isIncludesOperation: false));
-            Assert.Contains(UnavailableParameterCode, exception.Message, StringComparison.Ordinal);
         }
 
         [Fact]

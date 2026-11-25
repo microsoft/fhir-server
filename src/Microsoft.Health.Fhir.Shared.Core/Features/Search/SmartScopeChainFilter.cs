@@ -10,7 +10,9 @@ using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
 
@@ -19,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     /// <summary>
     /// Applies SMART v2 scope search-parameter filters to chained and reverse-chained (_has) searches.
     /// </summary>
-    public partial class SearchOptionsFactory
+    internal static class SmartScopeChainFilter
     {
         /// <summary>
         /// Applies SMART v2 scope search-parameter filters to the resources reached through chained and
@@ -29,35 +31,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         /// <param name="searchExpressions">The parsed search expressions; chained expressions are rewritten in place.</param>
         /// <param name="grantedScopes">The SMART scopes granting the requested data actions.</param>
-        private void ApplySmartScopeFiltersToChainedExpressions(List<Expression> searchExpressions, IReadOnlyCollection<ScopeRestriction> grantedScopes)
+        /// <param name="expressionParser">The parser used to build scope filter expressions.</param>
+        /// <param name="searchParameterDefinitionManager">The search parameter definitions used to inspect scope filter types.</param>
+        internal static void Apply(
+            List<Expression> searchExpressions,
+            IReadOnlyCollection<ScopeRestriction> grantedScopes,
+            IExpressionParser expressionParser,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager)
         {
-            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl != true)
-            {
-                return;
-            }
-
             // An unfiltered wildcard scope grants every resource of every type, so there is nothing to apply.
-            if (grantedScopes.Any(r => r.Resource == KnownResourceTypes.All && !HasScopeSearchParameters(r)))
+            if (grantedScopes.Any(r => r.Resource == KnownResourceTypes.All && !SearchOptionsFactory.HasScopeSearchParameters(r)))
             {
                 return;
             }
 
+            var context = new ChainFilterContext(grantedScopes, expressionParser, searchParameterDefinitionManager);
             for (int i = 0; i < searchExpressions.Count; i++)
             {
-                searchExpressions[i] = ApplySmartScopeFiltersToChains(searchExpressions[i], grantedScopes);
+                searchExpressions[i] = ApplySmartScopeFiltersToChains(searchExpressions[i], context);
             }
         }
 
-        private Expression ApplySmartScopeFiltersToChains(Expression expression, IReadOnlyCollection<ScopeRestriction> grantedScopes)
+        private static Expression ApplySmartScopeFiltersToChains(Expression expression, ChainFilterContext context)
         {
             switch (expression)
             {
                 case ChainedExpression chained:
-                    return ApplySmartScopeFiltersToChain(chained, grantedScopes);
+                    return ApplySmartScopeFiltersToChain(chained, context);
 
                 // Scope-injected expressions come from the token itself and never contain chains.
                 case MultiaryExpression multiary when !multiary.IsSmartV2UnionExpressionForScopesSearchParameters:
-                    var rewritten = multiary.Expressions.Select(e => ApplySmartScopeFiltersToChains(e, grantedScopes)).ToList();
+                    var rewritten = multiary.Expressions.Select(e => ApplySmartScopeFiltersToChains(e, context)).ToList();
                     return rewritten.SequenceEqual(multiary.Expressions)
                         ? multiary
                         : new MultiaryExpression(multiary.MultiaryOperation, rewritten);
@@ -67,9 +71,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
         }
 
-        private ChainedExpression ApplySmartScopeFiltersToChain(ChainedExpression chained, IReadOnlyCollection<ScopeRestriction> grantedScopes)
+        private static ChainedExpression ApplySmartScopeFiltersToChain(ChainedExpression chained, ChainFilterContext context)
         {
-            Expression inner = ApplySmartScopeFiltersToChains(chained.Expression, grantedScopes);
+            Expression inner = ApplySmartScopeFiltersToChains(chained.Expression, context);
 
             // The far side of a forward chain is its target; for _has it is the referencing resource type.
             string[] farSideTypes = chained.Reversed ? chained.ResourceTypes : chained.TargetResourceTypes;
@@ -77,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IReadOnlyList<Tuple<string, string>> filteringParameters = null;
             foreach (string farSideType in farSideTypes)
             {
-                IReadOnlyList<Tuple<string, string>> parameters = GetChainFilteringParameters(farSideType, grantedScopes);
+                IReadOnlyList<Tuple<string, string>> parameters = GetChainFilteringParameters(farSideType, context);
                 if (parameters == null)
                 {
                     continue;
@@ -111,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeChainedSearchNotEnforceable, targetType));
             }
 
-            List<Expression> filters = BuildChainScopeFilters(filteringParameters, targetType);
+            List<Expression> filters = BuildChainScopeFilters(filteringParameters, targetType, context.ExpressionParser);
 
             var children = new List<Expression>();
             if (inner is MultiaryExpression { MultiaryOperation: MultiaryOperator.And } innerAnd)
@@ -145,9 +149,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// scope parameters (e.g. category:not) are always rejected, because a chain link evaluates each predicate per
         /// indexed value rather than per resource.
         /// </summary>
-        private IReadOnlyList<Tuple<string, string>> GetChainFilteringParameters(string resourceType, IReadOnlyCollection<ScopeRestriction> grantedScopes)
+        private static IReadOnlyList<Tuple<string, string>> GetChainFilteringParameters(string resourceType, ChainFilterContext context)
         {
-            var applicable = grantedScopes
+            var applicable = context.GrantedScopes
                 .Where(r => r.Resource == resourceType || r.Resource == KnownResourceTypes.All)
                 .ToList();
 
@@ -161,7 +165,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             foreach (ScopeRestriction restriction in applicable.Where(r => r.Resource == KnownResourceTypes.All))
             {
                 List<Tuple<string, string>> parameters = restriction.SearchParameters.Parameters.ToList();
-                string unusableReason = GetChainScopeUnusableReason(parameters, resourceType);
+                string unusableReason = GetChainScopeUnusableReason(parameters, resourceType, context.ExpressionParser);
                 if (unusableReason != null)
                 {
                     // A wildcard constraint applies to every scope, so it cannot be withdrawn without widening access.
@@ -173,10 +177,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (wildcardParameters.Count > 0)
             {
-                return MergeChainScopeAlternatives(wildcardParameters, resourceType);
+                return MergeChainScopeAlternatives(wildcardParameters, resourceType, context.SearchParameterDefinitionManager);
             }
 
-            if (applicable.Any(r => !HasScopeSearchParameters(r)))
+            if (applicable.Any(r => !SearchOptionsFactory.HasScopeSearchParameters(r)))
             {
                 return null;
             }
@@ -186,7 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             foreach (ScopeRestriction restriction in applicable)
             {
                 List<Tuple<string, string>> parameters = restriction.SearchParameters.Parameters.ToList();
-                string unusableReason = GetChainScopeUnusableReason(parameters, resourceType);
+                string unusableReason = GetChainScopeUnusableReason(parameters, resourceType, context.ExpressionParser);
 
                 if (unusableReason == null)
                 {
@@ -203,14 +207,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 throw new InvalidSearchOperationException(withdrawnReason);
             }
 
-            return MergeChainScopeAlternatives(scopeParameters, resourceType);
+            return MergeChainScopeAlternatives(scopeParameters, resourceType, context.SearchParameterDefinitionManager);
         }
 
         /// <summary>
         /// Combines alternative scope filters for <paramref name="resourceType"/> into the parameters of one chain link,
         /// or denies the request when they cannot be combined.
         /// </summary>
-        private IReadOnlyList<Tuple<string, string>> MergeChainScopeAlternatives(List<List<Tuple<string, string>>> scopeParameters, string resourceType)
+        private static IReadOnlyList<Tuple<string, string>> MergeChainScopeAlternatives(
+            List<List<Tuple<string, string>>> scopeParameters,
+            string resourceType,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager)
         {
             // Identical grants are the same alternative and must not be treated as distinct ones that need merging.
             // Compare the parameter pairs themselves: decoded values may contain '&' or '=', so a joined string is ambiguous.
@@ -241,7 +248,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             bool canMerge = scopeParameters.All(p => p.Count == 1 && string.Equals(p[0].Item1, key, StringComparison.Ordinal)) &&
                 !scopeParameters.Any(p => EndsWithDanglingEscape(p[0].Item2)) &&
-                !HasComparatorValue(resourceType, key, scopeParameters.Select(p => p[0].Item2));
+                !HasComparatorValue(searchParameterDefinitionManager, resourceType, key, scopeParameters.Select(p => p[0].Item2));
 
             if (!canMerge)
             {
@@ -258,7 +265,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Resource-level parameters (_id, _lastUpdated, _type) are not evaluated as per-link predicates inside a chain by
         /// every backend.
         /// </summary>
-        private string GetChainScopeUnusableReason(IReadOnlyList<Tuple<string, string>> parameters, string resourceType)
+        private static string GetChainScopeUnusableReason(IReadOnlyList<Tuple<string, string>> parameters, string resourceType, IExpressionParser expressionParser)
         {
             if (parameters.Any(param => param.Item1.Contains(':', StringComparison.Ordinal) || param.Item1.Contains('.', StringComparison.Ordinal)))
             {
@@ -268,7 +275,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var filters = new List<Expression>();
             foreach (Tuple<string, string> param in parameters)
             {
-                if (!TryParseScopeParameter(param, resourceType, filters, out string unenforceableParameter))
+                if (!SearchOptionsFactory.TryParseScopeParameter(expressionParser, param, resourceType, filters, out string unenforceableParameter))
                 {
                     return string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeSearchParameterNotEnforceable, unenforceableParameter);
                 }
@@ -301,9 +308,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Comparator prefixes (e.g. ge, lt) cannot be combined with a comma-separated (OR) value, so scopes whose
         /// values use them cannot be merged.
         /// </summary>
-        private bool HasComparatorValue(string resourceType, string parameterCode, IEnumerable<string> values)
+        private static bool HasComparatorValue(
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            string resourceType,
+            string parameterCode,
+            IEnumerable<string> values)
         {
-            if (!_searchParameterDefinitionManager.TryGetSearchParameter(resourceType, parameterCode, out SearchParameterInfo searchParameter) ||
+            if (!searchParameterDefinitionManager.TryGetSearchParameter(resourceType, parameterCode, out SearchParameterInfo searchParameter) ||
                 (searchParameter.Type != ValueSets.SearchParamType.Date &&
                  searchParameter.Type != ValueSets.SearchParamType.Number &&
                  searchParameter.Type != ValueSets.SearchParamType.Quantity))
@@ -316,12 +327,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 .Any(v => Enum.GetValues<ValueSets.SearchComparator>().Any(c => v.StartsWith(c.GetLiteral(), StringComparison.Ordinal)));
         }
 
-        private List<Expression> BuildChainScopeFilters(IReadOnlyList<Tuple<string, string>> parameters, string targetResourceType)
+        private static List<Expression> BuildChainScopeFilters(IReadOnlyList<Tuple<string, string>> parameters, string targetResourceType, IExpressionParser expressionParser)
         {
             var filters = new List<Expression>();
             foreach (Tuple<string, string> param in parameters)
             {
-                if (!TryParseScopeParameter(param, targetResourceType, filters, out string unenforceableParameter))
+                if (!SearchOptionsFactory.TryParseScopeParameter(expressionParser, param, targetResourceType, filters, out string unenforceableParameter))
                 {
                     throw new InvalidSearchOperationException(
                         string.Format(CultureInfo.InvariantCulture, Core.Resources.SmartScopeSearchParameterNotEnforceable, unenforceableParameter));
@@ -347,5 +358,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 _ => false,
             };
         }
+
+        private sealed record ChainFilterContext(
+            IReadOnlyCollection<ScopeRestriction> GrantedScopes,
+            IExpressionParser ExpressionParser,
+            ISearchParameterDefinitionManager SearchParameterDefinitionManager);
     }
 }
