@@ -5,20 +5,28 @@
 
 using System;
 using System.Text.Json.Nodes;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Ignixa.Serialization.SourceNodes;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Time.Testing;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
 using Microsoft.Health.Fhir.FirelySdk.Features.Operations.Import;
 using Microsoft.Health.Fhir.Ignixa;
 using Microsoft.Health.Fhir.Ignixa.Features.Operations.Import;
@@ -26,6 +34,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
 {
@@ -35,33 +44,88 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
     /// </summary>
     [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.Import)]
+    [Collection(ImportClockTestCollection.Name)]
     public class ImportResourceParserParityTests
     {
+        private static readonly DateTimeOffset PinnedNow = new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+
+#pragma warning disable CS0618 // Type or member is obsolete
+        private static readonly FhirJsonParser ProductionFirelyJsonParser = new(new ParserSettings { PermissiveParsing = true, TruncateDateTimeToDate = true });
+#pragma warning restore CS0618 // Type or member is obsolete
+
+        private readonly IgnixaSchemaContext _schemaContext = new(new VersionSpecificModelInfoProvider());
         private readonly IImportResourceParser _firelyParser;
         private readonly IImportResourceParser _ignixaParser;
         private readonly ResourceWrapperFactory _wrapperFactory;
 
         public ImportResourceParserParityTests()
         {
-            var requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            requestContextAccessor.RequestContext.Method.Returns("PUT");
-            requestContextAccessor.RequestContext.Uri.Returns(new Uri("https://unittest/Patient/123"));
-
-            _wrapperFactory = new ResourceWrapperFactory(
-                new RawResourceFactory(new FhirJsonSerializer()),
-                requestContextAccessor,
-                Substitute.For<ISearchIndexer>(),
-                Substitute.For<IClaimsExtractor>(),
-                Substitute.For<ICompartmentIndexer>(),
-                Substitute.For<ISearchParameterDefinitionManager>(),
-                Deserializers.ResourceDeserializer);
-
+            _wrapperFactory = CreateWrapperFactory(Substitute.For<ISearchIndexer>());
             _firelyParser = new FirelyImportResourceParser(new FhirJsonParser(), _wrapperFactory, ResourceIdPolicy.Standard);
-            _ignixaParser = new IgnixaImportResourceParser(
-                _wrapperFactory,
-                new IgnixaSchemaContext(new VersionSpecificModelInfoProvider()),
-                ResourceIdPolicy.Standard);
+            _ignixaParser = CreateIgnixaParser(_wrapperFactory);
         }
+
+        public static TheoryData<string, ImportMode> AcceptedParityCorpus => new()
+        {
+            {
+                """{"resourceType":"Patient","id":"patient-1","meta":{"versionId":"7","lastUpdated":"2026-01-02T03:04:05.123Z"},"active":true}""",
+                ImportMode.IncrementalLoad
+            },
+            {
+                """{"resourceType":"Patient","id":"patient-1","meta":{"versionId":"7","lastUpdated":"2020-01-01T00:00:00Z","_lastUpdated":{"id":"original"}}}""",
+                ImportMode.IncrementalLoad
+            },
+            {
+                """{"resourceType":"Patient","id":"patient-1","meta":{"versionId":"9","lastUpdated":"2020-01-01T00:00:00Z"}}""",
+                ImportMode.InitialLoad
+            },
+            {
+                """{"resourceType":"Patient","id":"patient-1","meta":{"versionId":"not-a-number","lastUpdated":"2020-01-01T00:00:00Z"}}""",
+                ImportMode.IncrementalLoad
+            },
+            {
+                """{"resourceType":"Observation","id":"obs-1","subject":{"identifier":{"system":"http://example.org","value":"123"}},"status":"final","code":{"text":"test"}}""",
+                ImportMode.InitialLoad
+            },
+            {
+                """{"resourceType":"Observation","id":"obs-1","subject":{"display":"Some Patient"},"status":"final","code":{"text":"test"}}""",
+                ImportMode.IncrementalLoad
+            },
+            {
+                """{"resourceType":"Patient","id":"patient-1","generalPractitioner":{"reference":"Practitioner/1"}}""",
+                ImportMode.IncrementalLoad
+            },
+            {
+                """{"resourceType":"Patient","id":"patient-1","contained":[{"resourceType":"Observation","id":"obs-1","subject":{"reference":"Patient?identifier=system|value"},"status":"final","code":{"text":"test"}}]}""",
+                ImportMode.IncrementalLoad
+            },
+            {
+                """{"resourceType":"Bundle","id":"bundle-1","type":"collection","entry":[{"resource":{"resourceType":"Observation","id":"obs-1","subject":{"reference":"Patient?identifier=system|value"},"status":"final","code":{"text":"test"}}}]}""",
+                ImportMode.IncrementalLoad
+            },
+            {
+                $$$"""{"resourceType":"Patient","id":"patient-1","meta":{"extension":[{"url":"{{{KnownFhirPaths.AzureSoftDeletedExtensionUrl}}}","valueString":"soft-deleted"}]}}""",
+                ImportMode.IncrementalLoad
+            },
+            {
+                """
+                {
+                  "resourceType":"Patient",
+                  "id":"patient-1",
+                  "meta":{"lastUpdated":"2026-01-02T03:04:05.123Z"},
+                  "extension":[{"url":"http://example.org/date","valueDate":"2001-02-03T04:05:06Z"}],
+                  "birthDate":"2001-02-03T04:05:06+10:00",
+                  "_birthDate":{"extension":[{"url":"http://example.org/note","valueString":"shadow"}]},
+                  "deceasedDateTime":"2020-05-06T07:08:09Z",
+                  "contained":[
+                    {"resourceType":"Patient","id":"contained-1","birthDate":"1999-12-31T23:59:59-05:00"},
+                    {"resourceType":"Patient","id":"contained-2","birthDate":"2001-02"}
+                  ]
+                }
+                """,
+                ImportMode.IncrementalLoad
+            },
+        };
 
         [Fact]
         public void GivenValidResource_WhenParsed_ThenProvidersProduceEquivalentImportMetadata()
@@ -402,7 +466,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
         [Fact]
         public void GivenChoiceTypeReferenceWithConditionalReference_WhenParsedOnInitialLoad_ThenBothProvidersReject()
         {
-            string json = ModelInfoProvider.Version == FhirSpecification.R5
+            string json = new VersionSpecificModelInfoProvider().Version == FhirSpecification.R5
                 ? """
                   {
                     "resourceType":"Observation",
@@ -792,5 +856,134 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             Assert.NotNull(formatException.InnerException);
             Assert.IsType<System.Text.Json.JsonException>(formatException.InnerException);
         }
+
+        [Fact]
+        public void GivenIgnixaParser_WhenParsing_ThenResourceElementCarriesNativeNode()
+        {
+            const string json = """{"resourceType":"Patient","id":"patient-1","active":true}""";
+
+            ResourceElement element = ParseCapturingElement(CreateIgnixaParser, _wrapperFactory, json, ImportMode.IncrementalLoad).Element;
+
+            ResourceJsonNode carrier = Assert.IsAssignableFrom<ResourceJsonNode>(element.ResourceInstance);
+            Assert.Equal("patient-1", carrier.Id);
+        }
+
+        [Theory]
+        [MemberData(nameof(AcceptedParityCorpus))]
+        public void GivenNativeCarrier_WhenToPoco_ThenReturnsEquivalentPoco(string json, ImportMode importMode)
+        {
+            using (Mock.Property(() => ClockResolver.TimeProvider, new FakeTimeProvider(PinnedNow)))
+            {
+                ResourceElement firely = ParseCapturingElement(CreateProductionFirelyParser, _wrapperFactory, json, importMode).Element;
+                ResourceElement ignixa = ParseCapturingElement(CreateIgnixaParser, _wrapperFactory, json, importMode).Element;
+
+                Assert.IsAssignableFrom<ResourceJsonNode>(ignixa.ResourceInstance);
+                Resource expected = firely.ToPoco<Resource>();
+                Resource actual = ignixa.ToPoco<Resource>();
+                var serializer = new FhirJsonSerializer();
+                Assert.True(
+                    actual.IsExactly(expected),
+                    $"Expected {serializer.SerializeToString(expected)} but found {serializer.SerializeToString(actual)}.");
+            }
+        }
+
+        [Theory]
+        [InlineData("2001-02-03T04:05:06Z", "2001-02-03")]
+        [InlineData("T04:05", null)]
+        [InlineData("T04:05:06Z", null)]
+        [InlineData("2001-02-03T04Z", "2001-02-03")]
+        [InlineData("2001-02-03T04:05Z", "2001-02-03")]
+        [InlineData("@2001-02-03T04:05:06Z", null)]
+        [InlineData("2001-02T04:05:06Z", null)]
+        [InlineData(" 2001-02-03T04:05:06Z", "2001-02-03")]
+        public async Task GivenBirthDateWithTime_WhenParsed_ThenMatchesFirelyTruncationOrPreservesRejectedLiteral(string literal, string expectedDate)
+        {
+            string json = $$"""{"resourceType":"Patient","id":"patient-1","birthDate":"{{literal}}"}""";
+            if (expectedDate == null)
+            {
+                var captureOnlyFactory = Substitute.For<IResourceWrapperFactory>();
+                Assert.ThrowsAny<FormatException>(() =>
+                    CreateProductionFirelyParser(captureOnlyFactory).Parse(0, 0, json.Length, json, ImportMode.IncrementalLoad));
+
+                // Inspect the native node before Firely conversion can change or reject the literal.
+                ResourceElement element = ParseCapturingElement(CreateIgnixaParser, captureOnlyFactory, json, ImportMode.IncrementalLoad).Element;
+                Assert.Equal(literal, GetNativeBirthDate(element));
+                return;
+            }
+
+            var searchIndexer = new TypedElementSearchIndexer(
+                new SupportedSearchParameterDefinitionManager(await new SearchParameterFixtureData().GetSearchDefinitionManagerAsync()),
+                await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync(),
+                Substitute.For<IReferenceToElementResolver>(),
+                new VersionSpecificModelInfoProvider(),
+                new FirelyFhirPathProvider(),
+                NullLogger<TypedElementSearchIndexer>.Instance);
+            ResourceWrapperFactory wrapperFactory = CreateWrapperFactory(searchIndexer);
+
+            (ImportResource firely, _) = ParseCapturingElement(CreateProductionFirelyParser, wrapperFactory, json, ImportMode.IncrementalLoad);
+            (ImportResource ignixa, ResourceElement ignixaElement) = ParseCapturingElement(CreateIgnixaParser, wrapperFactory, json, ImportMode.IncrementalLoad);
+
+            Assert.Equal(expectedDate, GetNativeBirthDate(ignixaElement));
+            Assert.Equal(expectedDate, JsonNode.Parse(firely.ResourceWrapper.RawResource.Data)["birthDate"].GetValue<string>());
+            Assert.Equal(expectedDate, JsonNode.Parse(ignixa.ResourceWrapper.RawResource.Data)["birthDate"].GetValue<string>());
+
+            DateTimeSearchValue firelyIndex = GetBirthDateIndexValue(firely);
+            DateTimeSearchValue ignixaIndex = GetBirthDateIndexValue(ignixa);
+            Assert.Equal(expectedDate, ignixaIndex.ToString());
+            Assert.Equal(firelyIndex.Start, ignixaIndex.Start);
+            Assert.Equal(firelyIndex.End, ignixaIndex.End);
+        }
+
+        private static ResourceWrapperFactory CreateWrapperFactory(ISearchIndexer searchIndexer)
+        {
+            var requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            requestContextAccessor.RequestContext.Method.Returns("PUT");
+            requestContextAccessor.RequestContext.Uri.Returns(new Uri("https://unittest/Patient/123"));
+
+            return new ResourceWrapperFactory(
+                new RawResourceFactory(new FhirJsonSerializer()),
+                requestContextAccessor,
+                searchIndexer,
+                Substitute.For<IClaimsExtractor>(),
+                Substitute.For<ICompartmentIndexer>(),
+                Substitute.For<ISearchParameterDefinitionManager>(),
+                Deserializers.ResourceDeserializer);
+        }
+
+        private static IImportResourceParser CreateProductionFirelyParser(IResourceWrapperFactory wrapperFactory)
+            => new FirelyImportResourceParser(ProductionFirelyJsonParser, wrapperFactory, ResourceIdPolicy.Standard);
+
+        private static (ImportResource Resource, ResourceElement Element) ParseCapturingElement(
+            Func<IResourceWrapperFactory, IImportResourceParser> createParser,
+            IResourceWrapperFactory wrapperFactory,
+            string json,
+            ImportMode importMode)
+        {
+            ResourceElement element = null;
+            var recordingFactory = Substitute.For<IResourceWrapperFactory>();
+            recordingFactory
+                .Create(Arg.Any<ResourceElement>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<bool>())
+                .Returns(call =>
+                {
+                    element = call.ArgAt<ResourceElement>(0);
+                    return wrapperFactory.Create(element, call.ArgAt<bool>(1), call.ArgAt<bool>(2), call.ArgAt<bool>(3));
+                });
+
+            ImportResource resource = createParser(recordingFactory).Parse(0, 0, json.Length, json, importMode);
+            return (resource, element);
+        }
+
+        private static string GetNativeBirthDate(ResourceElement element)
+        {
+            ResourceJsonNode carrier = Assert.IsAssignableFrom<ResourceJsonNode>(element.ResourceInstance);
+            JsonObject carriedJson = Assert.IsType<JsonObject>(carrier.ToSourceNavigator().Meta<JsonNode>());
+            return carriedJson["birthDate"].GetValue<string>();
+        }
+
+        private static DateTimeSearchValue GetBirthDateIndexValue(ImportResource resource)
+            => Assert.IsType<DateTimeSearchValue>(Assert.Single(resource.ResourceWrapper.SearchIndices, entry => entry.SearchParameter.Code == "birthdate").Value);
+
+        private IImportResourceParser CreateIgnixaParser(IResourceWrapperFactory wrapperFactory)
+            => new IgnixaImportResourceParser(wrapperFactory, _schemaContext, ResourceIdPolicy.Standard);
     }
 }

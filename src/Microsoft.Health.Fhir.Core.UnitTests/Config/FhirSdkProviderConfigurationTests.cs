@@ -27,6 +27,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
             Assert.Equal(FhirSdkProvider.Firely, configuration.FhirSdkProvider.SystemDefault);
             Assert.Equal(FhirSdkProvider.Firely, configuration.FhirSdkProvider.EffectiveImport);
             Assert.Equal(FhirSdkProvider.Firely, configuration.FhirSdkProvider.EffectiveFhirPath);
+            Assert.Equal(FhirSdkProvider.Firely, configuration.FhirSdkProvider.EffectivePersistenceWrite);
+        }
+
+        [Fact]
+        public void GivenOnlySystemDefaultIgnixa_ThenPersistenceWriteIsIgnixa()
+        {
+            var configuration = new FhirSdkProviderConfiguration { SystemDefault = FhirSdkProvider.Ignixa };
+
+            Assert.Equal(FhirSdkProvider.Ignixa, configuration.EffectivePersistenceWrite);
         }
 
         [Fact]
@@ -59,6 +68,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
         [InlineData("Firely", "FhirPath", "Ignixa")]
         [InlineData("Ignixa", "Import", "Firely")]
         [InlineData("Firely", "Import", "Ignixa")]
+        [InlineData("Ignixa", "PersistenceWrite", "Firely")]
+        [InlineData("Firely", "PersistenceWrite", "Ignixa")]
         public void GivenSystemDefaultAndOverrideFromSeparateSources_WhenBound_ThenOverrideWins(
             string systemDefault,
             string seam,
@@ -72,6 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
             FhirSdkProvider expectedSeam = Enum.Parse<FhirSdkProvider>(seamProvider);
             Assert.Equal(seam == "FhirPath" ? expectedSeam : expectedDefault, configuration.EffectiveFhirPath);
             Assert.Equal(seam == "Import" ? expectedSeam : expectedDefault, configuration.EffectiveImport);
+            Assert.Equal(seam == "PersistenceWrite" ? expectedSeam : expectedDefault, configuration.EffectivePersistenceWrite);
         }
 
         [Fact]

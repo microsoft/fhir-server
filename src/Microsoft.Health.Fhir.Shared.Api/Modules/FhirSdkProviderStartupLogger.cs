@@ -37,10 +37,11 @@ namespace Microsoft.Health.Fhir.Api.Modules
         public Task StartAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation(
-                "FHIR SDK providers configured: SystemDefault={SystemDefaultProvider}; Import={ImportProvider}; FHIRPath={FhirPathProvider}. FHIRPath Patch remains Firely-backed.",
+                "FHIR SDK providers configured: SystemDefault={SystemDefaultProvider}; Import={ImportProvider}; FHIRPath={FhirPathProvider}; PersistenceWrite={PersistenceWriteProvider}. When PersistenceWrite is Ignixa, non-native inputs are still written by Firely. FHIRPath Patch remains Firely-backed.",
                 _configuration.SystemDefault,
                 _configuration.EffectiveImport,
-                _configuration.EffectiveFhirPath);
+                _configuration.EffectiveFhirPath,
+                _configuration.EffectivePersistenceWrite);
             return Task.CompletedTask;
         }
 

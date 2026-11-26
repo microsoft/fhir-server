@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
 {
     [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.Import)]
+    [Collection(ImportClockTestCollection.Name)]
     public class ImportResourceParserTests
     {
         private readonly FhirJsonSerializer _jsonSerializer = new FhirJsonSerializer();

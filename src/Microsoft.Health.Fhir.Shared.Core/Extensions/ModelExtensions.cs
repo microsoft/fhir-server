@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            return (T)resource.ResourceInstance ?? resource.Instance.ToPoco<T>();
+            return resource.ResourceInstance is T instance ? instance : resource.Instance.ToPoco<T>();
         }
 
         public static Resource ToPoco(this ResourceElement resource)

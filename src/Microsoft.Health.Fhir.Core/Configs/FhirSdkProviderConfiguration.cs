@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
     /// </summary>
     public sealed class FhirSdkProviderConfiguration
     {
-        private static readonly string[] KnownKeys = [nameof(SystemDefault), nameof(Import), nameof(FhirPath)];
+        private static readonly string[] KnownKeys = [nameof(SystemDefault), nameof(Import), nameof(FhirPath), nameof(PersistenceWrite)];
 
         /// <summary>
         /// Gets or sets the provider used by every seam that has no override.
@@ -33,6 +33,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public FhirSdkProvider? FhirPath { get; set; }
 
         /// <summary>
+        /// Gets or sets the persistence write provider override.
+        /// </summary>
+        public FhirSdkProvider? PersistenceWrite { get; set; }
+
+        /// <summary>
         /// Gets the effective import provider.
         /// </summary>
         public FhirSdkProvider EffectiveImport => Import ?? SystemDefault;
@@ -41,6 +46,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets the effective FHIRPath provider.
         /// </summary>
         public FhirSdkProvider EffectiveFhirPath => FhirPath ?? SystemDefault;
+
+        /// <summary>
+        /// Gets the effective persistence write provider.
+        /// </summary>
+        public FhirSdkProvider EffectivePersistenceWrite => PersistenceWrite ?? SystemDefault;
 
         /// <summary>
         /// Rejects provider settings that the configuration binder would otherwise ignore or misread:
