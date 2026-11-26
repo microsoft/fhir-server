@@ -14,7 +14,7 @@
          these up; close that PR if it does. -->
     <Hl7FhirVersion>5.11.4</Hl7FhirVersion>
     <Hl7FhirLegacyVersion>5.11.0</Hl7FhirLegacyVersion>
-    <OpenIddictPackageVersion>7.8.0</OpenIddictPackageVersion>
+    <OpenIddictPackageVersion>7.9.0</OpenIddictPackageVersion>
     <!-- OpenTelemetry core packages (SDK, API, hosting) must stay on one version. Azure.Monitor.OpenTelemetry.AspNetCore
          only sets a minimum, so these direct pins raise the whole set to what OpenTelemetry.Instrumentation.EventCounters needs. -->
     <OpenTelemetryPackageVersion>1.20.1</OpenTelemetryPackageVersion>
