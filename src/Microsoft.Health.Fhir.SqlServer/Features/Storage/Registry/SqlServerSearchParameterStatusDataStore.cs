@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
+using Newtonsoft.Json;
 using SqlDataReader = Microsoft.Data.SqlClient.SqlDataReader;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
@@ -145,6 +146,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             }
 
             new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(statuses));
+            if (_schemaInformation.Current >= (int)SchemaVersion.V123)
+            {
+                var targets = statuses.Select(s =>
+                {
+                    if (s.Status == SearchParameterStatus.Unsupported)
+                    {
+                        return new { Uri = s.Uri.OriginalString, TargetTable = SearchParameterTargetTable.Unsupported };
+                    }
+
+                    return _searchParameterDefinitionManager.TryGetSearchParameter(s.Uri.OriginalString, out var definition)
+                        ? new { Uri = s.Uri.OriginalString, TargetTable = SearchParameterTargetTable.Get(definition) }
+                        : null;
+                }).Where(t => t != null);
+                cmd.Parameters.Add(new SqlParameter("@SearchParamTargets", SqlDbType.NVarChar, -1) { Value = JsonConvert.SerializeObject(targets) });
+            }
 
             try
             {

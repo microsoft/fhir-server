@@ -1,4 +1,4 @@
-﻿CREATE PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY, @ReindexId bigint = NULL
+﻿CREATE PROCEDURE dbo.MergeSearchParams @SearchParams dbo.SearchParamList READONLY, @ReindexId bigint = NULL, @SearchParamTargets nvarchar(max) = NULL
 -- @ReindexId IS NULL - not reindex. @ReindexId IS NOT NULL - reindex.
 AS
 set nocount on
@@ -57,15 +57,16 @@ BEGIN TRY
   END
 
   MERGE INTO dbo.SearchParam S
-    USING @SearchParams I ON I.Uri = S.Uri
+    USING (SELECT I.*, J.TargetTable FROM @SearchParams I LEFT JOIN OPENJSON(@SearchParamTargets) WITH (Uri varchar(128), TargetTable varchar(128)) J ON J.Uri = I.Uri) I ON I.Uri = S.Uri
     WHEN MATCHED THEN 
       UPDATE 
         SET Status = I.Status
            ,LastUpdated = @LastUpdated
            ,IsPartiallySupported = I.IsPartiallySupported
+           ,TargetTable = coalesce(I.TargetTable, S.TargetTable)
     WHEN NOT MATCHED BY TARGET THEN 
-      INSERT   (  Uri,   Status,  LastUpdated,   IsPartiallySupported) 
-        VALUES (I.Uri, I.Status, @LastUpdated, I.IsPartiallySupported);
+      INSERT   (  Uri,   Status,  LastUpdated,   IsPartiallySupported,   TargetTable)
+        VALUES (I.Uri, I.Status, @LastUpdated, I.IsPartiallySupported, I.TargetTable);
   SET @Rows = @@rowcount
   
   SET @msg = 'LastUpdated='+convert(varchar(23),@LastUpdated,126)

@@ -44,6 +44,7 @@ using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.IO;
 using Microsoft.SqlServer.Management.XEvent;
+using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -968,6 +969,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     cmd.CommandText = "dbo.MergeResourcesAndSearchParams";
                     new SearchParamListTableValuedParameterDefinition("@SearchParams").AddParameter(cmd.Parameters, new SearchParamListRowGenerator().GenerateRows(pendingStatuses));
+                    if (_schemaInformation.Current >= (int)SchemaVersion.V123)
+                    {
+                        var targets = pendingStatuses.Where(s => s.Definition != null).Select(s => new { Uri = s.Uri.OriginalString, TargetTable = SearchParameterTargetTable.Get(s.Definition) });
+                        cmd.Parameters.Add(new SqlParameter("@SearchParamTargets", SqlDbType.NVarChar, -1) { Value = JsonConvert.SerializeObject(targets) });
+                    }
                 }
                 else
                 {
@@ -1004,6 +1010,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 var commandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
                 cmd.CommandTimeout = commandTimeout;
+
+                await _sqlStoreClient.CreateGranularSecondaryIndexesAsync(cmd.Parameters, cancellationToken);
 
                 if (enlistInTransaction && _sqlTransactionHandler.SqlTransactionScope != null)
                 {
@@ -1143,6 +1151,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 var failedResourcesParam = new SqlParameter("@FailedResources", SqlDbType.Int) { Direction = ParameterDirection.Output };
                 cmd.Parameters.Add(failedResourcesParam);
+                await _sqlStoreClient.CreateGranularSecondaryIndexesAsync(cmd.Parameters, cancellationToken);
                 await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
                 failedResourceCount = (int)failedResourcesParam.Value;
             }
