@@ -194,7 +194,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             if (extendedMetadata)
             {
                 search.ElementId = "search-id";
-                search.Extension.Add(new Extension("http://example.org/search", new FhirString("quoted "value"")));
+                search.Extension.Add(new Extension("http://example.org/search", new FhirString("quoted \"value\"")));
                 search.ModifierExtension.Add(new Extension("http://example.org/modifier", new FhirBoolean(true)));
                 search.ModeElement.ElementId = "mode-id";
                 search.ScoreElement.Extension.Add(new Extension("http://example.org/score", new FhirDecimal(0.25m)));
@@ -231,9 +231,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             await formatter.WriteResponseBodyAsync(writeContext, Encoding.Unicode);
 
             Assert.True(body.Length > 0);
-            string content = Encoding.Unicode.GetString(body.ToArray()).TrimStart('﻿');
+            string content = Encoding.Unicode.GetString(body.ToArray()).TrimStart('\uFEFF');
             Validate(bundle, raw: true, hasElements: false, SummaryType.False, content);
-        }
         }
 
         private static async Task Run(
