@@ -17,7 +17,7 @@
     <OpenIddictPackageVersion>7.8.0</OpenIddictPackageVersion>
     <!-- OpenTelemetry core packages (SDK, API, hosting) must stay on one version. Azure.Monitor.OpenTelemetry.AspNetCore
          only sets a minimum, so these direct pins raise the whole set to what OpenTelemetry.Instrumentation.EventCounters needs. -->
-    <OpenTelemetryPackageVersion>1.20.1</OpenTelemetryPackageVersion>
+    <OpenTelemetryPackageVersion>1.21.0</OpenTelemetryPackageVersion>
     <IgnixaPackageVersion>0.6.82</IgnixaPackageVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
@@ -44,7 +44,7 @@
     <PackageVersion Include="Microsoft.Rest.ClientRuntime" Version="2.3.24" />
   </ItemGroup>
   <ItemGroup>
-    <PackageVersion Include="AngleSharp" Version="1.10.1" />
+    <PackageVersion Include="AngleSharp" Version="1.10.5" />
     <PackageVersion Include="Azure.AI.OpenAI" Version="2.1.0" />
     <PackageVersion Include="Azure.Containers.ContainerRegistry" Version="1.4.0" />
     <PackageVersion Include="Azure.Identity" Version="1.21.0" />
@@ -53,8 +53,8 @@
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.6.0" />
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.30.1" />
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.5.2" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.AzureDevOpsReport" Version="2.5.2" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.5.3" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.AzureDevOpsReport" Version="2.5.3" />
     <PackageVersion Include="DotNet.ReproducibleBuilds" Version="1.2.39" />
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
     <PackageVersion Include="FluentValidation" Version="12.2.0" />
@@ -128,7 +128,7 @@
     <PackageVersion Include="Microsoft.Health.Tools.Sql.Tasks" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Identity.Web" Version="4.18.0" />
     <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="4.0.1" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.404" />
     <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="170.5.96" />
     <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="172.87.0" />
@@ -150,7 +150,7 @@
     <PackageVersion Include="prometheus-net.AspNetCore" Version="8.2.1" />
     <PackageVersion Include="prometheus-net.DotNetRuntime" Version="4.4.1" />
     <PackageVersion Include="prometheus-net.SystemMetrics" Version="3.1.0" />
-    <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
+    <PackageVersion Include="StyleCop.Analyzers" Version="1.3.180" />
     <PackageVersion Include="System.Collections.Immutable" Version="$(DotNetSdkPackageVersion)" />
     <PackageVersion Include="System.CommandLine" Version="2.0.15" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
@@ -159,11 +159,11 @@
     <PackageVersion Include="System.IO.FileSystem.AccessControl" Version="5.0.0" />
     <PackageVersion Include="System.Net.Http" Version="4.3.4" />
     <PackageVersion Include="System.Private.ServiceModel" Version="4.10.3" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.Retry" Version="2.5.2" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.Retry" Version="2.5.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
-    <PackageVersion Include="xunit.v3.mtp-v2" Version="4.0.2" />
-    <PackageVersion Include="xunit.v3.assert" Version="4.0.2" />
-    <PackageVersion Include="xunit.v3.extensibility.core" Version="4.0.2" />
+    <PackageVersion Include="xunit.v3.mtp-v2" Version="4.0.3" />
+    <PackageVersion Include="xunit.v3.assert" Version="4.0.3" />
+    <PackageVersion Include="xunit.v3.extensibility.core" Version="4.0.3" />
     <PackageVersion Include="System.Drawing.Common" Version="10.0.15" />
     <PackageVersion Include="Moq" Version="4.21.0" />
     <PackageVersion Include="System.Text.RegularExpressions" Version="4.3.1" />
