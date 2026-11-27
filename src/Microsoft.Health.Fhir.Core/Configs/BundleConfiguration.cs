@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public const long DefaultMaxBundleSizeBytes = 50 * 1024 * 1024;
 
-        public const long DefaultMaxResourceSizeBytes = 10 * 1024 * 1024;
+        public const long DefaultMaxResourceSizeBytes = 20 * 1024 * 1024;
 
         public const int DefaultMaxSearchIndexValuesPerResource = 100;
 
