@@ -82,6 +82,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     MediaTypeHeaderValue matchedHeader = null;
                     Encoding resolvedEncoding = null;
                     bool matchedWildcard = false;
+                    bool matchedNonFhirFormatter = false;
                     bool skippedUnsupportedCharset = false;
 
                     foreach (MediaTypeHeaderValue acceptHeader in orderedAcceptHeaders)
@@ -108,9 +109,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                             resolvedEncoding = candidateEncoding;
                             break;
                         }
+                        else if (resourceFormat == ResourceFormat.Unknown)
+                        {
+                            if (IsSupportedByNonFhirFormatter(headerValue, acceptHeader.Charset, out bool nonFhirBadCharset))
+                            {
+                                matchedNonFhirFormatter = true;
+                                break;
+                            }
+
+                            if (nonFhirBadCharset)
+                            {
+                                skippedUnsupportedCharset = true;
+                            }
+                        }
                     }
 
-                    if (matchedMediaType == null && !matchedWildcard)
+                    if (matchedMediaType == null && !matchedWildcard && !matchedNonFhirFormatter)
                     {
                         var headerValue = string.Join(',', acceptHeaders.Select(x => x.MediaType.Value));
                         throw new NotAcceptableException(string.Format(Api.Resources.UnsupportedHeaderValue, headerValue, HeaderNames.Accept));
@@ -238,6 +252,28 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             {
                 throw new BadRequestException(string.Format(Api.Resources.InvalidElementsParameter, elementsParameterValue));
             }
+        }
+
+        private bool IsSupportedByNonFhirFormatter(string mediaType, StringSegment requestedCharset, out bool unsupportedCharset)
+        {
+            var candidateFormatters = _outputFormatters
+                .Where(f => f.SupportedMediaTypes.Any(m => string.Equals(m, mediaType, StringComparison.OrdinalIgnoreCase)))
+                .ToArray();
+
+            if (candidateFormatters.Length == 0)
+            {
+                unsupportedCharset = false;
+                return false;
+            }
+
+            if (TryResolveSupportedEncoding(mediaType, requestedCharset, out _))
+            {
+                unsupportedCharset = false;
+                return true;
+            }
+
+            unsupportedCharset = true;
+            return false;
         }
 
         private bool TryResolveSupportedEncoding(string mediaType, StringSegment requestedCharset, out Encoding resolvedEncoding)

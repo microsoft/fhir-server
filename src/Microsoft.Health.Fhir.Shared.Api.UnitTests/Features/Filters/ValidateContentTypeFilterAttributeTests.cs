@@ -467,6 +467,41 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             await Assert.ThrowsAsync<NotAcceptableException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
         }
 
+        [Theory]
+        [InlineData(true, null)]
+        [InlineData(false, "application/fhir+json; charset=utf-8")]
+        public async Task GivenARequestWithHigherPriorityHtmlAcceptHeader_WhenValidatingTheContentType_ThenRegisteredNonFhirFormattersShouldNotBeOverridden(
+            bool registerHtmlFormatter,
+            string expectedResponseContentType)
+        {
+            _statement.Format = new[] { "json", "xml" };
+
+            var jsonOutput = Substitute.ForPartsOf<TextOutputFormatter>();
+            jsonOutput.SupportedEncodings.Add(Encoding.UTF8);
+            jsonOutput.SupportedMediaTypes.Add("application/fhir+json");
+            jsonOutput.CanWriteResult(Arg.Any<OutputFormatterCanWriteContext>()).Returns(true);
+
+            var formatters = new List<TextOutputFormatter> { jsonOutput };
+            if (registerHtmlFormatter)
+            {
+                var htmlOutput = Substitute.ForPartsOf<TextOutputFormatter>();
+                htmlOutput.SupportedEncodings.Add(Encoding.UTF8);
+                htmlOutput.SupportedMediaTypes.Add("text/html");
+                htmlOutput.CanWriteResult(Arg.Any<OutputFormatterCanWriteContext>()).Returns(true);
+                formatters.Insert(0, htmlOutput);
+            }
+
+            var filter = CreateFilter(formatters);
+            var context = CreateContext(Guid.NewGuid().ToString());
+            var actionExecutedDelegate = CreateActionExecutedDelegate(context);
+
+            context.HttpContext.Request.Headers["Accept"] = "text/html, application/fhir+json;charset=utf-8;q=0.9, */*;q=0.1";
+
+            await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
+
+            Assert.Equal(expectedResponseContentType, context.HttpContext.Response.ContentType);
+        }
+
         [Fact]
         public async Task GivenARequestWithZeroQualityAcceptHeader_WhenValidatingTheContentType_ThenANotAcceptableExceptionShouldBeThrown()
         {
