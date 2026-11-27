@@ -7,6 +7,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Rest;
@@ -14,6 +15,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -69,7 +71,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             }
             else
             {
-                if (acceptHeaders?.Any() == true && acceptHeaders.All(a => a.MediaType != "*/*"))
+                if (acceptHeaders?.Any() == true)
                 {
                     var orderedAcceptHeaders = acceptHeaders
                         .Where(a => (a.Quality ?? 1.0) > 0)
@@ -78,40 +80,66 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
                     string matchedMediaType = null;
                     MediaTypeHeaderValue matchedHeader = null;
+                    Encoding resolvedEncoding = null;
+                    bool matchedWildcard = false;
+                    bool skippedUnsupportedCharset = false;
 
                     foreach (MediaTypeHeaderValue acceptHeader in orderedAcceptHeaders)
                     {
+                        if (acceptHeader.MediaType == "*/*")
+                        {
+                            matchedWildcard = true;
+                            break;
+                        }
+
                         var headerValue = acceptHeader.MediaType.ToString();
                         if (await IsFormatSupportedAsync(headerValue))
                         {
+                            if (!TryResolveSupportedEncoding(headerValue, acceptHeader.Charset, out Encoding candidateEncoding))
+                            {
+                                skippedUnsupportedCharset = true;
+                                continue;
+                            }
+
                             matchedMediaType = headerValue;
                             matchedHeader = acceptHeader;
+                            resolvedEncoding = candidateEncoding;
                             break;
                         }
                     }
 
-                    if (matchedMediaType == null)
+                    if (matchedMediaType == null && !matchedWildcard)
                     {
                         var headerValue = string.Join(',', acceptHeaders.Select(x => x.MediaType.Value));
                         throw new NotAcceptableException(string.Format(Api.Resources.UnsupportedHeaderValue, headerValue, HeaderNames.Accept));
                     }
 
-                    // When the matched Accept entry contains non-quality parameters (e.g., charset=UTF-8),
-                    // ASP.NET Core's content negotiation may fail to match the output formatter because
-                    // formatters only declare base media types without parameters. Explicitly set the
-                    // content type so the correct formatter is selected.
-                    bool hasNonQualityParams = matchedHeader.Parameters.Any(
-                        p => !string.Equals(p.Name.Value, "q", StringComparison.OrdinalIgnoreCase));
-
-                    if (hasNonQualityParams)
+                    if (matchedMediaType != null)
                     {
-                        string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(
-                            matchedMediaType,
-                            orderedAcceptHeaders.Select(x => x.MediaType.Value).ToList());
+                        // When the matched Accept entry contains non-quality parameters (e.g., charset=UTF-8)
+                        // or a higher-priority entry was skipped due to an unsupported charset, ASP.NET Core's
+                        // content negotiation may fail or pick the skipped formatter. Explicitly set the compatible
+                        // content type and validated charset so the correct formatter and encoding are used.
+                        bool hasNonQualityParams = matchedHeader.Parameters.Any(
+                            p => !string.Equals(p.Name.Value, "q", StringComparison.OrdinalIgnoreCase));
 
-                        if (!string.IsNullOrEmpty(closestClientMediaType))
+                        if (hasNonQualityParams || skippedUnsupportedCharset)
                         {
-                            httpContext.Response.ContentType = closestClientMediaType;
+                            var compatibleMediaTypes = orderedAcceptHeaders
+                                .Where(x => x.MediaType != "*/*" && TryResolveSupportedEncoding(x.MediaType.Value, x.Charset, out _))
+                                .Select(x => x.MediaType.Value)
+                                .ToList();
+
+                            string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(
+                                matchedMediaType,
+                                compatibleMediaTypes);
+
+                            if (!string.IsNullOrEmpty(closestClientMediaType))
+                            {
+                                httpContext.Response.ContentType = resolvedEncoding != null
+                                    ? new MediaTypeHeaderValue(closestClientMediaType) { Charset = resolvedEncoding.WebName }.ToString()
+                                    : closestClientMediaType;
+                            }
                         }
                     }
                 }
@@ -219,6 +247,49 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             if (elementsParameterValue != null && string.IsNullOrWhiteSpace(elementsParameterValue))
             {
                 throw new BadRequestException(string.Format(Api.Resources.InvalidElementsParameter, elementsParameterValue));
+            }
+        }
+
+        private bool TryResolveSupportedEncoding(string mediaType, StringSegment requestedCharset, out Encoding resolvedEncoding)
+        {
+            string charset = HeaderUtilities.RemoveQuotes(requestedCharset).Value;
+            if (string.IsNullOrEmpty(charset))
+            {
+                resolvedEncoding = null;
+                return true;
+            }
+
+            var candidateFormatters = _outputFormatters
+                .Where(f =>
+                    f.GetSupportedContentTypes(mediaType, typeof(Hl7.Fhir.Model.Resource)) != null ||
+                    f.SupportedMediaTypes.Any(m => string.Equals(m, mediaType, StringComparison.OrdinalIgnoreCase)))
+                .ToArray();
+
+            Encoding matched = candidateFormatters
+                .SelectMany(f => f.SupportedEncodings)
+                .FirstOrDefault(e => string.Equals(e.WebName, charset, StringComparison.OrdinalIgnoreCase));
+
+            if (matched != null)
+            {
+                resolvedEncoding = matched;
+                return true;
+            }
+
+            if (candidateFormatters.Any(f => f.SupportedEncodings.Count > 0))
+            {
+                resolvedEncoding = null;
+                return false;
+            }
+
+            try
+            {
+                resolvedEncoding = Encoding.GetEncoding(charset);
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                resolvedEncoding = null;
+                return false;
             }
         }
     }

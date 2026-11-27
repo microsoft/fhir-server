@@ -383,10 +383,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Theory]
-        [InlineData("application/fhir+xml;charset=UTF-8", "application/fhir+xml")]
+        [InlineData("application/fhir+xml;charset=UTF-8", "application/fhir+xml; charset=utf-8")]
+        [InlineData("application/fhir+xml;charset=utf-16", "application/fhir+xml; charset=utf-16")]
+        [InlineData("application/fhir+xml;charset=UTF-8, */*;q=0.1", "application/fhir+xml; charset=utf-8")]
+        [InlineData("application/fhir+xml;charset=iso-8859-1, application/fhir+json;q=0.9", "application/fhir+json")]
         [InlineData("application/fhir+xml;charset=utf-8;q=0.1, application/fhir+json;q=1.0", null)]
-        [InlineData("application/fhir+xml;q=0.5, application/fhir+json;charset=utf-8;q=0.9", "application/fhir+json")]
-        [InlineData("application/fhir+xml;Q=0.5, application/fhir+json;charset=utf-8;Q=0.9", "application/fhir+json")]
+        [InlineData("application/fhir+xml;q=0.5, application/fhir+json;charset=utf-8;q=0.9", "application/fhir+json; charset=utf-8")]
+        [InlineData("application/fhir+xml;Q=0.5, application/fhir+json;charset=utf-8;Q=0.9", "application/fhir+json; charset=utf-8")]
         public async Task GivenARequestWithAcceptHeaderParametersAndQualityFactors_WhenValidatingTheContentType_ThenHighestQualityPrecedenceAndResponseContentTypeShouldBeRespected(
             string acceptHeader,
             string expectedResponseContentType)
@@ -395,12 +398,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             var xmlOutput = Substitute.ForPartsOf<TextOutputFormatter>();
             xmlOutput.SupportedEncodings.Add(Encoding.UTF8);
+            xmlOutput.SupportedEncodings.Add(Encoding.Unicode);
             xmlOutput.SupportedMediaTypes.Add("application/fhir+xml");
             xmlOutput.SupportedMediaTypes.Add("application/xml");
             xmlOutput.CanWriteResult(Arg.Any<OutputFormatterCanWriteContext>()).Returns(true);
 
             var jsonOutput = Substitute.ForPartsOf<TextOutputFormatter>();
             jsonOutput.SupportedEncodings.Add(Encoding.UTF8);
+            jsonOutput.SupportedEncodings.Add(Encoding.Unicode);
             jsonOutput.SupportedMediaTypes.Add("application/fhir+json");
             jsonOutput.SupportedMediaTypes.Add("application/json");
             jsonOutput.CanWriteResult(Arg.Any<OutputFormatterCanWriteContext>()).Returns(true);
@@ -415,6 +420,27 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
 
             Assert.Equal(expectedResponseContentType, context.HttpContext.Response.ContentType);
+        }
+
+        [Fact]
+        public async Task GivenARequestWithUnsupportedAcceptCharsetAndNoFallback_WhenValidatingTheContentType_ThenANotAcceptableExceptionShouldBeThrown()
+        {
+            _statement.Format = new[] { "json", "xml" };
+
+            var xmlOutput = Substitute.ForPartsOf<TextOutputFormatter>();
+            xmlOutput.SupportedEncodings.Add(Encoding.UTF8);
+            xmlOutput.SupportedEncodings.Add(Encoding.Unicode);
+            xmlOutput.SupportedMediaTypes.Add("application/fhir+xml");
+            xmlOutput.CanWriteResult(Arg.Any<OutputFormatterCanWriteContext>()).Returns(true);
+
+            var filter = CreateFilter(new[] { xmlOutput });
+
+            var context = CreateContext(Guid.NewGuid().ToString());
+            var actionExecutedDelegate = CreateActionExecutedDelegate(context);
+
+            context.HttpContext.Request.Headers["Accept"] = "application/fhir+xml;charset=iso-8859-1";
+
+            await Assert.ThrowsAsync<NotAcceptableException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
         }
 
         [Fact]
