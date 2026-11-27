@@ -73,6 +73,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(selectedEncoding, nameof(selectedEncoding));
 
             HttpResponse response = context.HttpContext.Response;
+            bool canWriteRawUtf8 = selectedEncoding.CodePage == Encoding.UTF8.CodePage;
 
             var elementsSearchParameter = context.HttpContext.GetElementsOrDefault();
             var summarySearchParameter = context.HttpContext.GetSummaryTypeOrDefault();
@@ -86,11 +87,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             {
                 var bundle = context.Object as Hl7.Fhir.Model.Bundle;
                 resource = bundle;
-                if (hasElements ||
+                if (!canWriteRawUtf8 ||
+                    hasElements ||
                     summarySearchParameter != Hl7.Fhir.Rest.SummaryType.False ||
                     !bundle.Entry.All(x => x is RawBundleEntryComponent))
                 {
-                    // The raw serializer does not support filtered resources or mixed raw/POCO entries.
+                    // The raw serializer does not support filtered resources, non-UTF-8 encodings, or mixed raw/POCO entries.
                     foreach (var rawBundleEntryComponent in bundle.Entry)
                     {
                         if (rawBundleEntryComponent is RawBundleEntryComponent)
@@ -113,10 +115,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             }
             else if (context.Object is RawResourceElement)
             {
-                if (hasElements ||
+                if (!canWriteRawUtf8 ||
+                    hasElements ||
                     summarySearchParameter != Hl7.Fhir.Rest.SummaryType.False)
                 {
-                    // _elements is not supported for a raw resource, revert to using FhirJsonSerializer
+                    // _elements or non-UTF-8 encodings are not supported for a raw resource, revert to using FhirJsonSerializer
                     resource = (context.Object as RawResourceElement).ToPoco<Resource>(_deserializer);
                     if (hasElements)
                     {

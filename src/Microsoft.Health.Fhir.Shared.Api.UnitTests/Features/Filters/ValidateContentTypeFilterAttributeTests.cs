@@ -423,6 +423,30 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
+        public async Task GivenARequestWithLegacyFhirJsonAliasAndUtf8Charset_WhenValidatingTheContentType_ThenCanonicalFormatterMediaTypeShouldBeUsed()
+        {
+            _statement.Format = new[] { "json" };
+
+            var jsonOutput = Substitute.ForPartsOf<TextOutputFormatter>();
+            jsonOutput.SupportedEncodings.Add(Encoding.UTF8);
+            jsonOutput.SupportedEncodings.Add(Encoding.Unicode);
+            jsonOutput.SupportedMediaTypes.Add("application/fhir+json");
+            jsonOutput.SupportedMediaTypes.Add("application/json");
+            jsonOutput.CanWriteResult(Arg.Any<OutputFormatterCanWriteContext>()).Returns(true);
+
+            var filter = CreateFilter(new[] { jsonOutput });
+
+            var context = CreateContext(Guid.NewGuid().ToString());
+            var actionExecutedDelegate = CreateActionExecutedDelegate(context);
+
+            context.HttpContext.Request.Headers["Accept"] = "application/json+fhir;charset=utf-8";
+
+            await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
+
+            Assert.Equal("application/fhir+json; charset=utf-8", context.HttpContext.Response.ContentType);
+        }
+
+        [Fact]
         public async Task GivenARequestWithUnsupportedAcceptCharsetAndNoFallback_WhenValidatingTheContentType_ThenANotAcceptableExceptionShouldBeThrown()
         {
             _statement.Format = new[] { "json", "xml" };

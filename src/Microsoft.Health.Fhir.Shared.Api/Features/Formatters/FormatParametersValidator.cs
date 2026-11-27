@@ -93,15 +93,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                         }
 
                         var headerValue = acceptHeader.MediaType.ToString();
-                        if (await IsFormatSupportedAsync(headerValue))
+                        ResourceFormat resourceFormat = ContentType.GetResourceFormatFromContentType(headerValue);
+                        if (await IsFormatSupportedAsync(resourceFormat))
                         {
-                            if (!TryResolveSupportedEncoding(headerValue, acceptHeader.Charset, out Encoding candidateEncoding))
+                            string resolvedMediaType = _outputFormatters.GetClosestClientMediaType(resourceFormat.ToContentType(), new[] { headerValue });
+                            if (!TryResolveSupportedEncoding(resolvedMediaType, acceptHeader.Charset, out Encoding candidateEncoding))
                             {
                                 skippedUnsupportedCharset = true;
                                 continue;
                             }
 
-                            matchedMediaType = headerValue;
+                            matchedMediaType = resolvedMediaType;
                             matchedHeader = acceptHeader;
                             resolvedEncoding = candidateEncoding;
                             break;
@@ -125,21 +127,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
                         if (hasNonQualityParams || skippedUnsupportedCharset)
                         {
-                            var compatibleMediaTypes = orderedAcceptHeaders
-                                .Where(x => x.MediaType != "*/*" && TryResolveSupportedEncoding(x.MediaType.Value, x.Charset, out _))
-                                .Select(x => x.MediaType.Value)
-                                .ToList();
-
-                            string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(
-                                matchedMediaType,
-                                compatibleMediaTypes);
-
-                            if (!string.IsNullOrEmpty(closestClientMediaType))
-                            {
-                                httpContext.Response.ContentType = resolvedEncoding != null
-                                    ? new MediaTypeHeaderValue(closestClientMediaType) { Charset = resolvedEncoding.WebName }.ToString()
-                                    : closestClientMediaType;
-                            }
+                            httpContext.Response.ContentType = resolvedEncoding != null
+                                ? new MediaTypeHeaderValue(matchedMediaType) { Charset = resolvedEncoding.WebName }.ToString()
+                                : matchedMediaType;
                         }
                     }
                 }
@@ -264,6 +254,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     f.GetSupportedContentTypes(mediaType, typeof(Hl7.Fhir.Model.Resource)) != null ||
                     f.SupportedMediaTypes.Any(m => string.Equals(m, mediaType, StringComparison.OrdinalIgnoreCase)))
                 .ToArray();
+
+            if (candidateFormatters.Length == 0)
+            {
+                resolvedEncoding = null;
+                return false;
+            }
 
             Encoding matched = candidateFormatters
                 .SelectMany(f => f.SupportedEncodings)
