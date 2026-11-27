@@ -383,6 +383,54 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Theory]
+        [InlineData("application/fhir+xml;charset=UTF-8", "application/fhir+xml")]
+        [InlineData("application/fhir+xml;charset=utf-8;q=0.1, application/fhir+json;q=1.0", null)]
+        [InlineData("application/fhir+xml;q=0.5, application/fhir+json;charset=utf-8;q=0.9", "application/fhir+json")]
+        [InlineData("application/fhir+xml;Q=0.5, application/fhir+json;charset=utf-8;Q=0.9", "application/fhir+json")]
+        public async Task GivenARequestWithAcceptHeaderParametersAndQualityFactors_WhenValidatingTheContentType_ThenHighestQualityPrecedenceAndResponseContentTypeShouldBeRespected(
+            string acceptHeader,
+            string expectedResponseContentType)
+        {
+            _statement.Format = new[] { "json", "xml" };
+
+            var xmlOutput = Substitute.ForPartsOf<TextOutputFormatter>();
+            xmlOutput.SupportedEncodings.Add(Encoding.UTF8);
+            xmlOutput.SupportedMediaTypes.Add("application/fhir+xml");
+            xmlOutput.SupportedMediaTypes.Add("application/xml");
+            xmlOutput.CanWriteResult(Arg.Any<OutputFormatterCanWriteContext>()).Returns(true);
+
+            var jsonOutput = Substitute.ForPartsOf<TextOutputFormatter>();
+            jsonOutput.SupportedEncodings.Add(Encoding.UTF8);
+            jsonOutput.SupportedMediaTypes.Add("application/fhir+json");
+            jsonOutput.SupportedMediaTypes.Add("application/json");
+            jsonOutput.CanWriteResult(Arg.Any<OutputFormatterCanWriteContext>()).Returns(true);
+
+            var filter = CreateFilter(new[] { xmlOutput, jsonOutput });
+
+            var context = CreateContext(Guid.NewGuid().ToString());
+            var actionExecutedDelegate = CreateActionExecutedDelegate(context);
+
+            context.HttpContext.Request.Headers["Accept"] = acceptHeader;
+
+            await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
+
+            Assert.Equal(expectedResponseContentType, context.HttpContext.Response.ContentType);
+        }
+
+        [Fact]
+        public async Task GivenARequestWithZeroQualityAcceptHeader_WhenValidatingTheContentType_ThenANotAcceptableExceptionShouldBeThrown()
+        {
+            var filter = CreateFilter();
+
+            var context = CreateContext(Guid.NewGuid().ToString());
+            var actionExecutedDelegate = CreateActionExecutedDelegate(context);
+
+            context.HttpContext.Request.Headers["Accept"] = "application/fhir+json;q=0";
+
+            await Assert.ThrowsAsync<NotAcceptableException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
+        }
+
+        [Theory]
         [InlineData(new[] { "json", "application/fhir+json" }, "json", true)]
         [InlineData(new[] { "xml", "application/fhir+xml" }, "xml", true)]
         [InlineData(new[] { "xml", "application/fhir+xml" }, "json", false)]

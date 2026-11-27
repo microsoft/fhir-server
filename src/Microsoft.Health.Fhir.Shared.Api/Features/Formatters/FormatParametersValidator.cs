@@ -71,10 +71,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             {
                 if (acceptHeaders?.Any() == true && acceptHeaders.All(a => a.MediaType != "*/*"))
                 {
+                    var orderedAcceptHeaders = acceptHeaders
+                        .Where(a => (a.Quality ?? 1.0) > 0)
+                        .OrderByDescending(a => a.Quality ?? 1.0)
+                        .ToList();
+
                     string matchedMediaType = null;
                     MediaTypeHeaderValue matchedHeader = null;
 
-                    foreach (MediaTypeHeaderValue acceptHeader in acceptHeaders)
+                    foreach (MediaTypeHeaderValue acceptHeader in orderedAcceptHeaders)
                     {
                         var headerValue = acceptHeader.MediaType.ToString();
                         if (await IsFormatSupportedAsync(headerValue))
@@ -102,7 +107,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     {
                         string closestClientMediaType = _outputFormatters.GetClosestClientMediaType(
                             matchedMediaType,
-                            acceptHeaders.Select(x => x.MediaType.Value).ToList());
+                            orderedAcceptHeaders.Select(x => x.MediaType.Value).ToList());
 
                         if (!string.IsNullOrEmpty(closestClientMediaType))
                         {
