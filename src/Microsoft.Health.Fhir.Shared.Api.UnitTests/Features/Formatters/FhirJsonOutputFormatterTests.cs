@@ -154,7 +154,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             httpContext.Request.QueryString = new QueryString(query);
             httpContext.Response.Body = body;
             var bundle = (Hl7.Fhir.Model.Bundle)CreateObject(bundle: true, raw: !mixed);
-            var rawEntry = Assert.Single(bundle.Entry.OfType<RawBundleEntryComponent>());
+            var rawEntry = Assert.IsType<RawBundleEntryComponent>(Assert.Single(bundle.Entry.OfType<RawBundleEntryComponent>()));
             rawEntry.Search = CreateSearchMetadata(extendedMetadata: true);
             bool writerCreated = false;
             var writeContext = new OutputFormatterWriteContext(
@@ -201,6 +201,38 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             }
 
             return search;
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task GivenRawContextAndUnicodeEncoding_WhenWritingResponseBody_ThenUtf16BytesShouldBeWritten(bool bundle)
+        {
+            using var body = new MemoryStream();
+
+            var httpContext = new DefaultHttpContext();
+            httpContext.Response.StatusCode = (int)HttpStatusCode.OK;
+            httpContext.Response.Body = body;
+
+            object @object = CreateObject(bundle, raw: true);
+            Type objectType = bundle ? typeof(Hl7.Fhir.Model.Bundle) : typeof(RawResourceElement);
+            var writeContext = new OutputFormatterWriteContext(
+                httpContext,
+                (stream, encoding) => new StreamWriter(stream, encoding, 1024, leaveOpen: true),
+                objectType,
+                @object);
+            var formatter = new FhirJsonOutputFormatter(
+                new FhirJsonSerializer(),
+                Deserializers.ResourceDeserializer,
+                ArrayPool<char>.Shared,
+                new BundleSerializer(new FhirJsonSerializer()),
+                ModelInfoProvider.Instance);
+
+            await formatter.WriteResponseBodyAsync(writeContext, Encoding.Unicode);
+
+            Assert.True(body.Length > 0);
+            string content = Encoding.Unicode.GetString(body.ToArray()).TrimStart('\uFEFF');
+            Validate(bundle, raw: true, hasElements: false, SummaryType.False, content);
         }
 
         private static async Task Run(

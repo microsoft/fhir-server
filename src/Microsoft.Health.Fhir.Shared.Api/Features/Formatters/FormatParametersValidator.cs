@@ -7,6 +7,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Rest;
@@ -14,6 +15,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -69,25 +71,80 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             }
             else
             {
-                if (acceptHeaders?.Any() == true && acceptHeaders.All(a => a.MediaType != "*/*"))
+                if (acceptHeaders?.Any() == true)
                 {
-                    var isAcceptHeaderValid = false;
+                    var orderedAcceptHeaders = acceptHeaders
+                        .Where(a => (a.Quality ?? 1.0) > 0)
+                        .OrderByDescending(a => a.Quality ?? 1.0)
+                        .ToList();
 
-                    foreach (MediaTypeHeaderValue acceptHeader in acceptHeaders)
+                    string matchedMediaType = null;
+                    MediaTypeHeaderValue matchedHeader = null;
+                    Encoding resolvedEncoding = null;
+                    bool matchedWildcard = false;
+                    bool matchedNonFhirFormatter = false;
+                    bool skippedUnsupportedCharset = false;
+
+                    foreach (MediaTypeHeaderValue acceptHeader in orderedAcceptHeaders)
                     {
-                        var headerValue = acceptHeader.MediaType.ToString();
-                        isAcceptHeaderValid = await IsFormatSupportedAsync(headerValue);
-
-                        if (isAcceptHeaderValid)
+                        if (acceptHeader.MediaType == "*/*")
                         {
+                            matchedWildcard = true;
                             break;
+                        }
+
+                        var headerValue = acceptHeader.MediaType.ToString();
+                        ResourceFormat resourceFormat = ContentType.GetResourceFormatFromContentType(headerValue);
+                        if (await IsFormatSupportedAsync(resourceFormat))
+                        {
+                            string resolvedMediaType = _outputFormatters.GetClosestClientMediaType(resourceFormat.ToContentType(), new[] { headerValue });
+                            if (!TryResolveSupportedEncoding(resolvedMediaType, acceptHeader.Charset, out Encoding candidateEncoding))
+                            {
+                                skippedUnsupportedCharset = true;
+                                continue;
+                            }
+
+                            matchedMediaType = resolvedMediaType;
+                            matchedHeader = acceptHeader;
+                            resolvedEncoding = candidateEncoding;
+                            break;
+                        }
+                        else if (resourceFormat == ResourceFormat.Unknown)
+                        {
+                            if (IsSupportedByNonFhirFormatter(headerValue, acceptHeader.Charset, out bool nonFhirBadCharset))
+                            {
+                                matchedNonFhirFormatter = true;
+                                break;
+                            }
+
+                            if (nonFhirBadCharset)
+                            {
+                                skippedUnsupportedCharset = true;
+                            }
                         }
                     }
 
-                    if (!isAcceptHeaderValid)
+                    if (matchedMediaType == null && !matchedWildcard && !matchedNonFhirFormatter)
                     {
                         var headerValue = string.Join(',', acceptHeaders.Select(x => x.MediaType.Value));
                         throw new NotAcceptableException(string.Format(Api.Resources.UnsupportedHeaderValue, headerValue, HeaderNames.Accept));
+                    }
+
+                    if (matchedMediaType != null)
+                    {
+                        // When the matched Accept entry contains non-quality parameters (e.g., charset=UTF-8)
+                        // or a higher-priority entry was skipped due to an unsupported charset, ASP.NET Core's
+                        // content negotiation may fail or pick the skipped formatter. Explicitly set the compatible
+                        // content type and validated charset so the correct formatter and encoding are used.
+                        bool hasNonQualityParams = matchedHeader.Parameters.Any(
+                            p => !string.Equals(p.Name.Value, "q", StringComparison.OrdinalIgnoreCase));
+
+                        if (hasNonQualityParams || skippedUnsupportedCharset)
+                        {
+                            httpContext.Response.ContentType = resolvedEncoding != null
+                                ? new MediaTypeHeaderValue(matchedMediaType) { Charset = resolvedEncoding.WebName }.ToString()
+                                : matchedMediaType;
+                        }
                     }
                 }
             }
@@ -194,6 +251,77 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             if (elementsParameterValue != null && string.IsNullOrWhiteSpace(elementsParameterValue))
             {
                 throw new BadRequestException(string.Format(Api.Resources.InvalidElementsParameter, elementsParameterValue));
+            }
+        }
+
+        private bool IsSupportedByNonFhirFormatter(string mediaType, StringSegment requestedCharset, out bool unsupportedCharset)
+        {
+            var candidateFormatters = _outputFormatters
+                .Where(f => f.SupportedMediaTypes.Any(m => string.Equals(m, mediaType, StringComparison.OrdinalIgnoreCase)))
+                .ToArray();
+
+            if (candidateFormatters.Length == 0)
+            {
+                unsupportedCharset = false;
+                return false;
+            }
+
+            if (TryResolveSupportedEncoding(mediaType, requestedCharset, out _))
+            {
+                unsupportedCharset = false;
+                return true;
+            }
+
+            unsupportedCharset = true;
+            return false;
+        }
+
+        private bool TryResolveSupportedEncoding(string mediaType, StringSegment requestedCharset, out Encoding resolvedEncoding)
+        {
+            string charset = HeaderUtilities.RemoveQuotes(requestedCharset).Value;
+            if (string.IsNullOrEmpty(charset))
+            {
+                resolvedEncoding = null;
+                return true;
+            }
+
+            var candidateFormatters = _outputFormatters
+                .Where(f =>
+                    f.GetSupportedContentTypes(mediaType, typeof(Hl7.Fhir.Model.Resource)) != null ||
+                    f.SupportedMediaTypes.Any(m => string.Equals(m, mediaType, StringComparison.OrdinalIgnoreCase)))
+                .ToArray();
+
+            if (candidateFormatters.Length == 0)
+            {
+                resolvedEncoding = null;
+                return false;
+            }
+
+            Encoding matched = candidateFormatters
+                .SelectMany(f => f.SupportedEncodings)
+                .FirstOrDefault(e => string.Equals(e.WebName, charset, StringComparison.OrdinalIgnoreCase));
+
+            if (matched != null)
+            {
+                resolvedEncoding = matched;
+                return true;
+            }
+
+            if (candidateFormatters.Any(f => f.SupportedEncodings.Count > 0))
+            {
+                resolvedEncoding = null;
+                return false;
+            }
+
+            try
+            {
+                resolvedEncoding = Encoding.GetEncoding(charset);
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                resolvedEncoding = null;
+                return false;
             }
         }
     }
